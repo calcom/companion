@@ -1,6 +1,6 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
-  "root": false,
+  "root": true,
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -39,7 +39,8 @@
         "noExplicitAny": "error",
         "noArrayIndexKey": "error",
         "useIterableCallbackReturn": "error",
-        "noImplicitAnyLet": "off"
+        "noImplicitAnyLet": "off",
+        "noUnknownAtRules": "off"
       },
       "correctness": {
         "useExhaustiveDependencies": "error",
