@@ -39,7 +39,8 @@
         "noExplicitAny": "error",
         "noArrayIndexKey": "error",
         "useIterableCallbackReturn": "error",
-        "noImplicitAnyLet": "off"
+        "noImplicitAnyLet": "off",
+        "noUnknownAtRules": "off"
       },
       "correctness": {
         "useExhaustiveDependencies": "error",
@@ -80,16 +81,6 @@
       "includes": ["extension/**/*.ts", "extension/**/*.tsx"],
       "javascript": {
         "globals": ["chrome", "browser"]
-      }
-    },
-    {
-      "includes": ["**/*.css"],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noUnknownAtRules": "off"
-          }
-        }
       }
     }
   ]
