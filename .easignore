@@ -1,0 +1,40 @@
+# Native folders - EAS generates these during builds
+ios
+android
+
+# Dependencies - EAS installs these during builds
+node_modules
+
+# Expo build cache
+.expo
+dist
+web-build
+
+# Metro
+.metro-health-check*
+
+# WXT Chrome Extension outputs (not needed for mobile builds)
+.output
+.wxt
+dev
+
+# Kotlin cache
+.kotlin
+
+# Build artifacts
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Debug logs
+*.log
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
