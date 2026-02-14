@@ -81,6 +81,16 @@
       "javascript": {
         "globals": ["chrome", "browser"]
       }
+    },
+    {
+      "includes": ["**/*.css"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noUnknownAtRules": "off"
+          }
+        }
+      }
     }
   ]
 }
