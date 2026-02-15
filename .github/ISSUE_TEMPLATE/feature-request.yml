@@ -1,0 +1,70 @@
+name: Feature Request
+description: Suggest a new feature for the companion app or browser extension
+labels: ["companion", "feature", "needs approval"]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which platform(s) does this feature apply to?
+      multiple: true
+      options:
+        - iOS App
+        - Android App
+        - Browser Extension
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Provide a clear and concise description of the feature you'd like to see.
+      placeholder: Describe the feature...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: How do you envision this feature working?
+      placeholder: Describe your proposed solution...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative approaches?
+      placeholder: Describe any alternatives you've considered...
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Mockups
+      description: Add any screenshots, mockups, or references that help illustrate the feature.
+      placeholder: Attach images or links here...
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful.
+      placeholder: Add any additional context here...
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ##### House rules
+        - If this issue has a `needs approval` label, don't start coding yet. Wait until a core member approves the request by removing this label.
+        - Your ideas are invaluable! However, they undergo review to ensure alignment with the product's direction.
+        - Follow best practices in our [Contributor Docs](https://github.com/calcom/companion/blob/main/CONTRIBUTING.md)
