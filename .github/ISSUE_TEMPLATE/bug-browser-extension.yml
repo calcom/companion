@@ -1,6 +1,6 @@
 name: "Bug Report: Browser Extension"
 description: Report a bug in the browser extension
-labels: ["companion", "bug", "browser-extension", "needs approval"]
+labels: ["bug", "extension", "needs approval"]
 body:
   - type: dropdown
     id: browser

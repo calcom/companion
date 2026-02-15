@@ -1,6 +1,6 @@
 name: "Bug Report: iOS"
 description: Report a bug in the iOS app
-labels: ["companion", "bug", "ios", "needs approval"]
+labels: ["bug", "ios", "needs approval"]
 body:
   - type: input
     id: ios-version

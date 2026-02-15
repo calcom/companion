@@ -1,6 +1,6 @@
 name: Feature Request
 description: Suggest a new feature for the companion app or browser extension
-labels: ["companion", "feature", "needs approval"]
+labels: ["enhancement", "needs approval"]
 body:
   - type: dropdown
     id: platform

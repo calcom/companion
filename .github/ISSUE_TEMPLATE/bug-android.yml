@@ -1,6 +1,6 @@
 name: "Bug Report: Android"
 description: Report a bug in the Android app
-labels: ["companion", "bug", "android", "needs approval"]
+labels: ["bug", "android", "needs approval"]
 body:
   - type: input
     id: android-version
