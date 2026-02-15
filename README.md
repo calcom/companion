@@ -161,7 +161,3 @@ bun run typecheck:all
 - [Cal.com Companion landing page](https://cal.com/app)
 - [Chrome Web Store](https://chromewebstore.google.com/detail/cal-companion/cbhlgojmamgmdijlkkokcmmjghgckahc)
 - [Documentation](https://cal.com/docs)
-
-## License
-
-This project is maintained by [Cal.com, Inc.](https://cal.com)
