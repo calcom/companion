@@ -1,13 +1,14 @@
-name: "Bug Report: Android"
-description: Report a bug in the Android app
-labels: ["bug", "android", "needs approval"]
+name: "Bug Report: iOS"
+description: Report a bug in the iOS app
+title: "[Bug - iOS]: "
+labels: ["bug", "ios", "needs approval"]
 body:
   - type: input
-    id: android-version
+    id: ios-version
     attributes:
-      label: Android Version
-      description: Which version of Android are you running?
-      placeholder: "e.g., 14"
+      label: iOS Version
+      description: Which version of iOS are you running?
+      placeholder: "e.g., 17.2"
     validations:
       required: true
 
@@ -16,7 +17,7 @@ body:
     attributes:
       label: Device Model
       description: Which device are you using?
-      placeholder: "e.g., Pixel 8"
+      placeholder: "e.g., iPhone 15 Pro"
     validations:
       required: true
 

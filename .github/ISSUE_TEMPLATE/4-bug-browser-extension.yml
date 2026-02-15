@@ -1,31 +1,46 @@
-name: "Bug Report: iOS"
-description: Report a bug in the iOS app
-labels: ["bug", "ios", "needs approval"]
+name: "Bug Report: Browser Extension"
+description: Report a bug in the browser extension
+title: "[Bug - Extension]: "
+labels: ["bug", "extension", "needs approval"]
 body:
-  - type: input
-    id: ios-version
+  - type: dropdown
+    id: browser
     attributes:
-      label: iOS Version
-      description: Which version of iOS are you running?
-      placeholder: "e.g., 17.2"
+      label: Browser
+      description: Which browser are you using?
+      options:
+        - Chrome
+        - Safari
+        - Firefox
+        - Edge
+        - Brave
     validations:
       required: true
 
   - type: input
-    id: device-model
+    id: browser-version
     attributes:
-      label: Device Model
-      description: Which device are you using?
-      placeholder: "e.g., iPhone 15 Pro"
+      label: Browser Version
+      description: Which version of the browser are you running?
+      placeholder: "e.g., Chrome 120"
     validations:
       required: true
 
   - type: input
-    id: app-version
+    id: extension-version
     attributes:
-      label: App Version
-      description: Which version of the companion app are you running?
-      placeholder: "e.g., 1.0.4"
+      label: Extension Version
+      description: Which version of the extension are you running?
+      placeholder: "e.g., 1.7.6"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: Which OS are you using?
+      placeholder: "e.g., macOS 15.2, Windows 11, Ubuntu 24.04"
     validations:
       required: true
 
@@ -45,7 +60,7 @@ body:
       description: Provide step-by-step instructions to reproduce the issue.
       placeholder: |
         1. Go to...
-        2. Tap on...
+        2. Click on...
         3. See error...
     validations:
       required: true
@@ -71,8 +86,8 @@ body:
   - type: textarea
     id: screenshots
     attributes:
-      label: Screenshots / Screen Recordings
-      description: Add screenshots or screen recordings if applicable.
+      label: Screenshots / Console Errors
+      description: Add screenshots, screen recordings, or browser console errors if applicable.
       placeholder: Attach evidence here...
     validations:
       required: false
@@ -81,7 +96,7 @@ body:
     id: additional-context
     attributes:
       label: Additional Context
-      description: Any other information that might be helpful (e.g., crash logs, console output).
+      description: Any other information that might be helpful.
       placeholder: Add any additional context here...
     validations:
       required: false
