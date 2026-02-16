@@ -22,7 +22,7 @@ export default function TabLayout() {
   const colors = {
     selected: isDark ? "#FFFFFF" : "#000000",
     inactive: "#A3A3A3",
-    background: Platform.OS === "web" ? "transparent" : isDark ? "#000000" : "#FFFFFF",
+    background: isDark ? "#000000" : "#FFFFFF",
     border: isDark ? "#4D4D4D" : "#C6C6C8",
     indicator: isDark ? "#FFFFFF15" : "#00000015",
   };
@@ -135,9 +135,9 @@ function WebTabs({ colors }: { colors: TabColors }) {
         tabBarActiveTintColor: colors.selected,
         tabBarInactiveTintColor: colors.inactive,
         tabBarStyle: {
-          backgroundColor: Platform.OS === "web" ? "transparent" : colors.background,
+          backgroundColor: colors.background,
           borderTopWidth: 0.5,
-          borderTopColor: Platform.OS === "web" ? "transparent" : colors.border,
+          borderTopColor: colors.border,
           paddingBottom: 4,
           paddingTop: 4,
           height: Platform.OS === "android" ? 74 : 66,

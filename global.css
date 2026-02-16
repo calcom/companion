@@ -56,7 +56,3 @@
     border-color: rgb(0 0 0);
   }
 }
-
-html, body, #root {
-  background-color: transparent;
-}

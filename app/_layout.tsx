@@ -28,7 +28,7 @@ function RootLayoutContent() {
       <View
         style={{
           flex: 1,
-          backgroundColor: Platform.OS === "web" ? "transparent" : colors.background,
+          backgroundColor: colors.background,
           justifyContent: "center",
           alignItems: "center",
         }}
@@ -419,7 +419,7 @@ function RootLayoutContent() {
 
   const containerClass =
     Platform.OS === "web"
-      ? "w-[400px] flex-1 flex-col self-end border-l border-gray-200 dark:border-gray-700 bg-transparent"
+      ? "w-[400px] flex-1 flex-col self-end border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-black"
       : "bg-white dark:bg-black";
 
   const containerStyle =
