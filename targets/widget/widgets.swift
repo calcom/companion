@@ -205,68 +205,56 @@ struct UpcomingBookingsWidgetEntryView: View {
     @Environment(\.widgetFamily) var family
     
     var body: some View {
-        ZStack {
-            // Subtle gradient background
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.accentColor.opacity(0.05),
-                    Color.clear
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack {
+                Image(systemName: "calendar")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.accentColor)
+                Text("Upcoming")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.primary)
+                Spacer()
+            }
+            .padding(.bottom, 8)
             
-            VStack(alignment: .leading, spacing: 0) {
-                // Header
-                HStack {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.accentColor)
-                    Text("Upcoming")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.primary)
-                    Spacer()
+            if entry.bookings.isEmpty {
+                Spacer()
+                VStack(spacing: 4) {
+                    Image(systemName: "calendar.badge.checkmark")
+                        .font(.system(size: 24))
+                        .foregroundColor(.secondary)
+                    Text("No upcoming bookings")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
                 }
-                .padding(.bottom, 8)
-                
-                if entry.bookings.isEmpty {
-                    Spacer()
-                    VStack(spacing: 4) {
-                        Image(systemName: "calendar.badge.checkmark")
-                            .font(.system(size: 24))
-                            .foregroundColor(.secondary)
-                        Text("No upcoming bookings")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity)
+                Spacer()
+            } else {
+                if family == .systemMedium {
+                    // Horizontal layout for medium widget
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(entry.bookings.prefix(2)) { booking in
+                            MediumBookingCard(booking: booking)
+                        }
                     }
-                    .frame(maxWidth: .infinity)
-                    Spacer()
+                    Spacer(minLength: 0)
                 } else {
-                    if family == .systemMedium {
-                        // Horizontal layout for medium widget
-                        HStack(alignment: .top, spacing: 12) {
-                            ForEach(entry.bookings.prefix(2)) { booking in
-                                MediumBookingCard(booking: booking)
-                            }
+                    // Vertical layout for small and large widgets
+                    let maxBookings = family == .systemSmall ? 2 : 6
+                    ForEach(entry.bookings.prefix(maxBookings)) { booking in
+                        Link(destination: URL(string: "calcom://(tabs)/(bookings)/booking-detail?uid=\(booking.id)")!) {
+                            BookingRowView(booking: booking)
                         }
-                        Spacer(minLength: 0)
-                    } else {
-                        // Vertical layout for small and large widgets
-                        let maxBookings = family == .systemSmall ? 2 : 6
-                        ForEach(entry.bookings.prefix(maxBookings)) { booking in
-                            Link(destination: URL(string: "calcom://(tabs)/(bookings)/booking-detail?uid=\(booking.id)")!) {
-                                BookingRowView(booking: booking)
-                            }
-                            if booking.id != entry.bookings.prefix(maxBookings).last?.id {
-                                Divider()
-                            }
+                        if booking.id != entry.bookings.prefix(maxBookings).last?.id {
+                            Divider()
                         }
-                        Spacer(minLength: 0)
                     }
+                    Spacer(minLength: 0)
                 }
             }
-            .padding(12)
         }
+        .padding(12)
         .widgetURL(URL(string: "calcom://(tabs)/(bookings)"))
     }
 }
@@ -389,7 +377,7 @@ struct UpcomingBookingsWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
             UpcomingBookingsWidgetEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(.clear, for: .widget)
         }
         .configurationDisplayName("Upcoming Bookings")
         .description("View your upcoming Cal.com bookings at a glance.")
