@@ -1,0 +1,31 @@
+extension:
+  - changed-files:
+      - any-glob-to-any-file:
+          - extension/**
+
+mobile-app:
+  - changed-files:
+      - any-glob-to-any-file:
+          - app/**
+          - components/**
+          - hooks/**
+          - contexts/**
+          - services/**
+
+config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.config.*"
+          - tsconfig*.json
+          - biome.json
+          - package.json
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+
+api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - api/**
