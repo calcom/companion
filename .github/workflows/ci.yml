@@ -6,13 +6,17 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +33,7 @@ jobs:
 
   typecheck:
     name: Type Check
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +50,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
     env:
       EXPO_PUBLIC_CAL_API_KEY: ${{ secrets.CI_EXPO_PUBLIC_CAL_API_KEY || vars.CI_EXPO_PUBLIC_CAL_API_KEY || vars.EXPO_PUBLIC_CAL_API_KEY }}
@@ -60,10 +64,26 @@ jobs:
           cache-dependency-path: bun.lock
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Cache Expo web export
+        uses: actions/cache@v4
+        id: cache-expo-web
+        with:
+          path: dist
+          key: expo-web-${{ hashFiles('bun.lock') }}-${{ hashFiles('app/**', 'components/**', 'hooks/**', 'contexts/**', 'services/**', 'lib/**', 'constants/**', 'types/**', 'utils/**', 'assets/**', 'config/**', 'index.js', 'app.json', 'global.css', 'tailwind.config.js', 'metro.config.js', 'babel.config.js', 'tsconfig.json') }}
       - name: Build Expo web app
+        if: steps.cache-expo-web.outputs.cache-hit != 'true'
         env:
           EXPO_NO_TELEMETRY: 1
           CI: true
         run: bunx expo export --platform web
+
+      - name: Cache extension build
+        uses: actions/cache@v4
+        id: cache-ext-build
+        with:
+          path: .output
+          key: ext-build-${{ hashFiles('bun.lock') }}-${{ hashFiles('extension/**', 'wxt.config.ts', 'tsconfig.extension.json') }}
       - name: Build browser extension
+        if: steps.cache-ext-build.outputs.cache-hit != 'true'
         run: bun run ext:build
