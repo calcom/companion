@@ -3,7 +3,7 @@ extension:
       - any-glob-to-any-file:
           - extension/**
 
-mobile-app:
+mobile:
   - changed-files:
       - any-glob-to-any-file:
           - app/**
