@@ -1,0 +1,26 @@
+# CI, workflows, and repo configuration
+.github/actions/**/* @calcom/Foundation
+.github/workflows/**/* @calcom/Foundation
+.github/CODEOWNERS @calcom/Foundation
+
+# App configuration — scheme, bundle ID, and plugin changes affect all platforms
+/app.json @calcom/Foundation
+
+# Environment and OAuth configuration
+/.env.example @calcom/Foundation
+
+# Auth and OAuth — core login flow for mobile and extension
+/services/oauthService.ts @calcom/Foundation
+/contexts/AuthContext.tsx @calcom/Foundation
+/app/oauth/**/* @calcom/Foundation
+
+# Native platform configuration
+/eas.json @calcom/Foundation
+
+# Dependencies
+/package.json @calcom/Foundation
+
+# Exclude test files from requiring foundation approval
+**/*.spec.*
+**/*.e2e.*
+**/*.test.*
