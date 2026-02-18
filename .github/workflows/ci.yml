@@ -70,7 +70,7 @@ jobs:
         id: cache-expo-web
         with:
           path: dist
-          key: expo-web-${{ hashFiles('bun.lock') }}-${{ hashFiles('app/**', 'components/**', 'hooks/**', 'contexts/**', 'services/**', 'lib/**', 'constants/**', 'types/**', 'index.js', 'app.json') }}
+          key: expo-web-${{ hashFiles('bun.lock') }}-${{ hashFiles('app/**', 'components/**', 'hooks/**', 'contexts/**', 'services/**', 'lib/**', 'constants/**', 'types/**', 'utils/**', 'assets/**', 'config/**', 'index.js', 'app.json', 'global.css', 'tailwind.config.js', 'metro.config.js', 'babel.config.js', 'tsconfig.json') }}
       - name: Build Expo web app
         if: steps.cache-expo-web.outputs.cache-hit != 'true'
         env:
