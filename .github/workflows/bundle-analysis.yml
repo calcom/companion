@@ -79,6 +79,8 @@ jobs:
             const fs = require('fs');
             const { execSync } = require('child_process');
 
+            const SIZE_INCREASE_THRESHOLD_BYTES = 5120; // 5KB — only comment if increase exceeds this
+
             let currentSize = parseInt('${{ steps.ext_size.outputs.size_bytes }}') || 0;
             let baseSize = 0;
 
@@ -91,22 +93,28 @@ jobs:
             }
 
             const diff = currentSize - baseSize;
+
+            if (baseSize === 0) {
+              console.log('No baseline found yet — skipping comment.');
+              return;
+            }
+
+            if (diff <= SIZE_INCREASE_THRESHOLD_BYTES) {
+              console.log(`Bundle size change (${(diff / 1024).toFixed(2)} KB) is within threshold — skipping comment.`);
+              return;
+            }
+
             const diffKB = (diff / 1024).toFixed(2);
             const currentKB = (currentSize / 1024).toFixed(2);
             const baseKB = (baseSize / 1024).toFixed(2);
-            const emoji = diff > 0 ? (diff > 51200 ? '🔴' : '🟡') : '🟢';
+            const pctChange = ((diff / baseSize) * 100).toFixed(2);
+            const emoji = diff > 51200 ? '🔴' : '🟡';
 
-            let body = `## ${emoji} Bundle Size Analysis\n\n`;
+            let body = `## ${emoji} Bundle Size Increase Detected\n\n`;
             body += `| | Size |\n|---|---|\n`;
             body += `| **Extension (current)** | ${currentKB} KB |\n`;
-
-            if (baseSize > 0) {
-              const pctChange = ((diff / baseSize) * 100).toFixed(2);
-              body += `| **Extension (main)** | ${baseKB} KB |\n`;
-              body += `| **Diff** | ${diff >= 0 ? '+' : ''}${diffKB} KB (${diff >= 0 ? '+' : ''}${pctChange}%) |\n`;
-            } else {
-              body += `| **Extension (main)** | N/A (no baseline yet) |\n`;
-            }
+            body += `| **Extension (main)** | ${baseKB} KB |\n`;
+            body += `| **Diff** | +${diffKB} KB (+${pctChange}%) |\n`;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
