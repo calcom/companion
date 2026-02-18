@@ -14,7 +14,10 @@
 /contexts/AuthContext.tsx @calcom/Foundation
 /app/oauth/**/* @calcom/Foundation
 
-# Native platform configuration
+# Extension configuration — OAuth credentials and build-time env injection
+/wxt.config.ts @calcom/Foundation
+
+# Build configuration
 /eas.json @calcom/Foundation
 
 # Dependencies
