@@ -18,22 +18,26 @@
 
 // Re-export types for backward compatibility
 export type {
-  EventType,
-  CreateEventTypeInput,
   Booking,
-  BookingParticipationResult,
-  Schedule,
-  UserProfile,
-  ConferencingOption,
-  Webhook,
-  CreateWebhookInput,
-  UpdateWebhookInput,
-  PrivateLink,
-  CreatePrivateLinkInput,
-  UpdatePrivateLinkInput,
   BookingLimitsCount,
   BookingLimitsDuration,
+  BookingParticipationResult,
+  ConferencingOption,
   ConfirmationPolicy,
+  CreateEventTypeInput,
+  CreateOutOfOfficeEntryInput,
+  CreatePrivateLinkInput,
+  CreateWebhookInput,
+  EventType,
+  OutOfOfficeEntry,
+  OutOfOfficeReason,
+  PrivateLink,
+  Schedule,
+  UpdateOutOfOfficeEntryInput,
+  UpdatePrivateLinkInput,
+  UpdateWebhookInput,
+  UserProfile,
+  Webhook,
 } from "../types";
 
 // Import all functions from submodules
@@ -67,6 +71,12 @@ import {
   getEventTypes,
   updateEventType,
 } from "./event-types";
+import {
+  createOutOfOfficeEntry,
+  deleteOutOfOfficeEntry,
+  getOutOfOfficeEntries,
+  updateOutOfOfficeEntry,
+} from "./ooo";
 import {
   createEventTypePrivateLink,
   deleteEventTypePrivateLink,
@@ -169,4 +179,10 @@ export const CalComAPIService = {
   createEventTypePrivateLink,
   updateEventTypePrivateLink,
   deleteEventTypePrivateLink,
+
+  // Out of Office
+  getOutOfOfficeEntries,
+  createOutOfOfficeEntry,
+  updateOutOfOfficeEntry,
+  deleteOutOfOfficeEntry,
 };

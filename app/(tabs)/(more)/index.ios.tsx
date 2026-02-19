@@ -14,14 +14,14 @@ import {
 } from "react-native";
 import { LandingPagePicker } from "@/components/LandingPagePicker";
 import { LogoutConfirmModal } from "@/components/LogoutConfirmModal";
+import { getColors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryContext } from "@/contexts/QueryContext";
 import { useUserProfile } from "@/hooks";
 import { type LandingPage, useUserPreferences } from "@/hooks/useUserPreferences";
-import { showErrorAlert, showSuccessAlert, showNotAvailableAlert } from "@/utils/alerts";
+import { showErrorAlert, showNotAvailableAlert, showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
-import { getColors } from "@/constants/colors";
 
 interface MoreMenuItem {
   name: string;
@@ -91,6 +91,12 @@ export default function More() {
   // handleNotAvailable replaced by global showNotAvailableAlert
 
   const menuItems: MoreMenuItem[] = [
+    {
+      name: "Out of Office",
+      icon: "airplane-outline",
+      isExternal: false,
+      onPress: () => router.push("/(tabs)/(ooo)"),
+    },
     {
       name: "Apps",
       icon: "grid-outline",
