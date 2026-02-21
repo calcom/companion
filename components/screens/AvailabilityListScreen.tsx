@@ -476,7 +476,7 @@ export function AvailabilityListScreen({
                 <AlertDialogText>Cancel</AlertDialogText>
               </AlertDialogCancel>
               <AlertDialogAction onPress={handleCreateSchedule} disabled={creating}>
-                <AlertDialogText className="text-white">Continue</AlertDialogText>
+                <AlertDialogText className="text-white dark:text-black">Continue</AlertDialogText>
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
