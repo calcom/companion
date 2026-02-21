@@ -2,6 +2,7 @@
 
 export * from "./bookings.types";
 export * from "./event-types.types";
+export * from "./ooo.types";
 export * from "./private-links.types";
 export * from "./schedules.types";
 export * from "./users.types";

@@ -48,6 +48,13 @@ export {
   usePrefetchEventTypes,
   useUpdateEventType,
 } from "./useEventTypes";
+// Out of Office hooks
+export {
+  useCreateOutOfOfficeEntry,
+  useDeleteOutOfOfficeEntry,
+  useOutOfOfficeEntries,
+  useUpdateOutOfOfficeEntry,
+} from "./useOutOfOffice";
 // Schedules (Availability) hooks
 export {
   type CreateScheduleInput,

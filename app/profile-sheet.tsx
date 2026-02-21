@@ -66,13 +66,12 @@ export default function ProfileSheet() {
     {
       id: "outOfOffice",
       label: "Out of Office",
-      icon: "moon-outline",
-      onPress: () =>
-        openInAppBrowser(
-          "https://app.cal.com/settings/my-account/out-of-office",
-          "Out of Office page"
-        ),
-      external: true,
+      icon: "airplane-outline",
+      onPress: () => {
+        router.back();
+        router.push("/(tabs)/(ooo)");
+      },
+      external: false,
     },
     {
       id: "publicPage",
