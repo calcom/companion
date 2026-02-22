@@ -76,16 +76,24 @@
             },
             "timePicker": {
               "background": {
-                "light": "#ffffff"
+                "light": "#f8f9fa",
+                "dark": "#121212"
               },
               "numbersBackgroundColor": {
-                "light": "#ffffff"
+                "light": "#ffffff",
+                "dark": "#1e1e1e"
               },
               "headerBackground": {
-                "light": "#000000"
+                "light": "#000000",
+                "dark": "#ffffff"
               },
               "numbersSelectorColor": {
-                "light": "#000000"
+                "light": "#007AFF",
+                "dark": "#0A84FF"
+              },
+              "numbersTextColor": {
+                "light": "#000000",
+                "dark": "#ffffff"
               }
             }
           }
