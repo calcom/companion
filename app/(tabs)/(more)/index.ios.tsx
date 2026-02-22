@@ -95,31 +95,31 @@ export default function More() {
       name: "Apps",
       icon: "grid-outline",
       isExternal: false,
-      onPress: () => showNotAvailableAlert(),
+      onPress: () => openInAppBrowser("https://app.cal.com/apps", "Apps page"),
     },
     {
       name: "Routing",
       icon: "git-branch-outline",
       isExternal: false,
-      onPress: () => showNotAvailableAlert(),
+      onPress: () => openInAppBrowser("https://app.cal.com/routing", "Routing page"),
     },
     {
       name: "Workflows",
       icon: "flash-outline",
       isExternal: false,
-      onPress: () => showNotAvailableAlert(),
+      onPress: () => openInAppBrowser("https://app.cal.com/workflows", "Workflows page"),
     },
     {
       name: "Insights",
       icon: "bar-chart-outline",
       isExternal: false,
-      onPress: () => showNotAvailableAlert(),
+      onPress: () => openInAppBrowser("https://app.cal.com/insights", "Insights page"),
     },
     {
       name: "Support",
       icon: "help-circle-outline",
       isExternal: false,
-      onPress: () => showNotAvailableAlert(),
+      onPress: () => openInAppBrowser("https://go.cal.com/support", "Support"),
     },
   ];
 
