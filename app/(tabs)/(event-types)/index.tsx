@@ -466,19 +466,20 @@ export default function EventTypes() {
           <>
             <Header />
             <View
-              className="flex-row items-center gap-3 border-b border-gray-300 bg-gray-100 px-4 py-2"
               style={{
+                backgroundColor: isDark ? "#000000" : "#f3f4f6",
+                borderBottomWidth: 1,
                 borderBottomColor: theme.border,
-                backgroundColor: theme.backgroundSecondary,
               }}
+              className="flex-row items-center gap-3 px-4 py-2"
             >
               <TextInput
-                className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[17px] text-black focus:border-black focus:ring-2 focus:ring-black"
                 style={{
+                  backgroundColor: isDark ? "#171717" : "#FFFFFF",
                   borderColor: theme.border,
-                  backgroundColor: isDark ? theme.background : "white",
                   color: theme.text,
                 }}
+                className="flex-1 rounded-lg border px-3 py-2 text-[17px]"
                 placeholder="Search event types"
                 placeholderTextColor={theme.textSecondary}
                 value={searchQuery}
@@ -488,22 +489,11 @@ export default function EventTypes() {
                 clearButtonMode="while-editing"
               />
               <TouchableOpacity
-                className="min-w-[60px] flex-row items-center justify-center gap-1 rounded-lg bg-black px-2.5 py-2"
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: isDark ? "white" : "black",
-                }}
+                className="min-w-[60px] flex-row items-center justify-center gap-1 rounded-lg bg-black px-2.5 py-2 dark:bg-white"
                 onPress={handleCreateNew}
               >
                 <Ionicons name="add" size={18} color={isDark ? "#000" : "#fff"} />
-                <Text
-                  className="text-base font-semibold text-white"
-                  style={{ color: isDark ? "black" : "white" }}
-                >
-                  New
-                </Text>
+                <Text className="text-base font-semibold text-white dark:text-black">New</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -555,16 +545,20 @@ export default function EventTypes() {
             }}
           />
           <View
-            className="flex-row items-center gap-3 border-b border-gray-300 bg-gray-100 px-4 py-2"
-            style={{ borderBottomColor: theme.border, backgroundColor: theme.backgroundSecondary }}
+            style={{
+              backgroundColor: isDark ? "#000000" : "#f3f4f6",
+              borderBottomWidth: 1,
+              borderBottomColor: theme.border,
+            }}
+            className="flex-row items-center gap-3 px-4 py-2"
           >
             <TextInput
-              className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[17px] text-black focus:border-black focus:ring-2 focus:ring-black"
               style={{
+                backgroundColor: isDark ? "#171717" : "#FFFFFF",
                 borderColor: theme.border,
-                backgroundColor: isDark ? theme.background : "white",
                 color: theme.text,
               }}
+              className="flex-1 rounded-lg border px-3 py-2 text-[17px]"
               placeholder="Search event types"
               placeholderTextColor={theme.textSecondary}
               value={searchQuery}
@@ -574,22 +568,11 @@ export default function EventTypes() {
               clearButtonMode="while-editing"
             />
             <TouchableOpacity
-              className="min-w-[60px] flex-row items-center justify-center gap-1 rounded-lg bg-black px-2.5 py-2"
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: isDark ? "white" : "black",
-              }}
+              className="min-w-[60px] flex-row items-center justify-center gap-1 rounded-lg bg-black px-2.5 py-2 dark:bg-white"
               onPress={handleCreateNew}
             >
               <Ionicons name="add" size={18} color={isDark ? "#000" : "#fff"} />
-              <Text
-                className="text-base font-semibold text-white"
-                style={{ color: isDark ? "black" : "white" }}
-              >
-                New
-              </Text>
+              <Text className="text-base font-semibold text-white dark:text-black">New</Text>
             </TouchableOpacity>
           </View>
         </>
