@@ -77,7 +77,7 @@
             "timePicker": {
               "background": {
                 "light": "#f8f9fa",
-                "dark": "#121212"
+                "dark": "#000000"
               },
               "numbersBackgroundColor": {
                 "light": "#ffffff",
@@ -88,8 +88,8 @@
                 "dark": "#ffffff"
               },
               "numbersSelectorColor": {
-                "light": "#007AFF",
-                "dark": "#0A84FF"
+                "light": "#e8e8ed",
+                "dark": "#000000"
               },
               "numbersTextColor": {
                 "light": "#000000",
