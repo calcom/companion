@@ -1525,7 +1525,7 @@ export default function EventTypeDetail() {
                       <Text className="mb-5 text-center text-[19px] font-bold text-black dark:text-white">
                         Select Available Durations
                       </Text>
-                      <ScrollView style={{ maxHeight: 400, marginBottom: 20 }}>
+                      <ScrollView style={{ maxHeight: 400, marginBottom: 20 }} showsVerticalScrollIndicator={false}>
                         {availableDurations.map((duration, index) => (
                           <TouchableOpacity
                             key={duration}
@@ -1570,7 +1570,7 @@ export default function EventTypeDetail() {
                     <Text className="mb-5 text-center text-[19px] font-bold text-[#333] dark:text-white">
                       Select Available Durations
                     </Text>
-                    <ScrollView style={{ maxHeight: 400, marginBottom: 20 }}>
+                    <ScrollView style={{ maxHeight: 400, marginBottom: 20 }} showsVerticalScrollIndicator={false}>
                       {availableDurations.map((duration, index) => (
                         <TouchableOpacity
                           key={duration}
@@ -1627,7 +1627,7 @@ export default function EventTypeDetail() {
                       <Text className="mb-5 text-center text-[19px] font-bold text-black dark:text-white">
                         Select Default Duration
                       </Text>
-                      <ScrollView style={{ maxHeight: 400 }}>
+                      <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
                         {selectedDurations.map((duration, index) => (
                           <TouchableOpacity
                             key={duration}
@@ -1665,7 +1665,7 @@ export default function EventTypeDetail() {
                     <Text className="mb-5 text-center text-[19px] font-bold text-[#333] dark:text-white">
                       Select Default Duration
                     </Text>
-                    <ScrollView style={{ maxHeight: 400 }}>
+                    <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
                       {selectedDurations.map((duration, index) => (
                         <TouchableOpacity
                           key={duration}
