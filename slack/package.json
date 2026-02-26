@@ -1,0 +1,55 @@
+{
+  "name": "@calcom/slack",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:tunnel": "npx concurrently \"next dev\" \"cloudflared tunnel --url http://localhost:3000\"",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf .next",
+    "clean:all": "rm -rf .next node_modules",
+    "env:check": "node -e \"const fs=require('fs');const ex=fs.readFileSync('.env.example','utf8').match(/^[A-Z_]+/gm);const lc=fs.readFileSync('.env',{encoding:'utf8',flag:'r'});const missing=ex.filter(k=>!lc.includes(k));if(missing.length){console.error('Missing env vars:',missing);process.exit(1)}else console.log('All env vars present')\"",
+    "tunnel": "cloudflared tunnel --url http://localhost:3000",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs}": [
+      "prettier --write",
+      "eslint --max-warnings=0"
+    ],
+    "*.{json,md,yml,yaml,css}": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "@ai-sdk/groq": "^3.0.24",
+    "@ai-sdk/openai": "^3.0.34",
+    "@chat-adapter/slack": "^4.14.0",
+    "@chat-adapter/state-redis": "^4.14.0",
+    "ai": "^6.0.101",
+    "chat": "^4.14.0",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "redis": "^5.11.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,851 @@
+import { streamText, tool, stepCountIs, type ModelMessage } from "ai";
+import { z } from "zod";
+import { getModel } from "./ai-provider";
+import {
+  getEventTypes,
+  getAvailableSlots,
+  createBooking,
+  getBookings,
+  cancelBooking,
+  rescheduleBooking,
+  getMe,
+  updateMe,
+  validateApiKey,
+  getBooking,
+  confirmBooking,
+  declineBooking,
+  getSchedules,
+  getDefaultSchedule,
+  getSchedule,
+  createSchedule,
+  updateSchedule,
+  deleteSchedule,
+  getBusyTimes,
+  createEventType,
+  updateEventType,
+  deleteEventType,
+  getCalendarLinks,
+  markNoShow,
+} from "./calcom/client";
+import { getLinkedUser, linkUser, unlinkUser } from "./user-linking";
+import type { LinkedUser } from "./user-linking";
+
+export interface SlackUserProfile {
+  id: string;
+  name: string;
+  realName: string;
+  email?: string;
+}
+
+/** Callback provided by the bot layer to look up a Slack user's profile */
+export type LookupSlackUserFn = (userId: string) => Promise<SlackUserProfile | null>;
+
+const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
+
+function getSystemPrompt() {
+  return `You are Cal.com's scheduling assistant inside Slack. You help users manage their calendar, book meetings, check availability, and handle bookings — all through natural conversation.
+
+You are "Cal", the Cal.com Slack bot. Be concise, friendly, and action-oriented. Use Slack mrkdwn formatting: *bold*, _italic_, \`code\`, and bullet lists.
+
+Current date/time: ${new Date().toISOString()}
+
+## Available Capabilities
+- *Account*: link_account, unlink_account, get_my_profile, update_profile
+- *Event Types*: list_event_types, create_event_type, update_event_type, delete_event_type
+- *Availability*: check_availability, check_busy_times
+- *Bookings*: book_meeting, list_bookings, get_booking, cancel_booking, reschedule_booking, confirm_booking, decline_booking, get_calendar_links, mark_no_show
+- *Schedules*: list_schedules, get_schedule (pass 'default' for default), create_schedule, update_schedule, delete_schedule
+- *People*: lookup_slack_user — resolve a Slack user mention to their name and Cal.com status
+
+## Slack Mention Parsing
+- User mentions in Slack appear as \`<@USER_ID>\` (e.g. \`<@U012AB3CD>\`).
+- When you see a mention like \`<@U012AB3CD>\`, extract just the USER_ID part (strip \`<@\` and \`>\`).
+- Always call \`lookup_slack_user\` first to resolve who that person is before booking with them.
+
+## Booking a Meeting with Someone Flow
+YOU are always the HOST. The other person is the ATTENDEE — they do NOT need a Cal.com account.
+1. User says something like "book meeting with <@U012AB3CD> at 5pm IST"
+2. Call \`lookup_slack_user\` with slackUserId="U012AB3CD" → get their name and email from Slack.
+3. Call \`list_event_types\` (no arguments) → list YOUR event types. Pick the best match by duration/title.
+4. Call \`check_availability\` with the chosen eventTypeId. Use \`startDate\` if a date was specified.
+5. Find the slot matching the requested time (convert timezone: e.g. IST = Asia/Kolkata = UTC+5:30).
+6. Call \`book_meeting\` with your eventTypeId, the ISO 8601 UTC slot time, and the attendee's name + email.
+
+## Timezone Conversion
+- IST = Asia/Kolkata (UTC+5:30)
+- PST = America/Los_Angeles (UTC-8), PDT = UTC-7
+- EST = America/New_York (UTC-5), EDT = UTC-4
+- GMT/UTC = UTC+0
+- Always convert user-specified times to UTC ISO 8601 for \`startTime\`.
+
+## CRITICAL RULES FOR TOOL USAGE
+1. Call check_account_linked ONCE at the start. If it returns linked:true, proceed. Do NOT call it again.
+2. Each tool should only be called ONCE per request unless you get an error.
+3. After getting tool results, respond to the user with a text message. Do NOT call more tools unless necessary.
+4. Never call a tool with empty or placeholder arguments.
+
+## Behavior
+- If the user is not linked, tell them to run \`/cal link YOUR_API_KEY\` and explain where to find their key.
+- When showing availability, format times in the user's timezone if known.
+- For confirm/decline: use on bookings with status "pending" or "unconfirmed".
+- For schedules: when asked about working hours or availability windows, use schedule tools.
+- Keep responses under 200 words.
+- Never fabricate data. Only use data from tool results.`;
+}
+
+function createCalTools(
+  teamId: string,
+  userId: string,
+  lookupSlackUser?: LookupSlackUserFn
+) {
+  return {
+    check_account_linked: tool({
+      description:
+        "Check if the current user has linked their Cal.com account. Call this ONCE at the start, then proceed with other tools. Do NOT call this again after getting a result.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (linked) {
+          return {
+            status: "LINKED",
+            username: linked.calcomUsername,
+            email: linked.calcomEmail,
+            timeZone: linked.calcomTimeZone,
+            instruction:
+              "Account is linked. Proceed with the user's request using other tools. Do NOT call check_account_linked again.",
+          };
+        }
+        return {
+          status: "NOT_LINKED",
+          instruction: `Tell the user to link their account by running: /cal link YOUR_API_KEY — they can find their key at ${CALCOM_APP_URL}/settings/developer/api-keys. Do NOT call any other tools.`,
+        };
+      },
+    }),
+
+    lookup_slack_user: tool({
+      description:
+        "Look up a Slack user by their user ID to get their name and email. Use this whenever you see a Slack mention like <@USER_ID> — extract just the USER_ID and pass it here. The looked-up user does NOT need a Cal.com account; you just need their name and email to book them as an attendee.",
+      inputSchema: z.object({
+        slackUserId: z
+          .string()
+          .describe("The Slack user ID to look up (e.g. 'U012AB3CD' — without <@ and >)"),
+      }),
+      execute: async ({ slackUserId }) => {
+        const slackProfile = lookupSlackUser ? await lookupSlackUser(slackUserId) : null;
+
+        if (!slackProfile) {
+          return {
+            slackUserId,
+            error: "Could not look up this Slack user. Ask the requester to provide the attendee's name and email manually.",
+          };
+        }
+
+        if (!slackProfile.email) {
+          return {
+            slackUserId,
+            name: slackProfile.realName ?? slackProfile.name,
+            email: null,
+            instruction: "Found the user's name but their email is not visible on Slack. Ask the requester to provide the attendee's email.",
+          };
+        }
+
+        return {
+          slackUserId,
+          name: slackProfile.realName ?? slackProfile.name,
+          email: slackProfile.email,
+          instruction: "Use this name and email as attendeeName and attendeeEmail in book_meeting.",
+        };
+      },
+    }),
+
+    link_account: tool({
+      description: "Link the user's Cal.com account using their API key. Validates the key first.",
+      inputSchema: z.object({
+        apiKey: z.string().describe("The user's Cal.com API key"),
+      }),
+      execute: async ({ apiKey }) => {
+        const valid = await validateApiKey(apiKey);
+        if (!valid) {
+          return { success: false, error: "Invalid API key. Please check and try again." };
+        }
+        const me = await getMe(apiKey);
+        await linkUser(teamId, userId, {
+          calcomApiKey: apiKey,
+          calcomUserId: me.id,
+          calcomEmail: me.email,
+          calcomUsername: me.username,
+          calcomTimeZone: me.timeZone,
+          linkedAt: new Date().toISOString(),
+        });
+        return {
+          success: true,
+          name: me.name,
+          email: me.email,
+          username: me.username,
+          timeZone: me.timeZone,
+        };
+      },
+    }),
+
+    unlink_account: tool({
+      description: "Unlink the user's Cal.com account from Slack.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) {
+          return { success: false, error: "Account is not linked." };
+        }
+        await unlinkUser(teamId, userId);
+        return { success: true };
+      },
+    }),
+
+    get_my_profile: tool({
+      description: "Get the linked user's Cal.com profile information.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const me = await getMe(linked.calcomApiKey);
+          return { name: me.name, email: me.email, username: me.username, timeZone: me.timeZone };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to fetch profile" };
+        }
+      },
+    }),
+
+    list_event_types: tool({
+      description:
+        "List YOUR Cal.com event types (the meeting types you offer as a host). Use this to pick which event type to book when someone wants to meet with you.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Your account is not linked." };
+        try {
+          const types = await getEventTypes(linked.calcomApiKey);
+          return {
+            eventTypes: types.map((et) => ({
+              id: et.id,
+              title: et.title,
+              slug: et.slug,
+              duration: et.length,
+              description: et.description,
+              hidden: et.hidden,
+            })),
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to fetch event types" };
+        }
+      },
+    }),
+
+    check_availability: tool({
+      description:
+        "Check YOUR available time slots for a specific event type. You are always the host. Returns slots for the next 7 days by default.",
+      inputSchema: z.object({
+        eventTypeId: z.number().describe("The event type ID to check availability for"),
+        daysAhead: z
+          .number()
+          .nullable()
+          .optional()
+          .default(7)
+          .describe("Number of days ahead to check. Default 7."),
+        startDate: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("ISO 8601 date to start from (defaults to now). Use this when the user specifies a date."),
+      }),
+      execute: async ({ eventTypeId, daysAhead, startDate }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        const tz = linked.calcomTimeZone;
+        try {
+          const from = startDate ? new Date(startDate) : new Date();
+          const end = new Date(from.getTime() + (daysAhead ?? 7) * 24 * 60 * 60 * 1000);
+          const slotsMap = await getAvailableSlots(linked.calcomApiKey, {
+            eventTypeId,
+            start: from.toISOString(),
+            end: end.toISOString(),
+            timeZone: tz,
+          });
+
+          const allSlots = Object.entries(slotsMap).flatMap(([date, slots]) =>
+            slots
+              .filter((s) => s.available)
+              .map((s) => ({
+                date,
+                time: s.time,
+                formatted: new Intl.DateTimeFormat("en-US", {
+                  timeZone: tz,
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                }).format(new Date(s.time)),
+              }))
+          );
+
+          return {
+            timeZone: tz,
+            totalSlots: allSlots.length,
+            slots: allSlots.slice(0, 15),
+            hasMore: allSlots.length > 15,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to fetch availability" };
+        }
+      },
+    }),
+
+    book_meeting: tool({
+      description:
+        "Book a meeting on YOUR Cal.com calendar. You are always the host — use your own event type ID and availability. The attendee is the person you're meeting with; provide their name and email (get these from lookup_slack_user if they were @mentioned).",
+      inputSchema: z.object({
+        eventTypeId: z.number().describe("Your event type ID to book"),
+        startTime: z.string().describe("Start time in ISO 8601 UTC format (e.g. '2026-02-26T11:30:00Z')"),
+        attendeeName: z.string().describe("Full name of the person you're meeting with"),
+        attendeeEmail: z.string().describe("Email address of the person you're meeting with"),
+        attendeeTimeZone: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Attendee's timezone (e.g. 'Asia/Kolkata'). Defaults to your timezone if omitted."),
+        notes: z.string().nullable().optional().describe("Optional notes for the booking"),
+      }),
+      execute: async ({ eventTypeId, startTime, attendeeName, attendeeEmail, attendeeTimeZone, notes }) => {
+        const host = await getLinkedUser(teamId, userId);
+        if (!host) return { error: "Your account is not linked." };
+
+        try {
+          const booking = await createBooking(host.calcomApiKey, {
+            eventTypeId,
+            start: startTime,
+            attendee: {
+              name: attendeeName,
+              email: attendeeEmail,
+              timeZone: attendeeTimeZone ?? host.calcomTimeZone,
+            },
+            notes: notes ?? undefined,
+          });
+
+          return {
+            success: true,
+            bookingUid: booking.uid,
+            title: booking.title,
+            start: booking.start,
+            end: booking.end,
+            meetingUrl: booking.meetingUrl,
+            attendees: booking.attendees.map((a) => ({ name: a.name, email: a.email })),
+            manageUrl: `${CALCOM_APP_URL}/bookings`,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to create booking" };
+        }
+      },
+    }),
+
+    list_bookings: tool({
+      description:
+        "List the user's bookings. Can filter by status: upcoming, past, cancelled, recurring, unconfirmed.",
+      inputSchema: z.object({
+        status: z
+          .enum(["upcoming", "past", "cancelled", "recurring", "unconfirmed"])
+          .nullable()
+          .optional()
+          .default("upcoming")
+          .describe("Booking status filter. Default: upcoming."),
+        take: z
+          .number()
+          .nullable()
+          .optional()
+          .default(5)
+          .describe("Max bookings to return. Default: 5."),
+      }),
+      execute: async ({ status, take }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const bookings = await getBookings(linked.calcomApiKey, {
+            status: status ?? "upcoming",
+            take: take ?? 5,
+          });
+          return {
+            bookings: bookings.map((b) => ({
+              uid: b.uid,
+              title: b.title,
+              status: b.status,
+              start: b.start,
+              end: b.end,
+              attendees: b.attendees.map((a) => ({ name: a.name, email: a.email })),
+              meetingUrl: b.meetingUrl,
+              location: b.location,
+            })),
+            manageUrl: `${CALCOM_APP_URL}/bookings`,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to fetch bookings" };
+        }
+      },
+    }),
+
+    get_booking: tool({
+      description: "Get details of a specific booking by its UID.",
+      inputSchema: z.object({
+        bookingUid: z.string().describe("The booking UID"),
+      }),
+      execute: async ({ bookingUid }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const b = await getBooking(linked.calcomApiKey, bookingUid);
+          return {
+            uid: b.uid,
+            title: b.title,
+            status: b.status,
+            start: b.start,
+            end: b.end,
+            attendees: b.attendees.map((a) => ({ name: a.name, email: a.email })),
+            meetingUrl: b.meetingUrl,
+            location: b.location,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to fetch booking" };
+        }
+      },
+    }),
+
+    cancel_booking: tool({
+      description: "Cancel a booking by its UID. Optionally provide a reason.",
+      inputSchema: z.object({
+        bookingUid: z.string().describe("The booking UID to cancel"),
+        reason: z.string().nullable().optional().describe("Cancellation reason"),
+      }),
+      execute: async ({ bookingUid, reason }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          await cancelBooking(linked.calcomApiKey, bookingUid, reason ?? undefined);
+          return { success: true, bookingUid };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to cancel booking" };
+        }
+      },
+    }),
+
+    reschedule_booking: tool({
+      description: "Reschedule a booking to a new time.",
+      inputSchema: z.object({
+        bookingUid: z.string().describe("The booking UID to reschedule"),
+        newStartTime: z.string().describe("New start time in ISO 8601 format"),
+        reason: z.string().nullable().optional().describe("Reason for rescheduling"),
+      }),
+      execute: async ({ bookingUid, newStartTime, reason }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const booking = await rescheduleBooking(
+            linked.calcomApiKey,
+            bookingUid,
+            newStartTime,
+            reason ?? undefined
+          );
+          return {
+            success: true,
+            bookingUid: booking.uid,
+            title: booking.title,
+            newStart: booking.start,
+            newEnd: booking.end,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to reschedule booking" };
+        }
+      },
+    }),
+
+    confirm_booking: tool({
+      description: "Confirm a pending booking that requires confirmation.",
+      inputSchema: z.object({
+        bookingUid: z.string().describe("The booking UID to confirm"),
+      }),
+      execute: async ({ bookingUid }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const booking = await confirmBooking(linked.calcomApiKey, bookingUid);
+          return {
+            success: true,
+            bookingUid: booking.uid,
+            title: booking.title,
+            status: booking.status,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to confirm booking" };
+        }
+      },
+    }),
+
+    decline_booking: tool({
+      description: "Decline a pending booking that requires confirmation.",
+      inputSchema: z.object({
+        bookingUid: z.string().describe("The booking UID to decline"),
+        reason: z.string().nullable().optional().describe("Reason for declining"),
+      }),
+      execute: async ({ bookingUid, reason }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const booking = await declineBooking(
+            linked.calcomApiKey,
+            bookingUid,
+            reason ?? undefined
+          );
+          return {
+            success: true,
+            bookingUid: booking.uid,
+            title: booking.title,
+            status: booking.status,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to decline booking" };
+        }
+      },
+    }),
+
+    get_calendar_links: tool({
+      description: "Get 'Add to Calendar' links (Google, Outlook, Yahoo, ICS) for a booking.",
+      inputSchema: z.object({
+        bookingUid: z.string().describe("The booking UID"),
+      }),
+      execute: async ({ bookingUid }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const links = await getCalendarLinks(linked.calcomApiKey, bookingUid);
+          return { links };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to get calendar links" };
+        }
+      },
+    }),
+
+    mark_no_show: tool({
+      description: "Mark a booking as a no-show (host absent).",
+      inputSchema: z.object({
+        bookingUid: z.string().describe("The booking UID to mark as no-show"),
+      }),
+      execute: async ({ bookingUid }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          await markNoShow(linked.calcomApiKey, bookingUid);
+          return { success: true, bookingUid };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to mark no-show" };
+        }
+      },
+    }),
+
+    update_profile: tool({
+      description:
+        "Update the user's Cal.com profile (name, email, timezone, time format, week start, etc.).",
+      inputSchema: z.object({
+        name: z.string().nullable().optional().describe("Display name"),
+        email: z.string().nullable().optional().describe("Email address"),
+        timeZone: z.string().nullable().optional().describe("Timezone (e.g. 'America/New_York')"),
+        timeFormat: z
+          .union([z.literal(12), z.literal(24)])
+          .nullable()
+          .optional()
+          .describe("Time format: 12 or 24"),
+        weekStart: z
+          .enum(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])
+          .nullable()
+          .optional()
+          .describe("First day of the week"),
+        locale: z.string().nullable().optional().describe("Language/locale code (e.g. 'en', 'es')"),
+        bio: z.string().nullable().optional().describe("User bio"),
+      }),
+      execute: async (input) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        const patch = Object.fromEntries(Object.entries(input).filter(([, v]) => v != null));
+        if (Object.keys(patch).length === 0) return { error: "No fields provided to update." };
+        try {
+          const me = await updateMe(linked.calcomApiKey, patch);
+          return { success: true, name: me.name, email: me.email, timeZone: me.timeZone };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to update profile" };
+        }
+      },
+    }),
+
+    check_busy_times: tool({
+      description: "Check the user's busy times from all connected calendars for a given period.",
+      inputSchema: z.object({
+        start: z.string().describe("Start of the range in ISO 8601 format"),
+        end: z.string().describe("End of the range in ISO 8601 format"),
+      }),
+      execute: async ({ start, end }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const busyTimes = await getBusyTimes(linked.calcomApiKey, { start, end });
+          return { busyTimes };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to get busy times" };
+        }
+      },
+    }),
+
+    list_schedules: tool({
+      description: "List all availability schedules for the user.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const schedules = await getSchedules(linked.calcomApiKey);
+          return {
+            schedules: schedules.map((s) => ({
+              id: s.id,
+              name: s.name,
+              timeZone: s.timeZone,
+              isDefault: s.isDefault,
+            })),
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to list schedules" };
+        }
+      },
+    }),
+
+    get_schedule: tool({
+      description:
+        "Get details of a specific availability schedule. Use scheduleId 'default' to get the default schedule.",
+      inputSchema: z.object({
+        scheduleId: z
+          .union([z.number(), z.literal("default")])
+          .describe("Schedule ID or 'default' for the default schedule"),
+      }),
+      execute: async ({ scheduleId }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const schedule =
+            scheduleId === "default"
+              ? await getDefaultSchedule(linked.calcomApiKey)
+              : await getSchedule(linked.calcomApiKey, scheduleId);
+          return {
+            id: schedule.id,
+            name: schedule.name,
+            timeZone: schedule.timeZone,
+            isDefault: schedule.isDefault,
+            availability: schedule.availability,
+            overrides: schedule.overrides,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to get schedule" };
+        }
+      },
+    }),
+
+    create_schedule: tool({
+      description: "Create a new availability schedule.",
+      inputSchema: z.object({
+        name: z.string().describe("Schedule name (e.g. 'Work Hours')"),
+        timeZone: z.string().describe("Timezone (e.g. 'America/New_York')"),
+        isDefault: z.boolean().describe("Whether this should be the default schedule"),
+      }),
+      execute: async ({ name, timeZone, isDefault }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const schedule = await createSchedule(linked.calcomApiKey, { name, timeZone, isDefault });
+          return {
+            success: true,
+            id: schedule.id,
+            name: schedule.name,
+            timeZone: schedule.timeZone,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to create schedule" };
+        }
+      },
+    }),
+
+    update_schedule: tool({
+      description: "Update an existing availability schedule.",
+      inputSchema: z.object({
+        scheduleId: z.number().describe("The schedule ID to update"),
+        name: z.string().nullable().optional().describe("New schedule name"),
+        timeZone: z.string().nullable().optional().describe("New timezone"),
+        isDefault: z.boolean().nullable().optional().describe("Set as default schedule"),
+      }),
+      execute: async ({ scheduleId, name, timeZone, isDefault }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        const patch = Object.fromEntries(
+          Object.entries({ name, timeZone, isDefault }).filter(([, v]) => v != null)
+        );
+        if (Object.keys(patch).length === 0) return { error: "No fields provided to update." };
+        try {
+          const schedule = await updateSchedule(linked.calcomApiKey, scheduleId, patch);
+          return {
+            success: true,
+            id: schedule.id,
+            name: schedule.name,
+            timeZone: schedule.timeZone,
+            isDefault: schedule.isDefault,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to update schedule" };
+        }
+      },
+    }),
+
+    delete_schedule: tool({
+      description: "Delete an availability schedule by ID.",
+      inputSchema: z.object({
+        scheduleId: z.number().describe("The schedule ID to delete"),
+      }),
+      execute: async ({ scheduleId }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          await deleteSchedule(linked.calcomApiKey, scheduleId);
+          return { success: true, scheduleId };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to delete schedule" };
+        }
+      },
+    }),
+
+    create_event_type: tool({
+      description: "Create a new event type (meeting type) on Cal.com.",
+      inputSchema: z.object({
+        title: z.string().describe("Event type title (e.g. '30 Minute Meeting')"),
+        slug: z.string().describe("URL slug (e.g. '30min')"),
+        lengthInMinutes: z.number().describe("Duration in minutes"),
+        description: z.string().nullable().optional().describe("Optional description"),
+        hidden: z.boolean().nullable().optional().describe("Whether to hide from booking page"),
+      }),
+      execute: async ({ title, slug, lengthInMinutes, description, hidden }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          const et = await createEventType(linked.calcomApiKey, {
+            title,
+            slug,
+            lengthInMinutes,
+            description: description ?? undefined,
+            hidden: hidden ?? undefined,
+          });
+          return { success: true, id: et.id, title: et.title, slug: et.slug, length: et.length };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to create event type" };
+        }
+      },
+    }),
+
+    update_event_type: tool({
+      description: "Update an existing event type.",
+      inputSchema: z.object({
+        eventTypeId: z.number().describe("The event type ID to update"),
+        title: z.string().nullable().optional().describe("New title"),
+        slug: z.string().nullable().optional().describe("New URL slug"),
+        lengthInMinutes: z.number().nullable().optional().describe("New duration in minutes"),
+        description: z.string().nullable().optional().describe("New description"),
+        hidden: z.boolean().nullable().optional().describe("Whether to hide from booking page"),
+      }),
+      execute: async ({ eventTypeId, title, slug, lengthInMinutes, description, hidden }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        const patch = Object.fromEntries(
+          Object.entries({ title, slug, lengthInMinutes, description, hidden }).filter(
+            ([, v]) => v != null
+          )
+        );
+        if (Object.keys(patch).length === 0) return { error: "No fields provided to update." };
+        try {
+          const et = await updateEventType(linked.calcomApiKey, eventTypeId, patch);
+          return { success: true, id: et.id, title: et.title, slug: et.slug };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to update event type" };
+        }
+      },
+    }),
+
+    delete_event_type: tool({
+      description: "Delete an event type by ID.",
+      inputSchema: z.object({
+        eventTypeId: z.number().describe("The event type ID to delete"),
+      }),
+      execute: async ({ eventTypeId }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return { error: "Account not linked." };
+        try {
+          await deleteEventType(linked.calcomApiKey, eventTypeId);
+          return { success: true, eventTypeId };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to delete event type" };
+        }
+      },
+    }),
+  };
+}
+
+export interface AgentStreamOptions {
+  teamId: string;
+  userId: string;
+  userMessage: string;
+  conversationHistory?: ModelMessage[];
+  lookupSlackUser?: LookupSlackUserFn;
+}
+
+export function runAgentStream({
+  teamId,
+  userId,
+  userMessage,
+  conversationHistory,
+  lookupSlackUser,
+}: AgentStreamOptions) {
+  const tools = createCalTools(teamId, userId, lookupSlackUser);
+
+  const messages: ModelMessage[] = [
+    ...(conversationHistory ?? []),
+    { role: "user" as const, content: userMessage },
+  ];
+
+  const MAX_STEPS = 5;
+
+  const result = streamText({
+    model: getModel(),
+    system: getSystemPrompt(),
+    messages,
+    tools,
+    toolChoice: "auto",
+    stopWhen: stepCountIs(MAX_STEPS),
+    prepareStep({ stepNumber }) {
+      if (stepNumber === MAX_STEPS - 1) {
+        return { toolChoice: "none" };
+      }
+      return {};
+    },
+    onError({ error }) {
+      console.error("[Cal Agent] Stream error:", error);
+    },
+    onStepFinish({ finishReason, toolCalls, text }) {
+      console.log("[Cal Agent] Step finished:", {
+        finishReason,
+        toolCalls: toolCalls?.map((tc) => tc.toolName),
+        textLength: text?.length ?? 0,
+      });
+    },
+  });
+
+  return result;
+}
