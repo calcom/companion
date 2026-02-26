@@ -10,7 +10,6 @@ import {
   rescheduleBooking,
   getMe,
   updateMe,
-  validateApiKey,
   getBooking,
   confirmBooking,
   declineBooking,
@@ -27,8 +26,7 @@ import {
   getCalendarLinks,
   markNoShow,
 } from "./calcom/client";
-import { getLinkedUser, linkUser, unlinkUser } from "./user-linking";
-import type { LinkedUser } from "./user-linking";
+import { getLinkedUser, getValidAccessToken, unlinkUser } from "./user-linking";
 
 export interface SlackUserProfile {
   id: string;
@@ -37,7 +35,6 @@ export interface SlackUserProfile {
   email?: string;
 }
 
-/** Callback provided by the bot layer to look up a Slack user's profile */
 export type LookupSlackUserFn = (userId: string) => Promise<SlackUserProfile | null>;
 
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
@@ -50,7 +47,7 @@ You are "Cal", the Cal.com Slack bot. Be concise, friendly, and action-oriented.
 Current date/time: ${new Date().toISOString()}
 
 ## Available Capabilities
-- *Account*: link_account, unlink_account, get_my_profile, update_profile
+- *Account*: check_account_linked, unlink_account, get_my_profile, update_profile
 - *Event Types*: list_event_types, create_event_type, update_event_type, delete_event_type
 - *Availability*: check_availability, check_busy_times
 - *Bookings*: book_meeting, list_bookings, get_booking, cancel_booking, reschedule_booking, confirm_booking, decline_booking, get_calendar_links, mark_no_show
@@ -85,12 +82,16 @@ YOU are always the HOST. The other person is the ATTENDEE — they do NOT need a
 4. Never call a tool with empty or placeholder arguments.
 
 ## Behavior
-- If the user is not linked, tell them to run \`/cal link YOUR_API_KEY\` and explain where to find their key.
+- If the user is not linked, tell them to use the "Continue with Cal.com" button or run \`/cal link\` to connect their account.
 - When showing availability, format times in the user's timezone if known.
 - For confirm/decline: use on bookings with status "pending" or "unconfirmed".
 - For schedules: when asked about working hours or availability windows, use schedule tools.
 - Keep responses under 200 words.
 - Never fabricate data. Only use data from tool results.`;
+}
+
+async function getAccessTokenOrNull(teamId: string, userId: string): Promise<string | null> {
+  return getValidAccessToken(teamId, userId);
 }
 
 function createCalTools(
@@ -117,7 +118,8 @@ function createCalTools(
         }
         return {
           status: "NOT_LINKED",
-          instruction: `Tell the user to link their account by running: /cal link YOUR_API_KEY — they can find their key at ${CALCOM_APP_URL}/settings/developer/api-keys. Do NOT call any other tools.`,
+          instruction:
+            "Tell the user to connect their Cal.com account by clicking the 'Continue with Cal.com' button or running /cal link. Do NOT call any other tools.",
         };
       },
     }),
@@ -158,42 +160,13 @@ function createCalTools(
       },
     }),
 
-    link_account: tool({
-      description: "Link the user's Cal.com account using their API key. Validates the key first.",
-      inputSchema: z.object({
-        apiKey: z.string().describe("The user's Cal.com API key"),
-      }),
-      execute: async ({ apiKey }) => {
-        const valid = await validateApiKey(apiKey);
-        if (!valid) {
-          return { success: false, error: "Invalid API key. Please check and try again." };
-        }
-        const me = await getMe(apiKey);
-        await linkUser(teamId, userId, {
-          calcomApiKey: apiKey,
-          calcomUserId: me.id,
-          calcomEmail: me.email,
-          calcomUsername: me.username,
-          calcomTimeZone: me.timeZone,
-          linkedAt: new Date().toISOString(),
-        });
-        return {
-          success: true,
-          name: me.name,
-          email: me.email,
-          username: me.username,
-          timeZone: me.timeZone,
-        };
-      },
-    }),
-
     unlink_account: tool({
       description: "Unlink the user's Cal.com account from Slack.",
       inputSchema: z.object({}),
       execute: async () => {
         const linked = await getLinkedUser(teamId, userId);
         if (!linked) {
-          return { success: false, error: "Account is not linked." };
+          return { success: false, error: "Account is not connected." };
         }
         await unlinkUser(teamId, userId);
         return { success: true };
@@ -204,10 +177,10 @@ function createCalTools(
       description: "Get the linked user's Cal.com profile information.",
       inputSchema: z.object({}),
       execute: async () => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          const me = await getMe(linked.calcomApiKey);
+          const me = await getMe(token);
           return { name: me.name, email: me.email, username: me.username, timeZone: me.timeZone };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to fetch profile" };
@@ -220,10 +193,10 @@ function createCalTools(
         "List YOUR Cal.com event types (the meeting types you offer as a host). Use this to pick which event type to book when someone wants to meet with you.",
       inputSchema: z.object({}),
       execute: async () => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Your account is not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          const types = await getEventTypes(linked.calcomApiKey);
+          const types = await getEventTypes(token);
           return {
             eventTypes: types.map((et) => ({
               id: et.id,
@@ -258,13 +231,14 @@ function createCalTools(
           .describe("ISO 8601 date to start from (defaults to now). Use this when the user specifies a date."),
       }),
       execute: async ({ eventTypeId, daysAhead, startDate }) => {
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
-        const tz = linked.calcomTimeZone;
+        const tz = linked?.calcomTimeZone ?? "UTC";
         try {
           const from = startDate ? new Date(startDate) : new Date();
           const end = new Date(from.getTime() + (daysAhead ?? 7) * 24 * 60 * 60 * 1000);
-          const slotsMap = await getAvailableSlots(linked.calcomApiKey, {
+          const slotsMap = await getAvailableSlots(token, {
             eventTypeId,
             start: from.toISOString(),
             end: end.toISOString(),
@@ -317,17 +291,18 @@ function createCalTools(
         notes: z.string().nullable().optional().describe("Optional notes for the booking"),
       }),
       execute: async ({ eventTypeId, startTime, attendeeName, attendeeEmail, attendeeTimeZone, notes }) => {
-        const host = await getLinkedUser(teamId, userId);
-        if (!host) return { error: "Your account is not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
+        const linked = await getLinkedUser(teamId, userId);
 
         try {
-          const booking = await createBooking(host.calcomApiKey, {
+          const booking = await createBooking(token, {
             eventTypeId,
             start: startTime,
             attendee: {
               name: attendeeName,
               email: attendeeEmail,
-              timeZone: attendeeTimeZone ?? host.calcomTimeZone,
+              timeZone: attendeeTimeZone ?? linked?.calcomTimeZone ?? "UTC",
             },
             notes: notes ?? undefined,
           });
@@ -366,10 +341,10 @@ function createCalTools(
           .describe("Max bookings to return. Default: 5."),
       }),
       execute: async ({ status, take }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          const bookings = await getBookings(linked.calcomApiKey, {
+          const bookings = await getBookings(token, {
             status: status ?? "upcoming",
             take: take ?? 5,
           });
@@ -398,10 +373,10 @@ function createCalTools(
         bookingUid: z.string().describe("The booking UID"),
       }),
       execute: async ({ bookingUid }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          const b = await getBooking(linked.calcomApiKey, bookingUid);
+          const b = await getBooking(token, bookingUid);
           return {
             uid: b.uid,
             title: b.title,
@@ -425,10 +400,10 @@ function createCalTools(
         reason: z.string().nullable().optional().describe("Cancellation reason"),
       }),
       execute: async ({ bookingUid, reason }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          await cancelBooking(linked.calcomApiKey, bookingUid, reason ?? undefined);
+          await cancelBooking(token, bookingUid, reason ?? undefined);
           return { success: true, bookingUid };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to cancel booking" };
@@ -444,11 +419,11 @@ function createCalTools(
         reason: z.string().nullable().optional().describe("Reason for rescheduling"),
       }),
       execute: async ({ bookingUid, newStartTime, reason }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
           const booking = await rescheduleBooking(
-            linked.calcomApiKey,
+            token,
             bookingUid,
             newStartTime,
             reason ?? undefined
@@ -472,10 +447,10 @@ function createCalTools(
         bookingUid: z.string().describe("The booking UID to confirm"),
       }),
       execute: async ({ bookingUid }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          const booking = await confirmBooking(linked.calcomApiKey, bookingUid);
+          const booking = await confirmBooking(token, bookingUid);
           return {
             success: true,
             bookingUid: booking.uid,
@@ -495,11 +470,11 @@ function createCalTools(
         reason: z.string().nullable().optional().describe("Reason for declining"),
       }),
       execute: async ({ bookingUid, reason }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
           const booking = await declineBooking(
-            linked.calcomApiKey,
+            token,
             bookingUid,
             reason ?? undefined
           );
@@ -521,10 +496,10 @@ function createCalTools(
         bookingUid: z.string().describe("The booking UID"),
       }),
       execute: async ({ bookingUid }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          const links = await getCalendarLinks(linked.calcomApiKey, bookingUid);
+          const links = await getCalendarLinks(token, bookingUid);
           return { links };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to get calendar links" };
@@ -538,10 +513,10 @@ function createCalTools(
         bookingUid: z.string().describe("The booking UID to mark as no-show"),
       }),
       execute: async ({ bookingUid }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          await markNoShow(linked.calcomApiKey, bookingUid);
+          await markNoShow(token, bookingUid);
           return { success: true, bookingUid };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to mark no-show" };
@@ -570,12 +545,12 @@ function createCalTools(
         bio: z.string().nullable().optional().describe("User bio"),
       }),
       execute: async (input) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         const patch = Object.fromEntries(Object.entries(input).filter(([, v]) => v != null));
         if (Object.keys(patch).length === 0) return { error: "No fields provided to update." };
         try {
-          const me = await updateMe(linked.calcomApiKey, patch);
+          const me = await updateMe(token, patch);
           return { success: true, name: me.name, email: me.email, timeZone: me.timeZone };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to update profile" };
@@ -590,10 +565,10 @@ function createCalTools(
         end: z.string().describe("End of the range in ISO 8601 format"),
       }),
       execute: async ({ start, end }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          const busyTimes = await getBusyTimes(linked.calcomApiKey, { start, end });
+          const busyTimes = await getBusyTimes(token, { start, end });
           return { busyTimes };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to get busy times" };
@@ -605,10 +580,10 @@ function createCalTools(
       description: "List all availability schedules for the user.",
       inputSchema: z.object({}),
       execute: async () => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          const schedules = await getSchedules(linked.calcomApiKey);
+          const schedules = await getSchedules(token);
           return {
             schedules: schedules.map((s) => ({
               id: s.id,
@@ -632,13 +607,13 @@ function createCalTools(
           .describe("Schedule ID or 'default' for the default schedule"),
       }),
       execute: async ({ scheduleId }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
           const schedule =
             scheduleId === "default"
-              ? await getDefaultSchedule(linked.calcomApiKey)
-              : await getSchedule(linked.calcomApiKey, scheduleId);
+              ? await getDefaultSchedule(token)
+              : await getSchedule(token, scheduleId);
           return {
             id: schedule.id,
             name: schedule.name,
@@ -661,10 +636,10 @@ function createCalTools(
         isDefault: z.boolean().describe("Whether this should be the default schedule"),
       }),
       execute: async ({ name, timeZone, isDefault }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          const schedule = await createSchedule(linked.calcomApiKey, { name, timeZone, isDefault });
+          const schedule = await createSchedule(token, { name, timeZone, isDefault });
           return {
             success: true,
             id: schedule.id,
@@ -686,14 +661,14 @@ function createCalTools(
         isDefault: z.boolean().nullable().optional().describe("Set as default schedule"),
       }),
       execute: async ({ scheduleId, name, timeZone, isDefault }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         const patch = Object.fromEntries(
           Object.entries({ name, timeZone, isDefault }).filter(([, v]) => v != null)
         );
         if (Object.keys(patch).length === 0) return { error: "No fields provided to update." };
         try {
-          const schedule = await updateSchedule(linked.calcomApiKey, scheduleId, patch);
+          const schedule = await updateSchedule(token, scheduleId, patch);
           return {
             success: true,
             id: schedule.id,
@@ -713,10 +688,10 @@ function createCalTools(
         scheduleId: z.number().describe("The schedule ID to delete"),
       }),
       execute: async ({ scheduleId }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          await deleteSchedule(linked.calcomApiKey, scheduleId);
+          await deleteSchedule(token, scheduleId);
           return { success: true, scheduleId };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to delete schedule" };
@@ -734,10 +709,10 @@ function createCalTools(
         hidden: z.boolean().nullable().optional().describe("Whether to hide from booking page"),
       }),
       execute: async ({ title, slug, lengthInMinutes, description, hidden }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          const et = await createEventType(linked.calcomApiKey, {
+          const et = await createEventType(token, {
             title,
             slug,
             lengthInMinutes,
@@ -762,8 +737,8 @@ function createCalTools(
         hidden: z.boolean().nullable().optional().describe("Whether to hide from booking page"),
       }),
       execute: async ({ eventTypeId, title, slug, lengthInMinutes, description, hidden }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         const patch = Object.fromEntries(
           Object.entries({ title, slug, lengthInMinutes, description, hidden }).filter(
             ([, v]) => v != null
@@ -771,7 +746,7 @@ function createCalTools(
         );
         if (Object.keys(patch).length === 0) return { error: "No fields provided to update." };
         try {
-          const et = await updateEventType(linked.calcomApiKey, eventTypeId, patch);
+          const et = await updateEventType(token, eventTypeId, patch);
           return { success: true, id: et.id, title: et.title, slug: et.slug };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to update event type" };
@@ -785,10 +760,10 @@ function createCalTools(
         eventTypeId: z.number().describe("The event type ID to delete"),
       }),
       execute: async ({ eventTypeId }) => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) return { error: "Account not linked." };
+        const token = await getAccessTokenOrNull(teamId, userId);
+        if (!token) return { error: "Account not connected." };
         try {
-          await deleteEventType(linked.calcomApiKey, eventTypeId);
+          await deleteEventType(token, eventTypeId);
           return { success: true, eventTypeId };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to delete event type" };

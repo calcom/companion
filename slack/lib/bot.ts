@@ -7,7 +7,7 @@ import {
   clearBookingFlow,
   getBookingFlow,
   getLinkedUser,
-  linkUser,
+  getValidAccessToken,
   setBookingFlow,
   unlinkUser,
 } from "./user-linking";
@@ -16,8 +16,6 @@ import {
   getAvailableSlots,
   getBookings,
   getEventTypes,
-  getMe,
-  validateApiKey,
 } from "./calcom/client";
 import {
   availabilityCard,
@@ -29,6 +27,7 @@ import {
 import { formatBookingTime } from "./calcom/webhooks";
 import { runAgentStream } from "./agent";
 import type { LookupSlackUserFn } from "./agent";
+import { generateAuthUrl } from "./calcom/oauth";
 
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
 
@@ -148,6 +147,23 @@ async function buildHistory(thread: {
   }
 }
 
+// ─── Helper: post OAuth link prompt ─────────────────────────────────────────
+
+function oauthLinkMessage(teamId: string, slackUserId: string) {
+  const authUrl = generateAuthUrl(teamId, slackUserId);
+  return Card({
+    title: "Connect Your Cal.com Account",
+    children: [
+      Actions([
+        LinkButton({
+          url: authUrl,
+          label: "Continue with Cal.com",
+        }),
+      ]),
+    ],
+  });
+}
+
 // ─── Agentic mention handler ────────────────────────────────────────────────
 
 bot.onNewMention(async (thread, message) => {
@@ -155,6 +171,12 @@ bot.onNewMention(async (thread, message) => {
   const userId = message.author.userId;
 
   console.log("[Cal Bot] New mention:", { teamId, userId, text: message.text });
+
+  const linked = await getLinkedUser(teamId, userId);
+  if (!linked) {
+    await thread.post(oauthLinkMessage(teamId, userId));
+    return;
+  }
 
   await thread.subscribe();
 
@@ -203,6 +225,7 @@ bot.onAppHomeOpened(async (event) => {
   const linked = await getLinkedUser(teamId, userId);
 
   if (!linked) {
+    const authUrl = generateAuthUrl(teamId, userId);
     await slack.publishHomeView(userId, {
       type: "home",
       blocks: [
@@ -210,11 +233,19 @@ bot.onAppHomeOpened(async (event) => {
           type: "section",
           text: {
             type: "mrkdwn",
-            text:
-              "*Welcome to Cal.com!* :calendar:\n\nLink your Cal.com account to get started.\nRun `/cal link YOUR_API_KEY` or just @mention me with your API key.\n\nFind your key at <" +
-              CALCOM_APP_URL +
-              "/settings/developer/api-keys|Cal.com Settings>.",
+            text: "*Welcome to Cal.com!* :calendar:\n\nConnect your Cal.com account to get started.",
           },
+        },
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: { type: "plain_text", text: "Continue with Cal.com" },
+              url: authUrl,
+              style: "primary",
+            },
+          ],
         },
       ],
     });
@@ -222,7 +253,36 @@ bot.onAppHomeOpened(async (event) => {
   }
 
   try {
-    const bookings = await getBookings(linked.calcomApiKey, {
+    const accessToken = await getValidAccessToken(teamId, userId);
+    if (!accessToken) {
+      const authUrl = generateAuthUrl(teamId, userId);
+      await slack.publishHomeView(userId, {
+        type: "home",
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: "Your Cal.com session has expired. Please reconnect your account.",
+            },
+          },
+          {
+            type: "actions",
+            elements: [
+              {
+                type: "button",
+                text: { type: "plain_text", text: "Reconnect Cal.com" },
+                url: authUrl,
+                style: "primary",
+              },
+            ],
+          },
+        ],
+      });
+      return;
+    }
+
+    const bookings = await getBookings(accessToken, {
       status: "upcoming",
       take: 5,
     });
@@ -297,6 +357,7 @@ bot.onAppHomeOpened(async (event) => {
       ],
     });
   } catch {
+    const authUrl = generateAuthUrl(teamId, userId);
     await slack.publishHomeView(userId, {
       type: "home",
       blocks: [
@@ -304,8 +365,19 @@ bot.onAppHomeOpened(async (event) => {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "Could not load your bookings. Your API key may be invalid — try `/cal link NEW_API_KEY`.",
+            text: "Could not load your bookings. Your session may have expired — please reconnect.",
           },
+        },
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: { type: "plain_text", text: "Reconnect Cal.com" },
+              url: authUrl,
+              style: "primary",
+            },
+          ],
         },
       ],
     });
@@ -348,7 +420,7 @@ bot.onSlashCommand("/cal", async (event) => {
 
   switch (subcommand) {
     case "link":
-      await handleLink(event, args, teamId, userId);
+      await handleLink(event, teamId, userId);
       break;
     case "unlink":
       await handleUnlink(event, teamId, userId);
@@ -377,51 +449,20 @@ bot.onSlashCommand("/cal", async (event) => {
 
 // ─── /cal link ───────────────────────────────────────────────────────────────
 
-async function handleLink(
-  event: SlashCommandEvent,
-  args: string[],
-  teamId: string,
-  userId: string
-) {
-  const apiKey = args[1];
-  if (!apiKey) {
+async function handleLink(event: SlashCommandEvent, teamId: string, userId: string) {
+  const existing = await getLinkedUser(teamId, userId);
+  if (existing) {
     await event.channel.postEphemeral(
       event.user,
-      `Usage: \`/cal link YOUR_API_KEY\`\n\nFind your API key at ${CALCOM_APP_URL}/settings/developer/api-keys`,
+      `Your Cal.com account (*${existing.calcomUsername}* · ${existing.calcomEmail}) is already connected. Use \`/cal unlink\` first to disconnect.`,
       { fallbackToDM: true }
     );
     return;
   }
 
-  await event.channel.postEphemeral(event.user, "Validating your API key...", {
+  await event.channel.postEphemeral(event.user, oauthLinkMessage(teamId, userId), {
     fallbackToDM: true,
   });
-
-  const valid = await validateApiKey(apiKey);
-  if (!valid) {
-    await event.channel.postEphemeral(
-      event.user,
-      "That API key doesn't seem to be valid. Please check it and try again.",
-      { fallbackToDM: true }
-    );
-    return;
-  }
-
-  const me = await getMe(apiKey);
-  await linkUser(teamId, userId, {
-    calcomApiKey: apiKey,
-    calcomUserId: me.id,
-    calcomEmail: me.email,
-    calcomUsername: me.username,
-    calcomTimeZone: me.timeZone,
-    linkedAt: new Date().toISOString(),
-  });
-
-  await event.channel.postEphemeral(
-    event.user,
-    `Your Cal.com account (*${me.name}* · ${me.email}) has been linked successfully! You can now @mention me or use \`/cal\` followed by any request.`,
-    { fallbackToDM: true }
-  );
 }
 
 // ─── /cal unlink ─────────────────────────────────────────────────────────────
@@ -429,15 +470,17 @@ async function handleLink(
 async function handleUnlink(event: SlashCommandEvent, teamId: string, userId: string) {
   const linked = await getLinkedUser(teamId, userId);
   if (!linked) {
-    await event.channel.postEphemeral(event.user, "Your Cal.com account is not linked.", {
+    await event.channel.postEphemeral(event.user, "Your Cal.com account is not connected.", {
       fallbackToDM: true,
     });
     return;
   }
   await unlinkUser(teamId, userId);
-  await event.channel.postEphemeral(event.user, "Your Cal.com account has been unlinked.", {
-    fallbackToDM: true,
-  });
+  await event.channel.postEphemeral(
+    event.user,
+    `Your Cal.com account (*${linked.calcomUsername}*) has been disconnected.`,
+    { fallbackToDM: true }
+  );
 }
 
 // ─── Modal submit: book_event_type ──────────────────────────────────────────
@@ -452,17 +495,20 @@ bot.onModalSubmit("book_event_type", async (event): Promise<undefined> => {
   const userId = event.user.userId;
   const eventTypeId = Number(event.values.event_type);
 
-  const linked = await getLinkedUser(teamId, userId);
-  if (!linked) {
+  const accessToken = await getValidAccessToken(teamId, userId);
+  if (!accessToken) {
     if (event.relatedChannel) {
       await event.relatedChannel.postEphemeral(
         event.user,
-        "Your Cal.com account is not linked. Run `/cal link YOUR_API_KEY` first.",
+        oauthLinkMessage(teamId, userId),
         { fallbackToDM: true }
       );
     }
     return;
   }
+
+  const linked = await getLinkedUser(teamId, userId);
+  if (!linked) return;
 
   const lookupTarget = makeLookupSlackUser(teamId);
   const targetProfile = await lookupTarget(targetSlackId);
@@ -483,7 +529,7 @@ bot.onModalSubmit("book_event_type", async (event): Promise<undefined> => {
   try {
     const now = new Date();
     const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const slotsMap = await getAvailableSlots(linked.calcomApiKey, {
+    const slotsMap = await getAvailableSlots(accessToken, {
       eventTypeId,
       start: now.toISOString(),
       end: weekLater.toISOString(),
@@ -508,7 +554,7 @@ bot.onModalSubmit("book_event_type", async (event): Promise<undefined> => {
       }));
 
     const eventTypeTitle =
-      (await getEventTypes(linked.calcomApiKey).catch(() => [])).find(
+      (await getEventTypes(accessToken).catch(() => [])).find(
         (et) => et.id === eventTypeId
       )?.title ?? `Meeting`;
 
@@ -543,12 +589,12 @@ bot.onAction("select_slot", async (event) => {
   const userId = event.user.userId;
   const selectedTime = event.value ?? "";
 
-  const [linked, flow] = await Promise.all([
-    getLinkedUser(teamId, userId),
+  const [accessToken, flow] = await Promise.all([
+    getValidAccessToken(teamId, userId),
     getBookingFlow(teamId, userId),
   ]);
 
-  if (!linked || !flow) {
+  if (!accessToken || !flow) {
     await event.thread.post("Booking session expired. Please start again by @mentioning me.");
     return;
   }
@@ -572,12 +618,13 @@ bot.onAction("confirm_booking", async (event) => {
   const teamId = extractTeamId(event.raw);
   const userId = event.user.userId;
 
-  const [linked, flow] = await Promise.all([
-    getLinkedUser(teamId, userId),
+  const [accessToken, flow, linked] = await Promise.all([
+    getValidAccessToken(teamId, userId),
     getBookingFlow(teamId, userId),
+    getLinkedUser(teamId, userId),
   ]);
 
-  if (!linked || !flow || !flow.selectedSlot || !flow.targetEmail) {
+  if (!accessToken || !flow || !flow.selectedSlot || !flow.targetEmail || !linked) {
     await event.thread.post("Booking session expired. Please start again by @mentioning me.");
     return;
   }
@@ -585,7 +632,7 @@ bot.onAction("confirm_booking", async (event) => {
   const sent = await event.thread.post("Creating your booking...");
 
   try {
-    const booking = await createBooking(linked.calcomApiKey, {
+    const booking = await createBooking(accessToken, {
       eventTypeId: flow.eventTypeId,
       start: flow.selectedSlot,
       attendee: {

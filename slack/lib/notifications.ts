@@ -215,11 +215,10 @@ export function bookingConfirmationCard(
 
 export function linkAccountCard() {
   return Card({
-    title: "Link Your Cal.com Account",
+    title: "Connect Your Cal.com Account",
     children: [
       CardText(
-        "To use Cal.com in Slack, run /cal link YOUR_API_KEY to get started. " +
-          `Find your API key at ${CALCOM_APP_URL}/settings/developer/api-keys`
+        "To use Cal.com in Slack, run `/cal link` to connect your account with Cal.com."
       ),
     ],
   });
@@ -237,8 +236,8 @@ export function helpCard() {
         }),
         Field({ label: "/cal book @user", value: "Book a meeting with someone" }),
         Field({ label: "/cal my-bookings", value: "View your upcoming bookings" }),
-        Field({ label: "/cal link <api-key>", value: "Link your Cal.com account" }),
-        Field({ label: "/cal unlink", value: "Unlink your Cal.com account" }),
+        Field({ label: "/cal link", value: "Connect your Cal.com account" }),
+        Field({ label: "/cal unlink", value: "Disconnect your Cal.com account" }),
         Field({ label: "/cal help", value: "Show this help message" }),
       ]),
       Divider(),

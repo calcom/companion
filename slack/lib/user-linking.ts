@@ -1,7 +1,9 @@
 import { createClient } from "redis";
 
 export interface LinkedUser {
-  calcomApiKey: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiresAt: number; // Unix timestamp in ms
   calcomUserId: number;
   calcomEmail: string;
   calcomUsername: string;
@@ -31,7 +33,7 @@ export async function linkUser(
 ): Promise<void> {
   const client = getRedisClient();
   await client.set(userKey(teamId, slackUserId), JSON.stringify(data), {
-    EX: 60 * 60 * 24 * 365, // 1 year TTL
+    EX: 60 * 60 * 24 * 365,
   });
 }
 
@@ -59,7 +61,59 @@ export async function isUserLinked(teamId: string, slackUserId: string): Promise
   return user !== null;
 }
 
-// Store a pending booking flow state (e.g., awaiting slot selection)
+const TOKEN_REFRESH_BUFFER_MS = 2 * 60 * 1000; // refresh 2 min before expiry
+const REFRESH_LOCK_TTL = 10; // seconds
+
+/**
+ * Returns a valid access token for the user, auto-refreshing if expired.
+ * Uses a Redis lock to prevent concurrent refresh races across serverless invocations.
+ */
+export async function getValidAccessToken(
+  teamId: string,
+  slackUserId: string
+): Promise<string | null> {
+  const linked = await getLinkedUser(teamId, slackUserId);
+  if (!linked) return null;
+
+  if (Date.now() < linked.tokenExpiresAt - TOKEN_REFRESH_BUFFER_MS) {
+    return linked.accessToken;
+  }
+
+  const client = getRedisClient();
+  const lockKey = `calcom:refresh_lock:${teamId}:${slackUserId}`;
+
+  const acquired = await client.set(lockKey, "1", { NX: true, EX: REFRESH_LOCK_TTL });
+
+  if (!acquired) {
+    // Another process is refreshing — wait briefly and read the updated token
+    await new Promise((r) => setTimeout(r, 2000));
+    const updated = await getLinkedUser(teamId, slackUserId);
+    return updated?.accessToken ?? null;
+  }
+
+  try {
+    const { refreshAccessToken } = await import("./calcom/oauth");
+    const tokens = await refreshAccessToken(linked.refreshToken);
+
+    const updatedUser: LinkedUser = {
+      ...linked,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      tokenExpiresAt: Date.now() + tokens.expires_in * 1000,
+    };
+    await linkUser(teamId, slackUserId, updatedUser);
+
+    return tokens.access_token;
+  } catch (err) {
+    console.error("[OAuth] Token refresh failed:", err);
+    return null;
+  } finally {
+    await client.del(lockKey);
+  }
+}
+
+// ─── Booking flow state (unchanged) ─────────────────────────────────────────
+
 export interface BookingFlowState {
   eventTypeId: number;
   eventTypeTitle: string;
@@ -78,7 +132,7 @@ export async function setBookingFlow(
 ): Promise<void> {
   const client = getRedisClient();
   const key = `calcom:booking_flow:${teamId}:${slackUserId}`;
-  await client.set(key, JSON.stringify(state), { EX: 60 * 30 }); // 30 min TTL
+  await client.set(key, JSON.stringify(state), { EX: 60 * 30 });
 }
 
 export async function getBookingFlow(
@@ -101,7 +155,8 @@ export async function clearBookingFlow(teamId: string, slackUserId: string): Pro
   await client.del(`calcom:booking_flow:${teamId}:${slackUserId}`);
 }
 
-// Store the Slack notification channel preference per workspace
+// ─── Workspace notification config (unchanged) ──────────────────────────────
+
 export interface WorkspaceNotificationConfig {
   defaultChannelId?: string;
   notifyOnBookingCreated: boolean;

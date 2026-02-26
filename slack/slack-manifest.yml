@@ -18,14 +18,14 @@ features:
     always_online: true
   slash_commands:
     - command: /cal
-      url: https://energy-continue-susan-saints.trycloudflare.com/api/webhooks/slack
+      url: https://bolt-african-pan-payments.trycloudflare.com/api/webhooks/slack
       description: Manage your Cal.com bookings and availability
       usage_hint: "[availability | book | my-bookings | link | help] [options]"
       should_escape: false
 
 oauth_config:
   redirect_urls:
-    - https://energy-continue-susan-saints.trycloudflare.com/api/auth/slack/callback
+    - https://bolt-african-pan-payments.trycloudflare.com/api/auth/slack/callback
   scopes:
     bot:
       - app_mentions:read
@@ -49,7 +49,7 @@ oauth_config:
 
 settings:
   event_subscriptions:
-    request_url: https://energy-continue-susan-saints.trycloudflare.com/api/webhooks/slack
+    request_url: https://bolt-african-pan-payments.trycloudflare.com/api/webhooks/slack
     bot_events:
       - app_home_opened
       - app_mention
@@ -59,7 +59,7 @@ settings:
       - message.mpim
   interactivity:
     is_enabled: true
-    request_url: https://energy-continue-susan-saints.trycloudflare.com/api/webhooks/slack
+    request_url: https://bolt-african-pan-payments.trycloudflare.com/api/webhooks/slack
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false

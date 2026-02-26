@@ -31,7 +31,7 @@ export class CalcomApiError extends Error {
 
 async function calcomFetch<T>(
   path: string,
-  apiKey: string,
+  accessToken: string,
   options: RequestInit = {},
   apiVersion: string = API_VERSION
 ): Promise<T> {
@@ -40,7 +40,7 @@ async function calcomFetch<T>(
     ...options,
     headers: {
       "cal-api-version": apiVersion,
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       ...options.headers,
     },
@@ -68,28 +68,28 @@ async function calcomFetch<T>(
   return json.data;
 }
 
-export async function getEventTypes(apiKey: string): Promise<CalcomEventType[]> {
-  const raw = await calcomFetch<CalcomEventType[]>("/v2/event-types", apiKey, {}, "2024-06-14");
+export async function getEventTypes(accessToken: string): Promise<CalcomEventType[]> {
+  const raw = await calcomFetch<CalcomEventType[]>("/v2/event-types", accessToken, {}, "2024-06-14");
   return (raw ?? []).map((et) => ({
     ...et,
     length: et.length ?? et.lengthInMinutes ?? 0,
   }));
 }
 
-export async function getEventType(apiKey: string, eventTypeId: number): Promise<CalcomEventType> {
-  return calcomFetch<CalcomEventType>(`/v2/event-types/${eventTypeId}`, apiKey, {}, "2024-06-14");
+export async function getEventType(accessToken: string, eventTypeId: number): Promise<CalcomEventType> {
+  return calcomFetch<CalcomEventType>(`/v2/event-types/${eventTypeId}`, accessToken, {}, "2024-06-14");
 }
 
 export interface GetSlotsParams {
   eventTypeId: number;
-  start: string; // ISO 8601
-  end: string; // ISO 8601
+  start: string;
+  end: string;
   timeZone?: string;
   duration?: number;
 }
 
 export async function getAvailableSlots(
-  apiKey: string,
+  accessToken: string,
   params: GetSlotsParams
 ): Promise<Record<string, CalcomSlot[]>> {
   const query = new URLSearchParams({
@@ -99,7 +99,7 @@ export async function getAvailableSlots(
     ...(params.timeZone ? { timeZone: params.timeZone } : {}),
     ...(params.duration ? { duration: String(params.duration) } : {}),
   });
-  const data = await calcomFetch<SlotsResponse>(`/v2/slots?${query}`, apiKey);
+  const data = await calcomFetch<SlotsResponse>(`/v2/slots?${query}`, accessToken);
   return data.slots;
 }
 
@@ -110,7 +110,7 @@ export interface GetBookingsParams {
 }
 
 export async function getBookings(
-  apiKey: string,
+  accessToken: string,
   params: GetBookingsParams = {}
 ): Promise<CalcomBooking[]> {
   const query = new URLSearchParams();
@@ -118,53 +118,44 @@ export async function getBookings(
   if (params.take) query.set("take", String(params.take));
   if (params.skip) query.set("skip", String(params.skip));
   const qs = query.toString() ? `?${query}` : "";
-  return calcomFetch<CalcomBooking[]>(`/v2/bookings${qs}`, apiKey);
+  return calcomFetch<CalcomBooking[]>(`/v2/bookings${qs}`, accessToken);
 }
 
-export async function getBooking(apiKey: string, bookingUid: string): Promise<CalcomBooking> {
-  return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}`, apiKey);
+export async function getBooking(accessToken: string, bookingUid: string): Promise<CalcomBooking> {
+  return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}`, accessToken);
 }
 
 export async function createBooking(
-  apiKey: string,
+  accessToken: string,
   input: CreateBookingInput
 ): Promise<CalcomBooking> {
-  return calcomFetch<CalcomBooking>("/v2/bookings", apiKey, {
+  return calcomFetch<CalcomBooking>("/v2/bookings", accessToken, {
     method: "POST",
     body: JSON.stringify(input),
   });
 }
 
 export async function cancelBooking(
-  apiKey: string,
+  accessToken: string,
   bookingUid: string,
   reason?: string
 ): Promise<void> {
-  await calcomFetch<void>(`/v2/bookings/${bookingUid}/cancel`, apiKey, {
+  await calcomFetch<void>(`/v2/bookings/${bookingUid}/cancel`, accessToken, {
     method: "POST",
     body: JSON.stringify({ cancellationReason: reason }),
   });
 }
 
 export async function rescheduleBooking(
-  apiKey: string,
+  accessToken: string,
   bookingUid: string,
   newStart: string,
   reason?: string
 ): Promise<CalcomBooking> {
-  return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/reschedule`, apiKey, {
+  return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/reschedule`, accessToken, {
     method: "POST",
     body: JSON.stringify({ start: newStart, reschedulingReason: reason }),
   });
-}
-
-export async function validateApiKey(apiKey: string): Promise<boolean> {
-  try {
-    await calcomFetch<unknown>("/v2/me", apiKey);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export interface CalcomMe {
@@ -175,12 +166,12 @@ export interface CalcomMe {
   timeZone: string;
 }
 
-export async function getMe(apiKey: string): Promise<CalcomMe> {
-  return calcomFetch<CalcomMe>("/v2/me", apiKey);
+export async function getMe(accessToken: string): Promise<CalcomMe> {
+  return calcomFetch<CalcomMe>("/v2/me", accessToken);
 }
 
-export async function updateMe(apiKey: string, input: UpdateMeInput): Promise<CalcomMe> {
-  return calcomFetch<CalcomMe>("/v2/me", apiKey, {
+export async function updateMe(accessToken: string, input: UpdateMeInput): Promise<CalcomMe> {
+  return calcomFetch<CalcomMe>("/v2/me", accessToken, {
     method: "PATCH",
     body: JSON.stringify(input),
   });
@@ -190,25 +181,25 @@ export async function updateMe(apiKey: string, input: UpdateMeInput): Promise<Ca
 
 const SCHEDULES_VERSION = "2024-06-11";
 
-export async function getSchedules(apiKey: string): Promise<CalcomSchedule[]> {
-  return calcomFetch<CalcomSchedule[]>("/v2/schedules", apiKey, {}, SCHEDULES_VERSION);
+export async function getSchedules(accessToken: string): Promise<CalcomSchedule[]> {
+  return calcomFetch<CalcomSchedule[]>("/v2/schedules", accessToken, {}, SCHEDULES_VERSION);
 }
 
-export async function getDefaultSchedule(apiKey: string): Promise<CalcomSchedule> {
-  return calcomFetch<CalcomSchedule>("/v2/schedules/default", apiKey, {}, SCHEDULES_VERSION);
+export async function getDefaultSchedule(accessToken: string): Promise<CalcomSchedule> {
+  return calcomFetch<CalcomSchedule>("/v2/schedules/default", accessToken, {}, SCHEDULES_VERSION);
 }
 
-export async function getSchedule(apiKey: string, scheduleId: number): Promise<CalcomSchedule> {
-  return calcomFetch<CalcomSchedule>(`/v2/schedules/${scheduleId}`, apiKey, {}, SCHEDULES_VERSION);
+export async function getSchedule(accessToken: string, scheduleId: number): Promise<CalcomSchedule> {
+  return calcomFetch<CalcomSchedule>(`/v2/schedules/${scheduleId}`, accessToken, {}, SCHEDULES_VERSION);
 }
 
 export async function createSchedule(
-  apiKey: string,
+  accessToken: string,
   input: CreateScheduleInput
 ): Promise<CalcomSchedule> {
   return calcomFetch<CalcomSchedule>(
     "/v2/schedules",
-    apiKey,
+    accessToken,
     {
       method: "POST",
       body: JSON.stringify(input),
@@ -218,13 +209,13 @@ export async function createSchedule(
 }
 
 export async function updateSchedule(
-  apiKey: string,
+  accessToken: string,
   scheduleId: number,
   input: UpdateScheduleInput
 ): Promise<CalcomSchedule> {
   return calcomFetch<CalcomSchedule>(
     `/v2/schedules/${scheduleId}`,
-    apiKey,
+    accessToken,
     {
       method: "PATCH",
       body: JSON.stringify(input),
@@ -233,10 +224,10 @@ export async function updateSchedule(
   );
 }
 
-export async function deleteSchedule(apiKey: string, scheduleId: number): Promise<void> {
+export async function deleteSchedule(accessToken: string, scheduleId: number): Promise<void> {
   await calcomFetch<void>(
     `/v2/schedules/${scheduleId}`,
-    apiKey,
+    accessToken,
     {
       method: "DELETE",
     },
@@ -246,18 +237,18 @@ export async function deleteSchedule(apiKey: string, scheduleId: number): Promis
 
 // ─── Booking confirm / decline ────────────────────────────────────────────────
 
-export async function confirmBooking(apiKey: string, bookingUid: string): Promise<CalcomBooking> {
-  return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/confirm`, apiKey, {
+export async function confirmBooking(accessToken: string, bookingUid: string): Promise<CalcomBooking> {
+  return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/confirm`, accessToken, {
     method: "POST",
   });
 }
 
 export async function declineBooking(
-  apiKey: string,
+  accessToken: string,
   bookingUid: string,
   reason?: string
 ): Promise<CalcomBooking> {
-  return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/decline`, apiKey, {
+  return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/decline`, accessToken, {
     method: "POST",
     body: JSON.stringify({ reason }),
   });
@@ -271,22 +262,22 @@ export interface GetBusyTimesParams {
 }
 
 export async function getBusyTimes(
-  apiKey: string,
+  accessToken: string,
   params: GetBusyTimesParams
 ): Promise<BusyTime[]> {
   const query = new URLSearchParams({ start: params.start, end: params.end });
-  return calcomFetch<BusyTime[]>(`/v2/calendars/busy-times?${query}`, apiKey);
+  return calcomFetch<BusyTime[]>(`/v2/calendars/busy-times?${query}`, accessToken);
 }
 
 // ─── Event type CRUD ──────────────────────────────────────────────────────────
 
 export async function createEventType(
-  apiKey: string,
+  accessToken: string,
   input: CreateEventTypeInput
 ): Promise<CalcomEventType> {
   return calcomFetch<CalcomEventType>(
     "/v2/event-types",
-    apiKey,
+    accessToken,
     {
       method: "POST",
       body: JSON.stringify(input),
@@ -296,13 +287,13 @@ export async function createEventType(
 }
 
 export async function updateEventType(
-  apiKey: string,
+  accessToken: string,
   eventTypeId: number,
   input: UpdateEventTypeInput
 ): Promise<CalcomEventType> {
   return calcomFetch<CalcomEventType>(
     `/v2/event-types/${eventTypeId}`,
-    apiKey,
+    accessToken,
     {
       method: "PATCH",
       body: JSON.stringify(input),
@@ -311,10 +302,10 @@ export async function updateEventType(
   );
 }
 
-export async function deleteEventType(apiKey: string, eventTypeId: number): Promise<void> {
+export async function deleteEventType(accessToken: string, eventTypeId: number): Promise<void> {
   await calcomFetch<void>(
     `/v2/event-types/${eventTypeId}`,
-    apiKey,
+    accessToken,
     {
       method: "DELETE",
     },
@@ -324,12 +315,12 @@ export async function deleteEventType(apiKey: string, eventTypeId: number): Prom
 
 // ─── Booking extras ───────────────────────────────────────────────────────────
 
-export async function getCalendarLinks(apiKey: string, bookingUid: string): Promise<CalendarLink> {
-  return calcomFetch<CalendarLink>(`/v2/bookings/${bookingUid}/calendar-links`, apiKey);
+export async function getCalendarLinks(accessToken: string, bookingUid: string): Promise<CalendarLink> {
+  return calcomFetch<CalendarLink>(`/v2/bookings/${bookingUid}/calendar-links`, accessToken);
 }
 
-export async function markNoShow(apiKey: string, bookingUid: string): Promise<void> {
-  await calcomFetch<void>(`/v2/bookings/${bookingUid}/mark-absent`, apiKey, {
+export async function markNoShow(accessToken: string, bookingUid: string): Promise<void> {
+  await calcomFetch<void>(`/v2/bookings/${bookingUid}/mark-absent`, accessToken, {
     method: "POST",
   });
 }

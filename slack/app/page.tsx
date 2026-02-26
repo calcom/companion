@@ -68,7 +68,7 @@ export default async function HomePage({ searchParams }: PageProps) {
         {params.installed && (
           <div style={{ ...styles.banner, ...styles.bannerSuccess }}>
             Cal.com was successfully installed to your Slack workspace! Run{" "}
-            <code style={styles.code}>/cal link YOUR_API_KEY</code> to connect your account.
+            <code style={styles.code}>/cal link</code> to connect your Cal.com account.
           </div>
         )}
         {params.error && (
@@ -181,10 +181,11 @@ const features = [
 ];
 
 const commands = [
-  { cmd: "/cal link <api-key>", desc: "Link your Cal.com account" },
+  { cmd: "/cal link", desc: "Connect your Cal.com account" },
   { cmd: "/cal availability [@user]", desc: "Check availability" },
   { cmd: "/cal book @user", desc: "Book a meeting" },
   { cmd: "/cal my-bookings", desc: "View upcoming bookings" },
+  { cmd: "/cal unlink", desc: "Disconnect your Cal.com account" },
   { cmd: "/cal help", desc: "Show all commands" },
 ];
 
