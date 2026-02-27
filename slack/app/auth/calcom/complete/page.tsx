@@ -1,25 +1,54 @@
-interface PageProps {
-  searchParams: Promise<{ calcom_linked?: string; error?: string }>;
-}
+"use client";
 
-export default async function CalcomOAuthCompletePage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const success = !!params.calcom_linked;
-  const message = params.calcom_linked ?? params.error ?? "";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+
+function CompletePage() {
+  const searchParams = useSearchParams();
+  const success = !!searchParams.get("calcom_linked");
+  const message = searchParams.get("calcom_linked") ?? searchParams.get("error") ?? "";
+  const teamId = searchParams.get("team") ?? "";
+  const [showFallback, setShowFallback] = useState(false);
+
+  const slackWebUrl = `https://app.slack.com/client/${teamId}`;
+
+  useEffect(() => {
+    if (!success || !teamId) return;
+
+    // Try native deep link, then auto-redirect to Slack web after a short delay
+    window.location.href = `slack://open?team=${teamId}`;
+
+    const timer = setTimeout(() => {
+      setShowFallback(true);
+      window.location.href = slackWebUrl;
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [success, teamId, slackWebUrl]);
 
   return (
     <main style={styles.main}>
       <div style={styles.card}>
-        <div style={styles.icon}>{success ? "✓" : "✕"}</div>
+        <div
+          style={{
+            ...styles.icon,
+            ...(success ? {} : { background: "rgba(224, 30, 90, 0.15)", color: "#e01e5a" }),
+          }}
+        >
+          {success ? "✓" : "✕"}
+        </div>
         <h1 style={styles.title}>
           {success ? "Account Connected" : "Connection Failed"}
         </h1>
         <p style={styles.message}>{message}</p>
         {success && (
-          <p style={styles.hint}>
-            Head back to Slack and try <code style={styles.code}>@Cal</code> or{" "}
-            <code style={styles.code}>/cal</code> to get started.
-          </p>
+          <>
+            <p style={styles.hint}>Redirecting you back to Slack...</p>
+            {showFallback && (
+              <a href={slackWebUrl} style={styles.button}>
+                Open Slack
+              </a>
+            )}
+          </>
         )}
         {!success && (
           <p style={styles.hint}>
@@ -28,6 +57,22 @@ export default async function CalcomOAuthCompletePage({ searchParams }: PageProp
         )}
       </div>
     </main>
+  );
+}
+
+export default function CalcomOAuthCompletePage() {
+  return (
+    <Suspense
+      fallback={
+        <main style={styles.main}>
+          <div style={styles.card}>
+            <p style={styles.message}>Loading...</p>
+          </div>
+        </main>
+      }
+    >
+      <CompletePage />
+    </Suspense>
   );
 }
 
@@ -79,6 +124,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "0.875rem",
     color: "#666",
     lineHeight: 1.5,
+    marginBottom: "1rem",
   },
   code: {
     fontFamily: "monospace",
@@ -86,5 +132,17 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "0.1rem 0.4rem",
     borderRadius: "0.25rem",
     fontSize: "0.85em",
+  },
+  button: {
+    display: "inline-block",
+    background: "#fff",
+    color: "#000",
+    fontWeight: 600,
+    fontSize: "0.95rem",
+    padding: "0.65rem 1.5rem",
+    borderRadius: "0.5rem",
+    textDecoration: "none",
+    marginTop: "0.5rem",
+    transition: "opacity 0.15s",
   },
 };

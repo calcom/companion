@@ -147,6 +147,12 @@ async function buildHistory(thread: {
   }
 }
 
+// ─── Helper: detect "aside" messages to ignore ─────────────────────────────
+
+function isAsideMessage(text: string): boolean {
+  return /^\s*aside\b/i.test(text);
+}
+
 // ─── Helper: post OAuth link prompt ─────────────────────────────────────────
 
 function oauthLinkMessage(teamId: string, slackUserId: string) {
@@ -167,6 +173,8 @@ function oauthLinkMessage(teamId: string, slackUserId: string) {
 // ─── Agentic mention handler ────────────────────────────────────────────────
 
 bot.onNewMention(async (thread, message) => {
+  if (isAsideMessage(message.text)) return;
+
   const teamId = extractTeamId(message.raw);
   const userId = message.author.userId;
 
@@ -194,6 +202,7 @@ bot.onNewMention(async (thread, message) => {
 
 bot.onSubscribedMessage(async (thread, message) => {
   if (message.author.isBot || message.author.isMe) return;
+  if (isAsideMessage(message.text)) return;
 
   const teamId = extractTeamId(message.raw);
   const userId = message.author.userId;

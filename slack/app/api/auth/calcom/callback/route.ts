@@ -22,16 +22,16 @@ export async function GET(request: Request) {
 
   if (error) {
     const desc = url.searchParams.get("error_description") ?? error;
-    return redirectWithMessage("error", `Authorization denied: ${desc}`);
+    return redirectWithError(`Authorization denied: ${desc}`);
   }
 
   if (!code || !state) {
-    return redirectWithMessage("error", "Missing authorization code or state parameter.");
+    return redirectWithError("Missing authorization code or state parameter.");
   }
 
   const payload = verifyState(state);
   if (!payload) {
-    return redirectWithMessage("error", "Invalid or expired authorization link. Please try /cal link again.");
+    return redirectWithError("Invalid or expired authorization link. Please try /cal link again.");
   }
 
   try {
@@ -64,18 +64,23 @@ export async function GET(request: Request) {
 
     await linkUser(payload.teamId, payload.slackUserId, linkedUser);
 
-    return redirectWithMessage(
-      "success",
-      `Connected as ${me.name} (${me.email}). You can close this tab and return to Slack.`
-    );
+    return redirectWithSuccess(me.name, me.email, payload.teamId);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error during authorization.";
     console.error("[Cal.com OAuth] Callback error:", err);
-    return redirectWithMessage("error", message);
+    return redirectWithError(message);
   }
 }
 
-function redirectWithMessage(type: "success" | "error", message: string) {
-  const params = new URLSearchParams({ [type === "success" ? "calcom_linked" : "error"]: message });
+function redirectWithSuccess(name: string, email: string, teamId: string) {
+  const params = new URLSearchParams({
+    calcom_linked: `Connected as ${name} (${email}).`,
+    team: teamId,
+  });
+  return NextResponse.redirect(`${APP_URL}/auth/calcom/complete?${params}`);
+}
+
+function redirectWithError(message: string) {
+  const params = new URLSearchParams({ error: message });
   return NextResponse.redirect(`${APP_URL}/auth/calcom/complete?${params}`);
 }

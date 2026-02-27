@@ -14,6 +14,7 @@
     "clean:all": "rm -rf .next node_modules",
     "env:check": "node -e \"const fs=require('fs');const ex=fs.readFileSync('.env.example','utf8').match(/^[A-Z_]+/gm);const lc=fs.readFileSync('.env',{encoding:'utf8',flag:'r'});const missing=ex.filter(k=>!lc.includes(k));if(missing.length){console.error('Missing env vars:',missing);process.exit(1)}else console.log('All env vars present')\"",
     "tunnel": "cloudflared tunnel --url http://localhost:3000",
+    "deploy": "npx vercel --prod --yes",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"
