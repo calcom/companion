@@ -42,8 +42,8 @@ safari-extension/
 *.tsbuildinfo
 
 # generated native folders
-/ios
-/android
+ios/
+android/
 
 # WXT Chrome Extension build outputs
 .output/
