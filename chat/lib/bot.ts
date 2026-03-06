@@ -85,7 +85,8 @@ if (!globalForBot._slackAdapter) {
 }
 
 if (!globalForBot._chatBot) {
-  const adapters: Record<string, unknown> = { slack: globalForBot._slackAdapter };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adapters: Record<string, any> = { slack: globalForBot._slackAdapter };
 
   if (process.env.TELEGRAM_BOT_TOKEN) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -659,7 +660,7 @@ bot.onModalSubmit("book_event_type", async (event): Promise<undefined> => {
 // ─── Action: select a slot ──────────────────────────────────────────────────
 
 bot.onAction("select_slot", async (event) => {
-  const teamId = extractTeamId(event.raw);
+  const teamId = extractTeamIdFromRaw(event.raw);
   const userId = event.user.userId;
   const selectedTime = event.value ?? "";
 
@@ -689,7 +690,7 @@ bot.onAction("select_slot", async (event) => {
 // ─── Action: confirm booking ─────────────────────────────────────────────────
 
 bot.onAction("confirm_booking", async (event) => {
-  const teamId = extractTeamId(event.raw);
+  const teamId = extractTeamIdFromRaw(event.raw);
   const userId = event.user.userId;
 
   const [accessToken, flow, linked] = await Promise.all([
@@ -754,7 +755,7 @@ bot.onAction("confirm_booking", async (event) => {
 // ─── Action: cancel booking flow ────────────────────────────────────────────
 
 bot.onAction("cancel_booking", async (event) => {
-  const teamId = extractTeamId(event.raw);
+  const teamId = extractTeamIdFromRaw(event.raw);
   await clearBookingFlow(teamId, event.user.userId);
   await event.thread.post("Booking cancelled.");
 });
