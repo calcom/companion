@@ -33,6 +33,7 @@
     "@ai-sdk/openai": "^3.0.34",
     "@chat-adapter/slack": "^4.14.0",
     "@chat-adapter/state-redis": "^4.14.0",
+    "@chat-adapter/telegram": "^4.17.0",
     "ai": "^6.0.101",
     "chat": "^4.14.0",
     "next": "16.1.6",
