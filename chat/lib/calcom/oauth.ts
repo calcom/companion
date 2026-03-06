@@ -17,8 +17,9 @@ function getSigningKey(): string {
 // ─── State parameter: signed payload with HMAC-SHA256 ────────────────────────
 
 interface StatePayload {
+  platform: string;
   teamId: string;
-  slackUserId: string;
+  userId: string;
   exp: number;
 }
 
@@ -26,10 +27,11 @@ function sign(payload: string): string {
   return createHmac("sha256", getSigningKey()).update(payload).digest("hex");
 }
 
-export function generateState(teamId: string, slackUserId: string): string {
+export function generateState(platform: string, teamId: string, userId: string): string {
   const payload: StatePayload = {
+    platform,
     teamId,
-    slackUserId,
+    userId,
     exp: Date.now() + STATE_TTL_MS,
   };
   const json = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -67,8 +69,8 @@ export function getCalcomOAuthRedirectUri(): string {
   return `${APP_URL()}/api/auth/calcom/callback`;
 }
 
-export function generateAuthUrl(teamId: string, slackUserId: string): string {
-  const state = generateState(teamId, slackUserId);
+export function generateAuthUrl(platform: string, teamId: string, userId: string): string {
+  const state = generateState(platform, teamId, userId);
   const params = new URLSearchParams({
     client_id: CLIENT_ID(),
     redirect_uri: getCalcomOAuthRedirectUri(),

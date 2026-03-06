@@ -8,14 +8,15 @@ function CompletePage() {
   const success = !!searchParams.get("calcom_linked");
   const message = searchParams.get("calcom_linked") ?? searchParams.get("error") ?? "";
   const teamId = searchParams.get("team") ?? "";
+  const platform = searchParams.get("platform") ?? "slack";
   const [showFallback, setShowFallback] = useState(false);
 
+  const isSlack = platform === "slack";
   const slackWebUrl = `https://app.slack.com/client/${teamId}`;
 
   useEffect(() => {
-    if (!success || !teamId) return;
+    if (!success || !isSlack || !teamId) return;
 
-    // Try native deep link, then auto-redirect to Slack web after a short delay
     window.location.href = `slack://open?team=${teamId}`;
 
     const timer = setTimeout(() => {
@@ -23,7 +24,7 @@ function CompletePage() {
       window.location.href = slackWebUrl;
     }, 2000);
     return () => clearTimeout(timer);
-  }, [success, teamId, slackWebUrl]);
+  }, [success, isSlack, teamId, slackWebUrl]);
 
   return (
     <main style={styles.main}>
@@ -40,7 +41,7 @@ function CompletePage() {
           {success ? "Account Connected" : "Connection Failed"}
         </h1>
         <p style={styles.message}>{message}</p>
-        {success && (
+        {success && isSlack && (
           <>
             <p style={styles.hint}>Redirecting you back to Slack...</p>
             {showFallback && (
@@ -50,9 +51,17 @@ function CompletePage() {
             )}
           </>
         )}
-        {!success && (
+        {success && !isSlack && (
+          <p style={styles.hint}>You can close this tab and return to {platform.charAt(0).toUpperCase() + platform.slice(1)}.</p>
+        )}
+        {!success && isSlack && (
           <p style={styles.hint}>
             Go back to Slack and run <code style={styles.code}>/cal link</code> to try again.
+          </p>
+        )}
+        {!success && !isSlack && (
+          <p style={styles.hint}>
+            Go back to {platform.charAt(0).toUpperCase() + platform.slice(1)} and send <code style={styles.code}>/link</code> to try again.
           </p>
         )}
       </div>

@@ -155,6 +155,44 @@ bun run check:ci
 bun run typecheck:all
 ```
 
+## Chat Bot — Telegram Setup
+
+The `chat/` directory contains a multi-platform chat bot. Slack is the primary adapter; Telegram is optional.
+
+### Prerequisites
+
+1. Create a bot with [BotFather](https://t.me/BotFather) on Telegram (`/newbot`)
+2. Copy the bot token and username
+
+### Environment Variables
+
+Add to your `chat/.env`:
+
+```
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
+TELEGRAM_BOT_USERNAME=YourBotName
+```
+
+### Register the Webhook
+
+Point Telegram at your deployed chat app:
+
+```sh
+curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+  -d "url=https://your-domain.com/api/webhooks/telegram"
+```
+
+### Supported Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Show help card |
+| `/help` | Show help card |
+| `/link` | Connect your Cal.com account |
+| `/unlink` | Disconnect your Cal.com account |
+
+Any other message mentioning the bot triggers the AI scheduling assistant.
+
 ## Links
 
 - [Cal.com](https://cal.com)

@@ -62,9 +62,9 @@ export async function GET(request: Request) {
       linkedAt: new Date().toISOString(),
     };
 
-    await linkUser(payload.teamId, payload.slackUserId, linkedUser);
+    await linkUser(payload.teamId, payload.userId, linkedUser);
 
-    return redirectWithSuccess(me.name, me.email, payload.teamId);
+    return redirectWithSuccess(me.name, me.email, payload.teamId, payload.platform);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error during authorization.";
     console.error("[Cal.com OAuth] Callback error:", err);
@@ -72,10 +72,11 @@ export async function GET(request: Request) {
   }
 }
 
-function redirectWithSuccess(name: string, email: string, teamId: string) {
+function redirectWithSuccess(name: string, email: string, teamId: string, platform: string) {
   const params = new URLSearchParams({
     calcom_linked: `Connected as ${name} (${email}).`,
     team: teamId,
+    platform,
   });
   return NextResponse.redirect(`${APP_URL}/auth/calcom/complete?${params}`);
 }

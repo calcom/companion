@@ -28,21 +28,59 @@ import {
 } from "./calcom/client";
 import { getLinkedUser, getValidAccessToken, unlinkUser } from "./user-linking";
 
-export interface SlackUserProfile {
+export interface PlatformUserProfile {
   id: string;
   name: string;
   realName: string;
   email?: string;
 }
 
-export type LookupSlackUserFn = (userId: string) => Promise<SlackUserProfile | null>;
+export type LookupPlatformUserFn = (userId: string) => Promise<PlatformUserProfile | null>;
 
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
 
-function getSystemPrompt() {
-  return `You are Cal.com's scheduling assistant inside Slack. You help users manage their calendar, book meetings, check availability, and handle bookings — all through natural conversation.
+function getSystemPrompt(platform: string) {
+  const isSlack = platform === "slack";
 
-You are "Cal", the Cal.com Slack bot. Be concise, friendly, and action-oriented. Use Slack mrkdwn formatting: *bold*, _italic_, \`code\`, and bullet lists.
+  const formattingGuide = isSlack
+    ? "Use Slack mrkdwn formatting: *bold*, _italic_, `code`, and bullet lists."
+    : "Use Markdown formatting: **bold**, *italic*, `code`, and bullet lists.";
+
+  const platformName = isSlack ? "Slack" : "Telegram";
+
+  const mentionSection = isSlack
+    ? `## Slack Mention Parsing
+- User mentions in Slack appear as \`<@USER_ID>\` (e.g. \`<@U012AB3CD>\`).
+- When you see a mention like \`<@U012AB3CD>\`, extract just the USER_ID part (strip \`<@\` and \`>\`).
+- Always call \`lookup_platform_user\` first to resolve who that person is before booking with them.`
+    : `## Telegram Users
+- On Telegram, users cannot be @mentioned by ID. Ask the user to provide the attendee's name and email directly.
+- The \`lookup_platform_user\` tool is not available on Telegram.`;
+
+  const bookingFlow = isSlack
+    ? `## Booking a Meeting with Someone Flow
+YOU are always the HOST. The other person is the ATTENDEE — they do NOT need a Cal.com account.
+1. User says something like "book meeting with <@U012AB3CD> at 5pm IST"
+2. Call \`lookup_platform_user\` with platformUserId="U012AB3CD" → get their name and email from Slack.
+3. Call \`list_event_types\` (no arguments) → list YOUR event types. Pick the best match by duration/title.
+4. Call \`check_availability\` with the chosen eventTypeId. Use \`startDate\` if a date was specified.
+5. Find the slot matching the requested time (convert timezone: e.g. IST = Asia/Kolkata = UTC+5:30).
+6. Call \`book_meeting\` with your eventTypeId, the ISO 8601 UTC slot time, and the attendee's name + email.`
+    : `## Booking a Meeting with Someone Flow
+YOU are always the HOST. The other person is the ATTENDEE — they do NOT need a Cal.com account.
+1. Ask the user for the attendee's name and email.
+2. Call \`list_event_types\` (no arguments) → list YOUR event types. Pick the best match by duration/title.
+3. Call \`check_availability\` with the chosen eventTypeId. Use \`startDate\` if a date was specified.
+4. Find the slot matching the requested time (convert timezone: e.g. IST = Asia/Kolkata = UTC+5:30).
+5. Call \`book_meeting\` with your eventTypeId, the ISO 8601 UTC slot time, and the attendee's name + email.`;
+
+  const linkInstruction = isSlack
+    ? 'If the user is not linked, tell them to use the "Continue with Cal.com" button or run `/cal link` to connect their account.'
+    : 'If the user is not linked, tell them to use the "Continue with Cal.com" button or send /link to connect their account.';
+
+  return `You are Cal.com's scheduling assistant on ${platformName}. You help users manage their calendar, book meetings, check availability, and handle bookings — all through natural conversation.
+
+You are "Cal", the Cal.com bot. Be concise, friendly, and action-oriented. ${formattingGuide}
 
 Current date/time: ${new Date().toISOString()}
 
@@ -52,21 +90,11 @@ Current date/time: ${new Date().toISOString()}
 - *Availability*: check_availability, check_busy_times
 - *Bookings*: book_meeting, list_bookings, get_booking, cancel_booking, reschedule_booking, confirm_booking, decline_booking, get_calendar_links, mark_no_show
 - *Schedules*: list_schedules, get_schedule (pass 'default' for default), create_schedule, update_schedule, delete_schedule
-- *People*: lookup_slack_user — resolve a Slack user mention to their name and Cal.com status
+- *People*: lookup_platform_user — resolve a user mention to their name and email (Slack only)
 
-## Slack Mention Parsing
-- User mentions in Slack appear as \`<@USER_ID>\` (e.g. \`<@U012AB3CD>\`).
-- When you see a mention like \`<@U012AB3CD>\`, extract just the USER_ID part (strip \`<@\` and \`>\`).
-- Always call \`lookup_slack_user\` first to resolve who that person is before booking with them.
+${mentionSection}
 
-## Booking a Meeting with Someone Flow
-YOU are always the HOST. The other person is the ATTENDEE — they do NOT need a Cal.com account.
-1. User says something like "book meeting with <@U012AB3CD> at 5pm IST"
-2. Call \`lookup_slack_user\` with slackUserId="U012AB3CD" → get their name and email from Slack.
-3. Call \`list_event_types\` (no arguments) → list YOUR event types. Pick the best match by duration/title.
-4. Call \`check_availability\` with the chosen eventTypeId. Use \`startDate\` if a date was specified.
-5. Find the slot matching the requested time (convert timezone: e.g. IST = Asia/Kolkata = UTC+5:30).
-6. Call \`book_meeting\` with your eventTypeId, the ISO 8601 UTC slot time, and the attendee's name + email.
+${bookingFlow}
 
 ## Timezone Conversion
 - IST = Asia/Kolkata (UTC+5:30)
@@ -82,7 +110,7 @@ YOU are always the HOST. The other person is the ATTENDEE — they do NOT need a
 4. Never call a tool with empty or placeholder arguments.
 
 ## Behavior
-- If the user is not linked, tell them to use the "Continue with Cal.com" button or run \`/cal link\` to connect their account.
+- ${linkInstruction}
 - When showing availability, format times in the user's timezone if known.
 - For confirm/decline: use on bookings with status "pending" or "unconfirmed".
 - For schedules: when asked about working hours or availability windows, use schedule tools.
@@ -97,7 +125,7 @@ async function getAccessTokenOrNull(teamId: string, userId: string): Promise<str
 function createCalTools(
   teamId: string,
   userId: string,
-  lookupSlackUser?: LookupSlackUserFn
+  lookupPlatformUser?: LookupPlatformUserFn
 ) {
   return {
     check_account_linked: tool({
@@ -124,44 +152,44 @@ function createCalTools(
       },
     }),
 
-    lookup_slack_user: tool({
+    lookup_platform_user: tool({
       description:
-        "Look up a Slack user by their user ID to get their name and email. Use this whenever you see a Slack mention like <@USER_ID> — extract just the USER_ID and pass it here. The looked-up user does NOT need a Cal.com account; you just need their name and email to book them as an attendee.",
+        "Look up a user on the current platform by their user ID to get their name and email. On Slack, resolves mentions like <@USER_ID>. On Telegram, this is not available — ask the user to provide the attendee's name and email directly.",
       inputSchema: z.object({
-        slackUserId: z
+        platformUserId: z
           .string()
-          .describe("The Slack user ID to look up (e.g. 'U012AB3CD' — without <@ and >)"),
+          .describe("The platform user ID to look up (e.g. 'U012AB3CD' on Slack — without <@ and >)"),
       }),
-      execute: async ({ slackUserId }) => {
-        const slackProfile = lookupSlackUser ? await lookupSlackUser(slackUserId) : null;
+      execute: async ({ platformUserId }) => {
+        const profile = lookupPlatformUser ? await lookupPlatformUser(platformUserId) : null;
 
-        if (!slackProfile) {
+        if (!profile) {
           return {
-            slackUserId,
-            error: "Could not look up this Slack user. Ask the requester to provide the attendee's name and email manually.",
+            platformUserId,
+            error: "Could not look up this user. Ask the requester to provide the attendee's name and email manually.",
           };
         }
 
-        if (!slackProfile.email) {
+        if (!profile.email) {
           return {
-            slackUserId,
-            name: slackProfile.realName ?? slackProfile.name,
+            platformUserId,
+            name: profile.realName ?? profile.name,
             email: null,
-            instruction: "Found the user's name but their email is not visible on Slack. Ask the requester to provide the attendee's email.",
+            instruction: "Found the user's name but their email is not visible. Ask the requester to provide the attendee's email.",
           };
         }
 
         return {
-          slackUserId,
-          name: slackProfile.realName ?? slackProfile.name,
-          email: slackProfile.email,
+          platformUserId,
+          name: profile.realName ?? profile.name,
+          email: profile.email,
           instruction: "Use this name and email as attendeeName and attendeeEmail in book_meeting.",
         };
       },
     }),
 
     unlink_account: tool({
-      description: "Unlink the user's Cal.com account from Slack.",
+      description: "Unlink the user's Cal.com account.",
       inputSchema: z.object({}),
       execute: async () => {
         const linked = await getLinkedUser(teamId, userId);
@@ -778,7 +806,8 @@ export interface AgentStreamOptions {
   userId: string;
   userMessage: string;
   conversationHistory?: ModelMessage[];
-  lookupSlackUser?: LookupSlackUserFn;
+  lookupPlatformUser?: LookupPlatformUserFn;
+  platform: string;
 }
 
 export function runAgentStream({
@@ -786,9 +815,10 @@ export function runAgentStream({
   userId,
   userMessage,
   conversationHistory,
-  lookupSlackUser,
+  lookupPlatformUser,
+  platform,
 }: AgentStreamOptions) {
-  const tools = createCalTools(teamId, userId, lookupSlackUser);
+  const tools = createCalTools(teamId, userId, lookupPlatformUser);
 
   const messages: ModelMessage[] = [
     ...(conversationHistory ?? []),
@@ -799,7 +829,7 @@ export function runAgentStream({
 
   const result = streamText({
     model: getModel(),
-    system: getSystemPrompt(),
+    system: getSystemPrompt(platform),
     messages,
     tools,
     toolChoice: "auto",
