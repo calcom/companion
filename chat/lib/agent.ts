@@ -115,7 +115,8 @@ ${bookingFlow}
 - For confirm/decline: use on bookings with status "pending" or "unconfirmed".
 - For schedules: when asked about working hours or availability windows, use schedule tools.
 - Keep responses under 200 words.
-- Never fabricate data. Only use data from tool results.`;
+- Never fabricate data. Only use data from tool results.
+- Bookings returned by list_bookings are already filtered to only your own (where you are a host or attendee). Never imply the user might be seeing others' bookings.`;
 }
 
 async function getAccessTokenOrNull(teamId: string, userId: string): Promise<string | null> {
@@ -369,13 +370,20 @@ function createCalTools(
           .describe("Max bookings to return. Default: 5."),
       }),
       execute: async ({ status, take }) => {
-        const token = await getAccessTokenOrNull(teamId, userId);
+        const [token, linked] = await Promise.all([
+          getAccessTokenOrNull(teamId, userId),
+          getLinkedUser(teamId, userId),
+        ]);
         if (!token) return { error: "Account not connected." };
         try {
-          const bookings = await getBookings(token, {
-            status: status ?? "upcoming",
-            take: take ?? 5,
-          });
+          const currentUser = linked
+            ? { id: linked.calcomUserId, email: linked.calcomEmail }
+            : undefined;
+          const bookings = await getBookings(
+            token,
+            { status: status ?? "upcoming", take: take ?? 5 },
+            currentUser
+          );
           return {
             bookings: bookings.map((b) => ({
               uid: b.uid,

@@ -109,16 +109,40 @@ export interface GetBookingsParams {
   skip?: number;
 }
 
+export interface BookingCurrentUser {
+  id: number;
+  email: string;
+}
+
 export async function getBookings(
   accessToken: string,
-  params: GetBookingsParams = {}
+  params: GetBookingsParams = {},
+  currentUser?: BookingCurrentUser
 ): Promise<CalcomBooking[]> {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
   if (params.take) query.set("take", String(params.take));
   if (params.skip) query.set("skip", String(params.skip));
   const qs = query.toString() ? `?${query}` : "";
-  return calcomFetch<CalcomBooking[]>(`/v2/bookings${qs}`, accessToken);
+  const bookings = await calcomFetch<CalcomBooking[]>(`/v2/bookings${qs}`, accessToken);
+
+  // Team admins see all team bookings from the API. Filter to only bookings
+  // where the current user is a host or attendee to prevent leaking other
+  // members' appointments. Matches the mobile companion app's approach.
+  if (!currentUser) return bookings;
+
+  const emailLower = currentUser.email.toLowerCase();
+  return bookings.filter((booking) => {
+    const isHost = booking.hosts?.some(
+      (h) => h.id === currentUser.id || h.email?.toLowerCase() === emailLower
+    );
+    const isAttendee = booking.attendees?.some(
+      (a) => a.email?.toLowerCase() === emailLower
+    );
+    const isOrganizer = booking.organizer?.id === currentUser.id ||
+      booking.organizer?.email?.toLowerCase() === emailLower;
+    return isHost || isAttendee || isOrganizer;
+  });
 }
 
 export async function getBooking(accessToken: string, bookingUid: string): Promise<CalcomBooking> {
