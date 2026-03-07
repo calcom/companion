@@ -214,53 +214,58 @@ bot.onNewMention(async (thread, message) => {
 
   console.log("[Cal Bot] New mention:", { platform: ctx.platform, teamId: ctx.teamId, userId: ctx.userId, text: message.text });
 
-  // Handle Telegram /commands
-  if (ctx.platform === "telegram") {
-    const text = message.text.trim();
-    const cmd = text.split(/\s+/)[0]?.replace(/@\w+$/, "").toLowerCase();
+  try {
+    // Handle Telegram /commands
+    if (ctx.platform === "telegram") {
+      const text = message.text.trim();
+      const cmd = text.split(/\s+/)[0]?.replace(/@\w+$/, "").toLowerCase();
 
-    if (cmd === "/start" || cmd === "/help") {
-      await thread.post(helpCard());
-      return;
-    }
-    if (cmd === "/link") {
-      const existing = await getLinkedUser(ctx.teamId, ctx.userId);
-      if (existing) {
-        await thread.post(`Your Cal.com account (${existing.calcomUsername}) is already connected.`);
+      if (cmd === "/start" || cmd === "/help") {
+        await thread.post(helpCard());
         return;
       }
+      if (cmd === "/link") {
+        const existing = await getLinkedUser(ctx.teamId, ctx.userId);
+        if (existing) {
+          await thread.post(`Your Cal.com account (${existing.calcomUsername}) is already connected.`);
+          return;
+        }
+        await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+        return;
+      }
+      if (cmd === "/unlink") {
+        const linked = await getLinkedUser(ctx.teamId, ctx.userId);
+        if (!linked) {
+          await thread.post("Your Cal.com account is not connected.");
+          return;
+        }
+        await unlinkUser(ctx.teamId, ctx.userId);
+        await thread.post(`Your Cal.com account (${linked.calcomUsername}) has been disconnected.`);
+        return;
+      }
+    }
+
+    const linked = await getLinkedUser(ctx.teamId, ctx.userId);
+    if (!linked) {
       await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
       return;
     }
-    if (cmd === "/unlink") {
-      const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-      if (!linked) {
-        await thread.post("Your Cal.com account is not connected.");
-        return;
-      }
-      await unlinkUser(ctx.teamId, ctx.userId);
-      await thread.post(`Your Cal.com account (${linked.calcomUsername}) has been disconnected.`);
-      return;
-    }
+
+    await thread.subscribe();
+
+    const result = runAgentStream({
+      teamId: ctx.teamId,
+      userId: ctx.userId,
+      userMessage: message.text,
+      lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
+      platform: ctx.platform,
+    });
+
+    await thread.post(result.textStream);
+  } catch (err) {
+    console.error("[Cal Bot] Error handling mention:", err);
+    await thread.post("Sorry, something went wrong. Please try again.").catch(() => {});
   }
-
-  const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-  if (!linked) {
-    await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
-    return;
-  }
-
-  await thread.subscribe();
-
-  const result = runAgentStream({
-    teamId: ctx.teamId,
-    userId: ctx.userId,
-    userMessage: message.text,
-    lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
-    platform: ctx.platform,
-  });
-
-  await thread.post(result.textStream);
 });
 
 // ─── Agentic thread follow-up ───────────────────────────────────────────────
@@ -273,18 +278,23 @@ bot.onSubscribedMessage(async (thread, message) => {
 
   console.log("[Cal Bot] Thread follow-up:", { platform: ctx.platform, teamId: ctx.teamId, userId: ctx.userId, text: message.text });
 
-  const history = await buildHistory(thread);
+  try {
+    const history = await buildHistory(thread);
 
-  const result = runAgentStream({
-    teamId: ctx.teamId,
-    userId: ctx.userId,
-    userMessage: message.text,
-    conversationHistory: history.slice(0, -1),
-    lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
-    platform: ctx.platform,
-  });
+    const result = runAgentStream({
+      teamId: ctx.teamId,
+      userId: ctx.userId,
+      userMessage: message.text,
+      conversationHistory: history.slice(0, -1),
+      lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
+      platform: ctx.platform,
+    });
 
-  await thread.post(result.textStream);
+    await thread.post(result.textStream);
+  } catch (err) {
+    console.error("[Cal Bot] Error handling thread follow-up:", err);
+    await thread.post("Sorry, something went wrong. Please try again.").catch(() => {});
+  }
 });
 
 // ─── App Home ────────────────────────────────────────────────────────────────
@@ -356,10 +366,11 @@ bot.onAppHomeOpened(async (event) => {
       return;
     }
 
-    const bookings = await getBookings(accessToken, {
-      status: "upcoming",
-      take: 5,
-    });
+    const bookings = await getBookings(
+      accessToken,
+      { status: "upcoming", take: 5 },
+      { id: linked.calcomUserId, email: linked.calcomEmail }
+    );
 
     const bookingBlocks = bookings.flatMap((b) => [
       {
