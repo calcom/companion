@@ -1,4 +1,7 @@
 import { getRedisClient } from "./redis";
+import { getLogger } from "./logger";
+
+const logger = getLogger("user-linking");
 
 export interface LinkedUser {
   accessToken: string;
@@ -32,6 +35,7 @@ export async function linkUser(
   await client.set(emailIndexKey(data.calcomEmail), JSON.stringify({ teamId, userId }), {
     EX: 60 * 60 * 24 * 365,
   });
+  logger.info("User linked", { teamId, userId, calcomEmail: data.calcomEmail });
 }
 
 export async function getLinkedUser(
@@ -55,6 +59,7 @@ export async function unlinkUser(teamId: string, userId: string): Promise<void> 
     await client.del(emailIndexKey(linked.calcomEmail));
   }
   await client.del(userKey(teamId, userId));
+  logger.info("User unlinked", { teamId, userId });
 }
 
 export interface LinkedUserByEmail {
@@ -120,9 +125,10 @@ export async function getValidAccessToken(
     };
     await linkUser(teamId, userId, updatedUser);
 
+    logger.info("Token refreshed", { teamId, userId });
     return tokens.access_token;
   } catch (err) {
-    console.error("[OAuth] Token refresh failed:", err);
+    logger.error("Token refresh failed", { err, teamId, userId });
     return null;
   } finally {
     await client.del(lockKey);

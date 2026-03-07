@@ -3,7 +3,6 @@ import {
   Button,
   Card,
   Chat,
-  ConsoleLogger,
   LinkButton,
   LockError,
   NotImplementedError,
@@ -32,6 +31,7 @@ import { runAgentStream } from "./agent";
 import type { LookupPlatformUserFn } from "./agent";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
+import { logger as botLogger } from "./logger";
 
 validateRequiredEnv();
 
@@ -74,8 +74,6 @@ function makeLookupSlackUser(teamId: string): LookupPlatformUserFn {
     }
   };
 }
-
-const botLogger = new ConsoleLogger("info", "Cal Bot");
 
 interface ThreadState extends Record<string, unknown> {
   lastBookingContext?: string;
@@ -305,7 +303,9 @@ async function withBotErrorHandling(
     if (handleSlackAuthError(err)) return;
     botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
     const customMsg = options.getCustomErrorMessage?.(err);
-    await options.postError(customMsg ?? "Sorry, something went wrong. Please try again.").catch(() => {});
+    await options.postError(customMsg ?? "Sorry, something went wrong. Please try again.").catch((postErr) => {
+      botLogger.error("Failed to post error message to user", { postErr, originalErr: err });
+    });
   }
 }
 
@@ -351,18 +351,27 @@ async function postAgentStream(
   textStream: AsyncIterable<string>,
   ctx: PlatformContext
 ): Promise<void> {
-  if (ctx.platform === "slack") {
-    const slack = getSlackAdapter();
-    await slack.stream(thread.id, textStream, {
-      recipientUserId: ctx.userId,
-      recipientTeamId: ctx.teamId,
-      stopBlocks: RETRY_STOP_BLOCKS,
-    });
-  } else {
-    await thread.post(textStream as unknown as string);
-    if (ctx.platform === "telegram") {
-      await thread.post(TELEGRAM_RETRY_CARD);
+  const log = bot.getLogger("stream");
+  log.info("Posting agent stream", { platform: ctx.platform, userId: ctx.userId, teamId: ctx.teamId, threadId: thread.id });
+  try {
+    if (ctx.platform === "slack") {
+      const slack = getSlackAdapter();
+      await slack.stream(thread.id, textStream, {
+        recipientUserId: ctx.userId,
+        recipientTeamId: ctx.teamId,
+        stopBlocks: RETRY_STOP_BLOCKS,
+      });
+      log.info("Slack stream completed", { userId: ctx.userId });
+    } else {
+      await thread.post(textStream as unknown as string);
+      if (ctx.platform === "telegram") {
+        await thread.post(TELEGRAM_RETRY_CARD);
+      }
+      log.info("Stream posted", { platform: ctx.platform, userId: ctx.userId });
     }
+  } catch (err) {
+    log.error("Stream failed", { err, platform: ctx.platform, userId: ctx.userId, threadId: thread.id });
+    throw err;
   }
 }
 
@@ -388,8 +397,16 @@ bot.onNewMention(async (thread, message) => {
       if (ctx.platform === "telegram" && /^\/(cal\s+)?(start|help|link|unlink)/i.test(message.text.trim())) return;
 
       const linked = await getLinkedUser(ctx.teamId, ctx.userId);
+      bot.getLogger("mention").info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
       if (!linked) {
-        await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
+        bot.getLogger("mention").warn("User not linked, posting ephemeral", { userId: ctx.userId });
+        try {
+          await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
+          bot.getLogger("mention").info("Ephemeral OAuth link posted", { userId: ctx.userId });
+        } catch (ephemeralErr) {
+          bot.getLogger("mention").error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
+          throw ephemeralErr;
+        }
         return;
       }
 
@@ -401,6 +418,7 @@ bot.onNewMention(async (thread, message) => {
 
       await thread.startTyping();
 
+      bot.getLogger("mention").info("Running agent", { userId: ctx.userId, textLength: message.text.length });
       const result = runAgentStream({
         teamId: ctx.teamId,
         userId: ctx.userId,
@@ -439,8 +457,16 @@ bot.onSubscribedMessage(async (thread, message) => {
   await withBotErrorHandling(
     async () => {
       const linked = await getLinkedUser(ctx.teamId, ctx.userId);
+      bot.getLogger("thread-follow-up").info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
       if (!linked) {
-        await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
+        bot.getLogger("thread-follow-up").warn("User not linked, posting ephemeral", { userId: ctx.userId });
+        try {
+          await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
+          bot.getLogger("thread-follow-up").info("Ephemeral OAuth link posted", { userId: ctx.userId });
+        } catch (ephemeralErr) {
+          bot.getLogger("thread-follow-up").error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
+          throw ephemeralErr;
+        }
         return;
       }
 
@@ -452,6 +478,7 @@ bot.onSubscribedMessage(async (thread, message) => {
 
       await thread.startTyping();
 
+      bot.getLogger("thread-follow-up").info("Running agent", { userId: ctx.userId, textLength: message.text.length });
       const result = runAgentStream({
         teamId: ctx.teamId,
         userId: ctx.userId,

@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { getLogger } from "@/lib/logger";
+
+const logger = getLogger("calcom-auth");
 import { verifyState, exchangeCodeForTokens } from "@/lib/calcom/oauth";
 import { linkUser } from "@/lib/user-linking";
 import type { LinkedUser } from "@/lib/user-linking";
@@ -64,10 +67,17 @@ export async function GET(request: Request) {
 
     await linkUser(payload.teamId, payload.userId, linkedUser);
 
+    logger.info("Cal.com account linked", {
+      teamId: payload.teamId,
+      userId: payload.userId,
+      platform: payload.platform,
+      calcomEmail: me.email,
+    });
+
     return redirectWithSuccess(me.name, me.email, payload.teamId, payload.platform);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error during authorization.";
-    console.error("[Cal.com OAuth] Callback error:", err);
+    logger.error("Cal.com OAuth callback error", { err });
     return redirectWithError(message);
   }
 }

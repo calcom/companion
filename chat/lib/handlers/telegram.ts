@@ -6,6 +6,9 @@ import {
 } from "../user-linking";
 import { helpCard } from "../notifications";
 import { generateAuthUrl } from "../calcom/oauth";
+import { getLogger } from "../logger";
+
+const logger = getLogger("telegram-handlers");
 
 export interface RegisterTelegramHandlersDeps {
   withBotErrorHandling: (
@@ -44,6 +47,8 @@ export function registerTelegramHandlers(
     const parts = message.text.trim().split(/\s+/);
     const first = parts[0]?.replace(/@\w+$/, "").toLowerCase();
     const cmd = first === "/cal" ? parts[1]?.toLowerCase() : first?.replace(/^\//, "") ?? "";
+
+    logger.info("Telegram command received", { command: cmd, chatId: ctx.userId });
 
     await withBotErrorHandling(
       async () => {

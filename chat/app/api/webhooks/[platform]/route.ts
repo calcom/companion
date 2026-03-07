@@ -11,23 +11,25 @@ export async function POST(request: Request, context: { params: Promise<{ platfo
   const { platform } = await context.params;
 
   if (!VALID_PLATFORMS.includes(platform)) {
+    botLogger.warn("Webhook invalid platform", { platform, validPlatforms: VALID_PLATFORMS });
     return new Response(`Invalid platform: ${platform}. Valid: ${VALID_PLATFORMS.join(", ")}`, {
       status: 400,
     });
   }
 
-  botLogger.info(`[Webhook] ${platform} webhook received at ${new Date().toISOString()}`);
+  botLogger.info("Webhook received", { platform, at: new Date().toISOString() });
 
   const handler = bot.webhooks[platform as keyof typeof bot.webhooks];
 
   const response = await handler(request, {
     waitUntil: (task) => {
       const tracked = task
-        .then(() => botLogger.info("[Webhook] Background task completed"))
-        .catch((err: unknown) => botLogger.error("[Webhook] Background task error:", err));
+        .then(() => botLogger.info("Webhook background task completed", { platform }))
+        .catch((err: unknown) => botLogger.error("Webhook background task error", { platform, err }));
       waitUntil(tracked);
     },
   });
 
+  botLogger.info("Webhook response", { platform, status: response.status });
   return response;
 }

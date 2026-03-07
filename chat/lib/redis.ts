@@ -1,4 +1,7 @@
 import { createClient, type RedisClientType } from "redis";
+import { getLogger } from "./logger";
+
+const logger = getLogger("redis");
 
 let _client: RedisClientType | null = null;
 
@@ -14,8 +17,8 @@ export function getRedisClient(): RedisClientType {
       throw new Error("REDIS_URL is required. Set it in .env for user linking, booking flow, and production state.");
     }
     _client = createClient({ url });
-    _client.on("error", (err) => console.error("Redis client error:", err));
-    _client.connect().catch(console.error);
+    _client.on("error", (err) => logger.error("Redis client error", { err }));
+    _client.connect().catch((err) => logger.error("Redis connect failed", { err }));
   }
   return _client;
 }

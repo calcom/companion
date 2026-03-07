@@ -40,7 +40,9 @@ import { formatBookingTime } from "../calcom/webhooks";
 import { runAgentStream } from "../agent";
 import type { LookupPlatformUserFn } from "../agent";
 import { generateAuthUrl } from "../calcom/oauth";
+import { getLogger } from "../logger";
 
+const logger = getLogger("slack-handlers");
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
 
 const RETRY_STOP_BLOCKS = cardToBlockKit(
@@ -158,6 +160,7 @@ export function registerSlackHandlers(
     const raw = event as unknown as Record<string, unknown>;
     const teamId = typeof raw.teamId === "string" ? raw.teamId : "";
     const userId = event.userId;
+    logger.debug("App Home opened", { teamId, userId });
     const linked = await getLinkedUser(teamId, userId);
 
     if (!linked) {
@@ -258,6 +261,9 @@ export function registerSlackHandlers(
   bot.onAction("book_meeting", async (event) => {
     if (event.adapter.name !== "slack") return;
 
+    const ctx = extractPlatformContextFromEvent(event);
+    logger.info("Action book_meeting", { actionId: "book_meeting", teamId: ctx.teamId, userId: ctx.userId });
+
     const openModal = (event as { openModal?: (modal: unknown) => Promise<unknown> }).openModal;
     if (!openModal) return;
 
@@ -307,6 +313,7 @@ export function registerSlackHandlers(
     const subcommand = args[0]?.toLowerCase() ?? "help";
     const teamId = extractTeamIdFromRaw(event.raw, event.adapter.name);
     const userId = event.user.userId;
+    logger.info("Slash command /cal", { subcommand, teamId, userId });
 
     await withBotErrorHandling(
       async () => {
@@ -431,6 +438,7 @@ export function registerSlackHandlers(
     const meta = event.privateMetadata
       ? (JSON.parse(event.privateMetadata) as { teamId: string })
       : null;
+    logger.info("Modal submit book_select_user", { teamId: meta?.teamId, userId: event.user?.userId });
     if (!meta) return;
 
     const input = event.values.target_user?.trim() ?? "";
@@ -531,6 +539,7 @@ export function registerSlackHandlers(
     const meta = event.privateMetadata
       ? (JSON.parse(event.privateMetadata) as { teamId: string; targetSlackId: string })
       : null;
+    logger.info("Modal submit book_event_type", { teamId: meta?.teamId, userId: event.user?.userId, eventTypeId: event.values?.event_type });
     if (!meta) return;
 
     const eventTypeRaw = event.values.event_type;
@@ -643,6 +652,7 @@ export function registerSlackHandlers(
 
     const ctx = extractPlatformContextFromEvent(event);
     const { teamId, userId } = ctx;
+    logger.info("Action select_slot", { actionId: "select_slot", teamId, userId });
     const selectedTime = event.value ?? "";
 
     await withBotErrorHandling(
@@ -683,6 +693,7 @@ export function registerSlackHandlers(
 
     const ctx = extractPlatformContextFromEvent(event);
     const { teamId, userId } = ctx;
+    logger.info("Action confirm/cancel booking", { actionId: event.actionId, teamId, userId });
 
     if (event.actionId === "cancel_booking") {
       await withBotErrorHandling(
@@ -766,6 +777,7 @@ export function registerSlackHandlers(
   bot.onAction("retry_response", async (event) => {
     const ctx = extractPlatformContextFromEvent(event);
     const { teamId, userId } = ctx;
+    logger.info("Action retry_response", { actionId: "retry_response", teamId, userId, platform: event.adapter.name });
 
     if (event.adapter.name !== "slack" && event.adapter.name !== "telegram") return;
 

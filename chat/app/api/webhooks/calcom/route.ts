@@ -1,4 +1,7 @@
 import { slackAdapter } from "@/lib/bot";
+import { getLogger } from "@/lib/logger";
+
+const logger = getLogger("calcom-webhook");
 import { parseCalcomWebhook, verifyCalcomWebhook } from "@/lib/calcom/webhooks";
 import {
   bookingCancelledCard,
@@ -18,6 +21,7 @@ export async function POST(request: Request) {
   if (webhookSecret) {
     const valid = verifyCalcomWebhook(body, signature, webhookSecret);
     if (!valid) {
+      logger.warn("Cal.com webhook invalid signature");
       return new Response("Invalid signature", { status: 401 });
     }
   }
@@ -26,6 +30,7 @@ export async function POST(request: Request) {
   try {
     webhook = parseCalcomWebhook(body);
   } catch {
+    logger.warn("Cal.com webhook invalid payload");
     return new Response("Invalid payload", { status: 400 });
   }
 
@@ -45,7 +50,15 @@ export async function POST(request: Request) {
   const hasSlackTarget = teamId && (slackUserId || workspaceConfig?.defaultChannelId);
   const hasTelegramTarget = telegramChatId && process.env.TELEGRAM_BOT_TOKEN;
 
+  logger.info("Cal.com webhook", {
+    event: webhook.triggerEvent,
+    organizerEmail: webhook.payload.organizer.email,
+    hasSlackTarget,
+    hasTelegramTarget,
+  });
+
   if (!hasSlackTarget && !hasTelegramTarget) {
+    logger.info("Cal.com webhook skipped", { reason: "no_target", event: webhook.triggerEvent });
     return new Response("OK", { status: 200 });
   }
   const shouldNotify = (event: string) => {
@@ -57,6 +70,7 @@ export async function POST(request: Request) {
   };
 
   if (!shouldNotify(webhook.triggerEvent)) {
+    logger.info("Cal.com webhook skipped", { reason: "workspace_config", event: webhook.triggerEvent });
     return new Response("OK", { status: 200 });
   }
 
@@ -94,8 +108,9 @@ export async function POST(request: Request) {
           const channel = bot.channel(`slack:${channelId}`);
           await channel.post(card);
         });
+        logger.info("Cal.com notification sent", { target: "slack", channelId, event: webhook.triggerEvent });
       } catch (err) {
-        console.error("Failed to send Cal.com notification to Slack:", err);
+        logger.error("Cal.com notification failed", { err, target: "slack", channelId, event: webhook.triggerEvent });
       }
     }
   }
@@ -105,8 +120,9 @@ export async function POST(request: Request) {
       // Channel ID format: Telegram chat ID (numeric)
       const channel = bot.channel(`telegram:${telegramChatId}`);
       await channel.post(card);
+      logger.info("Cal.com notification sent", { target: "telegram", chatId: telegramChatId, event: webhook.triggerEvent });
     } catch (err) {
-      console.error("Failed to send Cal.com notification to Telegram:", err);
+      logger.error("Cal.com notification failed", { err, target: "telegram", chatId: telegramChatId, event: webhook.triggerEvent });
     }
   }
 
