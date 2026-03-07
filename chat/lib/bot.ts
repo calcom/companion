@@ -113,16 +113,18 @@ if (!globalForBot._chatBot) {
   } as const;
 
   const logger = botLogger;
+  // Use "chat-sdk" (state adapter default) so Slack installation tokens are found.
+  // REDIS_KEY_PREFIX overrides only when explicitly set (e.g. for multi-tenant).
   const state = process.env.REDIS_URL
     ? process.env.REDIS_USE_IOREDIS === "true"
       ? createIoRedisState({
           url: process.env.REDIS_URL,
-          keyPrefix: process.env.REDIS_KEY_PREFIX ?? "calcom-bot",
+          keyPrefix: process.env.REDIS_KEY_PREFIX ?? "chat-sdk",
           logger,
         })
       : createRedisState({
           url: process.env.REDIS_URL,
-          keyPrefix: process.env.REDIS_KEY_PREFIX ?? "calcom-bot",
+          keyPrefix: process.env.REDIS_KEY_PREFIX ?? "chat-sdk",
         })
     : createMemoryState();
 
