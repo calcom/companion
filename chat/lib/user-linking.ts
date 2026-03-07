@@ -1,4 +1,4 @@
-import { createClient } from "redis";
+import { getRedisClient } from "./redis";
 
 export interface LinkedUser {
   accessToken: string;
@@ -11,19 +11,12 @@ export interface LinkedUser {
   linkedAt: string;
 }
 
-let _client: ReturnType<typeof createClient> | null = null;
-
-function getRedisClient() {
-  if (!_client) {
-    _client = createClient({ url: process.env.REDIS_URL });
-    _client.on("error", (err) => console.error("Redis client error:", err));
-    _client.connect().catch(console.error);
-  }
-  return _client;
-}
-
 function userKey(teamId: string, userId: string): string {
   return `calcom:user:${teamId}:${userId}`;
+}
+
+function emailIndexKey(email: string): string {
+  return `calcom:email_index:${email.toLowerCase().trim()}`;
 }
 
 export async function linkUser(
@@ -32,7 +25,11 @@ export async function linkUser(
   data: LinkedUser
 ): Promise<void> {
   const client = getRedisClient();
-  await client.set(userKey(teamId, userId), JSON.stringify(data), {
+  const key = userKey(teamId, userId);
+  await client.set(key, JSON.stringify(data), {
+    EX: 60 * 60 * 24 * 365,
+  });
+  await client.set(emailIndexKey(data.calcomEmail), JSON.stringify({ teamId, userId }), {
     EX: 60 * 60 * 24 * 365,
   });
 }
@@ -53,7 +50,27 @@ export async function getLinkedUser(
 
 export async function unlinkUser(teamId: string, userId: string): Promise<void> {
   const client = getRedisClient();
+  const linked = await getLinkedUser(teamId, userId);
+  if (linked) {
+    await client.del(emailIndexKey(linked.calcomEmail));
+  }
   await client.del(userKey(teamId, userId));
+}
+
+export interface LinkedUserByEmail {
+  teamId: string;
+  userId: string;
+}
+
+export async function getLinkedUserByEmail(email: string): Promise<LinkedUserByEmail | null> {
+  const client = getRedisClient();
+  const raw = await client.get(emailIndexKey(email));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as LinkedUserByEmail;
+  } catch {
+    return null;
+  }
 }
 
 export async function isUserLinked(teamId: string, userId: string): Promise<boolean> {

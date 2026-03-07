@@ -1,4 +1,16 @@
-import { Actions, Button, Card, CardText, Divider, Field, Fields, LinkButton } from "chat";
+import {
+  Actions,
+  Button,
+  Card,
+  CardText,
+  Divider,
+  Field,
+  Fields,
+  LinkButton,
+  Section,
+  Select,
+  SelectOption,
+} from "chat";
 import type { CalcomWebhookPayload } from "./calcom/types";
 import { formatBookingTime } from "./calcom/webhooks";
 
@@ -110,7 +122,7 @@ export function bookingConfirmedCard(webhook: CalcomWebhookPayload) {
     title: "Booking Confirmed",
     subtitle: payload.title,
     children: [
-      CardText("Your booking has been confirmed."),
+      CardText("Your booking has been confirmed.", { style: "bold" }),
       Fields([
         Field({ label: "When", value: time }),
         Field({ label: "With", value: attendeeNames(payload) }),
@@ -181,12 +193,19 @@ export function availabilityCard(
     title: `Available Times with ${targetUserName}`,
     subtitle: `For: ${eventTypeTitle}`,
     children: [
-      CardText("Select a time to book:"),
-      Actions(
-        slots
-          .slice(0, 5)
-          .map((slot) => Button({ id: "select_slot", value: slot.time, label: slot.label }))
-      ),
+      Section([
+        CardText("Select a time to book:"),
+        Actions([
+          Select({
+            id: "select_slot",
+            label: "Time",
+            placeholder: "Select a time to book",
+          options: slots.slice(0, 5).map((slot) =>
+            SelectOption({ label: slot.label, value: slot.time, description: "Available slot" })
+          ),
+          }),
+        ]),
+      ]),
     ],
   });
 }
@@ -199,10 +218,12 @@ export function bookingConfirmationCard(
   return Card({
     title: "Confirm Booking",
     children: [
-      Fields([
-        Field({ label: "Event", value: eventTypeTitle }),
-        Field({ label: "When", value: slotLabel }),
-        Field({ label: "With", value: attendeeName }),
+      Section([
+        Fields([
+          Field({ label: "Event", value: eventTypeTitle }),
+          Field({ label: "When", value: slotLabel }),
+          Field({ label: "With", value: attendeeName }),
+        ]),
       ]),
       Divider(),
       Actions([
@@ -217,9 +238,11 @@ export function linkAccountCard() {
   return Card({
     title: "Connect Your Cal.com Account",
     children: [
-      CardText(
-        "To use Cal.com in Slack, run `/cal link` to connect your account with Cal.com."
-      ),
+      Section([
+        CardText(
+          "To use Cal.com in Slack, run **`/cal link`** to connect your account with Cal.com."
+        ),
+      ]),
     ],
   });
 }
@@ -228,17 +251,19 @@ export function helpCard() {
   return Card({
     title: "Cal.com Slack Bot",
     children: [
-      CardText("Here's what I can do:"),
-      Fields([
-        Field({
-          label: "/cal availability [@user] [date]",
-          value: "Check someone's availability",
-        }),
-        Field({ label: "/cal book @user", value: "Book a meeting with someone" }),
-        Field({ label: "/cal my-bookings", value: "View your upcoming bookings" }),
-        Field({ label: "/cal link", value: "Connect your Cal.com account" }),
-        Field({ label: "/cal unlink", value: "Disconnect your Cal.com account" }),
-        Field({ label: "/cal help", value: "Show this help message" }),
+      Section([
+        CardText("Here's what I can do:", { style: "bold" }),
+        Fields([
+          Field({
+            label: "/cal availability [@user] [date]",
+            value: "Check someone's availability",
+          }),
+          Field({ label: "/cal book @user", value: "Book a meeting with someone" }),
+          Field({ label: "/cal my-bookings", value: "View your upcoming bookings" }),
+          Field({ label: "/cal link", value: "Connect your Cal.com account" }),
+          Field({ label: "/cal unlink", value: "Disconnect your Cal.com account" }),
+          Field({ label: "/cal help", value: "Show this help message" }),
+        ]),
       ]),
       Divider(),
       Actions([LinkButton({ url: CALCOM_APP_URL, label: "Open Cal.com" })]),

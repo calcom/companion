@@ -34,12 +34,21 @@ lib/
 slack-manifest.yml                 # Slack app manifest
 ```
 
+## Prerequisites
+
+- Node.js 18+
+- npm or pnpm
+- A Slack workspace
+- A Redis instance (Upstash recommended for Vercel)
+- A Cal.com account with OAuth client access
+
 ## Setup
 
 ### 1. Install dependencies
 
 ```bash
 npm install
+# or: pnpm install
 ```
 
 ### 2. Create the Slack app
@@ -79,6 +88,7 @@ cp .env.example .env
 | `CALCOM_WEBHOOK_SECRET`     | Set in Cal.com → Settings → Webhooks                 |
 | `CALCOM_APP_URL`            | `https://app.cal.com`                                |
 | `NEXT_PUBLIC_APP_URL`       | Your deployed app URL                                |
+| `GROQ_API_KEY`              | From [console.groq.com](https://console.groq.com) (required for AI features) |
 
 ### 5. Set up Redis
 
@@ -101,6 +111,24 @@ docker run -p 6379:6379 redis
 3. Enable events: `BOOKING_CREATED`, `BOOKING_RESCHEDULED`, `BOOKING_CANCELLED`, `BOOKING_CONFIRMED`
 4. Add a signing secret and set it as `CALCOM_WEBHOOK_SECRET`
 5. (Optional) In the webhook metadata, include `slack_team_id` and `slack_user_id` to route notifications
+
+### Telegram (optional)
+
+To enable the Telegram bot alongside Slack:
+
+1. Create a bot via [@BotFather](https://t.me/BotFather) and get the bot token
+2. Set the webhook URL in BotFather or via the Telegram API:
+   ```
+   https://your-domain.com/api/webhooks/telegram
+   ```
+3. Add to `.env`:
+   - `TELEGRAM_BOT_TOKEN` — from BotFather
+   - `TELEGRAM_BOT_USERNAME` — your bot's username (e.g. `CalcomBot`)
+   - `TELEGRAM_WEBHOOK_SECRET_TOKEN` — (optional) set in BotFather webhook secret to verify incoming requests
+
+The webhook route at `app/api/webhooks/[platform]/route.ts` supports both Slack and Telegram.
+
+**Limitations:** Streaming uses post+edit fallback (no native streaming). Modals are not supported. Button callback data is limited to 64 bytes — keep action IDs short.
 
 ### 7. Run locally
 
@@ -130,17 +158,22 @@ In Slack, run:
 
 Click the **Continue with Cal.com** button to authorize the app with your Cal.com account. You can also @mention the bot or open the App Home tab — both will prompt you to connect if you haven't already.
 
+### 10. Test the bot
+
+In a channel, @mention the bot or run `/cal help`. You should see a response. Run `/cal my-bookings` to verify Cal.com linking.
+
 ## Deploy to Vercel
 
 ```bash
 vercel deploy
 ```
 
-Set the environment variables in the Vercel dashboard, then:
+After deploy, complete this checklist:
 
-1. Update the Slack app manifest URLs to your Vercel deployment URL
-2. Update the Cal.com OAuth redirect URI to `https://your-vercel-url.com/api/auth/calcom/callback`
-3. Update the Cal.com webhook URL
+1. **Set env vars** — Add all environment variables in the Vercel dashboard
+2. **Update Slack app** — Replace `https://your-domain.com` with your Vercel URL in `slack-manifest.yml`, re-paste to Slack, or update Event Subscriptions + Interactivity URLs manually
+3. **Update Cal.com OAuth** — Set redirect URI to `https://your-vercel-url.com/api/auth/calcom/callback`
+4. **Update Cal.com webhook** — Set webhook URL to `https://your-vercel-url.com/api/webhooks/calcom`
 
 ## Commands
 
@@ -152,3 +185,8 @@ Set the environment variables in the Vercel dashboard, then:
 | `/cal book @user`           | Book a meeting                  |
 | `/cal my-bookings`          | View upcoming bookings          |
 | `/cal help`                 | Show help                       |
+
+## Next steps
+
+- [Chat SDK docs](https://chat-sdk.dev/docs) — Cards, Modals, Streaming, Actions
+- [Slack adapter](https://chat-sdk.dev/docs/adapters/slack) — Multi-workspace OAuth, token encryption

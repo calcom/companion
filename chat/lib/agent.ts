@@ -1,3 +1,4 @@
+import type { Logger } from "chat";
 import { streamText, tool, stepCountIs, type ModelMessage } from "ai";
 import { z } from "zod";
 import { getModel } from "./ai-provider";
@@ -39,6 +40,8 @@ export type LookupPlatformUserFn = (userId: string) => Promise<PlatformUserProfi
 
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
 
+// Booking: Slack uses interactive modal flow (handlers/slack.ts); Telegram uses natural language only.
+// Agent tools (book_meeting, check_availability, etc.) work for both; system prompt adapts per platform.
 function getSystemPrompt(platform: string) {
   const isSlack = platform === "slack";
 
@@ -63,16 +66,16 @@ YOU are always the HOST. The other person is the ATTENDEE — they do NOT need a
 1. User says something like "book meeting with <@U012AB3CD> at 5pm IST"
 2. Call \`lookup_platform_user\` with platformUserId="U012AB3CD" → get their name and email from Slack.
 3. Call \`list_event_types\` (no arguments) → list YOUR event types. Pick the best match by duration/title.
-4. Call \`check_availability\` with the chosen eventTypeId. Use \`startDate\` if a date was specified.
-5. Find the slot matching the requested time (convert timezone: e.g. IST = Asia/Kolkata = UTC+5:30).
-6. Call \`book_meeting\` with your eventTypeId, the ISO 8601 UTC slot time, and the attendee's name + email.`
+4. Call \`check_availability\` ONCE with the chosen eventTypeId and a \`startDate\` near the requested date.
+5. Convert the requested time to UTC (e.g. 2 PM IST = 08:30 UTC). Find the closest matching slot in the results.
+6. Immediately call \`book_meeting\` — do NOT call check_availability again.`
     : `## Booking a Meeting with Someone Flow
 YOU are always the HOST. The other person is the ATTENDEE — they do NOT need a Cal.com account.
-1. Ask the user for the attendee's name and email.
+1. Ask the user for the attendee's name and email if not provided.
 2. Call \`list_event_types\` (no arguments) → list YOUR event types. Pick the best match by duration/title.
-3. Call \`check_availability\` with the chosen eventTypeId. Use \`startDate\` if a date was specified.
-4. Find the slot matching the requested time (convert timezone: e.g. IST = Asia/Kolkata = UTC+5:30).
-5. Call \`book_meeting\` with your eventTypeId, the ISO 8601 UTC slot time, and the attendee's name + email.`;
+3. Call \`check_availability\` ONCE with the chosen eventTypeId and a \`startDate\` near the requested date.
+4. Convert the requested time to UTC. Find the closest matching slot in the results.
+5. Immediately call \`book_meeting\` — do NOT call check_availability again.`;
 
   const linkInstruction = isSlack
     ? 'If the user is not linked, tell them to use the "Continue with Cal.com" button or run `/cal link` to connect their account.'
@@ -103,11 +106,23 @@ ${bookingFlow}
 - GMT/UTC = UTC+0
 - Always convert user-specified times to UTC ISO 8601 for \`startTime\`.
 
+## Greetings and Casual Messages
+If the user's latest message is a greeting, status check, or short casual message (e.g. "you there?", "hello", "hey", "are you working?", "hi"), respond with a short friendly text message ONLY. Do NOT call any tools. Do NOT attempt to resume or continue any previous task from the conversation history.
+
+## Resuming Previous Tasks
+Do NOT automatically resume an incomplete task from earlier in the conversation. Only continue a prior task if the user's latest message explicitly asks you to (e.g. "yes, go ahead", "ok book it", "continue"). A casual message is NOT a continuation request.
+
 ## CRITICAL RULES FOR TOOL USAGE
-1. Call check_account_linked ONCE at the start. If it returns linked:true, proceed. Do NOT call it again.
-2. Each tool should only be called ONCE per request unless you get an error.
-3. After getting tool results, respond to the user with a text message. Do NOT call more tools unless necessary.
-4. Never call a tool with empty or placeholder arguments.
+1. check_account_linked: Call this ONCE per conversation thread. If the conversation history already contains a successful check_account_linked result, skip it entirely and proceed directly with the user's request.
+2. Re-using data from history: Before calling any tool, check whether the answer is already in the conversation history from a previous turn. If list_bookings, list_event_types, check_availability, or any other tool was already called earlier in this thread and returned the data you need, use that data — do NOT call the tool again.
+3. Call check_availability EXACTLY ONCE per booking attempt. Pick the slot that best matches what the user asked for. Do NOT call it again to search other dates or times.
+4. If the exact requested time is not in the slot list, pick the closest available slot, tell the user, then proceed to book_meeting — do not loop.
+5. After getting tool results, respond with a text message. Do NOT call more tools unless the user asks for something new.
+6. Never call a tool with empty or placeholder arguments.
+7. Never call the same tool twice in a row.
+
+## Displaying Bookings
+When listing bookings or showing an agenda, ALWAYS include the video/meeting link inline for each booking that has one. The link is in the \`location\` field of each booking object. Format it as a clickable link next to the booking title. Never say "you can find the link in the booking details" — show it directly.
 
 ## Behavior
 - ${linkInstruction}
@@ -116,7 +131,8 @@ ${bookingFlow}
 - For schedules: when asked about working hours or availability windows, use schedule tools.
 - Keep responses under 200 words.
 - Never fabricate data. Only use data from tool results.
-- Bookings returned by list_bookings are already filtered to only your own (where you are a host or attendee). Never imply the user might be seeing others' bookings.`;
+- Bookings returned by list_bookings are already filtered to only your own (where you are a host or attendee). Never imply the user might be seeing others' bookings.
+- Meeting video links (Zoom, Google Meet, Teams, etc.) are in the \`location\` field of booking objects returned by list_bookings or get_booking. Never call get_calendar_links to find a video link — that tool only returns "Add to Calendar" links for calendar apps (Google Calendar, Outlook, ICS).`;
 }
 
 async function getAccessTokenOrNull(teamId: string, userId: string): Promise<string | null> {
@@ -131,7 +147,7 @@ function createCalTools(
   return {
     check_account_linked: tool({
       description:
-        "Check if the current user has linked their Cal.com account. Call this ONCE at the start, then proceed with other tools. Do NOT call this again after getting a result.",
+        "Check if the current user has linked their Cal.com account. Call this ONCE per conversation thread. If the conversation history already shows this was called and returned linked:true, skip this tool entirely and proceed with the user's request.",
       inputSchema: z.object({}),
       execute: async () => {
         const linked = await getLinkedUser(teamId, userId);
@@ -244,7 +260,7 @@ function createCalTools(
 
     check_availability: tool({
       description:
-        "Check YOUR available time slots for a specific event type. You are always the host. Returns slots for the next 7 days by default.",
+        "Check YOUR available time slots for a specific event type. You are always the host. Call this ONCE — use the returned slots to find the best match and proceed to book_meeting immediately. Do NOT call this again.",
       inputSchema: z.object({
         eventTypeId: z.number().describe("The event type ID to check availability for"),
         daysAhead: z
@@ -527,7 +543,8 @@ function createCalTools(
     }),
 
     get_calendar_links: tool({
-      description: "Get 'Add to Calendar' links (Google, Outlook, Yahoo, ICS) for a booking.",
+      description:
+        "Get 'Add to Calendar' links (Google Calendar, Outlook, Yahoo, ICS file) for a booking. Use this ONLY when the user explicitly wants to add a booking to their calendar app. Do NOT use this to find a video/meeting link — the video meeting URL (Zoom, Google Meet, etc.) is in the `location` field already returned by list_bookings.",
       inputSchema: z.object({
         bookingUid: z.string().describe("The booking UID"),
       }),
@@ -816,6 +833,7 @@ export interface AgentStreamOptions {
   conversationHistory?: ModelMessage[];
   lookupPlatformUser?: LookupPlatformUserFn;
   platform: string;
+  logger?: Logger;
 }
 
 export function runAgentStream({
@@ -825,15 +843,23 @@ export function runAgentStream({
   conversationHistory,
   lookupPlatformUser,
   platform,
+  logger,
 }: AgentStreamOptions) {
   const tools = createCalTools(teamId, userId, lookupPlatformUser);
 
+  // Keep only the last 10 messages from history to prevent stale context
+  // (e.g. an old booking request) from hijacking unrelated follow-up messages.
+  const recentHistory = (conversationHistory ?? []).slice(-10);
+
   const messages: ModelMessage[] = [
-    ...(conversationHistory ?? []),
+    ...recentHistory,
     { role: "user" as const, content: userMessage },
   ];
 
-  const MAX_STEPS = 5;
+  // A full booking flow needs: check_account_linked + list_event_types +
+  // check_availability + (optionally a second check) + book_meeting + final reply = 6+ steps.
+  // Keep a hard cap to prevent runaway loops, but give enough room for complex flows.
+  const MAX_STEPS = 10;
 
   const result = streamText({
     model: getModel(),
@@ -843,16 +869,18 @@ export function runAgentStream({
     toolChoice: "auto",
     stopWhen: stepCountIs(MAX_STEPS),
     prepareStep({ stepNumber }) {
+      // On the final allowed step, force a text response so the model
+      // cannot keep calling tools indefinitely.
       if (stepNumber === MAX_STEPS - 1) {
         return { toolChoice: "none" };
       }
       return {};
     },
     onError({ error }) {
-      console.error("[Cal Agent] Stream error:", error);
+      logger?.error("Stream error", error);
     },
     onStepFinish({ finishReason, toolCalls, text }) {
-      console.log("[Cal Agent] Step finished:", {
+      logger?.info("Step finished", {
         finishReason,
         toolCalls: toolCalls?.map((tc) => tc.toolName),
         textLength: text?.length ?? 0,

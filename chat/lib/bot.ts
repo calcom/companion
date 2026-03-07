@@ -1,35 +1,39 @@
-import { Actions, Button, Card, ChannelImpl, Chat, Divider, Field, Fields, LinkButton } from "chat";
-import { createSlackAdapter } from "@chat-adapter/slack";
+import {
+  Actions,
+  Button,
+  Card,
+  Chat,
+  ConsoleLogger,
+  LinkButton,
+  LockError,
+  NotImplementedError,
+  RateLimitError,
+  emoji,
+} from "chat";
+import {
+  AdapterRateLimitError,
+  AuthenticationError,
+  NetworkError,
+  PermissionError,
+  ResourceNotFoundError,
+  ValidationError,
+} from "@chat-adapter/shared";
+import { createSlackAdapter, type SlackAdapter } from "@chat-adapter/slack";
+import { createTelegramAdapter, type TelegramAdapter } from "@chat-adapter/telegram";
+import { createIoRedisState } from "@chat-adapter/state-ioredis";
+import { createMemoryState } from "@chat-adapter/state-memory";
 import { createRedisState } from "@chat-adapter/state-redis";
-import type { SlashCommandEvent } from "chat";
+import type { Thread } from "chat";
 import type { ModelMessage } from "ai";
-import {
-  clearBookingFlow,
-  getBookingFlow,
-  getLinkedUser,
-  getValidAccessToken,
-  setBookingFlow,
-  unlinkUser,
-} from "./user-linking";
-import {
-  createBooking,
-  getAvailableSlots,
-  getBookings,
-  getEventTypes,
-} from "./calcom/client";
-import {
-  availabilityCard,
-  bookingConfirmationCard,
-  helpCard,
-  linkAccountCard,
-  upcomingBookingsCard,
-} from "./notifications";
-import { formatBookingTime } from "./calcom/webhooks";
+import { getLinkedUser } from "./user-linking";
+import { registerSlackHandlers, RETRY_STOP_BLOCKS } from "./handlers/slack";
+import { registerTelegramHandlers } from "./handlers/telegram";
 import { runAgentStream } from "./agent";
 import type { LookupPlatformUserFn } from "./agent";
 import { generateAuthUrl } from "./calcom/oauth";
+import { validateRequiredEnv } from "./env";
 
-const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
+validateRequiredEnv();
 
 // ─── Slack user lookup via users.info API ────────────────────────────────────
 
@@ -71,6 +75,12 @@ function makeLookupSlackUser(teamId: string): LookupPlatformUserFn {
   };
 }
 
+const botLogger = new ConsoleLogger("info", "Cal Bot");
+
+interface ThreadState extends Record<string, unknown> {
+  lastBookingContext?: string;
+}
+
 const globalForBot = globalThis as unknown as {
   _slackAdapter?: ReturnType<typeof createSlackAdapter>;
   _chatBot?: Chat;
@@ -81,34 +91,66 @@ if (!globalForBot._slackAdapter) {
     clientId: process.env.SLACK_CLIENT_ID!,
     clientSecret: process.env.SLACK_CLIENT_SECRET!,
     encryptionKey: process.env.SLACK_ENCRYPTION_KEY,
+    logger: botLogger,
   });
 }
 
 if (!globalForBot._chatBot) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const adapters: Record<string, any> = { slack: globalForBot._slackAdapter };
+  const adapters = {
+    slack: globalForBot._slackAdapter,
+    ...(process.env.TELEGRAM_BOT_TOKEN && {
+      telegram: createTelegramAdapter({
+        botToken: process.env.TELEGRAM_BOT_TOKEN,
+        userName: process.env.TELEGRAM_BOT_USERNAME,
+        mode: "webhook",
+        logger: botLogger,
+        ...(process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN && {
+          secretToken: process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN,
+        }),
+        ...(process.env.TELEGRAM_API_BASE_URL && {
+          apiBaseUrl: process.env.TELEGRAM_API_BASE_URL,
+        }),
+      }),
+    }),
+  } as const;
 
-  if (process.env.TELEGRAM_BOT_TOKEN) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { createTelegramAdapter } = require("@chat-adapter/telegram");
-    adapters.telegram = createTelegramAdapter();
-  }
+  const logger = botLogger;
+  const state = process.env.REDIS_URL
+    ? process.env.REDIS_USE_IOREDIS === "true"
+      ? createIoRedisState({
+          url: process.env.REDIS_URL,
+          keyPrefix: process.env.REDIS_KEY_PREFIX ?? "calcom-bot",
+          logger,
+        })
+      : createRedisState({
+          url: process.env.REDIS_URL,
+          keyPrefix: process.env.REDIS_KEY_PREFIX ?? "calcom-bot",
+        })
+    : createMemoryState();
 
-  globalForBot._chatBot = new Chat({
+  globalForBot._chatBot = new Chat<typeof adapters, ThreadState>({
     userName: "calcom",
     adapters,
-    state: createRedisState({ url: process.env.REDIS_URL! }),
+    state,
+    streamingUpdateIntervalMs: 400, // Tuned for both Slack and Telegram fallback post+edit
+    logger,
   });
+
+  globalForBot._chatBot.registerSingleton();
 }
 
 export const slackAdapter = globalForBot._slackAdapter;
 export const bot = globalForBot._chatBot;
+export { botLogger };
 
-// Clear handlers from previous hot reloads before re-registering
-const b = bot as unknown as Record<string, unknown[]>;
+// Clear handlers from previous hot reloads before re-registering.
+// Next.js dev mode re-executes this module on HMR; without this, handlers would stack.
+// Relies on Chat SDK internal structure; may need updates on SDK upgrades.
+const b = bot as unknown as Record<string, unknown>;
 for (const key of Object.keys(b)) {
-  if (key.endsWith("Handlers") && Array.isArray(b[key])) {
-    b[key].length = 0;
+  const val = b[key];
+  if (key.endsWith("Handlers") && Array.isArray(val) && typeof val.length === "number") {
+    val.length = 0;
   }
 }
 
@@ -133,50 +175,55 @@ function extractSlackTeamId(raw: unknown): string {
   return "";
 }
 
+function extractPlatformContext(source: {
+  adapter: { name: string };
+  raw?: unknown;
+  user?: { userId: string };
+  message?: { author: { userId: string }; raw: unknown };
+}): PlatformContext {
+  const platform = source.adapter.name;
+  const userId = source.user?.userId ?? source.message?.author.userId ?? "";
+  const raw = source.raw ?? source.message?.raw;
+  const teamId = platform === "slack" ? extractSlackTeamId(raw) : platform;
+  return { platform, teamId, userId };
+}
+
 function extractContext(
   thread: { adapter: { name: string } },
   message: { author: { userId: string }; raw: unknown }
 ): PlatformContext {
-  const platform = thread.adapter.name;
-  const userId = message.author.userId;
-
-  if (platform === "slack") {
-    return { platform, teamId: extractSlackTeamId(message.raw), userId };
-  }
-
-  // Telegram and future platforms: use platform name as namespace
-  // (Telegram user IDs are globally unique, so no workspace isolation needed)
-  return { platform, teamId: platform, userId };
+  return extractPlatformContext({ adapter: thread.adapter, message });
 }
 
-function extractTeamIdFromRaw(raw: unknown): string {
+function extractTeamIdFromRaw(raw: unknown, adapterName?: string): string {
+  if (adapterName === "telegram") return "telegram";
   return extractSlackTeamId(raw);
 }
 
-// ─── Build conversation history from thread messages ────────────────────────
+function extractPlatformContextFromEvent(event: {
+  adapter: { name: string };
+  raw: unknown;
+  user: { userId: string };
+}): PlatformContext {
+  return extractPlatformContext(event);
+}
 
-async function buildHistory(thread: {
-  adapter: {
-    fetchMessages: (
-      id: string,
-      opts: { limit: number }
-    ) => Promise<{
-      messages: Array<{
-        text: string;
-        author: { isMe: boolean | string; isBot: boolean | string };
-      }>;
-    }>;
-  };
-  id: string;
-}): Promise<ModelMessage[]> {
+// ─── Build conversation history from thread messages ────────────────────────
+// Uses thread.messages (newest first, auto-paginates) per docs/usage.mdx.
+// We collect the 20 most recent, reverse to chronological order for the model.
+async function buildHistory(thread: Thread): Promise<ModelMessage[]> {
   try {
-    const result = await thread.adapter.fetchMessages(thread.id, { limit: 30 });
-    return result.messages
-      .filter((msg) => msg.text.trim())
-      .map((msg) => ({
-        role: (msg.author.isMe ? "assistant" : "user") as "assistant" | "user",
-        content: msg.text,
-      }));
+    const collected: ModelMessage[] = [];
+    for await (const msg of thread.messages) {
+      if (collected.length >= 20) break;
+      if (msg.text.trim()) {
+        collected.push({
+          role: (msg.author.isMe ? "assistant" : "user") as "assistant" | "user",
+          content: msg.text,
+        });
+      }
+    }
+    return collected.reverse();
   } catch {
     return [];
   }
@@ -186,6 +233,80 @@ async function buildHistory(thread: {
 
 function isAsideMessage(text: string): boolean {
   return /^\s*aside\b/i.test(text);
+}
+
+function handleSlackAuthError(err: unknown): boolean {
+  if (
+    err instanceof Error &&
+    "code" in err &&
+    (err as Record<string, unknown>).code === "slack_webapi_platform_error"
+  ) {
+    const slackErr = (err as Record<string, unknown>).data as Record<string, unknown> | undefined;
+    if (slackErr?.error === "not_authed" || slackErr?.error === "invalid_auth") {
+      botLogger.error("Slack auth error — workspace may need reinstall", err);
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Wraps async handlers with consistent LockError, RateLimitError, adapter errors, and Slack auth error handling. */
+async function withBotErrorHandling(
+  fn: () => Promise<void>,
+  options: {
+    postError: (message: string) => Promise<unknown>;
+    logContext?: string;
+    getCustomErrorMessage?: (err: unknown) => string | undefined;
+  }
+): Promise<void> {
+  try {
+    await fn();
+  } catch (err) {
+    if (err instanceof LockError) return;
+    if (err instanceof RateLimitError) {
+      botLogger.warn("Rate limited", err.retryAfterMs);
+      await options.postError("I'm being rate-limited right now. Please try again in a moment.").catch(() => {});
+      return;
+    }
+    if (err instanceof AdapterRateLimitError) {
+      botLogger.warn("Adapter rate limited", err.adapter, err.retryAfter);
+      await options.postError("I'm being rate-limited right now. Please try again in a moment.").catch(() => {});
+      return;
+    }
+    if (err instanceof AuthenticationError) {
+      botLogger.error("Authentication error", err.adapter, err.message);
+      await options.postError("There was an authentication issue. Please try reconnecting your account.").catch(() => {});
+      return;
+    }
+    if (err instanceof ResourceNotFoundError) {
+      botLogger.warn("Resource not found", err.adapter, err.resourceType, err.resourceId);
+      await options.postError("The requested resource wasn't found. It may have been deleted.").catch(() => {});
+      return;
+    }
+    if (err instanceof PermissionError) {
+      botLogger.error("Permission error", err.adapter, err.action, err.requiredScope);
+      await options.postError("I don't have permission to do that. Please check the app's permissions.").catch(() => {});
+      return;
+    }
+    if (err instanceof ValidationError) {
+      botLogger.warn("Validation error", err.adapter, err.message);
+      await options.postError("There was a problem with the request. Please try again.").catch(() => {});
+      return;
+    }
+    if (err instanceof NetworkError) {
+      botLogger.error("Network error", err.adapter, err.message, err.originalError);
+      await options.postError("I'm having trouble connecting. Please try again in a moment.").catch(() => {});
+      return;
+    }
+    if (err instanceof NotImplementedError) {
+      botLogger.warn("Feature not supported", err.feature);
+      return;
+    }
+    if (handleSlackAuthError(err)) return;
+    botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
+    const customMsg = options.getCustomErrorMessage?.(err);
+    await options.postError(customMsg ?? "Sorry, something went wrong. Please try again.").catch(() => {});
+  }
 }
 
 // ─── Helper: post OAuth link prompt ─────────────────────────────────────────
@@ -205,6 +326,53 @@ function oauthLinkMessage(platform: string, teamId: string, userId: string) {
   });
 }
 
+function getSlackAdapter(): SlackAdapter {
+  return bot.getAdapter("slack") as SlackAdapter;
+}
+
+export function getTelegramAdapter(): TelegramAdapter | null {
+  if (!process.env.TELEGRAM_BOT_TOKEN) return null;
+  const adapter = bot.getAdapter("telegram");
+  return adapter ? (adapter as TelegramAdapter) : null;
+}
+
+// Telegram: callback data limited to 64 bytes; keep button ids short.
+const TELEGRAM_RETRY_CARD = Card({
+  children: [
+    Actions([Button({ id: "retry_response", label: "Retry" })]),
+  ],
+});
+
+// Streaming flow (see chat/docs/streaming.mdx): Slack uses the native chatStream API via
+// adapter.stream() with stopBlocks for the Retry button; other platforms use the post+edit
+// fallback via thread.post(textStream).
+async function postAgentStream(
+  thread: Thread,
+  textStream: AsyncIterable<string>,
+  ctx: PlatformContext
+): Promise<void> {
+  if (ctx.platform === "slack") {
+    const slack = getSlackAdapter();
+    await slack.stream(thread.id, textStream, {
+      recipientUserId: ctx.userId,
+      recipientTeamId: ctx.teamId,
+      stopBlocks: RETRY_STOP_BLOCKS,
+    });
+  } else {
+    await thread.post(textStream as unknown as string);
+    if (ctx.platform === "telegram") {
+      await thread.post(TELEGRAM_RETRY_CARD);
+    }
+  }
+}
+
+// ─── Telegram commands (/start, /help, /link, /unlink; /cal as Slack alias) ───
+
+registerTelegramHandlers(bot, {
+  withBotErrorHandling,
+  extractContext,
+});
+
 // ─── Agentic mention handler ────────────────────────────────────────────────
 
 bot.onNewMention(async (thread, message) => {
@@ -212,60 +380,44 @@ bot.onNewMention(async (thread, message) => {
 
   const ctx = extractContext(thread, message);
 
-  console.log("[Cal Bot] New mention:", { platform: ctx.platform, teamId: ctx.teamId, userId: ctx.userId, text: message.text });
+  bot.getLogger("mention").info("New mention", { platform: ctx.platform, teamId: ctx.teamId, userId: ctx.userId, text: message.text });
 
-  try {
-    // Handle Telegram /commands
-    if (ctx.platform === "telegram") {
-      const text = message.text.trim();
-      const cmd = text.split(/\s+/)[0]?.replace(/@\w+$/, "").toLowerCase();
+  await withBotErrorHandling(
+    async () => {
+      // Telegram commands handled by onNewMessage
+      if (ctx.platform === "telegram" && /^\/(cal\s+)?(start|help|link|unlink)/i.test(message.text.trim())) return;
 
-      if (cmd === "/start" || cmd === "/help") {
-        await thread.post(helpCard());
+      const linked = await getLinkedUser(ctx.teamId, ctx.userId);
+      if (!linked) {
+        await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
         return;
       }
-      if (cmd === "/link") {
-        const existing = await getLinkedUser(ctx.teamId, ctx.userId);
-        if (existing) {
-          await thread.post(`Your Cal.com account (${existing.calcomUsername}) is already connected.`);
-          return;
-        }
-        await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
-        return;
+
+      if (!(await thread.isSubscribed())) {
+        await thread.subscribe();
       }
-      if (cmd === "/unlink") {
-        const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-        if (!linked) {
-          await thread.post("Your Cal.com account is not connected.");
-          return;
-        }
-        await unlinkUser(ctx.teamId, ctx.userId);
-        await thread.post(`Your Cal.com account (${linked.calcomUsername}) has been disconnected.`);
-        return;
-      }
+
+      const history = await buildHistory(thread);
+
+      await thread.startTyping();
+
+      const result = runAgentStream({
+        teamId: ctx.teamId,
+        userId: ctx.userId,
+        userMessage: message.text,
+        conversationHistory: history.slice(0, -1),
+        lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
+        platform: ctx.platform,
+        logger: bot.getLogger("agent"),
+      });
+
+      await postAgentStream(thread, result.textStream, ctx);
+    },
+    {
+      postError: (msg) => thread.post(msg).catch(() => {}),
+      logContext: "handling mention",
     }
-
-    const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-    if (!linked) {
-      await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
-      return;
-    }
-
-    await thread.subscribe();
-
-    const result = runAgentStream({
-      teamId: ctx.teamId,
-      userId: ctx.userId,
-      userMessage: message.text,
-      lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
-      platform: ctx.platform,
-    });
-
-    await thread.post(result.textStream);
-  } catch (err) {
-    console.error("[Cal Bot] Error handling mention:", err);
-    await thread.post("Sorry, something went wrong. Please try again.").catch(() => {});
-  }
+  );
 });
 
 // ─── Agentic thread follow-up ───────────────────────────────────────────────
@@ -276,497 +428,71 @@ bot.onSubscribedMessage(async (thread, message) => {
 
   const ctx = extractContext(thread, message);
 
-  console.log("[Cal Bot] Thread follow-up:", { platform: ctx.platform, teamId: ctx.teamId, userId: ctx.userId, text: message.text });
+  bot.getLogger("thread-follow-up").info("Thread follow-up", {
+    platform: ctx.platform,
+    teamId: ctx.teamId,
+    userId: ctx.userId,
+    text: message.text,
+    isMention: message.isMention ?? false,
+  });
 
-  try {
-    const history = await buildHistory(thread);
-
-    const result = runAgentStream({
-      teamId: ctx.teamId,
-      userId: ctx.userId,
-      userMessage: message.text,
-      conversationHistory: history.slice(0, -1),
-      lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
-      platform: ctx.platform,
-    });
-
-    await thread.post(result.textStream);
-  } catch (err) {
-    console.error("[Cal Bot] Error handling thread follow-up:", err);
-    await thread.post("Sorry, something went wrong. Please try again.").catch(() => {});
-  }
-});
-
-// ─── App Home ────────────────────────────────────────────────────────────────
-
-bot.onAppHomeOpened(async (event) => {
-  const { SlackAdapter } = await import("@chat-adapter/slack");
-  const slack = bot.getAdapter("slack") as InstanceType<typeof SlackAdapter>;
-
-  const raw = event as unknown as Record<string, unknown>;
-  const teamId = typeof raw.teamId === "string" ? raw.teamId : "";
-  const userId = event.userId;
-  const linked = await getLinkedUser(teamId, userId);
-
-  if (!linked) {
-    const authUrl = generateAuthUrl("slack", teamId, userId);
-    await slack.publishHomeView(userId, {
-      type: "home",
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: "*Welcome to Cal.com!* :calendar:\n\nConnect your Cal.com account to get started.",
-          },
-        },
-        {
-          type: "actions",
-          elements: [
-            {
-              type: "button",
-              text: { type: "plain_text", text: "Continue with Cal.com" },
-              url: authUrl,
-              style: "primary",
-            },
-          ],
-        },
-      ],
-    });
-    return;
-  }
-
-  try {
-    const accessToken = await getValidAccessToken(teamId, userId);
-    if (!accessToken) {
-      const authUrl = generateAuthUrl("slack", teamId, userId);
-      await slack.publishHomeView(userId, {
-        type: "home",
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: "Your Cal.com session has expired. Please reconnect your account.",
-            },
-          },
-          {
-            type: "actions",
-            elements: [
-              {
-                type: "button",
-                text: { type: "plain_text", text: "Reconnect Cal.com" },
-                url: authUrl,
-                style: "primary",
-              },
-            ],
-          },
-        ],
-      });
-      return;
-    }
-
-    const bookings = await getBookings(
-      accessToken,
-      { status: "upcoming", take: 5 },
-      { id: linked.calcomUserId, email: linked.calcomEmail }
-    );
-
-    const bookingBlocks = bookings.flatMap((b) => [
-      {
-        type: "section" as const,
-        text: {
-          type: "mrkdwn" as const,
-          text: `*${b.title}*\n${formatBookingTime(b.start, b.end, linked.calcomTimeZone)}\nWith: ${b.attendees.map((a) => a.name).join(", ")}`,
-        },
-        ...(b.meetingUrl
-          ? {
-              accessory: {
-                type: "button" as const,
-                text: { type: "plain_text" as const, text: "Join" },
-                url: b.meetingUrl,
-              },
-            }
-          : {}),
-      },
-      { type: "divider" as const },
-    ]);
-
-    await slack.publishHomeView(userId, {
-      type: "home",
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*Welcome back, ${linked.calcomUsername}!* :calendar:`,
-          },
-        },
-        { type: "divider" },
-        {
-          type: "header",
-          text: { type: "plain_text", text: "Upcoming Bookings" },
-        },
-        ...(bookingBlocks.length > 0
-          ? bookingBlocks
-          : [
-              {
-                type: "section",
-                text: { type: "mrkdwn", text: "No upcoming bookings." },
-              },
-            ]),
-        {
-          type: "context",
-          elements: [
-            {
-              type: "mrkdwn",
-              text: ':bulb: _Tip: @mention me in any channel to chat naturally — "show my bookings", "book a meeting with @someone", "what\'s my availability?"_',
-            },
-          ],
-        },
-        {
-          type: "actions",
-          elements: [
-            {
-              type: "button",
-              text: { type: "plain_text", text: "View All Bookings" },
-              url: `${CALCOM_APP_URL}/bookings`,
-            },
-            {
-              type: "button",
-              text: { type: "plain_text", text: "Open Cal.com" },
-              url: CALCOM_APP_URL,
-            },
-          ],
-        },
-      ],
-    });
-  } catch {
-    const authUrl = generateAuthUrl("slack", teamId, userId);
-    await slack.publishHomeView(userId, {
-      type: "home",
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: "Could not load your bookings. Your session may have expired — please reconnect.",
-          },
-        },
-        {
-          type: "actions",
-          elements: [
-            {
-              type: "button",
-              text: { type: "plain_text", text: "Reconnect Cal.com" },
-              url: authUrl,
-              style: "primary",
-            },
-          ],
-        },
-      ],
-    });
-  }
-});
-
-// ─── Helper: post to channel with DM fallback ──────────────────────────────
-
-async function safeChannelPost(
-  event: SlashCommandEvent,
-  message: Parameters<SlashCommandEvent["channel"]["post"]>[0]
-) {
-  try {
-    await event.channel.post(message);
-  } catch (err) {
-    const isChannelError =
-      err instanceof Error &&
-      (err.message.includes("channel_not_found") || err.message.includes("not_in_channel"));
-    if (!isChannelError) throw err;
-
-    const { SlackAdapter } = await import("@chat-adapter/slack");
-    const slack = bot.getAdapter("slack") as InstanceType<typeof SlackAdapter>;
-    const dmThreadId = await slack.openDM(event.user.userId);
-    const dmChannel = new ChannelImpl({
-      id: dmThreadId,
-      adapter: slack,
-      stateAdapter: undefined as never,
-    });
-    await dmChannel.post(message);
-  }
-}
-
-// ─── Slash commands ──────────────────────────────────────────────────────────
-
-bot.onSlashCommand("/cal", async (event) => {
-  const args = event.text.trim().split(/\s+/);
-  const subcommand = args[0]?.toLowerCase() ?? "help";
-  const teamId = extractTeamIdFromRaw(event.raw);
-  const userId = event.user.userId;
-
-  switch (subcommand) {
-    case "link":
-      await handleLink(event, teamId, userId);
-      break;
-    case "unlink":
-      await handleUnlink(event, teamId, userId);
-      break;
-    case "help":
-      await safeChannelPost(event, helpCard());
-      break;
-    default: {
-      const naturalQuery = event.text.trim();
-      if (!naturalQuery) {
-        await safeChannelPost(event, helpCard());
+  await withBotErrorHandling(
+    async () => {
+      const linked = await getLinkedUser(ctx.teamId, ctx.userId);
+      if (!linked) {
+        await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
         return;
       }
 
+      if (message.isMention && !(await thread.isSubscribed())) {
+        await thread.subscribe();
+      }
+
+      const history = await buildHistory(thread);
+
+      await thread.startTyping();
+
       const result = runAgentStream({
-        teamId,
-        userId,
-        userMessage: naturalQuery,
-        lookupPlatformUser: makeLookupSlackUser(teamId),
-        platform: "slack",
+        teamId: ctx.teamId,
+        userId: ctx.userId,
+        userMessage: message.text,
+        conversationHistory: history.slice(0, -1),
+        lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
+        platform: ctx.platform,
+        logger: bot.getLogger("agent"),
       });
 
-      await safeChannelPost(event, result.textStream);
+      await postAgentStream(thread, result.textStream, ctx);
+    },
+    {
+      postError: (msg) => thread.post(msg).catch(() => {}),
+      logContext: "thread follow-up",
     }
-  }
+  );
 });
 
-// ─── /cal link ───────────────────────────────────────────────────────────────
-
-async function handleLink(event: SlashCommandEvent, teamId: string, userId: string) {
-  const existing = await getLinkedUser(teamId, userId);
-  if (existing) {
-    await event.channel.postEphemeral(
-      event.user,
-      `Your Cal.com account (*${existing.calcomUsername}* · ${existing.calcomEmail}) is already connected. Use \`/cal unlink\` first to disconnect.`,
-      { fallbackToDM: true }
-    );
-    return;
-  }
-
-  await event.channel.postEphemeral(event.user, oauthLinkMessage("slack", teamId, userId), {
-    fallbackToDM: true,
-  });
-}
-
-// ─── /cal unlink ─────────────────────────────────────────────────────────────
-
-async function handleUnlink(event: SlashCommandEvent, teamId: string, userId: string) {
-  const linked = await getLinkedUser(teamId, userId);
-  if (!linked) {
-    await event.channel.postEphemeral(event.user, "Your Cal.com account is not connected.", {
-      fallbackToDM: true,
-    });
-    return;
-  }
-  await unlinkUser(teamId, userId);
-  await event.channel.postEphemeral(
-    event.user,
-    `Your Cal.com account (*${linked.calcomUsername}*) has been disconnected.`,
-    { fallbackToDM: true }
-  );
-}
-
-// ─── Modal submit: book_event_type ──────────────────────────────────────────
-
-bot.onModalSubmit("book_event_type", async (event): Promise<undefined> => {
-  const meta = event.privateMetadata
-    ? (JSON.parse(event.privateMetadata) as { teamId: string; targetSlackId: string })
-    : null;
-  if (!meta) return;
-
-  const { teamId, targetSlackId } = meta;
-  const userId = event.user.userId;
-  const eventTypeId = Number(event.values.event_type);
-
-  const accessToken = await getValidAccessToken(teamId, userId);
-  if (!accessToken) {
-    if (event.relatedChannel) {
-      await event.relatedChannel.postEphemeral(
-        event.user,
-        oauthLinkMessage("slack", teamId, userId),
-        { fallbackToDM: true }
-      );
-    }
-    return;
-  }
-
-  const linked = await getLinkedUser(teamId, userId);
-  if (!linked) return;
-
-  const lookupTarget = makeLookupSlackUser(teamId);
-  const targetProfile = await lookupTarget(targetSlackId);
-  const targetName = targetProfile?.realName ?? targetProfile?.name ?? "Attendee";
-  const targetEmail = targetProfile?.email;
-
-  if (!targetEmail) {
-    if (event.relatedChannel) {
-      await event.relatedChannel.postEphemeral(
-        event.user,
-        "Could not find that user's email on Slack. Please book via @mention and provide their email.",
-        { fallbackToDM: true }
-      );
-    }
-    return;
-  }
-
+// ─── Reaction handler (Slack) ───────────────────────────────────────────────
+// Acknowledge thumbs_up on messages; Telegram reactions may differ.
+bot.onReaction(["thumbs_up", "+1"], async (event) => {
+  if (event.adapter.name !== "slack" || !event.added) return;
   try {
-    const now = new Date();
-    const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const slotsMap = await getAvailableSlots(accessToken, {
-      eventTypeId,
-      start: now.toISOString(),
-      end: weekLater.toISOString(),
-      timeZone: linked.calcomTimeZone,
-    });
-
-    const allSlots = Object.values(slotsMap)
-      .flat()
-      .filter((s) => s.available)
-      .slice(0, 5)
-      .map((s) => ({
-        time: s.time,
-        label: new Intl.DateTimeFormat("en-US", {
-          timeZone: linked.calcomTimeZone,
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }).format(new Date(s.time)),
-      }));
-
-    const eventTypeTitle =
-      (await getEventTypes(accessToken).catch(() => [])).find(
-        (et) => et.id === eventTypeId
-      )?.title ?? `Meeting`;
-
-    await setBookingFlow(teamId, userId, {
-      eventTypeId,
-      eventTypeTitle,
-      targetUserSlackId: targetSlackId,
-      targetName,
-      targetEmail,
-      step: "awaiting_slot",
-      slots: allSlots,
-    });
-
-    if (event.relatedChannel) {
-      await event.relatedChannel.post(availabilityCard(allSlots, eventTypeTitle, targetName));
-    }
+    await event.adapter.addReaction(
+      event.threadId,
+      event.messageId,
+      emoji.check
+    );
   } catch {
-    if (event.relatedChannel) {
-      await event.relatedChannel.postEphemeral(
-        event.user,
-        "Failed to fetch available slots. Please try again.",
-        { fallbackToDM: true }
-      );
-    }
+    // Ignore reaction failures (e.g. rate limit, unsupported)
   }
 });
 
-// ─── Action: select a slot ──────────────────────────────────────────────────
-
-bot.onAction("select_slot", async (event) => {
-  const teamId = extractTeamIdFromRaw(event.raw);
-  const userId = event.user.userId;
-  const selectedTime = event.value ?? "";
-
-  const [accessToken, flow] = await Promise.all([
-    getValidAccessToken(teamId, userId),
-    getBookingFlow(teamId, userId),
-  ]);
-
-  if (!accessToken || !flow) {
-    await event.thread.post("Booking session expired. Please start again by @mentioning me.");
-    return;
-  }
-
-  const slotLabel = flow.slots?.find((s) => s.time === selectedTime)?.label ?? selectedTime;
-
-  await setBookingFlow(teamId, userId, {
-    ...flow,
-    step: "awaiting_confirmation",
-    selectedSlot: selectedTime,
-  });
-
-  await event.thread.post(
-    bookingConfirmationCard(flow.eventTypeTitle, slotLabel, flow.targetName ?? "them")
-  );
-});
-
-// ─── Action: confirm booking ─────────────────────────────────────────────────
-
-bot.onAction("confirm_booking", async (event) => {
-  const teamId = extractTeamIdFromRaw(event.raw);
-  const userId = event.user.userId;
-
-  const [accessToken, flow, linked] = await Promise.all([
-    getValidAccessToken(teamId, userId),
-    getBookingFlow(teamId, userId),
-    getLinkedUser(teamId, userId),
-  ]);
-
-  if (!accessToken || !flow || !flow.selectedSlot || !flow.targetEmail || !linked) {
-    await event.thread.post("Booking session expired. Please start again by @mentioning me.");
-    return;
-  }
-
-  const sent = await event.thread.post("Creating your booking...");
-
-  try {
-    const booking = await createBooking(accessToken, {
-      eventTypeId: flow.eventTypeId,
-      start: flow.selectedSlot,
-      attendee: {
-        name: flow.targetName ?? "Attendee",
-        email: flow.targetEmail,
-        timeZone: linked.calcomTimeZone,
-      },
-    });
-
-    await clearBookingFlow(teamId, userId);
-
-    const time = formatBookingTime(booking.start, booking.end, linked.calcomTimeZone);
-
-    await sent.edit(
-      Card({
-        title: "Booking Confirmed!",
-        subtitle: booking.title,
-        children: [
-          Fields([
-            Field({ label: "When", value: time }),
-            Field({
-              label: "With",
-              value: booking.attendees.map((a) => a.name).join(", "),
-            }),
-          ]),
-          Divider(),
-          Actions([
-            ...(booking.meetingUrl
-              ? [LinkButton({ url: booking.meetingUrl, label: "Join Meeting" })]
-              : []),
-            LinkButton({
-              url: `${CALCOM_APP_URL}/bookings`,
-              label: "View Bookings",
-            }),
-          ]),
-        ],
-      })
-    );
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    await sent.edit(`Failed to create booking: ${msg}`);
-  }
-});
-
-// ─── Action: cancel booking flow ────────────────────────────────────────────
-
-bot.onAction("cancel_booking", async (event) => {
-  const teamId = extractTeamIdFromRaw(event.raw);
-  await clearBookingFlow(teamId, event.user.userId);
-  await event.thread.post("Booking cancelled.");
+// ─── Slack-only handlers (App Home, slash commands, modals, actions) ────────
+// Intentional: handlers check event.adapter.name !== "slack" and return early.
+registerSlackHandlers(bot, getSlackAdapter, {
+  postAgentStream,
+  withBotErrorHandling,
+  extractPlatformContextFromEvent,
+  extractTeamIdFromRaw,
+  buildHistory,
+  makeLookupSlackUser,
 });

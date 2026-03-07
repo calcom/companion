@@ -7,7 +7,8 @@ import {
   bookingReminderCard,
   bookingRescheduledCard,
 } from "@/lib/notifications";
-import { getLinkedUser, getWorkspaceNotificationConfig } from "@/lib/user-linking";
+import type { CalcomWebhookMetadata } from "@/lib/calcom/types";
+import { getLinkedUserByEmail, getWorkspaceNotificationConfig } from "@/lib/user-linking";
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -28,41 +29,25 @@ export async function POST(request: Request) {
     return new Response("Invalid payload", { status: 400 });
   }
 
-  // The Cal.com webhook payload includes the organizer's email.
-  // We look up which Slack user/team is linked to that email, then
-  // post the notification card in their DM (or configured channel).
-  const organizerEmail = webhook.payload.organizer.email;
-
-  // Try to find a Slack user linked to this Cal.com email across all teams.
-  // In production, Cal.com would include a teamId or external identifier.
-  // For now we use the metadata field to carry the Slack team_id.
-  const metadata = webhook.payload.metadata as Record<string, string> | undefined;
+  const metadata = webhook.payload.metadata as CalcomWebhookMetadata | undefined;
   const teamId = metadata?.slack_team_id;
-
-  if (!teamId) {
-    // Without team context we can't route the notification.
-    // This is expected when Cal.com webhooks aren't configured with metadata.
-    return new Response("OK", { status: 200 });
-  }
-
-  const workspaceConfig = await getWorkspaceNotificationConfig(teamId);
-
-  // Determine the target: DM to the organizer, or a configured channel.
-  let targetChannelId: string | null = workspaceConfig?.defaultChannelId ?? null;
-
-  // Try to find the Slack user for this organizer email via linked accounts.
-  // We can't enumerate Redis keys here without a secondary index, so we rely on
-  // the webhook metadata carrying the Slack user ID.
   const slackUserId = metadata?.slack_user_id;
-  if (!targetChannelId && !slackUserId) {
-    return new Response("OK", { status: 200 });
+  let telegramChatId = metadata?.telegram_chat_id;
+
+  if (!telegramChatId && process.env.TELEGRAM_BOT_TOKEN) {
+    const linkedByEmail = await getLinkedUserByEmail(webhook.payload.organizer.email);
+    if (linkedByEmail?.teamId === "telegram") {
+      telegramChatId = linkedByEmail.userId;
+    }
   }
 
-  const installation = await slackAdapter.getInstallation(teamId);
-  if (!installation) {
+  const workspaceConfig = teamId ? await getWorkspaceNotificationConfig(teamId) : null;
+  const hasSlackTarget = teamId && (slackUserId || workspaceConfig?.defaultChannelId);
+  const hasTelegramTarget = telegramChatId && process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!hasSlackTarget && !hasTelegramTarget) {
     return new Response("OK", { status: 200 });
   }
-
   const shouldNotify = (event: string) => {
     if (!workspaceConfig) return true;
     if (event === "BOOKING_CREATED") return workspaceConfig.notifyOnBookingCreated;
@@ -96,16 +81,33 @@ export async function POST(request: Request) {
       return new Response("OK", { status: 200 });
   }
 
-  try {
-    await slackAdapter.withBotToken(installation.botToken, async () => {
-      const { bot } = await import("@/lib/bot");
-      // Post to DM channel if we have a user ID, otherwise to the configured channel
-      const channelId = targetChannelId ?? slackUserId!;
-      const channel = bot.channel(`slack:${channelId}`);
+  const { bot } = await import("@/lib/bot");
+
+  if (hasSlackTarget && teamId) {
+    const targetChannelId = workspaceConfig?.defaultChannelId ?? null;
+    // Channel ID format: Slack channel ID (C...) or user ID (U...) for DMs
+    const channelId = targetChannelId ?? slackUserId!;
+    const installation = await slackAdapter.getInstallation(teamId);
+    if (installation) {
+      try {
+        await slackAdapter.withBotToken(installation.botToken, async () => {
+          const channel = bot.channel(`slack:${channelId}`);
+          await channel.post(card);
+        });
+      } catch (err) {
+        console.error("Failed to send Cal.com notification to Slack:", err);
+      }
+    }
+  }
+
+  if (hasTelegramTarget && telegramChatId) {
+    try {
+      // Channel ID format: Telegram chat ID (numeric)
+      const channel = bot.channel(`telegram:${telegramChatId}`);
       await channel.post(card);
-    });
-  } catch (err) {
-    console.error("Failed to send Cal.com notification to Slack:", err);
+    } catch (err) {
+      console.error("Failed to send Cal.com notification to Telegram:", err);
+    }
   }
 
   return new Response("OK", { status: 200 });

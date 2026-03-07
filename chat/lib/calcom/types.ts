@@ -86,6 +86,16 @@ export interface CreateBookingInput {
   metadata?: Record<string, string>;
 }
 
+/** Metadata passed from Cal.com booking form for routing notifications. */
+export interface CalcomWebhookMetadata {
+  /** Slack workspace/team ID for routing to Slack */
+  slack_team_id?: string;
+  /** Slack user ID for DM delivery */
+  slack_user_id?: string;
+  /** Telegram chat ID for routing to Telegram */
+  telegram_chat_id?: string;
+}
+
 export interface CalcomWebhookPayload {
   triggerEvent: CalcomWebhookEvent;
   createdAt: string;
@@ -115,7 +125,7 @@ export interface CalcomWebhookPayload {
     cancellationReason?: string;
     description?: string;
     customInputs?: Record<string, string>;
-    metadata?: Record<string, string>;
+    metadata?: CalcomWebhookMetadata | Record<string, string>;
   };
 }
 
