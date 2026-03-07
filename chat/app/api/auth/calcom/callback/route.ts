@@ -88,6 +88,9 @@ function redirectWithSuccess(name: string, email: string, teamId: string, platfo
     team: teamId,
     platform,
   });
+  if (platform === "telegram" && process.env.TELEGRAM_BOT_USERNAME) {
+    params.set("telegram_bot", process.env.TELEGRAM_BOT_USERNAME);
+  }
   return NextResponse.redirect(`${APP_URL}/auth/calcom/complete?${params}`);
 }
 

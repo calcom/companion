@@ -7,7 +7,7 @@ A multi-workspace Slack app for Cal.com built with [Chat SDK](https://chat-sdk.d
 - **Booking notifications** — DMs when someone books, reschedules, or cancels a meeting
 - **`/cal availability [@user]`** — check when you or a teammate is free
 - **`/cal book @user`** — book a meeting via an interactive modal + slot picker
-- **`/cal my-bookings`** — view upcoming bookings as a Slack card
+- **`/cal bookings`** — view upcoming bookings as a Slack card
 - **`/cal link`** — connect your Cal.com account via OAuth ("Continue with Cal.com")
 - **App Home tab** — see upcoming bookings right in the bot's home tab
 
@@ -160,7 +160,7 @@ Click the **Continue with Cal.com** button to authorize the app with your Cal.co
 
 ### 10. Test the bot
 
-In a channel, @mention the bot or run `/cal help`. You should see a response. Run `/cal my-bookings` to verify Cal.com linking.
+In a channel, @mention the bot or run `/cal help`. You should see a response. Run `/cal bookings` to verify Cal.com linking.
 
 ## Deploy to Vercel
 
@@ -183,7 +183,7 @@ After deploy, complete this checklist:
 | `/cal unlink`               | Disconnect your Cal.com account |
 | `/cal availability [@user]` | Check availability              |
 | `/cal book @user`           | Book a meeting                  |
-| `/cal my-bookings`          | View upcoming bookings          |
+| `/cal bookings`             | View upcoming bookings          |
 | `/cal help`                 | Show help                       |
 
 ## Next steps

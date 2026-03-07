@@ -2,9 +2,11 @@ import { Actions, Card, LinkButton } from "chat";
 import type { Chat } from "chat";
 import {
   getLinkedUser,
+  getValidAccessToken,
   unlinkUser,
 } from "../user-linking";
-import { helpCard } from "../notifications";
+import { getAvailableSlots, getBookings, getEventTypes } from "../calcom/client";
+import { availabilityListCard, helpCard, upcomingBookingsCard } from "../notifications";
 import { generateAuthUrl } from "../calcom/oauth";
 import { getLogger } from "../logger";
 
@@ -40,7 +42,7 @@ export function registerTelegramHandlers(
 ): void {
   const { withBotErrorHandling, extractContext } = deps;
 
-  bot.onNewMessage(/^\/(cal\s+)?(start|help|link|unlink)/i, async (thread, message) => {
+  bot.onNewMessage(/^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i, async (thread, message) => {
     if (thread.adapter.name !== "telegram") return;
 
     const ctx = extractContext(thread, message);
@@ -73,6 +75,80 @@ export function registerTelegramHandlers(
           }
           await unlinkUser(ctx.teamId, ctx.userId);
           await thread.post(`Your Cal.com account (**${linked.calcomUsername}**) has been disconnected.`);
+          return;
+        }
+        if (cmd === "bookings") {
+          const accessToken = await getValidAccessToken(ctx.teamId, ctx.userId);
+          if (!accessToken) {
+            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+            return;
+          }
+          const linked = await getLinkedUser(ctx.teamId, ctx.userId);
+          if (!linked) {
+            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+            return;
+          }
+          const bookings = await getBookings(
+            accessToken,
+            { status: "upcoming", take: 5 },
+            { id: linked.calcomUserId, email: linked.calcomEmail }
+          );
+          const card = upcomingBookingsCard(
+            bookings.map((b) => ({
+              uid: b.uid,
+              title: b.title,
+              start: b.start,
+              end: b.end,
+              attendees: b.attendees,
+              meetingUrl: b.meetingUrl ?? null,
+            }))
+          );
+          await thread.post(card);
+          return;
+        }
+        if (cmd === "availability") {
+          const accessToken = await getValidAccessToken(ctx.teamId, ctx.userId);
+          if (!accessToken) {
+            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+            return;
+          }
+          const linked = await getLinkedUser(ctx.teamId, ctx.userId);
+          if (!linked) {
+            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+            return;
+          }
+          const eventTypes = await getEventTypes(accessToken).catch(() => []);
+          if (eventTypes.length === 0) {
+            await thread.post("You have no event types. Create one at https://app.cal.com first.");
+            return;
+          }
+          const eventType = eventTypes[0]!;
+          const now = new Date();
+          const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+          const slotsMap = await getAvailableSlots(accessToken, {
+            eventTypeId: eventType.id,
+            start: now.toISOString(),
+            end: weekLater.toISOString(),
+            timeZone: linked.calcomTimeZone,
+          });
+          const allSlots = Object.values(slotsMap)
+            .flat()
+            .filter((s) => s.available)
+            .slice(0, 5)
+            .map((s) => ({
+              time: s.time,
+              label: new Intl.DateTimeFormat("en-US", {
+                timeZone: linked.calcomTimeZone,
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              }).format(new Date(s.time)),
+            }));
+          const card = availabilityListCard(allSlots, eventType.title);
+          await thread.post(card);
           return;
         }
       },

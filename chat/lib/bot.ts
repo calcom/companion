@@ -2,6 +2,7 @@ import {
   Actions,
   Button,
   Card,
+  CardText,
   Chat,
   LinkButton,
   LockError,
@@ -27,10 +28,11 @@ import type { ModelMessage } from "ai";
 import { getLinkedUser } from "./user-linking";
 import { registerSlackHandlers, RETRY_STOP_BLOCKS } from "./handlers/slack";
 import { registerTelegramHandlers } from "./handlers/telegram";
-import { runAgentStream } from "./agent";
+import { isAIRateLimitError, runAgentStream } from "./agent";
 import type { LookupPlatformUserFn } from "./agent";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
+import { formatForTelegram } from "./format-for-telegram";
 import { logger as botLogger } from "./logger";
 
 validateRequiredEnv();
@@ -303,6 +305,12 @@ async function withBotErrorHandling(
       return;
     }
     if (handleSlackAuthError(err)) return;
+    // AI/LLM rate limit (e.g. Groq tokens-per-day) — show friendly message
+    if (isAIRateLimitError(err)) {
+      botLogger.warn("AI rate limit", err);
+      await options.postError("I've hit my daily token limit. Please try again later when the limit resets.").catch(() => {});
+      return;
+    }
     botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
     const customMsg = options.getCustomErrorMessage?.(err);
     await options.postError(customMsg ?? "Sorry, something went wrong. Please try again.").catch((postErr) => {
@@ -338,19 +346,33 @@ export function getTelegramAdapter(): TelegramAdapter | null {
   return adapter ? (adapter as TelegramAdapter) : null;
 }
 
-// Telegram: callback data limited to 64 bytes; keep button ids short.
-const TELEGRAM_RETRY_CARD = Card({
-  children: [
-    Actions([Button({ id: "retry_response", label: "Retry" })]),
-  ],
-});
+/** Telegram typing indicator lasts ~5s. Refresh it every 4s during long agent runs. */
+async function withTelegramTypingRefresh(
+  thread: Thread,
+  platform: string,
+  fn: () => Promise<void>
+): Promise<void> {
+  await thread.startTyping();
+  if (platform !== "telegram") return fn();
+  return (async () => {
+    await thread.startTyping();
+    const interval = setInterval(() => thread.startTyping().catch(() => {}), 4000);
+    try {
+      await fn();
+    } finally {
+      clearInterval(interval);
+    }
+  })();
+}
 
 // Streaming flow (see chat/docs/streaming.mdx): Slack uses the native chatStream API via
 // adapter.stream() with stopBlocks for the Retry button; other platforms use the post+edit
 // fallback via thread.post(textStream).
+// For Telegram we use result.text (Promise) instead of consuming textStream — the AI SDK
+// textStream can yield empty when used with multi-step tool calls; result.text resolves to the full text.
 async function postAgentStream(
   thread: Thread,
-  textStream: AsyncIterable<string>,
+  agentResult: { textStream: AsyncIterable<string>; text: PromiseLike<string> },
   ctx: PlatformContext
 ): Promise<void> {
   const log = bot.getLogger("stream");
@@ -358,16 +380,32 @@ async function postAgentStream(
   try {
     if (ctx.platform === "slack") {
       const slack = getSlackAdapter();
-      await slack.stream(thread.id, textStream, {
+      await slack.stream(thread.id, agentResult.textStream, {
         recipientUserId: ctx.userId,
         recipientTeamId: ctx.teamId,
         stopBlocks: RETRY_STOP_BLOCKS,
       });
       log.info("Slack stream completed", { userId: ctx.userId });
     } else {
-      await thread.post(textStream as unknown as string);
       if (ctx.platform === "telegram") {
-        await thread.post(TELEGRAM_RETRY_CARD);
+        const fullText = await agentResult.text;
+        const formatted = formatForTelegram(fullText ?? "");
+        if (!formatted.trim()) {
+          log.warn("Agent produced empty text, posting fallback", { userId: ctx.userId });
+          await thread.post("Sorry, I couldn't generate a response. Please try again.");
+        } else {
+          // Wrap in Card so the adapter uses parse_mode=Markdown; plain text gets no parse_mode and links don't render.
+          await thread.post(
+            Card({
+              children: [
+                CardText(formatted),
+                Actions([Button({ id: "retry_response", label: "Retry" })]),
+              ],
+            })
+          );
+        }
+      } else {
+        await thread.post(agentResult.textStream as unknown as string);
       }
       log.info("Stream posted", { platform: ctx.platform, userId: ctx.userId });
     }
@@ -384,6 +422,59 @@ registerTelegramHandlers(bot, {
   extractContext,
 });
 
+// ─── Telegram freeform messages (1:1 DM; no @mention, so onNewMention doesn't fire) ───
+// Catches messages like "show me my bookings" that don't match slash commands.
+bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
+  if (thread.adapter.name !== "telegram") return;
+  if (/^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(message.text.trim())) return;
+  if (isAsideMessage(message.text)) return;
+  if (!message.text.trim()) return;
+
+  const ctx = extractContext(thread, message);
+
+  bot.getLogger("telegram-freeform").info("Telegram freeform message", { userId: ctx.userId, text: message.text });
+
+  const lastStreamErrorRef = { current: null as Error | null };
+  await withBotErrorHandling(
+    async () => {
+      const linked = await getLinkedUser(ctx.teamId, ctx.userId);
+      bot.getLogger("telegram-freeform").info("User link check", { userId: ctx.userId, linked: !!linked });
+      if (!linked) {
+        await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+        return;
+      }
+
+      if (!(await thread.isSubscribed())) {
+        await thread.subscribe();
+      }
+
+      const history = await buildHistory(thread);
+      await withTelegramTypingRefresh(thread, ctx.platform, async () => {
+        bot.getLogger("telegram-freeform").info("Running agent", { userId: ctx.userId, textLength: message.text.length });
+        const result = runAgentStream({
+          teamId: ctx.teamId,
+          userId: ctx.userId,
+          userMessage: message.text,
+          conversationHistory: history.slice(0, -1),
+          lookupPlatformUser: undefined,
+          platform: ctx.platform,
+          logger: bot.getLogger("agent"),
+          onErrorRef: lastStreamErrorRef,
+        });
+        await postAgentStream(thread, result, ctx);
+      });
+    },
+    {
+      postError: (msg) => thread.post(msg).catch(() => {}),
+      logContext: "telegram freeform",
+      getCustomErrorMessage: () =>
+        lastStreamErrorRef.current && isAIRateLimitError(lastStreamErrorRef.current)
+          ? "I've hit my daily token limit. Please try again later when the limit resets."
+          : undefined,
+    }
+  );
+});
+
 // ─── Agentic mention handler ────────────────────────────────────────────────
 
 bot.onNewMention(async (thread, message) => {
@@ -393,10 +484,11 @@ bot.onNewMention(async (thread, message) => {
 
   bot.getLogger("mention").info("New mention", { platform: ctx.platform, teamId: ctx.teamId, userId: ctx.userId, text: message.text });
 
+  const lastStreamErrorRef = { current: null as Error | null };
   await withBotErrorHandling(
     async () => {
       // Telegram commands handled by onNewMessage
-      if (ctx.platform === "telegram" && /^\/(cal\s+)?(start|help|link|unlink)/i.test(message.text.trim())) return;
+      if (ctx.platform === "telegram" && /^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(message.text.trim())) return;
 
       const linked = await getLinkedUser(ctx.teamId, ctx.userId);
       bot.getLogger("mention").info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
@@ -418,24 +510,28 @@ bot.onNewMention(async (thread, message) => {
 
       const history = await buildHistory(thread);
 
-      await thread.startTyping();
-
-      bot.getLogger("mention").info("Running agent", { userId: ctx.userId, textLength: message.text.length });
-      const result = runAgentStream({
-        teamId: ctx.teamId,
-        userId: ctx.userId,
-        userMessage: message.text,
-        conversationHistory: history.slice(0, -1),
-        lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
-        platform: ctx.platform,
-        logger: bot.getLogger("agent"),
+      await withTelegramTypingRefresh(thread, ctx.platform, async () => {
+        bot.getLogger("mention").info("Running agent", { userId: ctx.userId, textLength: message.text.length });
+        const result = runAgentStream({
+          teamId: ctx.teamId,
+          userId: ctx.userId,
+          userMessage: message.text,
+          conversationHistory: history.slice(0, -1),
+          lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
+          platform: ctx.platform,
+          logger: bot.getLogger("agent"),
+          onErrorRef: lastStreamErrorRef,
+        });
+        await postAgentStream(thread, result, ctx);
       });
-
-      await postAgentStream(thread, result.textStream, ctx);
     },
     {
       postError: (msg) => thread.post(msg).catch(() => {}),
       logContext: "handling mention",
+      getCustomErrorMessage: () =>
+        lastStreamErrorRef.current && isAIRateLimitError(lastStreamErrorRef.current)
+          ? "I've hit my daily token limit. Please try again later when the limit resets."
+          : undefined,
     }
   );
 });
@@ -456,6 +552,7 @@ bot.onSubscribedMessage(async (thread, message) => {
     isMention: message.isMention ?? false,
   });
 
+  const lastStreamErrorRef = { current: null as Error | null };
   await withBotErrorHandling(
     async () => {
       const linked = await getLinkedUser(ctx.teamId, ctx.userId);
@@ -478,24 +575,28 @@ bot.onSubscribedMessage(async (thread, message) => {
 
       const history = await buildHistory(thread);
 
-      await thread.startTyping();
-
-      bot.getLogger("thread-follow-up").info("Running agent", { userId: ctx.userId, textLength: message.text.length });
-      const result = runAgentStream({
-        teamId: ctx.teamId,
-        userId: ctx.userId,
-        userMessage: message.text,
-        conversationHistory: history.slice(0, -1),
-        lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
-        platform: ctx.platform,
-        logger: bot.getLogger("agent"),
+      await withTelegramTypingRefresh(thread, ctx.platform, async () => {
+        bot.getLogger("thread-follow-up").info("Running agent", { userId: ctx.userId, textLength: message.text.length });
+        const result = runAgentStream({
+          teamId: ctx.teamId,
+          userId: ctx.userId,
+          userMessage: message.text,
+          conversationHistory: history.slice(0, -1),
+          lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
+          platform: ctx.platform,
+          logger: bot.getLogger("agent"),
+          onErrorRef: lastStreamErrorRef,
+        });
+        await postAgentStream(thread, result, ctx);
       });
-
-      await postAgentStream(thread, result.textStream, ctx);
     },
     {
       postError: (msg) => thread.post(msg).catch(() => {}),
       logContext: "thread follow-up",
+      getCustomErrorMessage: () =>
+        lastStreamErrorRef.current && isAIRateLimitError(lastStreamErrorRef.current)
+          ? "I've hit my daily token limit. Please try again later when the limit resets."
+          : undefined,
     }
   );
 });

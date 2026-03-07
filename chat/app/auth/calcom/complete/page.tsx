@@ -12,7 +12,12 @@ function CompletePage() {
   const [showFallback, setShowFallback] = useState(false);
 
   const isSlack = platform === "slack";
+  const isTelegram = platform === "telegram";
+  const telegramBot = searchParams.get("telegram_bot");
   const slackWebUrl = `https://app.slack.com/client/${teamId}`;
+  const tmeFallback = telegramBot
+    ? `https://t.me/${telegramBot}?start=link_success`
+    : "";
 
   useEffect(() => {
     if (!success || !isSlack || !teamId) return;
@@ -25,6 +30,15 @@ function CompletePage() {
     }, 2000);
     return () => clearTimeout(timer);
   }, [success, isSlack, teamId, slackWebUrl]);
+
+  useEffect(() => {
+    if (!success || !isTelegram || !telegramBot) return;
+
+    window.location.href = `tg://resolve?domain=${telegramBot}&start=link_success`;
+
+    const timer = setTimeout(() => setShowFallback(true), 2000);
+    return () => clearTimeout(timer);
+  }, [success, isTelegram, telegramBot]);
 
   return (
     <main style={styles.main}>
@@ -51,7 +65,17 @@ function CompletePage() {
             )}
           </>
         )}
-        {success && !isSlack && (
+        {success && isTelegram && telegramBot && (
+          <>
+            <p style={styles.hint}>Redirecting you back to Telegram...</p>
+            {showFallback && (
+              <a href={tmeFallback} style={styles.button}>
+                Open Telegram
+              </a>
+            )}
+          </>
+        )}
+        {success && !isSlack && !(isTelegram && telegramBot) && (
           <p style={styles.hint}>You can close this tab and return to {platform.charAt(0).toUpperCase() + platform.slice(1)}.</p>
         )}
         {!success && isSlack && (

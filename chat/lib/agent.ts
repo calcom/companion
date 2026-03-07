@@ -46,8 +46,8 @@ function getSystemPrompt(platform: string) {
   const isSlack = platform === "slack";
 
   const formattingGuide = isSlack
-    ? "Use Slack mrkdwn formatting: *bold*, _italic_, `code`, and bullet lists."
-    : "Use Markdown formatting: **bold**, *italic*, `code`, and bullet lists.";
+    ? "Use Slack mrkdwn: *bold*, _italic_, `code`, bullet lists. Links: <url|link text> (e.g. <https://app.cal.com/video/abc|Join Meeting>). NEVER use [text](url) or markdown tables—Slack does not render them."
+    : "Use Telegram Markdown: **bold** (double asterisks), _italic_, `code`, bullet lists. Links: [link text](url) (e.g. [Join Meeting](https://app.cal.com/video/abc)). NEVER use single * for bold—Telegram requires **. NEVER use markdown tables (| col |)—Telegram does not render them. Use bullet lists instead.";
 
   const platformName = isSlack ? "Slack" : "Telegram";
 
@@ -121,8 +121,21 @@ Do NOT automatically resume an incomplete task from earlier in the conversation.
 6. Never call a tool with empty or placeholder arguments.
 7. Never call the same tool twice in a row.
 
-## Displaying Bookings
-When listing bookings or showing an agenda, ALWAYS include the video/meeting link inline for each booking that has one. The link is in the \`location\` field of each booking object. Format it as a clickable link next to the booking title. Never say "you can find the link in the booking details" — show it directly.
+## Formatting Rules
+${isSlack ? `- Links: use \`<url|link text>\` only (e.g. \`<https://app.cal.com/video/abc|Join Meeting>\`). Never use [text](url).
+- Lists: bullet format \`• *Title* – Date/Time – <url|Join Meeting>\`
+- No markdown tables; no [text](url) links.` : `- Bold: use \`**text**\` (double asterisks). Never use single \`*\`.
+- Links: use \`[link text](url)\` only (e.g. \`[Join Meeting](https://app.cal.com/video/abc)\`).
+- Lists: bullet format \`• **Title** – Date/Time – [Join Meeting](url)\`
+- No markdown tables.`}
+
+## Displaying Bookings and Lists
+When listing bookings, event types, availability slots, schedules, busy times, or calendar links: ALWAYS use bullet lists (never tables). Include video/meeting links inline. The link is in the \`location\` field of each booking object.
+- Bookings: \`• *Title* – Date/Time – <url|Join Meeting>\` (Slack) or \`• **Title** – Date/Time – [Join Meeting](url)\` (Telegram)
+- Event types: \`• *Title* – duration\` (Slack) or \`• **Title** – duration\` (Telegram)
+- Availability: \`• Date/Time – <url|Book>\` (Slack) or \`• Date/Time – [Book](url)\` (Telegram)
+- Calendar links (get_calendar_links): format each service (Google, Outlook, ICS) as a link per platform
+Never say "you can find the link in the booking details" — show it directly.
 
 ## Behavior
 - ${linkInstruction}
@@ -826,6 +839,23 @@ function createCalTools(
   };
 }
 
+/** True if the error is an AI/LLM rate limit (e.g. Groq tokens-per-day). */
+export function isAIRateLimitError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  const cause = err.cause as Error | undefined;
+  const causeMsg = cause?.message?.toLowerCase() ?? "";
+  const hasRateLimit =
+    msg.includes("rate limit") ||
+    msg.includes("tokens per day") ||
+    causeMsg.includes("rate limit") ||
+    causeMsg.includes("tokens per day");
+  const status429 =
+    (err as { statusCode?: number }).statusCode === 429 ||
+    (cause as { statusCode?: number } | undefined)?.statusCode === 429;
+  return hasRateLimit || (status429 && (msg.includes("retry") || causeMsg.includes("retry")));
+}
+
 export interface AgentStreamOptions {
   teamId: string;
   userId: string;
@@ -834,6 +864,8 @@ export interface AgentStreamOptions {
   lookupPlatformUser?: LookupPlatformUserFn;
   platform: string;
   logger?: Logger;
+  /** When set, rate-limit errors from the stream are stored here for the caller to surface a friendly message. */
+  onErrorRef?: { current: Error | null };
 }
 
 export function runAgentStream({
@@ -844,6 +876,7 @@ export function runAgentStream({
   lookupPlatformUser,
   platform,
   logger,
+  onErrorRef,
 }: AgentStreamOptions) {
   const tools = createCalTools(teamId, userId, lookupPlatformUser);
 
@@ -878,6 +911,7 @@ export function runAgentStream({
     },
     onError({ error }) {
       logger?.error("Stream error", error);
+      if (onErrorRef && isAIRateLimitError(error)) onErrorRef.current = error instanceof Error ? error : new Error(String(error));
     },
     onStepFinish({ finishReason, toolCalls, text }) {
       logger?.info("Step finished", {

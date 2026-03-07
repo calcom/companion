@@ -33,11 +33,13 @@ import {
 } from "../calcom/client";
 import {
   availabilityCard,
+  availabilityListCard,
   bookingConfirmationCard,
   helpCard,
+  upcomingBookingsCard,
 } from "../notifications";
 import { formatBookingTime } from "../calcom/webhooks";
-import { runAgentStream } from "../agent";
+import { isAIRateLimitError, runAgentStream } from "../agent";
 import type { LookupPlatformUserFn } from "../agent";
 import { generateAuthUrl } from "../calcom/oauth";
 import { getLogger } from "../logger";
@@ -58,7 +60,7 @@ export interface PlatformContext {
 }
 
 export interface PostAgentStreamFn {
-  (thread: Thread, textStream: AsyncIterable<string>, ctx: { platform: string; teamId: string; userId: string }): Promise<void>;
+  (thread: Thread, agentResult: { textStream: AsyncIterable<string>; text: PromiseLike<string> }, ctx: { platform: string; teamId: string; userId: string }): Promise<void>;
 }
 
 export interface RegisterSlackHandlersDeps {
@@ -315,6 +317,7 @@ export function registerSlackHandlers(
     const userId = event.user.userId;
     logger.info("Slash command /cal", { subcommand, teamId, userId });
 
+    const lastStreamErrorRef = { current: null as Error | null };
     await withBotErrorHandling(
       async () => {
         switch (subcommand) {
@@ -327,6 +330,126 @@ export function registerSlackHandlers(
           case "help":
             await safeChannelPost(event, helpCard());
             break;
+          case "bookings": {
+            const accessToken = await getValidAccessToken(teamId, userId);
+            if (!accessToken) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const linked = await getLinkedUser(teamId, userId);
+            if (!linked) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const bookings = await getBookings(
+              accessToken,
+              { status: "upcoming", take: 5 },
+              { id: linked.calcomUserId, email: linked.calcomEmail }
+            );
+            const card = upcomingBookingsCard(
+              bookings.map((b) => ({
+                uid: b.uid,
+                title: b.title,
+                start: b.start,
+                end: b.end,
+                attendees: b.attendees,
+                meetingUrl: b.meetingUrl ?? null,
+              }))
+            );
+            await safeChannelPost(event, card);
+            break;
+          }
+          case "availability": {
+            const accessToken = await getValidAccessToken(teamId, userId);
+            if (!accessToken) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const linked = await getLinkedUser(teamId, userId);
+            if (!linked) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const eventTypes = await getEventTypes(accessToken).catch(() => []);
+            if (eventTypes.length === 0) {
+              await event.channel.postEphemeral(
+                event.user,
+                "You have no event types. Create one at " + CALCOM_APP_URL + " first.",
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const mentionMatch = event.text.match(/<@([A-Z0-9]+)>/);
+            const targetSlackId = mentionMatch?.[1];
+            const eventType = eventTypes[0]!;
+            const now = new Date();
+            const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            const slotsMap = await getAvailableSlots(accessToken, {
+              eventTypeId: eventType.id,
+              start: now.toISOString(),
+              end: weekLater.toISOString(),
+              timeZone: linked.calcomTimeZone,
+            });
+            const allSlots = Object.values(slotsMap)
+              .flat()
+              .filter((s) => s.available)
+              .slice(0, 5)
+              .map((s) => ({
+                time: s.time,
+                label: new Intl.DateTimeFormat("en-US", {
+                  timeZone: linked.calcomTimeZone,
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                }).format(new Date(s.time)),
+              }));
+
+            if (targetSlackId) {
+              const lookupTarget = makeLookupSlackUser(teamId);
+              const targetProfile = await lookupTarget(targetSlackId);
+              const targetName = targetProfile?.realName ?? targetProfile?.name ?? "Attendee";
+              const targetEmail = targetProfile?.email;
+              if (targetEmail) {
+                await setBookingFlow(teamId, userId, {
+                  eventTypeId: eventType.id,
+                  eventTypeTitle: eventType.title,
+                  targetUserSlackId: targetSlackId,
+                  targetName,
+                  targetEmail,
+                  step: "awaiting_slot",
+                  slots: allSlots,
+                });
+                await safeChannelPost(event, availabilityCard(allSlots, eventType.title, targetName));
+              } else {
+                await safeChannelPost(
+                  event,
+                  availabilityListCard(allSlots, eventType.title)
+                );
+              }
+            } else {
+              await safeChannelPost(event, availabilityListCard(allSlots, eventType.title));
+            }
+            break;
+          }
           case "book": {
             const mentionMatch = event.text.match(/<@([A-Z0-9]+)>/);
             const targetSlackId = mentionMatch?.[1];
@@ -378,6 +501,7 @@ export function registerSlackHandlers(
                 lookupPlatformUser: makeLookupSlackUser(teamId),
                 platform: "slack",
                 logger: bot.getLogger("agent"),
+                onErrorRef: lastStreamErrorRef,
               });
               await safeChannelPost(event, result.textStream);
               return;
@@ -417,6 +541,7 @@ export function registerSlackHandlers(
               lookupPlatformUser: makeLookupSlackUser(teamId),
               platform: "slack",
               logger: bot.getLogger("agent"),
+              onErrorRef: lastStreamErrorRef,
             });
 
             await safeChannelPost(event, result.textStream);
@@ -426,6 +551,10 @@ export function registerSlackHandlers(
       {
         postError: (msg) => safeChannelPost(event, msg).catch(() => {}),
         logContext: "/cal",
+        getCustomErrorMessage: () =>
+          lastStreamErrorRef.current && isAIRateLimitError(lastStreamErrorRef.current)
+            ? "I've hit my daily token limit. Please try again later when the limit resets."
+            : undefined,
       }
     );
   });
@@ -781,6 +910,7 @@ export function registerSlackHandlers(
 
     if (event.adapter.name !== "slack" && event.adapter.name !== "telegram") return;
 
+    const lastStreamErrorRef = { current: null as Error | null };
     await withBotErrorHandling(
       async () => {
         const linked = await getLinkedUser(teamId, userId);
@@ -800,13 +930,18 @@ export function registerSlackHandlers(
           lookupPlatformUser: event.adapter.name === "slack" ? makeLookupSlackUser(teamId) : undefined,
           platform: event.adapter.name as "slack" | "telegram",
           logger: bot.getLogger("agent"),
+          onErrorRef: lastStreamErrorRef,
         });
 
-        await postAgentStream(event.thread as Thread, result.textStream, ctx);
+        await postAgentStream(event.thread as Thread, result, ctx);
       },
       {
         postError: (msg) => event.thread.post(msg).catch(() => {}),
         logContext: "retry_response",
+        getCustomErrorMessage: () =>
+          lastStreamErrorRef.current && isAIRateLimitError(lastStreamErrorRef.current)
+            ? "I've hit my daily token limit. Please try again later when the limit resets."
+            : undefined,
       }
     );
   });

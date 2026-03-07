@@ -1,9 +1,10 @@
 import { waitUntil } from "@vercel/functions";
 import { bot, botLogger } from "@/lib/bot";
 
-// Allow up to 60s for LLM streaming + Slack API calls.
-// Vercel Hobby defaults to 10s which causes timeouts mid-stream.
-export const maxDuration = 60;
+// Allow up to 120s for LLM streaming + Slack/Telegram API calls.
+// Multi-step agent flows (check_account_linked, list_bookings, etc.) can take 60+ seconds.
+// Vercel Hobby: up to 300s; Pro: up to 800s.
+export const maxDuration = 120;
 
 const VALID_PLATFORMS = Object.keys(bot.webhooks) as string[];
 

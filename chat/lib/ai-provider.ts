@@ -33,5 +33,6 @@ const groq = createGroq({
 });
 
 export function getModel(): LanguageModel {
+  // Model is configurable via AI_MODEL env var. See .env.example for alternatives.
   return groq(process.env.AI_MODEL ?? "openai/gpt-oss-120b");
 }

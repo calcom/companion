@@ -176,7 +176,7 @@ const features = [
   {
     icon: "🗓️",
     title: "View Your Schedule",
-    desc: "See all upcoming bookings with /cal my-bookings or in the App Home tab.",
+    desc: "See all upcoming bookings with /cal bookings or in the App Home tab.",
   },
 ];
 
@@ -184,7 +184,7 @@ const commands = [
   { cmd: "/cal link", desc: "Connect your Cal.com account" },
   { cmd: "/cal availability [@user]", desc: "Check availability" },
   { cmd: "/cal book @user", desc: "Book a meeting" },
-  { cmd: "/cal my-bookings", desc: "View upcoming bookings" },
+  { cmd: "/cal bookings", desc: "View upcoming bookings" },
   { cmd: "/cal unlink", desc: "Disconnect your Cal.com account" },
   { cmd: "/cal help", desc: "Show all commands" },
 ];

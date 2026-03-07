@@ -172,6 +172,32 @@ export function upcomingBookingsCard(
   });
 }
 
+/** Read-only list of slots (no Select). Use for /cal availability without @user. */
+export function availabilityListCard(
+  slots: Array<{ time: string; label: string }>,
+  eventTypeTitle: string
+) {
+  if (slots.length === 0) {
+    return Card({
+      title: "No Available Slots",
+      children: [
+        CardText(`No available slots found for ${eventTypeTitle} in the next 7 days.`),
+        Actions([LinkButton({ url: CALCOM_APP_URL, label: "Open Cal.com" })]),
+      ],
+    });
+  }
+
+  return Card({
+    title: "Your Available Slots",
+    subtitle: `For: ${eventTypeTitle}`,
+    children: [
+      Fields(slots.slice(0, 5).map((s) => Field({ label: s.label, value: s.time }))),
+      Divider(),
+      Actions([LinkButton({ url: CALCOM_APP_URL, label: "Open Cal.com" })]),
+    ],
+  });
+}
+
 export function availabilityCard(
   slots: Array<{ time: string; label: string }>,
   eventTypeTitle: string,
@@ -259,7 +285,7 @@ export function helpCard() {
             value: "Check someone's availability",
           }),
           Field({ label: "/cal book @user", value: "Book a meeting with someone" }),
-          Field({ label: "/cal my-bookings", value: "View your upcoming bookings" }),
+          Field({ label: "/cal bookings", value: "View your upcoming bookings" }),
           Field({ label: "/cal link", value: "Connect your Cal.com account" }),
           Field({ label: "/cal unlink", value: "Disconnect your Cal.com account" }),
           Field({ label: "/cal help", value: "Show this help message" }),
