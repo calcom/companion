@@ -39,7 +39,7 @@ import {
   upcomingBookingsCard,
 } from "../notifications";
 import { formatBookingTime } from "../calcom/webhooks";
-import { isAIRateLimitError, runAgentStream } from "../agent";
+import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "../agent";
 import type { LookupPlatformUserFn } from "../agent";
 import { generateAuthUrl } from "../calcom/oauth";
 import { getLogger } from "../logger";
@@ -60,7 +60,12 @@ export interface PlatformContext {
 }
 
 export interface PostAgentStreamFn {
-  (thread: Thread, agentResult: { textStream: AsyncIterable<string>; text: PromiseLike<string> }, ctx: { platform: string; teamId: string; userId: string }): Promise<void>;
+  (
+    thread: Thread,
+    agentResult: { textStream: AsyncIterable<string>; text: PromiseLike<string> },
+    ctx: { platform: string; teamId: string; userId: string },
+    options?: { onErrorRef?: { current: Error | null } }
+  ): Promise<void>;
 }
 
 export interface RegisterSlackHandlersDeps {
@@ -551,10 +556,14 @@ export function registerSlackHandlers(
       {
         postError: (msg) => safeChannelPost(event, msg).catch(() => {}),
         logContext: "/cal",
-        getCustomErrorMessage: () =>
-          lastStreamErrorRef.current && isAIRateLimitError(lastStreamErrorRef.current)
-            ? "I've hit my daily token limit. Please try again later when the limit resets."
-            : undefined,
+        getCustomErrorMessage: () => {
+          if (!lastStreamErrorRef.current) return undefined;
+          if (isAIRateLimitError(lastStreamErrorRef.current))
+            return "I've hit my daily token limit. Please try again later when the limit resets.";
+          if (isAIToolCallError(lastStreamErrorRef.current))
+            return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+          return undefined;
+        },
       }
     );
   });
@@ -933,15 +942,19 @@ export function registerSlackHandlers(
           onErrorRef: lastStreamErrorRef,
         });
 
-        await postAgentStream(event.thread as Thread, result, ctx);
+        await postAgentStream(event.thread as Thread, result, ctx, { onErrorRef: lastStreamErrorRef });
       },
       {
         postError: (msg) => event.thread.post(msg).catch(() => {}),
         logContext: "retry_response",
-        getCustomErrorMessage: () =>
-          lastStreamErrorRef.current && isAIRateLimitError(lastStreamErrorRef.current)
-            ? "I've hit my daily token limit. Please try again later when the limit resets."
-            : undefined,
+        getCustomErrorMessage: () => {
+          if (!lastStreamErrorRef.current) return undefined;
+          if (isAIRateLimitError(lastStreamErrorRef.current))
+            return "I've hit my daily token limit. Please try again later when the limit resets.";
+          if (isAIToolCallError(lastStreamErrorRef.current))
+            return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+          return undefined;
+        },
       }
     );
   });

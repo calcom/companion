@@ -839,6 +839,21 @@ function createCalTools(
   };
 }
 
+/** True if the error is a Groq/API tool-call failure (e.g. failed_generation, invalid_request_error). */
+export function isAIToolCallError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  const cause = err.cause as Error | undefined;
+  const causeMsg = cause?.message?.toLowerCase() ?? "";
+  return (
+    msg.includes("failed to call a function") ||
+    msg.includes("failed_generation") ||
+    msg.includes("invalid_request_error") ||
+    causeMsg.includes("failed to call a function") ||
+    causeMsg.includes("failed_generation")
+  );
+}
+
 /** True if the error is an AI/LLM rate limit (e.g. Groq tokens-per-day). */
 export function isAIRateLimitError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
@@ -911,7 +926,8 @@ export function runAgentStream({
     },
     onError({ error }) {
       logger?.error("Stream error", error);
-      if (onErrorRef && isAIRateLimitError(error)) onErrorRef.current = error instanceof Error ? error : new Error(String(error));
+      if (onErrorRef && (isAIRateLimitError(error) || isAIToolCallError(error)))
+        onErrorRef.current = error instanceof Error ? error : new Error(String(error));
     },
     onStepFinish({ finishReason, toolCalls, text }) {
       logger?.info("Step finished", {

@@ -28,7 +28,7 @@ import type { ModelMessage } from "ai";
 import { getLinkedUser } from "./user-linking";
 import { registerSlackHandlers, RETRY_STOP_BLOCKS } from "./handlers/slack";
 import { registerTelegramHandlers } from "./handlers/telegram";
-import { isAIRateLimitError, runAgentStream } from "./agent";
+import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
 import type { LookupPlatformUserFn } from "./agent";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
@@ -311,6 +311,16 @@ async function withBotErrorHandling(
       await options.postError("I've hit my daily token limit. Please try again later when the limit resets.").catch(() => {});
       return;
     }
+    // Groq tool-call failure (failed_generation) — known intermittent issue
+    if (isAIToolCallError(err)) {
+      botLogger.warn("AI tool call error", err);
+      await options
+        .postError(
+          "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID)."
+        )
+        .catch(() => {});
+      return;
+    }
     botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
     const customMsg = options.getCustomErrorMessage?.(err);
     await options.postError(customMsg ?? "Sorry, something went wrong. Please try again.").catch((postErr) => {
@@ -373,7 +383,8 @@ async function withTelegramTypingRefresh(
 async function postAgentStream(
   thread: Thread,
   agentResult: { textStream: AsyncIterable<string>; text: PromiseLike<string> },
-  ctx: PlatformContext
+  ctx: PlatformContext,
+  options?: { onErrorRef?: { current: Error | null } }
 ): Promise<void> {
   const log = bot.getLogger("stream");
   log.info("Posting agent stream", { platform: ctx.platform, userId: ctx.userId, teamId: ctx.teamId, threadId: thread.id });
@@ -392,7 +403,11 @@ async function postAgentStream(
         const formatted = formatForTelegram(fullText ?? "");
         if (!formatted.trim()) {
           log.warn("Agent produced empty text, posting fallback", { userId: ctx.userId });
-          await thread.post("Sorry, I couldn't generate a response. Please try again.");
+          const fallbackMsg =
+            options?.onErrorRef?.current && isAIToolCallError(options.onErrorRef.current)
+              ? "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID)."
+              : "Sorry, I couldn't generate a response. Please try again.";
+          await thread.post(fallbackMsg);
         } else {
           // Wrap in Card so the adapter uses parse_mode=Markdown; plain text gets no parse_mode and links don't render.
           await thread.post(
@@ -461,16 +476,20 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
         });
-        await postAgentStream(thread, result, ctx);
+        await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
       });
     },
     {
       postError: (msg) => thread.post(msg).catch(() => {}),
       logContext: "telegram freeform",
-      getCustomErrorMessage: () =>
-        lastStreamErrorRef.current && isAIRateLimitError(lastStreamErrorRef.current)
-          ? "I've hit my daily token limit. Please try again later when the limit resets."
-          : undefined,
+      getCustomErrorMessage: () => {
+        if (!lastStreamErrorRef.current) return undefined;
+        if (isAIRateLimitError(lastStreamErrorRef.current))
+          return "I've hit my daily token limit. Please try again later when the limit resets.";
+        if (isAIToolCallError(lastStreamErrorRef.current))
+          return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+        return undefined;
+      },
     }
   );
 });
@@ -522,16 +541,20 @@ bot.onNewMention(async (thread, message) => {
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
         });
-        await postAgentStream(thread, result, ctx);
+        await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
       });
     },
     {
       postError: (msg) => thread.post(msg).catch(() => {}),
       logContext: "handling mention",
-      getCustomErrorMessage: () =>
-        lastStreamErrorRef.current && isAIRateLimitError(lastStreamErrorRef.current)
-          ? "I've hit my daily token limit. Please try again later when the limit resets."
-          : undefined,
+      getCustomErrorMessage: () => {
+        if (!lastStreamErrorRef.current) return undefined;
+        if (isAIRateLimitError(lastStreamErrorRef.current))
+          return "I've hit my daily token limit. Please try again later when the limit resets.";
+        if (isAIToolCallError(lastStreamErrorRef.current))
+          return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+        return undefined;
+      },
     }
   );
 });
@@ -587,16 +610,20 @@ bot.onSubscribedMessage(async (thread, message) => {
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
         });
-        await postAgentStream(thread, result, ctx);
+        await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
       });
     },
     {
       postError: (msg) => thread.post(msg).catch(() => {}),
       logContext: "thread follow-up",
-      getCustomErrorMessage: () =>
-        lastStreamErrorRef.current && isAIRateLimitError(lastStreamErrorRef.current)
-          ? "I've hit my daily token limit. Please try again later when the limit resets."
-          : undefined,
+      getCustomErrorMessage: () => {
+        if (!lastStreamErrorRef.current) return undefined;
+        if (isAIRateLimitError(lastStreamErrorRef.current))
+          return "I've hit my daily token limit. Please try again later when the limit resets.";
+        if (isAIToolCallError(lastStreamErrorRef.current))
+          return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+        return undefined;
+      },
     }
   );
 });
