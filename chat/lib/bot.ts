@@ -438,20 +438,23 @@ registerTelegramHandlers(bot, {
   extractContext,
 });
 
-// ─── Telegram freeform messages (1:1 DM; no @mention, so onNewMention doesn't fire) ───
-// Catches messages like "show me my bookings" that don't match slash commands.
+// ─── Telegram freeform messages (1:1 DM only) ───────────────────────────────
+// Only handles DMs. Group messages are handled by onNewMention (unsubscribed)
+// or onSubscribedMessage (subscribed). Even if the bot is a group admin and
+// receives all messages, we only want to respond to @mentions in groups.
 bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
   if (thread.adapter.name !== "telegram") return;
   if (message.author.isBot || message.author.isMe) return;
   if (/^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(message.text.trim())) return;
   if (isAsideMessage(message.text)) return;
-  // Telegram only delivers group messages to bots that @mention them (privacy mode on),
-  // so any group message we receive is implicitly an @mention. DMs have no @mentions.
-  const isGroupChat = thread.id !== `telegram:${message.author.userId}`;
+
+  // Restrict to DMs only — group messages (subscribed or not) are handled elsewhere.
+  const isGroupThread = thread.id !== `telegram:${message.author.userId}`;
+  if (isGroupThread) return;
 
   const ctx = extractContext(thread, message);
 
-  bot.getLogger("telegram-freeform").info("Telegram freeform message", { userId: ctx.userId, text: message.text, isGroupChat });
+  bot.getLogger("telegram-freeform").info("Telegram DM message", { userId: ctx.userId, text: message.text });
 
   // Empty text means the user sent only "@botname" with no additional text. Show help.
   if (!message.text.trim()) {
@@ -597,6 +600,12 @@ bot.onSubscribedMessage(async (thread, message) => {
   if (isAsideMessage(message.text)) return;
 
   const ctx = extractContext(thread, message);
+
+  // For Telegram group threads: only process @mentions. This ensures the bot
+  // doesn't respond to every message when it has admin permissions (which bypass
+  // Telegram's privacy mode and deliver all group messages).
+  const isTelegramGroup = ctx.platform === "telegram" && thread.id !== `telegram:${ctx.userId}`;
+  if (isTelegramGroup && !message.isMention) return;
 
   // Strip leading @botname for Telegram group @mentions (adapter doesn't strip automatically).
   const userMessage =
