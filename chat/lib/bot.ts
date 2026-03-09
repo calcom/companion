@@ -33,6 +33,7 @@ import type { LookupPlatformUserFn } from "./agent";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
 import { formatForTelegram } from "./format-for-telegram";
+import { helpCard } from "./notifications";
 import { logger as botLogger } from "./logger";
 
 validateRequiredEnv();
@@ -441,13 +442,22 @@ registerTelegramHandlers(bot, {
 // Catches messages like "show me my bookings" that don't match slash commands.
 bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
   if (thread.adapter.name !== "telegram") return;
+  if (message.author.isBot || message.author.isMe) return;
   if (/^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(message.text.trim())) return;
   if (isAsideMessage(message.text)) return;
-  if (!message.text.trim()) return;
+  // Telegram only delivers group messages to bots that @mention them (privacy mode on),
+  // so any group message we receive is implicitly an @mention. DMs have no @mentions.
+  const isGroupChat = thread.id !== `telegram:${message.author.userId}`;
 
   const ctx = extractContext(thread, message);
 
-  bot.getLogger("telegram-freeform").info("Telegram freeform message", { userId: ctx.userId, text: message.text });
+  bot.getLogger("telegram-freeform").info("Telegram freeform message", { userId: ctx.userId, text: message.text, isGroupChat });
+
+  // Empty text means the user sent only "@botname" with no additional text. Show help.
+  if (!message.text.trim()) {
+    await thread.post(helpCard());
+    return;
+  }
 
   const lastStreamErrorRef = { current: null as Error | null };
   await withBotErrorHandling(
@@ -495,31 +505,52 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
 });
 
 // ─── Agentic mention handler ────────────────────────────────────────────────
+// For Telegram: privacy mode ON means only @mention messages are delivered in
+// groups, so onNewMention is the primary group entry point.
+// The Telegram adapter does NOT strip the bot @mention from message.text, so
+// we strip it here before passing to the agent.
 
 bot.onNewMention(async (thread, message) => {
+  if (message.author.isBot || message.author.isMe) return;
   if (isAsideMessage(message.text)) return;
 
   const ctx = extractContext(thread, message);
 
-  bot.getLogger("mention").info("New mention", { platform: ctx.platform, teamId: ctx.teamId, userId: ctx.userId, text: message.text });
+  // Strip leading @botname that Telegram includes in message.text for group @mentions.
+  // Other platforms (Slack) strip mentions automatically, so this only affects Telegram.
+  const userMessage =
+    ctx.platform === "telegram" ? message.text.replace(/^@\S+\s*/, "").trim() : message.text;
+
+  bot.getLogger("mention").info("New mention", { platform: ctx.platform, teamId: ctx.teamId, userId: ctx.userId, text: userMessage });
 
   const lastStreamErrorRef = { current: null as Error | null };
   await withBotErrorHandling(
     async () => {
-      // Telegram commands handled by onNewMessage
-      if (ctx.platform === "telegram" && /^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(message.text.trim())) return;
+      // Telegram commands handled by onNewMessage (slash command handler)
+      if (ctx.platform === "telegram" && /^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(userMessage)) return;
 
       const linked = await getLinkedUser(ctx.teamId, ctx.userId);
       bot.getLogger("mention").info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
       if (!linked) {
-        bot.getLogger("mention").warn("User not linked, posting ephemeral", { userId: ctx.userId });
-        try {
-          await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
-          bot.getLogger("mention").info("Ephemeral OAuth link posted", { userId: ctx.userId });
-        } catch (ephemeralErr) {
-          bot.getLogger("mention").error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
-          throw ephemeralErr;
+        bot.getLogger("mention").warn("User not linked", { userId: ctx.userId });
+        // For Telegram, post inline (groups don't support ephemeral; fallback DM is confusing).
+        // For Slack, use ephemeral so only the user sees the link prompt.
+        if (ctx.platform === "telegram") {
+          await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+        } else {
+          try {
+            await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
+          } catch (ephemeralErr) {
+            bot.getLogger("mention").error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
+            throw ephemeralErr;
+          }
         }
+        return;
+      }
+
+      // Empty text means user only sent "@botname" with no additional message — show help.
+      if (!userMessage) {
+        await thread.post(helpCard());
         return;
       }
 
@@ -530,11 +561,11 @@ bot.onNewMention(async (thread, message) => {
       const history = await buildHistory(thread);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
-        bot.getLogger("mention").info("Running agent", { userId: ctx.userId, textLength: message.text.length });
+        bot.getLogger("mention").info("Running agent", { userId: ctx.userId, textLength: userMessage.length });
         const result = runAgentStream({
           teamId: ctx.teamId,
           userId: ctx.userId,
-          userMessage: message.text,
+          userMessage,
           conversationHistory: history.slice(0, -1),
           lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
           platform: ctx.platform,
@@ -567,11 +598,15 @@ bot.onSubscribedMessage(async (thread, message) => {
 
   const ctx = extractContext(thread, message);
 
+  // Strip leading @botname for Telegram group @mentions (adapter doesn't strip automatically).
+  const userMessage =
+    ctx.platform === "telegram" ? message.text.replace(/^@\S+\s*/, "").trim() : message.text;
+
   bot.getLogger("thread-follow-up").info("Thread follow-up", {
     platform: ctx.platform,
     teamId: ctx.teamId,
     userId: ctx.userId,
-    text: message.text,
+    text: userMessage,
     isMention: message.isMention ?? false,
   });
 
@@ -581,13 +616,17 @@ bot.onSubscribedMessage(async (thread, message) => {
       const linked = await getLinkedUser(ctx.teamId, ctx.userId);
       bot.getLogger("thread-follow-up").info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
       if (!linked) {
-        bot.getLogger("thread-follow-up").warn("User not linked, posting ephemeral", { userId: ctx.userId });
-        try {
-          await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
-          bot.getLogger("thread-follow-up").info("Ephemeral OAuth link posted", { userId: ctx.userId });
-        } catch (ephemeralErr) {
-          bot.getLogger("thread-follow-up").error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
-          throw ephemeralErr;
+        bot.getLogger("thread-follow-up").warn("User not linked", { userId: ctx.userId });
+        if (ctx.platform === "telegram") {
+          await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+        } else {
+          try {
+            await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
+            bot.getLogger("thread-follow-up").info("Ephemeral OAuth link posted", { userId: ctx.userId });
+          } catch (ephemeralErr) {
+            bot.getLogger("thread-follow-up").error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
+            throw ephemeralErr;
+          }
         }
         return;
       }
@@ -599,11 +638,11 @@ bot.onSubscribedMessage(async (thread, message) => {
       const history = await buildHistory(thread);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
-        bot.getLogger("thread-follow-up").info("Running agent", { userId: ctx.userId, textLength: message.text.length });
+        bot.getLogger("thread-follow-up").info("Running agent", { userId: ctx.userId, textLength: userMessage.length });
         const result = runAgentStream({
           teamId: ctx.teamId,
           userId: ctx.userId,
-          userMessage: message.text,
+          userMessage,
           conversationHistory: history.slice(0, -1),
           lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
           platform: ctx.platform,
