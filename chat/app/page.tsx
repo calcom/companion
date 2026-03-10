@@ -1,4 +1,3 @@
-
 // Build the Slack OAuth authorization URL
 function getSlackInstallUrl(): string {
   const clientId = process.env.SLACK_CLIENT_ID ?? "";
@@ -42,7 +41,14 @@ export default async function HomePage({ searchParams }: PageProps) {
         {/* Header */}
         <div style={styles.header}>
           <div style={styles.logo}>
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-label="Cal.com logo" role="img">
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 32 32"
+              fill="none"
+              aria-label="Cal.com logo"
+              role="img"
+            >
               <rect width="32" height="32" rx="8" fill="#101010" />
               <path d="M8 16a8 8 0 1 1 16 0 8 8 0 0 1-16 0Z" fill="white" />
               <path d="M16 8v8l5.66 5.66" stroke="#101010" strokeWidth="2" strokeLinecap="round" />

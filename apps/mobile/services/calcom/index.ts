@@ -18,22 +18,22 @@
 
 // Re-export types for backward compatibility
 export type {
-  EventType,
-  CreateEventTypeInput,
   Booking,
-  BookingParticipationResult,
-  Schedule,
-  UserProfile,
-  ConferencingOption,
-  Webhook,
-  CreateWebhookInput,
-  UpdateWebhookInput,
-  PrivateLink,
-  CreatePrivateLinkInput,
-  UpdatePrivateLinkInput,
   BookingLimitsCount,
   BookingLimitsDuration,
+  BookingParticipationResult,
+  ConferencingOption,
   ConfirmationPolicy,
+  CreateEventTypeInput,
+  CreatePrivateLinkInput,
+  CreateWebhookInput,
+  EventType,
+  PrivateLink,
+  Schedule,
+  UpdatePrivateLinkInput,
+  UpdateWebhookInput,
+  UserProfile,
+  Webhook,
 } from "../types";
 
 // Import all functions from submodules

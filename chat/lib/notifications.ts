@@ -226,9 +226,11 @@ export function availabilityCard(
             id: "select_slot",
             label: "Time",
             placeholder: "Select a time to book",
-          options: slots.slice(0, 5).map((slot) =>
-            SelectOption({ label: slot.label, value: slot.time, description: "Available slot" })
-          ),
+            options: slots
+              .slice(0, 5)
+              .map((slot) =>
+                SelectOption({ label: slot.label, value: slot.time, description: "Available slot" })
+              ),
           }),
         ]),
       ]),

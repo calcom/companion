@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode } from "react";
 import { Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { getColors } from "@/constants/colors";
 import { EmptyScreen } from "./EmptyScreen";
 import { Header } from "./Header";
 import { LoadingSpinner } from "./LoadingSpinner";
-import { getColors } from "@/constants/colors";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 

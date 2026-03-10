@@ -4,9 +4,9 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getColors } from "@/constants/colors";
 import type { EditAvailabilityNameScreenHandle } from "@/components/screens/EditAvailabilityNameScreen.ios";
 import EditAvailabilityNameScreenComponent from "@/components/screens/EditAvailabilityNameScreen.ios";
+import { getColors } from "@/constants/colors";
 import { CalComAPIService, type Schedule } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 

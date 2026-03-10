@@ -1,31 +1,31 @@
+import { type ModelMessage, stepCountIs, streamText, tool } from "ai";
 import type { Logger } from "chat";
-import { streamText, tool, stepCountIs, type ModelMessage } from "ai";
 import { z } from "zod";
 import { getModel } from "./ai-provider";
 import {
-  getEventTypes,
-  getAvailableSlots,
-  createBooking,
-  getBookings,
   cancelBooking,
-  rescheduleBooking,
-  getMe,
-  updateMe,
-  getBooking,
   confirmBooking,
-  declineBooking,
-  getSchedules,
-  getDefaultSchedule,
-  getSchedule,
-  createSchedule,
-  updateSchedule,
-  deleteSchedule,
-  getBusyTimes,
+  createBooking,
   createEventType,
-  updateEventType,
+  createSchedule,
+  declineBooking,
   deleteEventType,
+  deleteSchedule,
+  getAvailableSlots,
+  getBooking,
+  getBookings,
+  getBusyTimes,
   getCalendarLinks,
+  getDefaultSchedule,
+  getEventTypes,
+  getMe,
+  getSchedule,
+  getSchedules,
   markNoShow,
+  rescheduleBooking,
+  updateEventType,
+  updateMe,
+  updateSchedule,
 } from "./calcom/client";
 import { getLinkedUser, getValidAccessToken, unlinkUser } from "./user-linking";
 
@@ -122,12 +122,16 @@ Do NOT automatically resume an incomplete task from earlier in the conversation.
 7. Never call the same tool twice in a row.
 
 ## Formatting Rules
-${isSlack ? `- Links: use \`<url|link text>\` only (e.g. \`<https://app.cal.com/video/abc|Join Meeting>\`). Never use [text](url).
+${
+  isSlack
+    ? `- Links: use \`<url|link text>\` only (e.g. \`<https://app.cal.com/video/abc|Join Meeting>\`). Never use [text](url).
 - Lists: bullet format \`• *Title* – Date/Time – <url|Join Meeting>\`
-- No markdown tables; no [text](url) links.` : `- Bold: use \`**text**\` (double asterisks). Never use single \`*\`.
+- No markdown tables; no [text](url) links.`
+    : `- Bold: use \`**text**\` (double asterisks). Never use single \`*\`.
 - Links: use \`[link text](url)\` only (e.g. \`[Join Meeting](https://app.cal.com/video/abc)\`).
 - Lists: bullet format \`• **Title** – Date/Time – [Join Meeting](url)\`
-- No markdown tables.`}
+- No markdown tables.`
+}
 
 ## Displaying Bookings and Lists
 When listing bookings, event types, availability slots, schedules, busy times, or calendar links: ALWAYS use bullet lists (never tables). Include video/meeting links inline. The link is in the \`location\` field of each booking object.
@@ -152,11 +156,7 @@ async function getAccessTokenOrNull(teamId: string, userId: string): Promise<str
   return getValidAccessToken(teamId, userId);
 }
 
-function createCalTools(
-  teamId: string,
-  userId: string,
-  lookupPlatformUser?: LookupPlatformUserFn
-) {
+function createCalTools(teamId: string, userId: string, lookupPlatformUser?: LookupPlatformUserFn) {
   return {
     check_account_linked: tool({
       description:
@@ -188,7 +188,9 @@ function createCalTools(
       inputSchema: z.object({
         platformUserId: z
           .string()
-          .describe("The platform user ID to look up (e.g. 'U012AB3CD' on Slack — without <@ and >)"),
+          .describe(
+            "The platform user ID to look up (e.g. 'U012AB3CD' on Slack — without <@ and >)"
+          ),
       }),
       execute: async ({ platformUserId }) => {
         const profile = lookupPlatformUser ? await lookupPlatformUser(platformUserId) : null;
@@ -196,7 +198,8 @@ function createCalTools(
         if (!profile) {
           return {
             platformUserId,
-            error: "Could not look up this user. Ask the requester to provide the attendee's name and email manually.",
+            error:
+              "Could not look up this user. Ask the requester to provide the attendee's name and email manually.",
           };
         }
 
@@ -205,7 +208,8 @@ function createCalTools(
             platformUserId,
             name: profile.realName ?? profile.name,
             email: null,
-            instruction: "Found the user's name but their email is not visible. Ask the requester to provide the attendee's email.",
+            instruction:
+              "Found the user's name but their email is not visible. Ask the requester to provide the attendee's email.",
           };
         }
 
@@ -286,7 +290,9 @@ function createCalTools(
           .string()
           .nullable()
           .optional()
-          .describe("ISO 8601 date to start from (defaults to now). Use this when the user specifies a date."),
+          .describe(
+            "ISO 8601 date to start from (defaults to now). Use this when the user specifies a date."
+          ),
       }),
       execute: async ({ eventTypeId, daysAhead, startDate }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
@@ -338,17 +344,28 @@ function createCalTools(
         "Book a meeting on YOUR Cal.com calendar. You are always the host — use your own event type ID and availability. The attendee is the person you're meeting with; provide their name and email (get these from lookup_slack_user if they were @mentioned).",
       inputSchema: z.object({
         eventTypeId: z.number().describe("Your event type ID to book"),
-        startTime: z.string().describe("Start time in ISO 8601 UTC format (e.g. '2026-02-26T11:30:00Z')"),
+        startTime: z
+          .string()
+          .describe("Start time in ISO 8601 UTC format (e.g. '2026-02-26T11:30:00Z')"),
         attendeeName: z.string().describe("Full name of the person you're meeting with"),
         attendeeEmail: z.string().describe("Email address of the person you're meeting with"),
         attendeeTimeZone: z
           .string()
           .nullable()
           .optional()
-          .describe("Attendee's timezone (e.g. 'Asia/Kolkata'). Defaults to your timezone if omitted."),
+          .describe(
+            "Attendee's timezone (e.g. 'Asia/Kolkata'). Defaults to your timezone if omitted."
+          ),
         notes: z.string().nullable().optional().describe("Optional notes for the booking"),
       }),
-      execute: async ({ eventTypeId, startTime, attendeeName, attendeeEmail, attendeeTimeZone, notes }) => {
+      execute: async ({
+        eventTypeId,
+        startTime,
+        attendeeName,
+        attendeeEmail,
+        attendeeTimeZone,
+        notes,
+      }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         const linked = await getLinkedUser(teamId, userId);
@@ -538,11 +555,7 @@ function createCalTools(
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         try {
-          const booking = await declineBooking(
-            token,
-            bookingUid,
-            reason ?? undefined
-          );
+          const booking = await declineBooking(token, bookingUid, reason ?? undefined);
           return {
             success: true,
             bookingUid: booking.uid,

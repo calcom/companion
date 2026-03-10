@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
+import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import { Alert, Pressable, ScrollView, Switch, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
+import { getColors } from "@/constants/colors";
 import { useUpdateSchedule } from "@/hooks/useSchedules";
 import type { Schedule } from "@/services/calcom";
 import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
-import { getColors } from "@/constants/colors";
 
 // Convert 24-hour time to 12-hour format with AM/PM
 const formatTime12Hour = (time24: string): string => {

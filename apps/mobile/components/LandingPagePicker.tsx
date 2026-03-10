@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
-import { FullScreenModal } from "./FullScreenModal";
 import {
   LANDING_PAGE_OPTIONS,
   type LandingPage,
   type LandingPageOption,
 } from "@/hooks/useUserPreferences";
+import { FullScreenModal } from "./FullScreenModal";
 
 interface LandingPagePickerProps {
   visible: boolean;

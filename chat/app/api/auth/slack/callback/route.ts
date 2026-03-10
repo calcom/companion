@@ -2,6 +2,7 @@ import { bot, slackAdapter } from "@/lib/bot";
 import { getLogger } from "@/lib/logger";
 
 const logger = getLogger("slack-auth");
+
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { redirect } from "next/navigation";
 

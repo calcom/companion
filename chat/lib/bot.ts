@@ -1,16 +1,4 @@
 import {
-  Actions,
-  Button,
-  Card,
-  CardText,
-  Chat,
-  LinkButton,
-  LockError,
-  NotImplementedError,
-  RateLimitError,
-  emoji,
-} from "chat";
-import {
   AdapterRateLimitError,
   AuthenticationError,
   NetworkError,
@@ -19,22 +7,34 @@ import {
   ValidationError,
 } from "@chat-adapter/shared";
 import { createSlackAdapter, type SlackAdapter } from "@chat-adapter/slack";
-import { createTelegramAdapter, type TelegramAdapter } from "@chat-adapter/telegram";
 import { createIoRedisState } from "@chat-adapter/state-ioredis";
 import { createMemoryState } from "@chat-adapter/state-memory";
 import { createRedisState } from "@chat-adapter/state-redis";
-import type { Thread } from "chat";
+import { createTelegramAdapter, type TelegramAdapter } from "@chat-adapter/telegram";
 import type { ModelMessage } from "ai";
-import { getLinkedUser } from "./user-linking";
-import { registerSlackHandlers, RETRY_STOP_BLOCKS } from "./handlers/slack";
-import { registerTelegramHandlers } from "./handlers/telegram";
-import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
+import type { Thread } from "chat";
+import {
+  Actions,
+  Button,
+  Card,
+  CardText,
+  Chat,
+  emoji,
+  LinkButton,
+  LockError,
+  NotImplementedError,
+  RateLimitError,
+} from "chat";
 import type { LookupPlatformUserFn } from "./agent";
+import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
 import { formatForTelegram } from "./format-for-telegram";
-import { helpCard, telegramHelpCard } from "./notifications";
+import { RETRY_STOP_BLOCKS, registerSlackHandlers } from "./handlers/slack";
+import { registerTelegramHandlers } from "./handlers/telegram";
 import { logger as botLogger } from "./logger";
+import { helpCard, telegramHelpCard } from "./notifications";
+import { getLinkedUser } from "./user-linking";
 
 validateRequiredEnv();
 
@@ -66,10 +66,7 @@ function makeLookupSlackUser(teamId: string): LookupPlatformUserFn {
       return {
         id: data.user.id,
         name: data.user.name,
-        realName:
-          data.user.profile?.real_name ??
-          data.user.real_name ??
-          data.user.name,
+        realName: data.user.profile?.real_name ?? data.user.real_name ?? data.user.name,
         email: data.user.profile?.email,
       };
     } catch {
@@ -268,37 +265,51 @@ async function withBotErrorHandling(
     if (err instanceof LockError) return;
     if (err instanceof RateLimitError) {
       botLogger.warn("Rate limited", err.retryAfterMs);
-      await options.postError("I'm being rate-limited right now. Please try again in a moment.").catch(() => {});
+      await options
+        .postError("I'm being rate-limited right now. Please try again in a moment.")
+        .catch(() => {});
       return;
     }
     if (err instanceof AdapterRateLimitError) {
       botLogger.warn("Adapter rate limited", err.adapter, err.retryAfter);
-      await options.postError("I'm being rate-limited right now. Please try again in a moment.").catch(() => {});
+      await options
+        .postError("I'm being rate-limited right now. Please try again in a moment.")
+        .catch(() => {});
       return;
     }
     if (err instanceof AuthenticationError) {
       botLogger.error("Authentication error", err.adapter, err.message);
-      await options.postError("There was an authentication issue. Please try reconnecting your account.").catch(() => {});
+      await options
+        .postError("There was an authentication issue. Please try reconnecting your account.")
+        .catch(() => {});
       return;
     }
     if (err instanceof ResourceNotFoundError) {
       botLogger.warn("Resource not found", err.adapter, err.resourceType, err.resourceId);
-      await options.postError("The requested resource wasn't found. It may have been deleted.").catch(() => {});
+      await options
+        .postError("The requested resource wasn't found. It may have been deleted.")
+        .catch(() => {});
       return;
     }
     if (err instanceof PermissionError) {
       botLogger.error("Permission error", err.adapter, err.action, err.requiredScope);
-      await options.postError("I don't have permission to do that. Please check the app's permissions.").catch(() => {});
+      await options
+        .postError("I don't have permission to do that. Please check the app's permissions.")
+        .catch(() => {});
       return;
     }
     if (err instanceof ValidationError) {
       botLogger.warn("Validation error", err.adapter, err.message);
-      await options.postError("There was a problem with the request. Please try again.").catch(() => {});
+      await options
+        .postError("There was a problem with the request. Please try again.")
+        .catch(() => {});
       return;
     }
     if (err instanceof NetworkError) {
       botLogger.error("Network error", err.adapter, err.message, err.originalError);
-      await options.postError("I'm having trouble connecting. Please try again in a moment.").catch(() => {});
+      await options
+        .postError("I'm having trouble connecting. Please try again in a moment.")
+        .catch(() => {});
       return;
     }
     if (err instanceof NotImplementedError) {
@@ -309,7 +320,9 @@ async function withBotErrorHandling(
     // AI/LLM rate limit (e.g. Groq tokens-per-day) — show friendly message
     if (isAIRateLimitError(err)) {
       botLogger.warn("AI rate limit", err);
-      await options.postError("I've hit my daily token limit. Please try again later when the limit resets.").catch(() => {});
+      await options
+        .postError("I've hit my daily token limit. Please try again later when the limit resets.")
+        .catch(() => {});
       return;
     }
     // Groq tool-call failure (failed_generation) — known intermittent issue
@@ -324,9 +337,11 @@ async function withBotErrorHandling(
     }
     botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
     const customMsg = options.getCustomErrorMessage?.(err);
-    await options.postError(customMsg ?? "Sorry, something went wrong. Please try again.").catch((postErr) => {
-      botLogger.error("Failed to post error message to user", { postErr, originalErr: err });
-    });
+    await options
+      .postError(customMsg ?? "Sorry, something went wrong. Please try again.")
+      .catch((postErr) => {
+        botLogger.error("Failed to post error message to user", { postErr, originalErr: err });
+      });
   }
 }
 
@@ -387,7 +402,12 @@ async function postAgentStream(
   options?: { onErrorRef?: { current: Error | null } }
 ): Promise<void> {
   const log = bot.getLogger("stream");
-  log.info("Posting agent stream", { platform: ctx.platform, userId: ctx.userId, teamId: ctx.teamId, threadId: thread.id });
+  log.info("Posting agent stream", {
+    platform: ctx.platform,
+    userId: ctx.userId,
+    teamId: ctx.teamId,
+    threadId: thread.id,
+  });
   try {
     if (ctx.platform === "slack") {
       const slack = getSlackAdapter();
@@ -425,7 +445,12 @@ async function postAgentStream(
       log.info("Stream posted", { platform: ctx.platform, userId: ctx.userId });
     }
   } catch (err) {
-    log.error("Stream failed", { err, platform: ctx.platform, userId: ctx.userId, threadId: thread.id });
+    log.error("Stream failed", {
+      err,
+      platform: ctx.platform,
+      userId: ctx.userId,
+      threadId: thread.id,
+    });
     throw err;
   }
 }
@@ -444,7 +469,8 @@ registerTelegramHandlers(bot, {
 bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
   if (thread.adapter.name !== "telegram") return;
   if (message.author.isBot || message.author.isMe) return;
-  if (/^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(message.text.trim())) return;
+  if (/^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(message.text.trim()))
+    return;
   if (isAsideMessage(message.text)) return;
 
   // Restrict to DMs only — group messages (subscribed or not) are handled elsewhere.
@@ -453,7 +479,9 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
 
   const ctx = extractContext(thread, message);
 
-  bot.getLogger("telegram-freeform").info("Telegram DM message", { userId: ctx.userId, text: message.text });
+  bot
+    .getLogger("telegram-freeform")
+    .info("Telegram DM message", { userId: ctx.userId, text: message.text });
 
   // Empty text means the user sent only "@botname" with no additional text. Show help.
   if (!message.text.trim()) {
@@ -465,7 +493,9 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
   await withBotErrorHandling(
     async () => {
       const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-      bot.getLogger("telegram-freeform").info("User link check", { userId: ctx.userId, linked: !!linked });
+      bot
+        .getLogger("telegram-freeform")
+        .info("User link check", { userId: ctx.userId, linked: !!linked });
       if (!linked) {
         await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
         return;
@@ -477,7 +507,9 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
 
       const history = await buildHistory(thread);
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
-        bot.getLogger("telegram-freeform").info("Running agent", { userId: ctx.userId, textLength: message.text.length });
+        bot
+          .getLogger("telegram-freeform")
+          .info("Running agent", { userId: ctx.userId, textLength: message.text.length });
         const result = runAgentStream({
           teamId: ctx.teamId,
           userId: ctx.userId,
@@ -523,16 +555,27 @@ bot.onNewMention(async (thread, message) => {
   const userMessage =
     ctx.platform === "telegram" ? message.text.replace(/^@\S+\s*/, "").trim() : message.text;
 
-  bot.getLogger("mention").info("New mention", { platform: ctx.platform, teamId: ctx.teamId, userId: ctx.userId, text: userMessage });
+  bot.getLogger("mention").info("New mention", {
+    platform: ctx.platform,
+    teamId: ctx.teamId,
+    userId: ctx.userId,
+    text: userMessage,
+  });
 
   const lastStreamErrorRef = { current: null as Error | null };
   await withBotErrorHandling(
     async () => {
       // Telegram commands handled by onNewMessage (slash command handler)
-      if (ctx.platform === "telegram" && /^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(userMessage)) return;
+      if (
+        ctx.platform === "telegram" &&
+        /^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(userMessage)
+      )
+        return;
 
       const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-      bot.getLogger("mention").info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
+      bot
+        .getLogger("mention")
+        .info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
       if (!linked) {
         bot.getLogger("mention").warn("User not linked", { userId: ctx.userId });
         if (ctx.platform === "telegram") {
@@ -541,15 +584,25 @@ bot.onNewMention(async (thread, message) => {
           const isGroup = thread.id !== `telegram:${ctx.userId}`;
           if (isGroup) {
             await thread.post("Please check your DMs to connect your Cal.com account.");
-            await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
+            await thread.postEphemeral(
+              message.author,
+              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
+              { fallbackToDM: true }
+            );
           } else {
             await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
           }
         } else {
           try {
-            await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
+            await thread.postEphemeral(
+              message.author,
+              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
+              { fallbackToDM: true }
+            );
           } catch (ephemeralErr) {
-            bot.getLogger("mention").error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
+            bot
+              .getLogger("mention")
+              .error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
             throw ephemeralErr;
           }
         }
@@ -569,13 +622,16 @@ bot.onNewMention(async (thread, message) => {
       const history = await buildHistory(thread);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
-        bot.getLogger("mention").info("Running agent", { userId: ctx.userId, textLength: userMessage.length });
+        bot
+          .getLogger("mention")
+          .info("Running agent", { userId: ctx.userId, textLength: userMessage.length });
         const result = runAgentStream({
           teamId: ctx.teamId,
           userId: ctx.userId,
           userMessage,
           conversationHistory: history.slice(0, -1),
-          lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
+          lookupPlatformUser:
+            ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
           platform: ctx.platform,
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
@@ -628,7 +684,9 @@ bot.onSubscribedMessage(async (thread, message) => {
   await withBotErrorHandling(
     async () => {
       const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-      bot.getLogger("thread-follow-up").info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
+      bot
+        .getLogger("thread-follow-up")
+        .info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
       if (!linked) {
         bot.getLogger("thread-follow-up").warn("User not linked", { userId: ctx.userId });
         if (ctx.platform === "telegram") {
@@ -637,16 +695,28 @@ bot.onSubscribedMessage(async (thread, message) => {
           const isGroup = thread.id !== `telegram:${ctx.userId}`;
           if (isGroup) {
             await thread.post("Please check your DMs to connect your Cal.com account.");
-            await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
+            await thread.postEphemeral(
+              message.author,
+              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
+              { fallbackToDM: true }
+            );
           } else {
             await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
           }
         } else {
           try {
-            await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
-            bot.getLogger("thread-follow-up").info("Ephemeral OAuth link posted", { userId: ctx.userId });
+            await thread.postEphemeral(
+              message.author,
+              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
+              { fallbackToDM: true }
+            );
+            bot
+              .getLogger("thread-follow-up")
+              .info("Ephemeral OAuth link posted", { userId: ctx.userId });
           } catch (ephemeralErr) {
-            bot.getLogger("thread-follow-up").error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
+            bot
+              .getLogger("thread-follow-up")
+              .error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
             throw ephemeralErr;
           }
         }
@@ -660,13 +730,16 @@ bot.onSubscribedMessage(async (thread, message) => {
       const history = await buildHistory(thread);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
-        bot.getLogger("thread-follow-up").info("Running agent", { userId: ctx.userId, textLength: userMessage.length });
+        bot
+          .getLogger("thread-follow-up")
+          .info("Running agent", { userId: ctx.userId, textLength: userMessage.length });
         const result = runAgentStream({
           teamId: ctx.teamId,
           userId: ctx.userId,
           userMessage,
           conversationHistory: history.slice(0, -1),
-          lookupPlatformUser: ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
+          lookupPlatformUser:
+            ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
           platform: ctx.platform,
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
@@ -694,11 +767,7 @@ bot.onSubscribedMessage(async (thread, message) => {
 bot.onReaction(["thumbs_up", "+1"], async (event) => {
   if (event.adapter.name !== "slack" || !event.added) return;
   try {
-    await event.adapter.addReaction(
-      event.threadId,
-      event.messageId,
-      emoji.check
-    );
+    await event.adapter.addReaction(event.threadId, event.messageId, emoji.check);
   } catch {
     // Ignore reaction failures (e.g. rate limit, unsupported)
   }

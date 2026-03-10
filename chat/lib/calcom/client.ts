@@ -69,15 +69,28 @@ async function calcomFetch<T>(
 }
 
 export async function getEventTypes(accessToken: string): Promise<CalcomEventType[]> {
-  const raw = await calcomFetch<CalcomEventType[]>("/v2/event-types", accessToken, {}, "2024-06-14");
+  const raw = await calcomFetch<CalcomEventType[]>(
+    "/v2/event-types",
+    accessToken,
+    {},
+    "2024-06-14"
+  );
   return (raw ?? []).map((et) => ({
     ...et,
     length: et.length ?? et.lengthInMinutes ?? 0,
   }));
 }
 
-export async function getEventType(accessToken: string, eventTypeId: number): Promise<CalcomEventType> {
-  return calcomFetch<CalcomEventType>(`/v2/event-types/${eventTypeId}`, accessToken, {}, "2024-06-14");
+export async function getEventType(
+  accessToken: string,
+  eventTypeId: number
+): Promise<CalcomEventType> {
+  return calcomFetch<CalcomEventType>(
+    `/v2/event-types/${eventTypeId}`,
+    accessToken,
+    {},
+    "2024-06-14"
+  );
 }
 
 export interface GetSlotsParams {
@@ -136,10 +149,9 @@ export async function getBookings(
     const isHost = booking.hosts?.some(
       (h) => h.id === currentUser.id || h.email?.toLowerCase() === emailLower
     );
-    const isAttendee = booking.attendees?.some(
-      (a) => a.email?.toLowerCase() === emailLower
-    );
-    const isOrganizer = booking.organizer?.id === currentUser.id ||
+    const isAttendee = booking.attendees?.some((a) => a.email?.toLowerCase() === emailLower);
+    const isOrganizer =
+      booking.organizer?.id === currentUser.id ||
       booking.organizer?.email?.toLowerCase() === emailLower;
     return isHost || isAttendee || isOrganizer;
   });
@@ -213,8 +225,16 @@ export async function getDefaultSchedule(accessToken: string): Promise<CalcomSch
   return calcomFetch<CalcomSchedule>("/v2/schedules/default", accessToken, {}, SCHEDULES_VERSION);
 }
 
-export async function getSchedule(accessToken: string, scheduleId: number): Promise<CalcomSchedule> {
-  return calcomFetch<CalcomSchedule>(`/v2/schedules/${scheduleId}`, accessToken, {}, SCHEDULES_VERSION);
+export async function getSchedule(
+  accessToken: string,
+  scheduleId: number
+): Promise<CalcomSchedule> {
+  return calcomFetch<CalcomSchedule>(
+    `/v2/schedules/${scheduleId}`,
+    accessToken,
+    {},
+    SCHEDULES_VERSION
+  );
 }
 
 export async function createSchedule(
@@ -261,7 +281,10 @@ export async function deleteSchedule(accessToken: string, scheduleId: number): P
 
 // ─── Booking confirm / decline ────────────────────────────────────────────────
 
-export async function confirmBooking(accessToken: string, bookingUid: string): Promise<CalcomBooking> {
+export async function confirmBooking(
+  accessToken: string,
+  bookingUid: string
+): Promise<CalcomBooking> {
   return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/confirm`, accessToken, {
     method: "POST",
   });
@@ -339,7 +362,10 @@ export async function deleteEventType(accessToken: string, eventTypeId: number):
 
 // ─── Booking extras ───────────────────────────────────────────────────────────
 
-export async function getCalendarLinks(accessToken: string, bookingUid: string): Promise<CalendarLink> {
+export async function getCalendarLinks(
+  accessToken: string,
+  bookingUid: string
+): Promise<CalendarLink> {
   return calcomFetch<CalendarLink>(`/v2/bookings/${bookingUid}/calendar-links`, accessToken);
 }
 

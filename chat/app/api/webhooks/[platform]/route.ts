@@ -74,7 +74,9 @@ export async function POST(request: Request, context: { params: Promise<{ platfo
     waitUntil: (task) => {
       const tracked = task
         .then(() => botLogger.info("Webhook background task completed", { platform }))
-        .catch((err: unknown) => botLogger.error("Webhook background task error", { platform, err }));
+        .catch((err: unknown) =>
+          botLogger.error("Webhook background task error", { platform, err })
+        );
       waitUntil(tracked);
     },
   });

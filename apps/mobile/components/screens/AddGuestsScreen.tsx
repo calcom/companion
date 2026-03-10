@@ -19,11 +19,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getColors } from "@/constants/colors";
 import { useAddGuests } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
 import { safeLogError } from "@/utils/safeLogger";
-import { getColors } from "@/constants/colors";
 
 export interface AddGuestsScreenProps {
   booking: Booking | null;

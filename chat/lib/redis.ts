@@ -14,7 +14,9 @@ export function getRedisClient(): RedisClientType {
   if (!_client) {
     const url = process.env.REDIS_URL;
     if (!url) {
-      throw new Error("REDIS_URL is required. Set it in .env for user linking, booking flow, and production state.");
+      throw new Error(
+        "REDIS_URL is required. Set it in .env for user linking, booking flow, and production state."
+      );
     }
     _client = createClient({ url });
     _client.on("error", (err) => logger.error("Redis client error", { err }));

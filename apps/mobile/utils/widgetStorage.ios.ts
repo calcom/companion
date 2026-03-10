@@ -1,10 +1,10 @@
 import { ExtensionStorage } from "@bacons/apple-targets";
 import {
-  type BookingInput,
-  type WidgetData,
   APP_GROUP_IDENTIFIER,
-  WIDGET_BOOKINGS_KEY,
+  type BookingInput,
   transformBookingsToWidgetData,
+  WIDGET_BOOKINGS_KEY,
+  type WidgetData,
 } from "./widgetStorage.shared";
 
 const iosStorage = new ExtensionStorage(APP_GROUP_IDENTIFIER);

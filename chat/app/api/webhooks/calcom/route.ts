@@ -2,6 +2,8 @@ import { slackAdapter } from "@/lib/bot";
 import { getLogger } from "@/lib/logger";
 
 const logger = getLogger("calcom-webhook");
+
+import type { CalcomWebhookMetadata } from "@/lib/calcom/types";
 import { parseCalcomWebhook, verifyCalcomWebhook } from "@/lib/calcom/webhooks";
 import {
   bookingCancelledCard,
@@ -10,7 +12,6 @@ import {
   bookingReminderCard,
   bookingRescheduledCard,
 } from "@/lib/notifications";
-import type { CalcomWebhookMetadata } from "@/lib/calcom/types";
 import { getLinkedUserByEmail, getWorkspaceNotificationConfig } from "@/lib/user-linking";
 
 export async function POST(request: Request) {
@@ -70,7 +71,10 @@ export async function POST(request: Request) {
   };
 
   if (!shouldNotify(webhook.triggerEvent)) {
-    logger.info("Cal.com webhook skipped", { reason: "workspace_config", event: webhook.triggerEvent });
+    logger.info("Cal.com webhook skipped", {
+      reason: "workspace_config",
+      event: webhook.triggerEvent,
+    });
     return new Response("OK", { status: 200 });
   }
 
@@ -108,9 +112,18 @@ export async function POST(request: Request) {
           const channel = bot.channel(`slack:${channelId}`);
           await channel.post(card);
         });
-        logger.info("Cal.com notification sent", { target: "slack", channelId, event: webhook.triggerEvent });
+        logger.info("Cal.com notification sent", {
+          target: "slack",
+          channelId,
+          event: webhook.triggerEvent,
+        });
       } catch (err) {
-        logger.error("Cal.com notification failed", { err, target: "slack", channelId, event: webhook.triggerEvent });
+        logger.error("Cal.com notification failed", {
+          err,
+          target: "slack",
+          channelId,
+          event: webhook.triggerEvent,
+        });
       }
     }
   }
@@ -120,9 +133,18 @@ export async function POST(request: Request) {
       // Channel ID format: Telegram chat ID (numeric)
       const channel = bot.channel(`telegram:${telegramChatId}`);
       await channel.post(card);
-      logger.info("Cal.com notification sent", { target: "telegram", chatId: telegramChatId, event: webhook.triggerEvent });
+      logger.info("Cal.com notification sent", {
+        target: "telegram",
+        chatId: telegramChatId,
+        event: webhook.triggerEvent,
+      });
     } catch (err) {
-      logger.error("Cal.com notification failed", { err, target: "telegram", chatId: telegramChatId, event: webhook.triggerEvent });
+      logger.error("Cal.com notification failed", {
+        err,
+        target: "telegram",
+        chatId: telegramChatId,
+        event: webhook.triggerEvent,
+      });
     }
   }
 

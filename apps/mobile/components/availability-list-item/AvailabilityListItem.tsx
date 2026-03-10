@@ -10,9 +10,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Text } from "@/components/ui/text";
+import { getColors } from "@/constants/colors";
 import type { Schedule } from "@/hooks";
 import { AvailabilitySlots, ScheduleName, TimeZoneRow } from "./AvailabilityListItemParts";
-import { getColors } from "@/constants/colors";
 
 export interface AvailabilityListItemProps {
   item: Schedule;

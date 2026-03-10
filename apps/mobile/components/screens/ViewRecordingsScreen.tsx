@@ -9,8 +9,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { FlatList, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { BookingRecording } from "@/services/types/bookings.types";
 import { getColors } from "@/constants/colors";
+import type { BookingRecording } from "@/services/types/bookings.types";
 
 export interface ViewRecordingsScreenProps {
   recordings: BookingRecording[];

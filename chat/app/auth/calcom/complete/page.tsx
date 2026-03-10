@@ -15,9 +15,7 @@ function CompletePage() {
   const isTelegram = platform === "telegram";
   const telegramBot = searchParams.get("telegram_bot");
   const slackWebUrl = `https://app.slack.com/client/${teamId}`;
-  const tmeFallback = telegramBot
-    ? `https://t.me/${telegramBot}?start=link_success`
-    : "";
+  const tmeFallback = telegramBot ? `https://t.me/${telegramBot}?start=link_success` : "";
 
   useEffect(() => {
     if (!success || !isSlack || !teamId) return;
@@ -51,9 +49,7 @@ function CompletePage() {
         >
           {success ? "✓" : "✕"}
         </div>
-        <h1 style={styles.title}>
-          {success ? "Account Connected" : "Connection Failed"}
-        </h1>
+        <h1 style={styles.title}>{success ? "Account Connected" : "Connection Failed"}</h1>
         <p style={styles.message}>{message}</p>
         {success && isSlack && (
           <>
@@ -76,7 +72,10 @@ function CompletePage() {
           </>
         )}
         {success && !isSlack && !(isTelegram && telegramBot) && (
-          <p style={styles.hint}>You can close this tab and return to {platform.charAt(0).toUpperCase() + platform.slice(1)}.</p>
+          <p style={styles.hint}>
+            You can close this tab and return to{" "}
+            {platform.charAt(0).toUpperCase() + platform.slice(1)}.
+          </p>
         )}
         {!success && isSlack && (
           <p style={styles.hint}>

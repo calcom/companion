@@ -12,12 +12,12 @@ import {
 import { Header } from "@/components/Header";
 import { LandingPagePicker } from "@/components/LandingPagePicker";
 import { LogoutConfirmModal } from "@/components/LogoutConfirmModal";
+import { getColors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryContext } from "@/contexts/QueryContext";
 import { type LandingPage, useUserPreferences } from "@/hooks/useUserPreferences";
 import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
-import { getColors } from "@/constants/colors";
 
 interface MoreMenuItem {
   name: string;
@@ -156,7 +156,10 @@ export default function More() {
         >
           <View
             className="border-b border-[#E5E5EA] bg-gray-50 px-4 py-2"
-            style={{ borderBottomColor: theme.border, backgroundColor: isDark ? "#2C2C2E" : undefined }}
+            style={{
+              borderBottomColor: theme.border,
+              backgroundColor: isDark ? "#2C2C2E" : undefined,
+            }}
           >
             <Text
               className="text-xs font-semibold uppercase text-gray-500"

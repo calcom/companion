@@ -7,8 +7,6 @@
     "dev:tunnel": "npx concurrently \"next dev\" \"cloudflared tunnel --url http://localhost:3000\"",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "lint:fix": "eslint --fix",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf .next",
     "clean:all": "rm -rf .next node_modules",
@@ -20,11 +18,7 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,mjs}": [
-      "prettier --write",
-      "eslint --max-warnings=0"
-    ],
-    "*.{json,md,yml,yaml,css}": [
+    "*.{ts,tsx,js,jsx,mjs,json,md,yml,yaml,css}": [
       "prettier --write"
     ]
   },
@@ -49,9 +43,6 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.6",
-    "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",

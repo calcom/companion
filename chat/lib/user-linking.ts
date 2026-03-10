@@ -1,5 +1,5 @@
-import { getRedisClient } from "./redis";
 import { getLogger } from "./logger";
+import { getRedisClient } from "./redis";
 
 const logger = getLogger("user-linking");
 
@@ -46,11 +46,7 @@ function emailIndexKey(email: string): string {
   return `calcom:email_index:${email.toLowerCase().trim()}`;
 }
 
-export async function linkUser(
-  teamId: string,
-  userId: string,
-  data: LinkedUser
-): Promise<void> {
+export async function linkUser(teamId: string, userId: string, data: LinkedUser): Promise<void> {
   const client = getRedisClient();
   const key = userKey(teamId, userId);
 
@@ -72,10 +68,7 @@ export async function linkUser(
   logger.info("User linked", { teamId, userId, calcomEmail: data.calcomEmail });
 }
 
-export async function getLinkedUser(
-  teamId: string,
-  userId: string
-): Promise<LinkedUser | null> {
+export async function getLinkedUser(teamId: string, userId: string): Promise<LinkedUser | null> {
   const client = getRedisClient();
   const raw = await client.get(userKey(teamId, userId));
   if (!raw) return null;
@@ -125,10 +118,7 @@ const REFRESH_LOCK_TTL = 10; // seconds
  * Returns a valid access token for the user, auto-refreshing if expired.
  * Uses a Redis lock to prevent concurrent refresh races across serverless invocations.
  */
-export async function getValidAccessToken(
-  teamId: string,
-  userId: string
-): Promise<string | null> {
+export async function getValidAccessToken(teamId: string, userId: string): Promise<string | null> {
   const linked = await getLinkedUser(teamId, userId);
   if (!linked) return null;
 

@@ -1,3 +1,7 @@
+import type { SlackAdapter } from "@chat-adapter/slack";
+import { cardToBlockKit } from "@chat-adapter/slack";
+import type { ModelMessage } from "ai";
+import type { Chat, SlashCommandEvent, Thread } from "chat";
 import {
   Actions,
   Button,
@@ -12,11 +16,19 @@ import {
   SelectOption,
   TextInput,
 } from "chat";
-import { cardToBlockKit } from "@chat-adapter/slack";
-import type { SlackAdapter } from "@chat-adapter/slack";
-import type { SlashCommandEvent, Thread } from "chat";
-import type { Chat } from "chat";
-import type { ModelMessage } from "ai";
+import type { LookupPlatformUserFn } from "../agent";
+import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "../agent";
+import { createBooking, getAvailableSlots, getBookings, getEventTypes } from "../calcom/client";
+import { generateAuthUrl } from "../calcom/oauth";
+import { formatBookingTime } from "../calcom/webhooks";
+import { getLogger } from "../logger";
+import {
+  availabilityCard,
+  availabilityListCard,
+  bookingConfirmationCard,
+  helpCard,
+  upcomingBookingsCard,
+} from "../notifications";
 import {
   clearBookingFlow,
   getBookingFlow,
@@ -25,24 +37,6 @@ import {
   setBookingFlow,
   unlinkUser,
 } from "../user-linking";
-import {
-  createBooking,
-  getAvailableSlots,
-  getBookings,
-  getEventTypes,
-} from "../calcom/client";
-import {
-  availabilityCard,
-  availabilityListCard,
-  bookingConfirmationCard,
-  helpCard,
-  upcomingBookingsCard,
-} from "../notifications";
-import { formatBookingTime } from "../calcom/webhooks";
-import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "../agent";
-import type { LookupPlatformUserFn } from "../agent";
-import { generateAuthUrl } from "../calcom/oauth";
-import { getLogger } from "../logger";
 
 const logger = getLogger("slack-handlers");
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
@@ -106,7 +100,14 @@ export function registerSlackHandlers(
   getSlackAdapter: () => SlackAdapter,
   deps: RegisterSlackHandlersDeps
 ): void {
-  const { postAgentStream, withBotErrorHandling, extractPlatformContextFromEvent, extractTeamIdFromRaw, buildHistory, makeLookupSlackUser } = deps;
+  const {
+    postAgentStream,
+    withBotErrorHandling,
+    extractPlatformContextFromEvent,
+    extractTeamIdFromRaw,
+    buildHistory,
+    makeLookupSlackUser,
+  } = deps;
 
   async function safeChannelPost(
     event: SlashCommandEvent,
@@ -174,9 +175,7 @@ export function registerSlackHandlers(
         title: "Welcome to Cal.com! :calendar:",
         children: [
           CardText("Connect your Cal.com account to get started."),
-          Actions([
-            LinkButton({ url: authUrl, label: "Continue with Cal.com" }),
-          ]),
+          Actions([LinkButton({ url: authUrl, label: "Continue with Cal.com" })]),
         ],
       });
       await slack.publishHomeView(userId, {
@@ -194,9 +193,7 @@ export function registerSlackHandlers(
           title: "Session Expired",
           children: [
             CardText("Your Cal.com session has expired. Please reconnect your account."),
-            Actions([
-              LinkButton({ url: authUrl, label: "Reconnect Cal.com" }),
-            ]),
+            Actions([LinkButton({ url: authUrl, label: "Reconnect Cal.com" })]),
           ],
         });
         await slack.publishHomeView(userId, {
@@ -230,7 +227,9 @@ export function registerSlackHandlers(
                 Divider(),
               ])
             : [CardText("No upcoming bookings.")]),
-          CardText(':bulb: _Tip: @mention me in any channel to chat naturally — "show my bookings", "book a meeting with @someone", "what\'s my availability?"_'),
+          CardText(
+            ':bulb: _Tip: @mention me in any channel to chat naturally — "show my bookings", "book a meeting with @someone", "what\'s my availability?"_'
+          ),
           Divider(),
           Actions([
             Button({ id: "book_meeting", label: "Book a meeting" }),
@@ -249,9 +248,7 @@ export function registerSlackHandlers(
         title: "Could Not Load Bookings",
         children: [
           CardText("Your session may have expired — please reconnect."),
-          Actions([
-            LinkButton({ url: authUrl, label: "Reconnect Cal.com" }),
-          ]),
+          Actions([LinkButton({ url: authUrl, label: "Reconnect Cal.com" })]),
         ],
       });
       await slack.publishHomeView(userId, {
@@ -267,7 +264,11 @@ export function registerSlackHandlers(
     if (event.adapter.name !== "slack") return;
 
     const ctx = extractPlatformContextFromEvent(event);
-    logger.info("Action book_meeting", { actionId: "book_meeting", teamId: ctx.teamId, userId: ctx.userId });
+    logger.info("Action book_meeting", {
+      actionId: "book_meeting",
+      teamId: ctx.teamId,
+      userId: ctx.userId,
+    });
 
     const openModal = (event as { openModal?: (modal: unknown) => Promise<unknown> }).openModal;
     if (!openModal) return;
@@ -441,12 +442,12 @@ export function registerSlackHandlers(
                   step: "awaiting_slot",
                   slots: allSlots,
                 });
-                await safeChannelPost(event, availabilityCard(allSlots, eventType.title, targetName));
-              } else {
                 await safeChannelPost(
                   event,
-                  availabilityListCard(allSlots, eventType.title)
+                  availabilityCard(allSlots, eventType.title, targetName)
                 );
+              } else {
+                await safeChannelPost(event, availabilityListCard(allSlots, eventType.title));
               }
             } else {
               await safeChannelPost(event, availabilityListCard(allSlots, eventType.title));
@@ -495,7 +496,8 @@ export function registerSlackHandlers(
               return;
             }
 
-            const openModal = (event as { openModal?: (modal: unknown) => Promise<unknown> }).openModal;
+            const openModal = (event as { openModal?: (modal: unknown) => Promise<unknown> })
+              .openModal;
             if (!openModal) {
               const result = runAgentStream({
                 teamId,
@@ -574,7 +576,10 @@ export function registerSlackHandlers(
     const meta = event.privateMetadata
       ? (JSON.parse(event.privateMetadata) as { teamId: string })
       : null;
-    logger.info("Modal submit book_select_user", { teamId: meta?.teamId, userId: event.user?.userId });
+    logger.info("Modal submit book_select_user", {
+      teamId: meta?.teamId,
+      userId: event.user?.userId,
+    });
     if (!meta) return;
 
     const input = event.values.target_user?.trim() ?? "";
@@ -584,8 +589,7 @@ export function registerSlackHandlers(
       return {
         action: "errors" as const,
         errors: {
-          target_user:
-            "Enter a valid Slack user ID (e.g. U12345) or paste an @mention.",
+          target_user: "Enter a valid Slack user ID (e.g. U12345) or paste an @mention.",
         },
       };
     }
@@ -632,9 +636,7 @@ export function registerSlackHandlers(
           id: "event_type",
           label: "Event Type",
           placeholder: "Select a meeting type",
-          options: eventTypes.map((et) =>
-            SelectOption({ label: et.title, value: String(et.id) })
-          ),
+          options: eventTypes.map((et) => SelectOption({ label: et.title, value: String(et.id) })),
         }),
       ],
     });
@@ -646,7 +648,9 @@ export function registerSlackHandlers(
   bot.onModalClose("book_select_user", async (event) => {
     if (event.adapter.name !== "slack") return;
     const dm = await bot.openDM(event.user);
-    await dm.post("Booking cancelled. Run `/cal book @user` in a channel when ready.").catch(() => {});
+    await dm
+      .post("Booking cancelled. Run `/cal book @user` in a channel when ready.")
+      .catch(() => {});
   });
 
   // ─── Modal close: book_event_type ──────────────────────────────────────────
@@ -675,7 +679,11 @@ export function registerSlackHandlers(
     const meta = event.privateMetadata
       ? (JSON.parse(event.privateMetadata) as { teamId: string; targetSlackId: string })
       : null;
-    logger.info("Modal submit book_event_type", { teamId: meta?.teamId, userId: event.user?.userId, eventTypeId: event.values?.event_type });
+    logger.info("Modal submit book_event_type", {
+      teamId: meta?.teamId,
+      userId: event.user?.userId,
+      eventTypeId: event.values?.event_type,
+    });
     if (!meta) return;
 
     const eventTypeRaw = event.values.event_type;
@@ -750,9 +758,8 @@ export function registerSlackHandlers(
         }));
 
       const eventTypeTitle =
-        (await getEventTypes(accessToken).catch(() => [])).find(
-          (et) => et.id === eventTypeId
-        )?.title ?? `Meeting`;
+        (await getEventTypes(accessToken).catch(() => [])).find((et) => et.id === eventTypeId)
+          ?.title ?? `Meeting`;
 
       await setBookingFlow(teamId, userId, {
         eventTypeId,
@@ -903,7 +910,7 @@ export function registerSlackHandlers(
         postError: (msg) => event.thread.post(msg).catch(() => {}),
         logContext: "confirm_booking",
         getCustomErrorMessage: (err) =>
-          (err instanceof Error ? `Failed to create booking: ${err.message}` : undefined),
+          err instanceof Error ? `Failed to create booking: ${err.message}` : undefined,
       }
     );
   });
@@ -913,7 +920,12 @@ export function registerSlackHandlers(
   bot.onAction("retry_response", async (event) => {
     const ctx = extractPlatformContextFromEvent(event);
     const { teamId, userId } = ctx;
-    logger.info("Action retry_response", { actionId: "retry_response", teamId, userId, platform: event.adapter.name });
+    logger.info("Action retry_response", {
+      actionId: "retry_response",
+      teamId,
+      userId,
+      platform: event.adapter.name,
+    });
 
     if (event.adapter.name !== "slack" && event.adapter.name !== "telegram") return;
 
@@ -934,13 +946,16 @@ export function registerSlackHandlers(
           userId,
           userMessage: lastUserMessage.content as string,
           conversationHistory: history.slice(0, -1),
-          lookupPlatformUser: event.adapter.name === "slack" ? makeLookupSlackUser(teamId) : undefined,
+          lookupPlatformUser:
+            event.adapter.name === "slack" ? makeLookupSlackUser(teamId) : undefined,
           platform: event.adapter.name as "slack" | "telegram",
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
         });
 
-        await postAgentStream(event.thread as Thread, result, ctx, { onErrorRef: lastStreamErrorRef });
+        await postAgentStream(event.thread as Thread, result, ctx, {
+          onErrorRef: lastStreamErrorRef,
+        });
       },
       {
         postError: (msg) => event.thread.post(msg).catch(() => {}),

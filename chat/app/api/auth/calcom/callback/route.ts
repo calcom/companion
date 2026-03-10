@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { getLogger } from "@/lib/logger";
 
 const logger = getLogger("calcom-auth");
-import { verifyState, exchangeCodeForTokens } from "@/lib/calcom/oauth";
-import { linkUser } from "@/lib/user-linking";
+
+import { exchangeCodeForTokens, verifyState } from "@/lib/calcom/oauth";
 import type { LinkedUser } from "@/lib/user-linking";
+import { linkUser } from "@/lib/user-linking";
 
 const CALCOM_API_URL = process.env.CALCOM_API_URL ?? "https://api.cal.com";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
