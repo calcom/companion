@@ -16,5 +16,5 @@
   },
   "extends": "expo/tsconfig.base",
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "nativewind-env.d.ts"],
-  "exclude": ["extension/**/*", ".output/**/*"]
+  "exclude": ["node_modules", "dist", "api"]
 }
