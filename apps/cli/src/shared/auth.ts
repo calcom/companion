@@ -229,7 +229,7 @@ export class OAuthAuth {
       }
     }
 
-    return response.json();
+    return response.json() as Promise<{ access_token: string; refresh_token: string; expires_in: number }>;
   }
 
   private saveTokens(
