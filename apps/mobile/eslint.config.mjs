@@ -28,6 +28,7 @@ export default tseslint.config(
       '.expo/**',
       'android/**',
       'ios/**',
+      'api/**',
       '**/*.generated.*',
       '**/*.d.ts',
       'babel.config.js',

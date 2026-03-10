@@ -13,7 +13,7 @@ process.env.NODE_PATH = process.env.NODE_PATH
   ? `${process.env.NODE_PATH}:${bunNodeModules}`
   : bunNodeModules;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-require("module").Module._initPaths();
+require("node:module").Module._initPaths();
 
 // Resolve react/compiler-runtime and react-native-css-interop to the correct paths.
 // NODE_PATH above includes the root .bun/node_modules which contains a stale
