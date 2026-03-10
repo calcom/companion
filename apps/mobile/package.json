@@ -74,6 +74,7 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@babel/plugin-transform-react-jsx": "^7.28.6",
     "@types/chrome": "0.1.31",
     "@types/node": "22.19.6",
     "@types/react": "19.2.10",
