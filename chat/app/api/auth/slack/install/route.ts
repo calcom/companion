@@ -29,9 +29,16 @@ export async function GET(request: Request) {
     "users:read.email",
   ].join(",");
 
+  const clientId = process.env.SLACK_CLIENT_ID;
+  if (!clientId) {
+    return NextResponse.json(
+      { error: "Slack app is not configured. SLACK_CLIENT_ID is missing." },
+      { status: 500 }
+    );
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
   const redirectUri = `${appUrl}/api/auth/slack/callback`;
-  const clientId = process.env.SLACK_CLIENT_ID ?? "";
 
   const slackUrl = new URL("https://slack.com/oauth/v2/authorize");
   slackUrl.searchParams.set("client_id", clientId);
