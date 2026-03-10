@@ -54,7 +54,7 @@ vercel.json                        # Vercel deployment config (region: iad1)
 
 ## Prerequisites
 
-- Node.js 18+ / Bun
+- Node.js 20.9+ / Bun
 - A Slack workspace (for Slack bot)
 - A Telegram account and BotFather access (for Telegram bot, optional)
 - A Redis instance — [Upstash](https://upstash.com) recommended for Vercel (serverless-compatible)
@@ -149,12 +149,16 @@ To enable the Telegram bot alongside Slack:
 1. Create a bot via [@BotFather](https://t.me/BotFather) and get the bot token
 2. Register the webhook URL with Telegram:
    ```bash
+   # Without webhook verification (simplest)
    curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-domain.com/api/webhooks/telegram"
+
+   # With webhook verification (recommended for production)
+   curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-domain.com/api/webhooks/telegram&secret_token=<YOUR_SECRET>"
    ```
 3. Add to `.env`:
    - `TELEGRAM_BOT_TOKEN` — from BotFather
    - `TELEGRAM_BOT_USERNAME` — your bot's username (e.g. `CalcomBot`)
-   - `TELEGRAM_WEBHOOK_SECRET_TOKEN` — (optional) a secret to verify incoming requests
+   - `TELEGRAM_WEBHOOK_SECRET_TOKEN` — must match the `secret_token` value passed to `setWebhook` above
 
 **Group chat:** Add the bot to a group. It responds only to @mentions. The bot does not need to be an admin.
 
@@ -177,13 +181,14 @@ Update your Slack app's **Event Subscriptions** and **Interactivity** request UR
 If you are also testing Telegram locally, point the Telegram webhook at your ngrok tunnel:
 
 ```bash
+# Omit secret_token for local testing (or use the same value as TELEGRAM_WEBHOOK_SECRET_TOKEN)
 curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://YOUR_NGROK_URL/api/webhooks/telegram"
 ```
 
-Remember to restore the production webhook URL when you are done with local testing:
+Remember to restore the production webhook URL (including the secret token if you use one) when you are done with local testing:
 
 ```bash
-curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-production-domain.com/api/webhooks/telegram"
+curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-production-domain.com/api/webhooks/telegram&secret_token=<YOUR_SECRET>"
 ```
 
 ### 8. Install the app to a workspace

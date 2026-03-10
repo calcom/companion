@@ -797,6 +797,8 @@ export function registerSlackHandlers(
     const { teamId, userId } = ctx;
     logger.info("Action select_slot", { actionId: "select_slot", teamId, userId });
     const selectedTime = event.value ?? "";
+    if (!event.thread) return;
+    const thread = event.thread;
 
     await withBotErrorHandling(
       async () => {
@@ -806,7 +808,7 @@ export function registerSlackHandlers(
         ]);
 
         if (!accessToken || !flow) {
-          await event.thread.post("Booking session expired. Please start again by @mentioning me.");
+          await thread.post("Booking session expired. Please start again by @mentioning me.");
           return;
         }
 
@@ -818,12 +820,12 @@ export function registerSlackHandlers(
           selectedSlot: selectedTime,
         });
 
-        await event.thread.post(
+        await thread.post(
           bookingConfirmationCard(flow.eventTypeTitle, slotLabel, flow.targetName ?? "them")
         );
       },
       {
-        postError: (msg) => event.thread.post(msg).catch(() => {}),
+        postError: (msg) => thread.post(msg).catch(() => {}),
         logContext: "select_slot",
       }
     );
@@ -838,14 +840,17 @@ export function registerSlackHandlers(
     const { teamId, userId } = ctx;
     logger.info("Action confirm/cancel booking", { actionId: event.actionId, teamId, userId });
 
+    if (!event.thread) return;
+    const thread = event.thread;
+
     if (event.actionId === "cancel_booking") {
       await withBotErrorHandling(
         async () => {
           await clearBookingFlow(teamId, userId);
-          await event.thread.post("Booking cancelled.");
+          await thread.post("Booking cancelled.");
         },
         {
-          postError: (msg) => event.thread.post(msg).catch(() => {}),
+          postError: (msg) => thread.post(msg).catch(() => {}),
           logContext: "cancel_booking",
         }
       );
@@ -861,11 +866,11 @@ export function registerSlackHandlers(
         ]);
 
         if (!accessToken || !flow || !flow.selectedSlot || !flow.targetEmail || !linked) {
-          await event.thread.post("Booking session expired. Please start again by @mentioning me.");
+          await thread.post("Booking session expired. Please start again by @mentioning me.");
           return;
         }
 
-        const sent = await event.thread.post("Creating your booking...");
+        const sent = await thread.post("Creating your booking...");
 
         const booking = await createBooking(accessToken, {
           eventTypeId: flow.eventTypeId,
@@ -907,7 +912,7 @@ export function registerSlackHandlers(
         await sent.edit(confirmCard);
       },
       {
-        postError: (msg) => event.thread.post(msg).catch(() => {}),
+        postError: (msg) => thread.post(msg).catch(() => {}),
         logContext: "confirm_booking",
         getCustomErrorMessage: (err) =>
           err instanceof Error ? `Failed to create booking: ${err.message}` : undefined,
@@ -929,17 +934,20 @@ export function registerSlackHandlers(
 
     if (event.adapter.name !== "slack" && event.adapter.name !== "telegram") return;
 
+    if (!event.thread) return;
+    const thread = event.thread as Thread;
+
     const lastStreamErrorRef = { current: null as Error | null };
     await withBotErrorHandling(
       async () => {
         const linked = await getLinkedUser(teamId, userId);
         if (!linked) return;
 
-        const history = await buildHistory(event.thread as Thread);
+        const history = await buildHistory(thread);
         const lastUserMessage = [...history].reverse().find((m) => m.role === "user");
         if (!lastUserMessage) return;
 
-        await event.thread.startTyping();
+        await thread.startTyping();
 
         const result = runAgentStream({
           teamId,
@@ -953,12 +961,12 @@ export function registerSlackHandlers(
           onErrorRef: lastStreamErrorRef,
         });
 
-        await postAgentStream(event.thread as Thread, result, ctx, {
+        await postAgentStream(thread, result, ctx, {
           onErrorRef: lastStreamErrorRef,
         });
       },
       {
-        postError: (msg) => event.thread.post(msg).catch(() => {}),
+        postError: (msg) => thread.post(msg).catch(() => {}),
         logContext: "retry_response",
         getCustomErrorMessage: () => {
           if (!lastStreamErrorRef.current) return undefined;

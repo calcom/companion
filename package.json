@@ -3,7 +3,8 @@
   "version": "1.7.6",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "chat"
   ],
   "scripts": {
     "mobile": "cd apps/mobile && bunx expo start",
@@ -18,8 +19,8 @@
     "ext:zip:prod": "bun --filter extension zip:prod",
     "ext:build:all": "bun --filter extension build:all",
     "ext:build:all:prod": "bun --filter extension build:all:prod",
-    "typecheck": "bun --filter '*' typecheck && bun run typecheck:chat",
-    "typecheck:chat": "tsc -p chat/tsconfig.json --noEmit",
+    "typecheck": "bun --filter '*' typecheck",
+    "typecheck:chat": "bun --filter '@calcom/slack' typecheck",
     "lint": "biome lint .",
     "lint:react-compiler": "bun --filter mobile lint:react-compiler",
     "lint:all": "bun run lint && bun run lint:react-compiler",
