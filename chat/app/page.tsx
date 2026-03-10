@@ -6,6 +6,7 @@ function getSlackInstallUrl(): string {
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/auth/slack/callback`;
   const scopes = [
     "app_mentions:read",
+    "assistant:write",
     "channels:history",
     "channels:join",
     "channels:read",

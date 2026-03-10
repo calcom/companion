@@ -18,14 +18,14 @@ features:
     always_online: true
   slash_commands:
     - command: /cal
-      url: https://your-domain.com/api/webhooks/slack
+      url: https://slack-jet-three.vercel.app/api/webhooks/slack
       description: Manage your Cal.com bookings and availability
       usage_hint: "[availability | book | bookings | link | help] [options]"
       should_escape: false
 
 oauth_config:
   redirect_urls:
-    - https://your-domain.com/api/auth/slack/callback
+    - https://slack-jet-three.vercel.app/api/auth/slack/callback
   scopes:
     bot:
       - app_mentions:read
@@ -50,7 +50,7 @@ oauth_config:
 
 settings:
   event_subscriptions:
-    request_url: https://your-domain.com/api/webhooks/slack
+    request_url: https://slack-jet-three.vercel.app/api/webhooks/slack
     bot_events:
       - app_home_opened
       - app_mention
@@ -62,7 +62,7 @@ settings:
       - message.mpim
   interactivity:
     is_enabled: true
-    request_url: https://your-domain.com/api/webhooks/slack
+    request_url: https://slack-jet-three.vercel.app/api/webhooks/slack
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false
