@@ -23,7 +23,7 @@ const originalResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === "react/compiler-runtime") {
     return {
-      filePath: path.resolve(__dirname, "node_modules/react/compiler-runtime.js"),
+      filePath: require.resolve("react/compiler-runtime"),
       type: "sourceFile",
     };
   }
