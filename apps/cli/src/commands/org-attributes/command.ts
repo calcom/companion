@@ -403,7 +403,7 @@ function registerUserOptionsCommands(attributesCmd: Command): void {
         const orgId = Number(options.orgId);
         const userIdNum = parseInt(userId, 10);
 
-        if (isNaN(userIdNum)) {
+        if (Number.isNaN(userIdNum)) {
           throw new Error("userId must be a valid number");
         }
 
@@ -440,7 +440,7 @@ function registerUserOptionsCommands(attributesCmd: Command): void {
           const orgId = Number(options.orgId);
           const userIdNum = parseInt(userId, 10);
 
-          if (isNaN(userIdNum)) {
+          if (Number.isNaN(userIdNum)) {
             throw new Error("userId must be a valid number");
           }
 
@@ -477,7 +477,7 @@ function registerUserOptionsCommands(attributesCmd: Command): void {
         const orgId = Number(options.orgId);
         const userIdNum = parseInt(userId, 10);
 
-        if (isNaN(userIdNum)) {
+        if (Number.isNaN(userIdNum)) {
           throw new Error("userId must be a valid number");
         }
 

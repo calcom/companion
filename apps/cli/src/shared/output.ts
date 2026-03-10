@@ -55,7 +55,7 @@ export function renderWarning(message: string): void {
 }
 
 function stripAnsi(str: string): string {
-  // eslint-disable-next-line no-control-regex
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ANSI escape code stripping
   return str.replace(/\x1B\[[0-9;]*m/g, "");
 }
 

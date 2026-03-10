@@ -9,7 +9,6 @@ import {
 import type { CreateOrganizationInput, UpdateOrganizationInput } from "../../generated/types.gen";
 import { initializeClient } from "../../shared/client";
 import { withErrorHandling } from "../../shared/errors";
-import { authHeader } from "../../shared/headers";
 import {
   renderManagedOrg,
   renderManagedOrgCreated,
