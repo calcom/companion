@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 
 // Build the Slack OAuth authorization URL
 function getSlackInstallUrl(): string {
@@ -43,7 +42,7 @@ export default async function HomePage({ searchParams }: PageProps) {
         {/* Header */}
         <div style={styles.header}>
           <div style={styles.logo}>
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-label="Cal.com logo" role="img">
               <rect width="32" height="32" rx="8" fill="#101010" />
               <path d="M8 16a8 8 0 1 1 16 0 8 8 0 0 1-16 0Z" fill="white" />
               <path d="M16 8v8l5.66 5.66" stroke="#101010" strokeWidth="2" strokeLinecap="round" />
@@ -149,7 +148,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
 function SlackIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 54 54" fill="none">
+    <svg width="20" height="20" viewBox="0 0 54 54" fill="none" aria-label="Slack" role="img">
       <path d="M19.7 33.5a4.7 4.7 0 1 1-9.4 0V19.7a4.7 4.7 0 0 1 9.4 0v13.8Z" fill="#36C5F0" />
       <path d="M33.5 19.7a4.7 4.7 0 1 1 0-9.4h13.8a4.7 4.7 0 0 1 0 9.4H33.5Z" fill="#2EB67D" />
       <path d="M34.3 33.5a4.7 4.7 0 1 1 9.4 0V47.3a4.7 4.7 0 0 1-9.4 0V33.5Z" fill="#ECB22E" />

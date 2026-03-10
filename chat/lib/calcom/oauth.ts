@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
 const CALCOM_API_URL = process.env.CALCOM_API_URL ?? "https://api.cal.com";

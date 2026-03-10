@@ -59,14 +59,12 @@ export interface PlatformContext {
   userId: string;
 }
 
-export interface PostAgentStreamFn {
-  (
-    thread: Thread,
-    agentResult: { textStream: AsyncIterable<string>; text: PromiseLike<string> },
-    ctx: { platform: string; teamId: string; userId: string },
-    options?: { onErrorRef?: { current: Error | null } }
-  ): Promise<void>;
-}
+export type PostAgentStreamFn = (
+  thread: Thread,
+  agentResult: { textStream: AsyncIterable<string>; text: PromiseLike<string> },
+  ctx: { platform: string; teamId: string; userId: string },
+  options?: { onErrorRef?: { current: Error | null } }
+) => Promise<void>;
 
 export interface RegisterSlackHandlersDeps {
   postAgentStream: PostAgentStreamFn;
@@ -395,14 +393,14 @@ export function registerSlackHandlers(
             if (eventTypes.length === 0) {
               await event.channel.postEphemeral(
                 event.user,
-                "You have no event types. Create one at " + CALCOM_APP_URL + " first.",
+                `You have no event types. Create one at ${CALCOM_APP_URL} first.`,
                 { fallbackToDM: true }
               );
               return;
             }
             const mentionMatch = event.text.match(/<@([A-Z0-9]+)>/);
             const targetSlackId = mentionMatch?.[1];
-            const eventType = eventTypes[0]!;
+            const eventType = eventTypes[0];
             const now = new Date();
             const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
             const slotsMap = await getAvailableSlots(accessToken, {
@@ -491,7 +489,7 @@ export function registerSlackHandlers(
             if (eventTypes.length === 0) {
               await event.channel.postEphemeral(
                 event.user,
-                "You have no event types. Create one at " + CALCOM_APP_URL + " first.",
+                `You have no event types. Create one at ${CALCOM_APP_URL} first.`,
                 { fallbackToDM: true }
               );
               return;
@@ -605,7 +603,7 @@ export function registerSlackHandlers(
     if (eventTypes.length === 0) {
       const dm = await bot.openDM(event.user);
       await dm
-        .post("You have no event types. Create one at " + CALCOM_APP_URL + " first.")
+        .post(`You have no event types. Create one at ${CALCOM_APP_URL} first.`)
         .catch(() => {});
       return;
     }

@@ -140,7 +140,7 @@ export function registerTelegramHandlers(
             await thread.post("You have no event types. Create one at https://app.cal.com first.");
             return;
           }
-          const eventType = eventTypes[0]!;
+          const eventType = eventTypes[0];
           const now = new Date();
           const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
           const slotsMap = await getAvailableSlots(accessToken, {

@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import crypto from "node:crypto";
 import type { CalcomWebhookPayload } from "./types";
 
 export function verifyCalcomWebhook(

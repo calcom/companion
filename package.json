@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:extension": "tsc -p tsconfig.extension.json --noEmit",
     "typecheck:all": "npm run typecheck && npm run typecheck:extension",
+    "typecheck:chat": "tsc -p chat/tsconfig.json --noEmit",
     "export": "expo export",
     "export:ios": "expo export --platform ios",
     "export:android": "expo export --platform android",

@@ -89,8 +89,8 @@ const globalForBot = globalThis as unknown as {
 
 if (!globalForBot._slackAdapter) {
   globalForBot._slackAdapter = createSlackAdapter({
-    clientId: process.env.SLACK_CLIENT_ID!,
-    clientSecret: process.env.SLACK_CLIENT_SECRET!,
+    clientId: process.env.SLACK_CLIENT_ID ?? "",
+    clientSecret: process.env.SLACK_CLIENT_SECRET ?? "",
     encryptionKey: process.env.SLACK_ENCRYPTION_KEY,
     logger: botLogger,
   });

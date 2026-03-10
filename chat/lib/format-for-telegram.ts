@@ -30,7 +30,6 @@ export function formatForTelegram(text: string): string {
 
       // Parse table: first line is header, second may be separator (|---|), rest are data
       const isSeparator = (s: string) => !/[a-zA-Z0-9]/.test(s) && s.includes("|");
-      const headerLine = tableLines[0];
       const dataStart = tableLines.length > 1 && isSeparator(tableLines[1]) ? 2 : 1;
 
       for (let k = dataStart; k < tableLines.length; k++) {
@@ -40,7 +39,7 @@ export function formatForTelegram(text: string): string {
           .map((c) => c.trim())
           .filter((c) => c.length > 0);
         if (cells.length > 0) {
-          result.push("• " + cells.join(" – "));
+          result.push(`• ${cells.join(" – ")}`);
         }
       }
 

@@ -100,7 +100,7 @@ export async function POST(request: Request) {
   if (hasSlackTarget && teamId) {
     const targetChannelId = workspaceConfig?.defaultChannelId ?? null;
     // Channel ID format: Slack channel ID (C...) or user ID (U...) for DMs
-    const channelId = targetChannelId ?? slackUserId!;
+    const channelId = targetChannelId ?? slackUserId ?? "";
     const installation = await slackAdapter.getInstallation(teamId);
     if (installation) {
       try {

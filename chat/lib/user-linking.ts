@@ -32,9 +32,14 @@ export async function linkUser(
 
   // On re-link with a different Cal.com email, remove the old reverse-lookup entry so
   // booking-notification routing via getLinkedUserByEmail doesn't resolve stale results.
+  // Verify ownership before deleting: another user may have since linked the same email,
+  // overwriting the index — deleting it would break their notification routing.
   const existing = await getLinkedUser(teamId, userId);
   if (existing && existing.calcomEmail !== data.calcomEmail) {
-    await client.del(emailIndexKey(existing.calcomEmail));
+    const indexEntry = await getLinkedUserByEmail(existing.calcomEmail);
+    if (indexEntry && indexEntry.teamId === teamId && indexEntry.userId === userId) {
+      await client.del(emailIndexKey(existing.calcomEmail));
+    }
   }
 
   await client.set(key, JSON.stringify(data), {
@@ -64,7 +69,12 @@ export async function unlinkUser(teamId: string, userId: string): Promise<void> 
   const client = getRedisClient();
   const linked = await getLinkedUser(teamId, userId);
   if (linked) {
-    await client.del(emailIndexKey(linked.calcomEmail));
+    // Only delete the email index if it still points to this user; another user may have
+    // linked the same Cal.com email and overwritten the index entry since this user linked.
+    const indexEntry = await getLinkedUserByEmail(linked.calcomEmail);
+    if (indexEntry && indexEntry.teamId === teamId && indexEntry.userId === userId) {
+      await client.del(emailIndexKey(linked.calcomEmail));
+    }
   }
   await client.del(userKey(teamId, userId));
   logger.info("User unlinked", { teamId, userId });
