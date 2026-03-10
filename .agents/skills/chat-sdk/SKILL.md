@@ -16,11 +16,11 @@ Unified TypeScript SDK for building chat bots across Slack, Teams, Google Chat, 
 
 ## Critical: Read the bundled docs
 
-The `chat` package ships with full documentation in `node_modules/chat/docs/` and TypeScript source types. **Always read these before writing code:**
+The `chat` package ships with full documentation in `chat/node_modules/chat/docs/` and TypeScript source types. **Always read these before writing code:**
 
 ```
-node_modules/chat/docs/           # Full documentation (MDX files)
-node_modules/chat/dist/           # Built types (.d.ts files)
+chat/node_modules/chat/docs/           # Full documentation (MDX files)
+chat/node_modules/chat/dist/           # Built types (.d.ts files)
 ```
 
 Key docs to read based on task:
@@ -129,19 +129,6 @@ await thread.post(
 | `@chat-adapter/state-redis` | Redis state (production) |
 | `@chat-adapter/state-ioredis` | ioredis state (alternative) |
 | `@chat-adapter/state-memory` | In-memory state (development) |
-
-## Changesets (Release Flow)
-
-This monorepo uses [Changesets](https://github.com/changesets/changesets) for versioning and changelogs. Every PR that changes a package's behavior must include a changeset.
-
-```bash
-pnpm changeset
-# → select affected package(s) (e.g. @chat-adapter/slack, chat)
-# → choose bump type: patch (fixes), minor (features), major (breaking)
-# → write a short summary for the CHANGELOG
-```
-
-This creates a file in `.changeset/` — commit it with the PR. When merged to `main`, the Changesets GitHub Action opens a "Version Packages" PR to bump versions and update CHANGELOGs. Merging that PR publishes to npm.
 
 ## Webhook setup
 
