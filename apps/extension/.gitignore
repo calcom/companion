@@ -1,0 +1,11 @@
+# local env files
+.env
+.env*.local
+
+# WXT build outputs
+.output/
+.wxt/
+dev/
+
+# Packaged extension builds
+*.zip

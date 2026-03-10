@@ -61,7 +61,7 @@
     "react-dom": "19.2.4",
     "react-native": "0.83.1",
     "react-native-android-widget": "^0.20.1",
-    "react-native-css-interop": "^0.1.0",
+    "react-native-css-interop": "0.2.1",
     "react-native-gesture-handler": "2.28.0",
     "react-native-reanimated": "4.2.0",
     "react-native-safe-area-context": "5.6.2",
