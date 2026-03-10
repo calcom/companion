@@ -1,31 +1,6 @@
-// Build the Slack OAuth authorization URL
-function getSlackInstallUrl(): string {
-  const clientId = process.env.SLACK_CLIENT_ID ?? "";
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/auth/slack/callback`;
-  const scopes = [
-    "app_mentions:read",
-    "assistant:write",
-    "channels:history",
-    "channels:join",
-    "channels:read",
-    "chat:write",
-    "chat:write.public",
-    "commands",
-    "groups:history",
-    "groups:read",
-    "im:history",
-    "im:read",
-    "im:write",
-    "mpim:history",
-    "mpim:read",
-    "reactions:read",
-    "reactions:write",
-    "users:read",
-    "users:read.email",
-  ].join(",");
-
-  return `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}`;
-}
+// The install route generates a per-request state token (CSRF protection),
+// stamps it in an HttpOnly cookie, then redirects to Slack OAuth.
+const SLACK_INSTALL_URL = "/api/auth/slack/install";
 
 interface PageProps {
   searchParams: Promise<{ installed?: string; error?: string; team?: string }>;
@@ -33,7 +8,6 @@ interface PageProps {
 
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const installUrl = getSlackInstallUrl();
 
   return (
     <main style={styles.main}>
@@ -85,7 +59,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
         {/* CTA */}
         <div style={styles.cta}>
-          <a href={installUrl} style={styles.installButton}>
+          <a href={SLACK_INSTALL_URL} style={styles.installButton}>
             <SlackIcon />
             Add to Slack
           </a>

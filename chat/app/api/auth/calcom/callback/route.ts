@@ -8,7 +8,14 @@ import type { LinkedUser } from "@/lib/user-linking";
 import { linkUser } from "@/lib/user-linking";
 
 const CALCOM_API_URL = process.env.CALCOM_API_URL ?? "https://api.cal.com";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
+
+// Derive the app base URL at request time so redirects always use an absolute URL.
+// NEXT_PUBLIC_APP_URL is preferred (canonical domain); request.url is the fallback
+// for local dev or misconfigured deployments where the env var is absent.
+function getAppUrl(request: Request): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  return new URL(request.url).origin;
+}
 
 interface CalcomMe {
   id: number;
@@ -26,16 +33,19 @@ export async function GET(request: Request) {
 
   if (error) {
     const desc = url.searchParams.get("error_description") ?? error;
-    return redirectWithError(`Authorization denied: ${desc}`);
+    return redirectWithError(request, `Authorization denied: ${desc}`);
   }
 
   if (!code || !state) {
-    return redirectWithError("Missing authorization code or state parameter.");
+    return redirectWithError(request, "Missing authorization code or state parameter.");
   }
 
   const payload = verifyState(state);
   if (!payload) {
-    return redirectWithError("Invalid or expired authorization link. Please try /cal link again.");
+    return redirectWithError(
+      request,
+      "Invalid or expired authorization link. Please try /cal link again."
+    );
   }
 
   try {
@@ -75,16 +85,23 @@ export async function GET(request: Request) {
       calcomEmail: me.email,
     });
 
-    return redirectWithSuccess(me.name, me.email, payload.teamId, payload.platform);
+    return redirectWithSuccess(request, me.name, me.email, payload.teamId, payload.platform);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error during authorization.";
     logger.error("Cal.com OAuth callback error", { err });
     // payload is in scope here — pass platform/teamId so the complete page shows correct retry instructions.
-    return redirectWithError(message, payload.platform, payload.teamId);
+    return redirectWithError(request, message, payload.platform, payload.teamId);
   }
 }
 
-function redirectWithSuccess(name: string, email: string, teamId: string, platform: string) {
+function redirectWithSuccess(
+  request: Request,
+  name: string,
+  email: string,
+  teamId: string,
+  platform: string
+) {
+  const appUrl = getAppUrl(request);
   const params = new URLSearchParams({
     calcom_linked: `Connected as ${name} (${email}).`,
     team: teamId,
@@ -93,12 +110,13 @@ function redirectWithSuccess(name: string, email: string, teamId: string, platfo
   if (platform === "telegram" && process.env.TELEGRAM_BOT_USERNAME) {
     params.set("telegram_bot", process.env.TELEGRAM_BOT_USERNAME);
   }
-  return NextResponse.redirect(`${APP_URL}/auth/calcom/complete?${params}`);
+  return NextResponse.redirect(`${appUrl}/auth/calcom/complete?${params}`);
 }
 
-function redirectWithError(message: string, platform?: string, teamId?: string) {
+function redirectWithError(request: Request, message: string, platform?: string, teamId?: string) {
+  const appUrl = getAppUrl(request);
   const params = new URLSearchParams({ error: message });
   if (platform) params.set("platform", platform);
   if (teamId) params.set("team", teamId);
-  return NextResponse.redirect(`${APP_URL}/auth/calcom/complete?${params}`);
+  return NextResponse.redirect(`${appUrl}/auth/calcom/complete?${params}`);
 }
