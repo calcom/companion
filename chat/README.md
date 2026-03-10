@@ -144,6 +144,18 @@ ngrok http 3000
 
 Update your Slack app's **Event Subscriptions** and **Interactivity** request URLs to the ngrok URL. Set the Slack OAuth redirect URL to `https://YOUR_NGROK_URL/api/auth/slack/callback` and the Cal.com OAuth redirect URI to `https://YOUR_NGROK_URL/api/auth/calcom/callback`.
 
+If you are also testing Telegram locally, point the Telegram webhook at your ngrok tunnel:
+
+```bash
+curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://YOUR_NGROK_URL/api/webhooks/telegram"
+```
+
+Remember to restore the production webhook URL when you are done with local testing:
+
+```bash
+curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-production-domain.com/api/webhooks/telegram"
+```
+
 ### 8. Install the app to a workspace
 
 Visit `http://localhost:3000` and click **Add to Slack**.

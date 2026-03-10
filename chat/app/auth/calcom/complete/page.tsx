@@ -8,7 +8,7 @@ function CompletePage() {
   const success = !!searchParams.get("calcom_linked");
   const message = searchParams.get("calcom_linked") ?? searchParams.get("error") ?? "";
   const teamId = searchParams.get("team") ?? "";
-  const platform = searchParams.get("platform") ?? "slack";
+  const platform = searchParams.get("platform") ?? "";
   const [showFallback, setShowFallback] = useState(false);
 
   const isSlack = platform === "slack";
@@ -83,9 +83,16 @@ function CompletePage() {
             Go back to Slack and run <code style={styles.code}>/cal link</code> to try again.
           </p>
         )}
-        {!success && !isSlack && (
+        {!success && isTelegram && (
           <p style={styles.hint}>
-            Go back to {platform.charAt(0).toUpperCase() + platform.slice(1)} and send <code style={styles.code}>/link</code> to try again.
+            Go back to Telegram and send <code style={styles.code}>/link</code> to try again.
+          </p>
+        )}
+        {!success && !isSlack && !isTelegram && (
+          <p style={styles.hint}>
+            {platform
+              ? `Go back to ${platform.charAt(0).toUpperCase() + platform.slice(1)} and use the link command to try again.`
+              : "Return to your chat app and use the link command to try again."}
           </p>
         )}
       </div>

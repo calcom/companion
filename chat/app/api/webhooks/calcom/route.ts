@@ -47,8 +47,8 @@ export async function POST(request: Request) {
   }
 
   const workspaceConfig = teamId ? await getWorkspaceNotificationConfig(teamId) : null;
-  const hasSlackTarget = teamId && (slackUserId || workspaceConfig?.defaultChannelId);
-  const hasTelegramTarget = telegramChatId && process.env.TELEGRAM_BOT_TOKEN;
+  const hasSlackTarget = !!(teamId && (slackUserId || workspaceConfig?.defaultChannelId));
+  const hasTelegramTarget = !!(telegramChatId && process.env.TELEGRAM_BOT_TOKEN);
 
   logger.info("Cal.com webhook", {
     event: webhook.triggerEvent,

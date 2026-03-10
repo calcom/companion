@@ -6,7 +6,7 @@ import {
   unlinkUser,
 } from "../user-linking";
 import { getAvailableSlots, getBookings, getEventTypes } from "../calcom/client";
-import { availabilityListCard, helpCard, upcomingBookingsCard } from "../notifications";
+import { availabilityListCard, telegramHelpCard, upcomingBookingsCard } from "../notifications";
 import { generateAuthUrl } from "../calcom/oauth";
 import { getLogger } from "../logger";
 
@@ -50,12 +50,30 @@ export function registerTelegramHandlers(
     const first = parts[0]?.replace(/@\w+$/, "").toLowerCase();
     const cmd = first === "/cal" ? parts[1]?.toLowerCase() : first?.replace(/^\//, "") ?? "";
 
-    logger.info("Telegram command received", { command: cmd, chatId: ctx.userId });
+    // In Telegram, thread.id equals `telegram:{userId}` only for DMs.
+    // Group threads have a negative chat ID, so they differ.
+    const isGroup = thread.id !== `telegram:${ctx.userId}`;
+
+    // Send the signed OAuth URL privately to avoid exposing it in group chats.
+    // Any group member could click a publicly posted link and complete the OAuth
+    // flow, which would link their Cal.com account to the requester's Telegram ID.
+    async function postOAuthLinkPrivately() {
+      if (isGroup) {
+        await thread.post("Please check your DMs to connect your Cal.com account.");
+        await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), {
+          fallbackToDM: true,
+        });
+      } else {
+        await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+      }
+    }
+
+    logger.info("Telegram command received", { command: cmd, chatId: ctx.userId, isGroup });
 
     await withBotErrorHandling(
       async () => {
         if (cmd === "start" || cmd === "help") {
-          await thread.post(helpCard());
+          await thread.post(telegramHelpCard());
           return;
         }
         if (cmd === "link") {
@@ -64,7 +82,7 @@ export function registerTelegramHandlers(
             await thread.post(`Your Cal.com account (**${existing.calcomUsername}**) is already connected.`);
             return;
           }
-          await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+          await postOAuthLinkPrivately();
           return;
         }
         if (cmd === "unlink") {
@@ -80,12 +98,12 @@ export function registerTelegramHandlers(
         if (cmd === "bookings") {
           const accessToken = await getValidAccessToken(ctx.teamId, ctx.userId);
           if (!accessToken) {
-            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+            await postOAuthLinkPrivately();
             return;
           }
           const linked = await getLinkedUser(ctx.teamId, ctx.userId);
           if (!linked) {
-            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+            await postOAuthLinkPrivately();
             return;
           }
           const bookings = await getBookings(
@@ -109,12 +127,12 @@ export function registerTelegramHandlers(
         if (cmd === "availability") {
           const accessToken = await getValidAccessToken(ctx.teamId, ctx.userId);
           if (!accessToken) {
-            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+            await postOAuthLinkPrivately();
             return;
           }
           const linked = await getLinkedUser(ctx.teamId, ctx.userId);
           if (!linked) {
-            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+            await postOAuthLinkPrivately();
             return;
           }
           const eventTypes = await getEventTypes(accessToken).catch(() => []);

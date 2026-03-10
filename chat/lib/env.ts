@@ -8,6 +8,7 @@ export function validateRequiredEnv(): void {
   if (!process.env.SLACK_CLIENT_ID) missing.push("SLACK_CLIENT_ID");
   if (!process.env.SLACK_CLIENT_SECRET) missing.push("SLACK_CLIENT_SECRET");
   if (!process.env.SLACK_SIGNING_SECRET) missing.push("SLACK_SIGNING_SECRET");
+  if (!process.env.SLACK_ENCRYPTION_KEY) missing.push("SLACK_ENCRYPTION_KEY");
 
   if (process.env.TELEGRAM_BOT_TOKEN && !process.env.TELEGRAM_BOT_USERNAME) {
     missing.push("TELEGRAM_BOT_USERNAME (required when TELEGRAM_BOT_TOKEN is set)");

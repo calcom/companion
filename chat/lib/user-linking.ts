@@ -29,6 +29,14 @@ export async function linkUser(
 ): Promise<void> {
   const client = getRedisClient();
   const key = userKey(teamId, userId);
+
+  // On re-link with a different Cal.com email, remove the old reverse-lookup entry so
+  // booking-notification routing via getLinkedUserByEmail doesn't resolve stale results.
+  const existing = await getLinkedUser(teamId, userId);
+  if (existing && existing.calcomEmail !== data.calcomEmail) {
+    await client.del(emailIndexKey(existing.calcomEmail));
+  }
+
   await client.set(key, JSON.stringify(data), {
     EX: 60 * 60 * 24 * 365,
   });

@@ -260,19 +260,6 @@ export function bookingConfirmationCard(
   });
 }
 
-export function linkAccountCard() {
-  return Card({
-    title: "Connect Your Cal.com Account",
-    children: [
-      Section([
-        CardText(
-          "To use Cal.com in Slack, run **`/cal link`** to connect your account with Cal.com."
-        ),
-      ]),
-    ],
-  });
-}
-
 export function helpCard() {
   return Card({
     title: "Cal.com Slack Bot",
@@ -289,6 +276,27 @@ export function helpCard() {
           Field({ label: "/cal link", value: "Connect your Cal.com account" }),
           Field({ label: "/cal unlink", value: "Disconnect your Cal.com account" }),
           Field({ label: "/cal help", value: "Show this help message" }),
+        ]),
+      ]),
+      Divider(),
+      Actions([LinkButton({ url: CALCOM_APP_URL, label: "Open Cal.com" })]),
+    ],
+  });
+}
+
+export function telegramHelpCard() {
+  return Card({
+    title: "Cal.com Bot",
+    children: [
+      Section([
+        CardText("Here's what I can do:", { style: "bold" }),
+        Fields([
+          Field({ label: "/link", value: "Connect your Cal.com account" }),
+          Field({ label: "/unlink", value: "Disconnect your Cal.com account" }),
+          Field({ label: "/bookings", value: "View your upcoming bookings" }),
+          Field({ label: "/availability", value: "Check your availability" }),
+          Field({ label: "/help", value: "Show this help message" }),
+          Field({ label: "@mention me", value: "Ask anything in natural language" }),
         ]),
       ]),
       Divider(),

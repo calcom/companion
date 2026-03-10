@@ -33,7 +33,7 @@ import type { LookupPlatformUserFn } from "./agent";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
 import { formatForTelegram } from "./format-for-telegram";
-import { helpCard } from "./notifications";
+import { helpCard, telegramHelpCard } from "./notifications";
 import { logger as botLogger } from "./logger";
 
 validateRequiredEnv();
@@ -366,7 +366,6 @@ async function withTelegramTypingRefresh(
   await thread.startTyping();
   if (platform !== "telegram") return fn();
   return (async () => {
-    await thread.startTyping();
     const interval = setInterval(() => thread.startTyping().catch(() => {}), 4000);
     try {
       await fn();
@@ -458,7 +457,7 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
 
   // Empty text means the user sent only "@botname" with no additional text. Show help.
   if (!message.text.trim()) {
-    await thread.post(helpCard());
+    await thread.post(telegramHelpCard());
     return;
   }
 
@@ -536,10 +535,16 @@ bot.onNewMention(async (thread, message) => {
       bot.getLogger("mention").info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
       if (!linked) {
         bot.getLogger("mention").warn("User not linked", { userId: ctx.userId });
-        // For Telegram, post inline (groups don't support ephemeral; fallback DM is confusing).
-        // For Slack, use ephemeral so only the user sees the link prompt.
         if (ctx.platform === "telegram") {
-          await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+          // Never expose the signed OAuth URL in a group — any member could click it and
+          // link their Cal.com account to the requester's Telegram ID.
+          const isGroup = thread.id !== `telegram:${ctx.userId}`;
+          if (isGroup) {
+            await thread.post("Please check your DMs to connect your Cal.com account.");
+            await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
+          } else {
+            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+          }
         } else {
           try {
             await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
@@ -553,7 +558,7 @@ bot.onNewMention(async (thread, message) => {
 
       // Empty text means user only sent "@botname" with no additional message — show help.
       if (!userMessage) {
-        await thread.post(helpCard());
+        await thread.post(ctx.platform === "telegram" ? telegramHelpCard() : helpCard());
         return;
       }
 
@@ -627,7 +632,15 @@ bot.onSubscribedMessage(async (thread, message) => {
       if (!linked) {
         bot.getLogger("thread-follow-up").warn("User not linked", { userId: ctx.userId });
         if (ctx.platform === "telegram") {
-          await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+          // Never expose the signed OAuth URL in a group — any member could click it and
+          // link their Cal.com account to the requester's Telegram ID.
+          const isGroup = thread.id !== `telegram:${ctx.userId}`;
+          if (isGroup) {
+            await thread.post("Please check your DMs to connect your Cal.com account.");
+            await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });
+          } else {
+            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
+          }
         } else {
           try {
             await thread.postEphemeral(message.author, oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId), { fallbackToDM: true });

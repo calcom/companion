@@ -580,8 +580,8 @@ export function registerSlackHandlers(
     if (!meta) return;
 
     const input = event.values.target_user?.trim() ?? "";
-    const match = input.match(/U[A-Z0-9]+/i);
-    const targetSlackId = match?.[0]?.toUpperCase();
+    const match = input.match(/U[A-Z0-9]+/);
+    const targetSlackId = match?.[0];
     if (!targetSlackId) {
       return {
         action: "errors" as const,

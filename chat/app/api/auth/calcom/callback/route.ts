@@ -78,7 +78,8 @@ export async function GET(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error during authorization.";
     logger.error("Cal.com OAuth callback error", { err });
-    return redirectWithError(message);
+    // payload is in scope here — pass platform/teamId so the complete page shows correct retry instructions.
+    return redirectWithError(message, payload.platform, payload.teamId);
   }
 }
 
@@ -94,7 +95,9 @@ function redirectWithSuccess(name: string, email: string, teamId: string, platfo
   return NextResponse.redirect(`${APP_URL}/auth/calcom/complete?${params}`);
 }
 
-function redirectWithError(message: string) {
+function redirectWithError(message: string, platform?: string, teamId?: string) {
   const params = new URLSearchParams({ error: message });
+  if (platform) params.set("platform", platform);
+  if (teamId) params.set("team", teamId);
   return NextResponse.redirect(`${APP_URL}/auth/calcom/complete?${params}`);
 }
