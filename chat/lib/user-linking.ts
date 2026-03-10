@@ -3,6 +3,30 @@ import { getLogger } from "./logger";
 
 const logger = getLogger("user-linking");
 
+// Atomically deletes an email index key only if its current value matches the expected owner.
+// Using a Lua script ensures the GET + conditional DEL are a single atomic operation,
+// preventing a TOCTOU race where a concurrent relink overwrites the index between the
+// ownership check and the delete.
+const CAS_DEL_SCRIPT = `
+  if redis.call("GET", KEYS[1]) == ARGV[1] then
+    return redis.call("DEL", KEYS[1])
+  else
+    return 0
+  end
+`;
+
+async function deleteEmailIndexIfOwned(
+  email: string,
+  teamId: string,
+  userId: string
+): Promise<void> {
+  const client = getRedisClient();
+  await client.eval(CAS_DEL_SCRIPT, {
+    keys: [emailIndexKey(email)],
+    arguments: [JSON.stringify({ teamId, userId })],
+  });
+}
+
 export interface LinkedUser {
   accessToken: string;
   refreshToken: string;
@@ -32,14 +56,11 @@ export async function linkUser(
 
   // On re-link with a different Cal.com email, remove the old reverse-lookup entry so
   // booking-notification routing via getLinkedUserByEmail doesn't resolve stale results.
-  // Verify ownership before deleting: another user may have since linked the same email,
-  // overwriting the index — deleting it would break their notification routing.
+  // The delete is atomic (Lua CAS): if another user has since overwritten the index with
+  // their own mapping, the script is a no-op and their entry is preserved.
   const existing = await getLinkedUser(teamId, userId);
   if (existing && existing.calcomEmail !== data.calcomEmail) {
-    const indexEntry = await getLinkedUserByEmail(existing.calcomEmail);
-    if (indexEntry && indexEntry.teamId === teamId && indexEntry.userId === userId) {
-      await client.del(emailIndexKey(existing.calcomEmail));
-    }
+    await deleteEmailIndexIfOwned(existing.calcomEmail, teamId, userId);
   }
 
   await client.set(key, JSON.stringify(data), {
@@ -69,12 +90,8 @@ export async function unlinkUser(teamId: string, userId: string): Promise<void> 
   const client = getRedisClient();
   const linked = await getLinkedUser(teamId, userId);
   if (linked) {
-    // Only delete the email index if it still points to this user; another user may have
-    // linked the same Cal.com email and overwritten the index entry since this user linked.
-    const indexEntry = await getLinkedUserByEmail(linked.calcomEmail);
-    if (indexEntry && indexEntry.teamId === teamId && indexEntry.userId === userId) {
-      await client.del(emailIndexKey(linked.calcomEmail));
-    }
+    // Atomic CAS delete: only removes the index if it still points to this user.
+    await deleteEmailIndexIfOwned(linked.calcomEmail, teamId, userId);
   }
   await client.del(userKey(teamId, userId));
   logger.info("User unlinked", { teamId, userId });
