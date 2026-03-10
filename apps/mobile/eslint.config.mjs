@@ -26,18 +26,13 @@ export default tseslint.config(
       'node_modules/**',
       'dist/**',
       '.expo/**',
-      '.wxt/**',
-      '.output/**',
       'android/**',
       'ios/**',
-      'apps/extension/**',
       '**/*.generated.*',
       '**/*.d.ts',
-      'apps/mobile/babel.config.js',
-      'apps/mobile/metro.config.js',
-      'apps/mobile/tailwind.config.js',
-      'apps/extension/wxt.config.ts',
+      'babel.config.js',
+      'metro.config.js',
+      'tailwind.config.js',
     ],
   }
 );
-

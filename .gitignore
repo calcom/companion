@@ -5,11 +5,15 @@ node_modules/
 .yarn/
 .pnp.*
 
-# Expo
+# Expo / mobile generated files
 .expo/
 dist/
 web-build/
 expo-env.d.ts
+apps/mobile/.expo/
+apps/mobile/dist/
+apps/mobile/web-build/
+apps/mobile/expo-env.d.ts
 
 # Native
 .kotlin/
@@ -37,6 +41,10 @@ safari-extension/
 # local env files
 .env*.local
 .env
+apps/mobile/.env
+apps/mobile/.env*.local
+apps/extension/.env
+apps/extension/.env*.local
 
 # typescript
 *.tsbuildinfo
@@ -44,14 +52,20 @@ safari-extension/
 # generated native folders
 ios/
 android/
+apps/mobile/ios/
+apps/mobile/android/
 
 # WXT Chrome Extension build outputs
 .output/
 .wxt/
 dev/
+apps/extension/.output/
+apps/extension/.wxt/
+apps/extension/dev/
 
 # Extension builds (generated at build time)
 *.zip
+apps/extension/*.zip
 
 # IDE
 .vscode/
