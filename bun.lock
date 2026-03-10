@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "cal-companion",
@@ -8,25 +9,6 @@
         "@types/node": "22.19.6",
         "husky": "9.0.11",
         "lint-staged": "15.2.0",
-        "typescript": "5.9.3",
-      },
-    },
-    "apps/cli": {
-      "name": "@calcom/cli",
-      "version": "0.0.1",
-      "bin": {
-        "calcom": "./dist/index.js",
-      },
-      "dependencies": {
-        "@hey-api/client-fetch": "^0.6.0",
-        "chalk": "4.1.2",
-        "commander": "12.1.0",
-      },
-      "devDependencies": {
-        "@biomejs/biome": "2.3.10",
-        "@hey-api/openapi-ts": "^0.61.0",
-        "@types/node": "^20.17.23",
-        "ts-node": "10.9.2",
         "typescript": "5.9.3",
       },
     },
@@ -113,6 +95,25 @@
         "sf-symbols-typescript": "^2.0.0",
         "tailwindcss": "3.4.17",
         "typescript-eslint": "8.50.1",
+      },
+    },
+    "packages/cli": {
+      "name": "@calcom/cli",
+      "version": "0.0.1",
+      "bin": {
+        "calcom": "./dist/index.js",
+      },
+      "dependencies": {
+        "@hey-api/client-fetch": "^0.6.0",
+        "chalk": "4.1.2",
+        "commander": "12.1.0",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "2.3.10",
+        "@hey-api/openapi-ts": "^0.61.0",
+        "@types/node": "^20.17.23",
+        "ts-node": "10.9.2",
+        "typescript": "5.9.3",
       },
     },
   },
@@ -337,7 +338,7 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.3.10", "", { "os": "win32", "cpu": "x64" }, "sha512-pHEFgq7dUEsKnqG9mx9bXihxGI49X+ar+UBrEIj3Wqj3UCZp1rNgV+OoyjFgcXsjCWpuEAF4VJdkZr3TrWdCbQ=="],
 
-    "@calcom/cli": ["@calcom/cli@workspace:apps/cli"],
+    "@calcom/cli": ["@calcom/cli@workspace:packages/cli"],
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
 
