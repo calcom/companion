@@ -54,9 +54,8 @@ export default defineConfig({
       };
     },
   },
-  srcDir: "extension",
   entrypointsDir: "entrypoints",
-  publicDir: "extension/public",
+  publicDir: "public",
   outDir: ".output",
   manifest: {
     name: browserTarget === "safari" ? "Cal.com" : "Cal.com Companion",

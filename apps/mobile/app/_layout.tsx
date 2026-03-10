@@ -1,4 +1,4 @@
-import "./_webRuntimeGuards";
+import "../lib/webRuntimeGuards";
 import "../global.css";
 
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
