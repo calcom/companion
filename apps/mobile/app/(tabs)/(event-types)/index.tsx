@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Text as AlertDialogText } from "@/components/ui/text";
+import { getColors } from "@/constants/colors";
 import {
   useCreateEventType,
   useDeleteEventType,
@@ -46,8 +47,6 @@ import { offlineAwareRefresh } from "@/utils/network";
 import { normalizeMarkdown } from "@/utils/normalizeMarkdown";
 import { shadows } from "@/utils/shadows";
 import { slugify } from "@/utils/slugify";
-
-import { getColors } from "@/constants/colors";
 
 export default function EventTypes() {
   const router = useRouter();

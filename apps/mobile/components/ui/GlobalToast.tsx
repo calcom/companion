@@ -31,7 +31,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 
-import { useGlobalToast, type ToastType } from "@/contexts/ToastContext";
+import { type ToastType, useGlobalToast } from "@/contexts/ToastContext";
 
 const ICON_CONFIG: Record<ToastType, { name: keyof typeof Ionicons.glyphMap; color: string }> = {
   success: { name: "checkmark-circle", color: "#000000" },

@@ -2,10 +2,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { requestWidgetUpdate } from "react-native-android-widget";
 import { UpcomingBookingsWidget } from "@/widgets/UpcomingBookingsWidget";
 import {
-  type BookingInput,
-  type WidgetData,
   ANDROID_WIDGET_STORAGE_KEY,
+  type BookingInput,
   transformBookingsToWidgetData,
+  type WidgetData,
 } from "./widgetStorage.shared";
 
 async function updateAndroidWidget(widgetData: WidgetData): Promise<void> {

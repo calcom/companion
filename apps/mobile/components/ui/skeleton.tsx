@@ -1,6 +1,6 @@
+import { useColorScheme, View } from "react-native";
 import { semanticColors } from "@/constants/colors";
 import { cn } from "@/lib/utils";
-import { useColorScheme, View } from "react-native";
 
 function Skeleton({
   className,

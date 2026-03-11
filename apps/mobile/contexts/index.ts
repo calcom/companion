@@ -16,4 +16,4 @@ export { AuthProvider, useAuth } from "./AuthContext";
 export { QueryProvider, useQueryContext } from "./QueryContext";
 
 // Toast context
-export { ToastProvider, useGlobalToast, type ToastState, type ToastType } from "./ToastContext";
+export { ToastProvider, type ToastState, type ToastType, useGlobalToast } from "./ToastContext";

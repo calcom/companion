@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Linking, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { SvgImage } from "@/components/SvgImage";
+import { getColors } from "@/constants/colors";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 import type { BookingListItemData } from "./useBookingListItemData";
-import { getColors } from "@/constants/colors";
 
 interface TimeAndDateRowProps {
   formattedDate: string;

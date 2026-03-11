@@ -17,8 +17,8 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useBookingByUid } from "@/hooks/useBookings";
 import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
-import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
 import { getMeetingUrl } from "@/utils/booking";
+import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
 import { openInDefaultBrowser } from "@/utils/browser";
 
 // Empty actions result for when no booking is loaded

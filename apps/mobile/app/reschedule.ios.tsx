@@ -4,9 +4,9 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getColors } from "@/constants/colors";
 import type { RescheduleScreenHandle } from "@/components/screens/RescheduleScreen";
 import RescheduleScreenComponent from "@/components/screens/RescheduleScreen";
+import { getColors } from "@/constants/colors";
 import { type Booking, CalComAPIService } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 

@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Platform, useColorScheme, View } from "react-native";
 import { AppPressable } from "@/components/AppPressable";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
-import { getColors } from "@/constants/colors";
 import MarkNoShowScreenComponent from "@/components/screens/MarkNoShowScreen";
+import { getColors } from "@/constants/colors";
 import { type Booking, CalComAPIService } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 

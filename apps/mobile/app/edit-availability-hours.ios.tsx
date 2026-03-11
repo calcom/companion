@@ -4,8 +4,8 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect } from "react";
 import { ActivityIndicator, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getColors } from "@/constants/colors";
 import EditAvailabilityHoursScreenComponent from "@/components/screens/EditAvailabilityHoursScreen.ios";
+import { getColors } from "@/constants/colors";
 import { useScheduleById } from "@/hooks/useSchedules";
 import { showErrorAlert } from "@/utils/alerts";
 

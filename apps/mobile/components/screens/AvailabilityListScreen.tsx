@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Text as AlertDialogText } from "@/components/ui/text";
+import { getColors } from "@/constants/colors";
 import {
   useCreateSchedule,
   useDeleteSchedule,
@@ -40,7 +41,6 @@ import {
 import { CalComAPIService, type Schedule } from "@/services/calcom";
 import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
 import { offlineAwareRefresh } from "@/utils/network";
-import { getColors } from "@/constants/colors";
 
 export interface AvailabilityListScreenProps {
   searchQuery: string;

@@ -1,6 +1,7 @@
 /// <reference types="chrome" />
-import type { OAuthTokens } from "../../types/oauth";
+
 import type { Booking } from "../../types/bookings.types";
+import type { OAuthTokens } from "../../types/oauth";
 
 const DEV_API_KEY = import.meta.env.EXPO_PUBLIC_CAL_API_KEY as string | undefined;
 const IS_DEV_MODE = Boolean(DEV_API_KEY && DEV_API_KEY.length > 0);

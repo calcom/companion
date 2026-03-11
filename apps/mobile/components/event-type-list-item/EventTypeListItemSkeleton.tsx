@@ -1,4 +1,4 @@
-import { View, useColorScheme } from "react-native";
+import { useColorScheme, View } from "react-native";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getColors } from "@/constants/colors";
 

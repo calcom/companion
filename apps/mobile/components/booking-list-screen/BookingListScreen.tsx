@@ -13,13 +13,12 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import { FullScreenModal } from "@/components/FullScreenModal";
 import { BookingListItem } from "@/components/booking-list-item/BookingListItem";
 import { BookingListSkeleton } from "@/components/booking-list-item/BookingListItemSkeleton";
 import { RecurringBookingListItem } from "@/components/booking-list-item/RecurringBookingListItem";
 import { BookingModals } from "@/components/booking-modals/BookingModals";
 import { EmptyScreen } from "@/components/EmptyScreen";
-import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
+import { FullScreenModal } from "@/components/FullScreenModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Text as UIText } from "@/components/ui/text";
+import { getColors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   type BookingFilter,
@@ -42,6 +42,7 @@ import {
   useRescheduleBooking,
 } from "@/hooks";
 import type { Booking, EventType } from "@/services/calcom";
+import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
 import type { ListItem, RecurringBookingGroup } from "@/utils/bookings-utils";
 import {
   filterByEventType,
@@ -51,7 +52,6 @@ import {
   searchBookings,
 } from "@/utils/bookings-utils";
 import { offlineAwareRefresh } from "@/utils/network";
-import { getColors } from "@/constants/colors";
 
 interface BookingListScreenProps {
   // Platform-specific header rendering

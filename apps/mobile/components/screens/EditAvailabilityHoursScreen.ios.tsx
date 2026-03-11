@@ -3,9 +3,9 @@ import { forwardRef } from "react";
 import { ScrollView, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppPressable } from "@/components/AppPressable";
+import { getColors } from "@/constants/colors";
 import type { Schedule } from "@/services/calcom";
 import type { ScheduleAvailability } from "@/services/types";
-import { getColors } from "@/constants/colors";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 

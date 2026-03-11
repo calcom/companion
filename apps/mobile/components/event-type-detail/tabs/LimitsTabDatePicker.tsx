@@ -1,4 +1,4 @@
-import { TextInput, View, useColorScheme } from "react-native";
+import { TextInput, useColorScheme, View } from "react-native";
 import { getColors } from "@/constants/colors";
 
 interface LimitsTabDatePickerProps {
