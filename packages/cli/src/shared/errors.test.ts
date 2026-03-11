@@ -22,11 +22,10 @@ import { renderError } from "./output";
 
 describe("errors", () => {
   let exitSpy: ReturnType<typeof mockProcessExit>;
-  let consoleErrorSpy: ReturnType<typeof mockConsoleError>;
 
   beforeEach(() => {
     exitSpy = mockProcessExit();
-    consoleErrorSpy = mockConsoleError();
+    mockConsoleError();
   });
 
   afterEach(() => {

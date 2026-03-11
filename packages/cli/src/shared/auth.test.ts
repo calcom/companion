@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { oauthConfig } from "../__tests__/helpers/fixtures";
-import { mockConsoleLog } from "../__tests__/helpers/mockProcess";
 
 // Mock node:fs before importing the module under test
 vi.mock("node:fs");
@@ -30,10 +29,7 @@ import { ApiKeyAuth, OAuthAuth } from "./auth";
 import { renderSuccess } from "./output";
 
 describe("auth", () => {
-  let consoleLogSpy: ReturnType<typeof mockConsoleLog>;
-
   beforeEach(() => {
-    consoleLogSpy = mockConsoleLog();
     vi.mocked(fs.existsSync).mockReturnValue(true);
     vi.mocked(fs.mkdirSync).mockImplementation(() => undefined);
     vi.mocked(fs.writeFileSync).mockImplementation(() => {});
