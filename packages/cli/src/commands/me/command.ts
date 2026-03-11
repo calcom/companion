@@ -7,7 +7,12 @@ import { authHeader } from "../../shared/headers";
 import { renderProfile, renderProfileUpdated } from "./output";
 
 export function registerMeCommand(program: Command): void {
-  const meCmd = program.command("me").alias("whoami").description("Manage your Cal.com profile");
+  const meCmd = program
+    .command("me")
+    .alias("whoami")
+    .description("Manage your Cal.com profile")
+    .enablePositionalOptions()
+    .passThroughOptions();
 
   meCmd
     .command("show", { isDefault: true })

@@ -52,7 +52,8 @@ const program: Command = new Command();
 program
   .name("calcom")
   .description("Cal.com CLI - Manage your Cal.com account from the command line")
-  .version("0.0.1");
+  .version("0.0.1")
+  .enablePositionalOptions();
 
 registerLoginCommand(program);
 registerLogoutCommand(program);
