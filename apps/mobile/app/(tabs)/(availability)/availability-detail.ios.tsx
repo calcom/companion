@@ -1,6 +1,6 @@
-import { useColorScheme } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useRef } from "react";
+import { useColorScheme } from "react-native";
 import {
   AvailabilityDetailScreen,
   type AvailabilityDetailScreenHandle,

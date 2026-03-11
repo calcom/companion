@@ -6,14 +6,13 @@
 
 import type React from "react";
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { Text, TextInput, useColorScheme, View } from "react-native";
 import { AddLocationTrigger, LocationsList } from "@/components/LocationsList";
+import { getColors } from "@/constants/colors";
 import type { LocationItem, LocationOptionGroup } from "@/types/locations";
 import { createLocationItemFromOption } from "@/utils/locationHelpers";
 import { slugify } from "@/utils/slugify";
 import { NavigationRow, SettingRow, SettingsGroup } from "../SettingsUI";
-import { getColors } from "@/constants/colors";
-import { useColorScheme } from "react-native";
 
 interface BasicsTabProps {
   eventTitle: string;

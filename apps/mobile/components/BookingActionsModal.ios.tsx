@@ -8,10 +8,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { ScrollView, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getColors } from "@/constants/colors";
 import type { Booking } from "@/services/calcom";
 import type { BookingActionsResult } from "@/utils/booking-actions";
 import { FullScreenModal } from "./FullScreenModal";
-import { getColors } from "@/constants/colors";
 
 export interface BookingActionsModalProps {
   visible: boolean;

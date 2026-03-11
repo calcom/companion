@@ -2,7 +2,7 @@
   "name": "cal-companion",
   "version": "1.7.6",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": ["apps/*", "chat", "packages/*"],
   "scripts": {
     "mobile": "cd apps/mobile && bunx expo start",
     "mobile:ios": "cd apps/mobile && bunx expo run:ios",
@@ -17,6 +17,7 @@
     "ext:build:all": "bun --filter extension build:all",
     "ext:build:all:prod": "bun --filter extension build:all:prod",
     "typecheck": "bun --filter '*' typecheck",
+    "typecheck:chat": "bun --filter '@calcom/slack' typecheck",
     "lint": "biome lint .",
     "lint:react-compiler": "bun --filter mobile lint:react-compiler",
     "lint:all": "bun run lint && bun run lint:react-compiler",

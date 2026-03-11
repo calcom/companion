@@ -11,9 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CalComAPIService, type UserProfile } from "@/services/calcom";
-import { getAvatarUrl } from "@/utils/getAvatarUrl";
-import { CalComLogo } from "./CalComLogo";
+import { AppPressable } from "@/components/AppPressable";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,8 +23,10 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AppPressable } from "@/components/AppPressable";
 import type { EventTypeFilters, EventTypeSortOption } from "@/hooks/useEventTypeFilter";
+import { CalComAPIService, type UserProfile } from "@/services/calcom";
+import { getAvatarUrl } from "@/utils/getAvatarUrl";
+import { CalComLogo } from "./CalComLogo";
 
 interface FilterOption {
   key: string;

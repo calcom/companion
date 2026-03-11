@@ -8,8 +8,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { ConferencingSession } from "@/services/types/bookings.types";
 import { getColors } from "@/constants/colors";
+import type { ConferencingSession } from "@/services/types/bookings.types";
 
 export interface MeetingSessionDetailsScreenProps {
   sessions: ConferencingSession[];

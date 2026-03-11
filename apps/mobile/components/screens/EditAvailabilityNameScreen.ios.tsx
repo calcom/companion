@@ -13,10 +13,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getColors } from "@/constants/colors";
 import { TIMEZONES as ALL_TIMEZONES } from "@/constants/timezones";
 import { type Schedule, useUpdateSchedule } from "@/hooks/useSchedules";
 import { showErrorAlert } from "@/utils/alerts";
-import { getColors } from "@/constants/colors";
 
 // Format timezones for display
 const TIMEZONES = ALL_TIMEZONES.map((tz) => ({

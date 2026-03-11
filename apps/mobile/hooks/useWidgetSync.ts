@@ -1,12 +1,12 @@
-import { useEffect, useCallback } from "react";
-import { Platform } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect } from "react";
+import { Platform } from "react-native";
 import { queryKeys } from "@/config/cache.config";
-import { CalComAPIService, type Booking } from "@/services/calcom";
+import { type Booking, CalComAPIService } from "@/services/calcom";
 import {
-  updateWidgetBookings,
   clearWidgetBookings,
   setupWidgetRefreshOnAppStateChange,
+  updateWidgetBookings,
 } from "@/utils/widgetStorage";
 
 export function useWidgetSync() {

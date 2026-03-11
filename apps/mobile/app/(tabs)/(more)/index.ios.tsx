@@ -14,14 +14,14 @@ import {
 } from "react-native";
 import { LandingPagePicker } from "@/components/LandingPagePicker";
 import { LogoutConfirmModal } from "@/components/LogoutConfirmModal";
+import { getColors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryContext } from "@/contexts/QueryContext";
 import { useUserProfile } from "@/hooks";
 import { type LandingPage, useUserPreferences } from "@/hooks/useUserPreferences";
-import { showErrorAlert, showSuccessAlert, showNotAvailableAlert } from "@/utils/alerts";
+import { showErrorAlert, showNotAvailableAlert, showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
-import { getColors } from "@/constants/colors";
 
 interface MoreMenuItem {
   name: string;

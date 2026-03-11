@@ -4,11 +4,11 @@
  * iOS Settings style with grouped rows and section headers.
  */
 
-import { Platform, Text, TextInput, TouchableOpacity, View, useColorScheme } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Platform, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { getColors } from "@/constants/colors";
 import { SettingRow, SettingsGroup } from "../SettingsUI";
 import { RecurringTabIOSPicker } from "./RecurringTabIOSPicker";
-import { Ionicons } from "@expo/vector-icons";
-import { getColors } from "@/constants/colors";
 
 interface RecurringTabProps {
   recurringEnabled: boolean;
