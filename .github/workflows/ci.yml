@@ -48,6 +48,52 @@ jobs:
       - name: Type check
         run: bun run typecheck
 
+  sdk-freshness:
+    name: SDK Freshness Check
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.3.0
+          cache: true
+          cache-dependency-path: bun.lock
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Regenerate SDK from openapi.json
+        working-directory: packages/cli
+        run: bun run generate
+      - name: Check for uncommitted SDK changes
+        run: |
+          if ! git diff --exit-code packages/cli/src/generated/; then
+            echo ""
+            echo "::error::Generated SDK is out of sync with openapi.json."
+            echo "Run 'cd packages/cli && bun run generate' and commit the result."
+            exit 1
+          fi
+
+  test:
+    name: Test
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.3.0
+          cache: true
+          cache-dependency-path: bun.lock
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Run CLI tests
+        working-directory: packages/cli
+        run: bun run test
+        env:
+          TZ: UTC
+
   build:
     name: Build
     runs-on: blacksmith-4vcpu-ubuntu-2404
