@@ -29,7 +29,9 @@
     "type-check:ci": "yarn generate && tsc --noEmit",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
-    "prepack": "yarn build"
+    "prepack": "yarn build",
+    "test": "vitest run",
+    "test:update": "vitest run --update"
   },
   "dependencies": {
     "@hey-api/client-fetch": "^0.6.0",
@@ -41,6 +43,7 @@
     "@hey-api/openapi-ts": "^0.61.0",
     "@types/node": "^20.17.23",
     "ts-node": "10.9.2",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.0.18"
   }
 }
