@@ -25,6 +25,7 @@ function promptMasked(question: string): Promise<string> {
   return new Promise((resolve) => {
     process.stdout.write(question);
     let input = "";
+    let resolved = false;
 
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(true);
@@ -32,37 +33,44 @@ function promptMasked(question: string): Promise<string> {
     process.stdin.resume();
     process.stdin.setEncoding("utf8");
 
-    const onData = (char: string) => {
-      const charCode = char.charCodeAt(0);
-
-      if (charCode === 3) {
-        // Ctrl+C
-        process.stdout.write("\n");
-        process.exit(0);
-      } else if (charCode === 13 || charCode === 10) {
-        // Enter
-        process.stdout.write("\n");
-        cleanup();
-        resolve(input.trim());
-      } else if (charCode === 127 || charCode === 8) {
-        // Backspace
-        if (input.length > 0) {
-          input = input.slice(0, -1);
-          process.stdout.write("\b \b");
-        }
-      } else if (charCode >= 32) {
-        // Printable characters
-        input += char;
-        process.stdout.write("*");
-      }
-    };
-
     const cleanup = () => {
       process.stdin.removeListener("data", onData);
       if (process.stdin.isTTY) {
         process.stdin.setRawMode(false);
       }
       process.stdin.pause();
+    };
+
+    const onData = (chunk: string) => {
+      // Process each character in the chunk
+      for (const char of chunk) {
+        if (resolved) return;
+
+        const charCode = char.charCodeAt(0);
+
+        if (charCode === 3) {
+          // Ctrl+C
+          process.stdout.write("\n");
+          process.exit(0);
+        } else if (charCode === 13 || charCode === 10) {
+          // Enter
+          process.stdout.write("\n");
+          resolved = true;
+          cleanup();
+          resolve(input.trim());
+          return;
+        } else if (charCode === 127 || charCode === 8) {
+          // Backspace
+          if (input.length > 0) {
+            input = input.slice(0, -1);
+            process.stdout.write("\b \b");
+          }
+        } else if (charCode >= 32) {
+          // Printable characters
+          input += char;
+          process.stdout.write("*");
+        }
+      }
     };
 
     process.stdin.on("data", onData);
