@@ -247,5 +247,83 @@ describe("config", () => {
       expect(exitSpy).toHaveBeenCalledWith(1);
       expect(consoleErrorSpy).toHaveBeenCalled();
     });
+
+    it("refreshes token within 60-second buffer before expiry", async () => {
+      // Token expires in 30 seconds (within 60-second buffer)
+      const aboutToExpireConfig = {
+        oauth: {
+          clientId: "test-client-id",
+          clientSecret: "test-client-secret",
+          accessToken: "about-to-expire-token",
+          refreshToken: "test-refresh-token",
+          accessTokenExpiresAt: new Date(Date.now() + 30000).toISOString(),
+        },
+      };
+
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        JSON.stringify(aboutToExpireConfig)
+      );
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(tokenRefreshResponse),
+      });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const token = await getAuthToken();
+
+      expect(token).toBe("new-access-token");
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    it("persists new tokens to config after refresh", async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        JSON.stringify(expiredOauthConfig)
+      );
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(tokenRefreshResponse),
+      });
+      vi.stubGlobal("fetch", mockFetch);
+
+      await getAuthToken();
+
+      expect(fs.writeFileSync).toHaveBeenCalled();
+      const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+      const savedConfig = JSON.parse(writeCall[1] as string);
+      expect(savedConfig.oauth.accessToken).toBe("new-access-token");
+      expect(savedConfig.oauth.refreshToken).toBe("new-refresh-token");
+    });
+
+    it("treats invalid expiry date as expired and refreshes", async () => {
+      const invalidExpiryConfig = {
+        oauth: {
+          clientId: "test-client-id",
+          clientSecret: "test-client-secret",
+          accessToken: "old-token",
+          refreshToken: "test-refresh-token",
+          accessTokenExpiresAt: "invalid-date",
+        },
+      };
+
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        JSON.stringify(invalidExpiryConfig)
+      );
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(tokenRefreshResponse),
+      });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const token = await getAuthToken();
+
+      expect(token).toBe("new-access-token");
+      expect(mockFetch).toHaveBeenCalled();
+    });
   });
 });
