@@ -88,14 +88,15 @@ export function renderCalendarRedirect(data: unknown, { json }: OutputOptions = 
     console.log(JSON.stringify(data, null, 2));
     return;
   }
-  const response = data as { authUrl?: string } | undefined;
-  if (!response?.authUrl) {
+  const response = data as { data?: { authUrl?: string } } | undefined;
+  const url = response?.data?.authUrl;
+  if (!url) {
     console.log("No redirect URL returned.");
     return;
   }
   renderHeader("Calendar OAuth");
   console.log(`Visit this URL to connect your calendar:\n`);
-  console.log(chalk.cyan(response.authUrl));
+  console.log(chalk.cyan(url));
 }
 
 export function renderCalendarSaved(data: unknown, { json }: OutputOptions = {}): void {
