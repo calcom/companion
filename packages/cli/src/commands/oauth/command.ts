@@ -3,7 +3,7 @@ import {
   oAuth2ControllerGetClient as getOAuth2Client,
   oAuth2ControllerToken as getOAuth2Token,
 } from "../../generated/sdk.gen";
-import { initializeClient } from "../../shared/client";
+import { initializeClient, initializeClientWithoutAuth } from "../../shared/client";
 import { withErrorHandling } from "../../shared/errors";
 import { renderOAuth2Client, renderOAuth2Tokens } from "./output";
 
@@ -49,7 +49,7 @@ export function registerOAuthCommand(program: Command): void {
         json?: boolean;
       }) => {
         await withErrorHandling(async () => {
-          await initializeClient();
+          await initializeClientWithoutAuth();
 
           let body: Record<string, string> = {};
 

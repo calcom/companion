@@ -2,7 +2,9 @@ import { exec } from "node:child_process";
 import * as http from "node:http";
 import process from "node:process";
 import * as readline from "node:readline";
-import { getApiUrl, getAppUrl, readConfig, writeConfig } from "./config";
+import { oAuth2ControllerToken as getOAuth2Token } from "../generated/sdk.gen";
+import { initializeClientWithoutAuth } from "./client";
+import { getAppUrl, readConfig, writeConfig } from "./config";
 import { renderError, renderSuccess } from "./output";
 import { errorPage, successPage } from "./templates";
 
@@ -63,7 +65,6 @@ export class ApiKeyAuth {
 export class OAuthAuth {
   private static readonly DEFAULT_PORT = 8019;
   private static readonly AUTHORIZE_PATH = "/auth/oauth2/authorize";
-  private static readonly TOKEN_PATH = "/v2/auth/oauth2/token";
   private static readonly CALLBACK_TIMEOUT = 300000;
 
   private clientId?: string;
@@ -206,30 +207,27 @@ export class OAuthAuth {
     code: string,
     redirectUri: string
   ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
-    const apiUrl = getApiUrl();
-    const response = await fetch(`${apiUrl}${OAuthAuth.TOKEN_PATH}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    await initializeClientWithoutAuth();
+
+    const { data: response } = await getOAuth2Token({
+      body: {
+        grant_type: "authorization_code",
         client_id: clientId,
         client_secret: clientSecret,
-        grant_type: "authorization_code",
         code,
         redirect_uri: redirectUri,
-      }),
+      },
     });
 
-    if (!response.ok) {
-      const body = await response.text();
-      try {
-        const parsed = JSON.parse(body);
-        throw new Error(parsed.error_description || parsed.error || parsed.message || body);
-      } catch {
-        throw new Error(`Token exchange failed: HTTP ${response.status}`);
-      }
+    if (!response) {
+      throw new Error("Token exchange failed: no response");
     }
 
-    return response.json() as Promise<{ access_token: string; refresh_token: string; expires_in: number }>;
+    return {
+      access_token: response.access_token,
+      refresh_token: response.refresh_token,
+      expires_in: response.expires_in,
+    };
   }
 
   private saveTokens(
@@ -258,34 +256,28 @@ export class OAuthAuth {
     }
 
     const { clientId, clientSecret, refreshToken } = config.oauth;
-    const apiUrl = getApiUrl();
 
-    const response = await fetch(`${apiUrl}${OAuthAuth.TOKEN_PATH}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    await initializeClientWithoutAuth();
+
+    const { data: response } = await getOAuth2Token({
+      body: {
+        grant_type: "refresh_token",
         client_id: clientId,
         client_secret: clientSecret,
-        grant_type: "refresh_token",
         refresh_token: refreshToken,
-      }),
+      },
     });
 
-    if (!response.ok) {
-      throw new Error(`Token refresh failed: HTTP ${response.status}`);
+    if (!response) {
+      throw new Error("Token refresh failed: no response");
     }
 
-    const tokens = (await response.json()) as {
-      access_token: string;
-      refresh_token: string;
-      expires_in: number;
-    };
-    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + response.expires_in * 1000).toISOString();
 
     config.oauth = {
       ...config.oauth,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
+      accessToken: response.access_token,
+      refreshToken: response.refresh_token,
       accessTokenExpiresAt: expiresAt,
     };
 
