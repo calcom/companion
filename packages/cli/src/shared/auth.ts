@@ -21,6 +21,54 @@ function prompt(question: string): Promise<string> {
   });
 }
 
+function promptMasked(question: string): Promise<string> {
+  return new Promise((resolve) => {
+    process.stdout.write(question);
+    let input = "";
+
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+    }
+    process.stdin.resume();
+    process.stdin.setEncoding("utf8");
+
+    const onData = (char: string) => {
+      const charCode = char.charCodeAt(0);
+
+      if (charCode === 3) {
+        // Ctrl+C
+        process.stdout.write("\n");
+        process.exit(0);
+      } else if (charCode === 13 || charCode === 10) {
+        // Enter
+        process.stdout.write("\n");
+        cleanup();
+        resolve(input.trim());
+      } else if (charCode === 127 || charCode === 8) {
+        // Backspace
+        if (input.length > 0) {
+          input = input.slice(0, -1);
+          process.stdout.write("\b \b");
+        }
+      } else if (charCode >= 32) {
+        // Printable characters
+        input += char;
+        process.stdout.write("*");
+      }
+    };
+
+    const cleanup = () => {
+      process.stdin.removeListener("data", onData);
+      if (process.stdin.isTTY) {
+        process.stdin.setRawMode(false);
+      }
+      process.stdin.pause();
+    };
+
+    process.stdin.on("data", onData);
+  });
+}
+
 function openBrowser(url: string): void {
   const platform = process.platform;
   const cmd =
@@ -46,7 +94,7 @@ export class ApiKeyAuth {
   ) {}
 
   async login(): Promise<void> {
-    const apiKey = this.options.apiKey || (await prompt("Enter your Cal.com API key: "));
+    const apiKey = this.options.apiKey || (await promptMasked("Enter your Cal.com API key: "));
     if (!apiKey) {
       throw new Error("API key is required.");
     }
@@ -92,12 +140,12 @@ export class OAuthAuth {
   }
 
   async login(): Promise<void> {
-    const clientId = this.clientId || (await prompt("Enter your OAuth Client ID: "));
+    const clientId = this.clientId || (await promptMasked("Enter your OAuth Client ID: "));
     if (!clientId) {
       throw new Error("OAuth Client ID is required.");
     }
 
-    const clientSecret = this.clientSecret || (await prompt("Enter your OAuth Client Secret: "));
+    const clientSecret = this.clientSecret || (await promptMasked("Enter your OAuth Client Secret: "));
     if (!clientSecret) {
       throw new Error("OAuth Client Secret is required.");
     }
