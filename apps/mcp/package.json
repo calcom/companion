@@ -1,0 +1,37 @@
+{
+  "name": "@calcom/mcp",
+  "version": "1.0.0",
+  "description": "Cal.com MCP Server - Exposes Cal.com API v2 as MCP tools for AI assistants",
+  "private": true,
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "calcom-mcp": "build/index.js"
+  },
+  "files": [
+    "build"
+  ],
+  "scripts": {
+    "start": "node build/index.js",
+    "build": "tsc && shx chmod 755 build/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.0",
+    "axios": "^1.9.0",
+    "dotenv": "^16.4.5",
+    "zod": "^3.24.3",
+    "json-schema-to-zod": "^2.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2",
+    "typescript": "^5.8.3",
+    "shx": "^0.4.0",
+    "vitest": "^3.0.0"
+  }
+}
