@@ -56,6 +56,8 @@ export class ApiKeyAuth {
     if (this.options.apiUrl) {
       config.apiUrl = this.options.apiUrl;
     }
+    // Clear OAuth credentials to ensure API key takes precedence
+    delete config.oauth;
 
     writeConfig(config);
     renderSuccess("Logged in successfully.");
@@ -245,6 +247,8 @@ export class OAuthAuth {
       refreshToken: tokens.refresh_token,
       accessTokenExpiresAt: expiresAt,
     };
+    // Clear API key to ensure OAuth takes precedence
+    delete config.apiKey;
 
     writeConfig(config);
   }
