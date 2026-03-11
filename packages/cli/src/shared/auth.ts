@@ -1,0 +1,353 @@
+import { exec } from "node:child_process";
+import * as http from "node:http";
+import process from "node:process";
+import * as readline from "node:readline";
+import { oAuth2ControllerToken as getOAuth2Token } from "../generated/sdk.gen";
+import { initializeClientWithoutAuth } from "./client";
+import { getAppUrl, readConfig, writeConfig } from "./config";
+import { renderError, renderSuccess } from "./output";
+import { errorPage, successPage } from "./templates";
+
+function prompt(question: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
+function promptMasked(question: string): Promise<string> {
+  return new Promise((resolve) => {
+    process.stdout.write(question);
+    let input = "";
+    let resolved = false;
+
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+    }
+    process.stdin.resume();
+    process.stdin.setEncoding("utf8");
+
+    const cleanup = () => {
+      process.stdin.removeListener("data", onData);
+      if (process.stdin.isTTY) {
+        process.stdin.setRawMode(false);
+      }
+      process.stdin.pause();
+    };
+
+    const onData = (chunk: string) => {
+      // Process each character in the chunk
+      for (const char of chunk) {
+        if (resolved) return;
+
+        const charCode = char.charCodeAt(0);
+
+        if (charCode === 3) {
+          // Ctrl+C
+          process.stdout.write("\n");
+          process.exit(0);
+        } else if (charCode === 13 || charCode === 10) {
+          // Enter
+          process.stdout.write("\n");
+          resolved = true;
+          cleanup();
+          resolve(input.trim());
+          return;
+        } else if (charCode === 127 || charCode === 8) {
+          // Backspace
+          if (input.length > 0) {
+            input = input.slice(0, -1);
+            process.stdout.write("\b \b");
+          }
+        } else if (charCode >= 32) {
+          // Printable characters
+          input += char;
+          process.stdout.write("*");
+        }
+      }
+    };
+
+    process.stdin.on("data", onData);
+  });
+}
+
+function openBrowser(url: string): void {
+  const platform = process.platform;
+  const cmd =
+    platform === "darwin"
+      ? `open "${url}"`
+      : platform === "win32"
+        ? `start "" "${url}"`
+        : `xdg-open "${url}"`;
+
+  exec(cmd, (err) => {
+    if (err) {
+      renderError(`Could not open browser automatically. Please visit:\n  ${url}`);
+    }
+  });
+}
+
+export class ApiKeyAuth {
+  constructor(
+    private options: {
+      apiKey?: string;
+      apiUrl?: string;
+    } = {}
+  ) {}
+
+  async login(): Promise<void> {
+    const apiKey = this.options.apiKey || (await promptMasked("Enter your Cal.com API key: "));
+    if (!apiKey) {
+      throw new Error("API key is required.");
+    }
+
+    const config = readConfig();
+    config.apiKey = apiKey;
+    if (this.options.apiUrl) {
+      config.apiUrl = this.options.apiUrl;
+    }
+    // Clear OAuth credentials to ensure API key takes precedence
+    delete config.oauth;
+
+    writeConfig(config);
+    renderSuccess("Logged in successfully.");
+  }
+}
+
+export class OAuthAuth {
+  private static readonly DEFAULT_PORT = 8019;
+  private static readonly AUTHORIZE_PATH = "/auth/oauth2/authorize";
+  private static readonly CALLBACK_TIMEOUT = 300000;
+
+  private clientId?: string;
+  private clientSecret?: string;
+  private port: number;
+  private apiUrl?: string;
+  private appUrl?: string;
+
+  constructor(
+    options: {
+      clientId?: string;
+      clientSecret?: string;
+      port?: number;
+      apiUrl?: string;
+      appUrl?: string;
+    } = {}
+  ) {
+    this.clientId = options.clientId;
+    this.clientSecret = options.clientSecret;
+    this.port = options.port || OAuthAuth.DEFAULT_PORT;
+    this.apiUrl = options.apiUrl;
+    this.appUrl = options.appUrl;
+  }
+
+  async login(): Promise<void> {
+    const clientId = this.clientId || (await promptMasked("Enter your OAuth Client ID: "));
+    if (!clientId) {
+      throw new Error("OAuth Client ID is required.");
+    }
+
+    const clientSecret = this.clientSecret || (await promptMasked("Enter your OAuth Client Secret: "));
+    if (!clientSecret) {
+      throw new Error("OAuth Client Secret is required.");
+    }
+
+    if (this.apiUrl || this.appUrl) {
+      const config = readConfig();
+      if (this.apiUrl) {
+        config.apiUrl = this.apiUrl;
+      }
+      if (this.appUrl) {
+        config.appUrl = this.appUrl;
+      }
+      writeConfig(config);
+    }
+
+    const redirectUri = `http://localhost:${this.port}/callback`;
+    const authorizeUrl = this.buildAuthorizeUrl(clientId, redirectUri);
+
+    console.log("\nOpening browser for authorization...");
+    console.log(`If the browser doesn't open, visit this URL:\n  ${authorizeUrl}\n`);
+    openBrowser(authorizeUrl);
+
+    console.log("Waiting for authorization callback...");
+    await this.handleOAuthCallback(clientId, clientSecret, redirectUri);
+    renderSuccess("OAuth login successful!");
+  }
+
+  private buildAuthorizeUrl(clientId: string, redirectUri: string): string {
+    const baseUrl = getAppUrl();
+    const state = Math.random().toString(36).substring(2, 15);
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: "READ_PROFILE,READ_BOOKING",
+      state,
+    });
+
+    return `${baseUrl}${OAuthAuth.AUTHORIZE_PATH}?${params.toString()}`;
+  }
+
+  private handleOAuthCallback(clientId: string, clientSecret: string, redirectUri: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        server.close();
+        reject(new Error("OAuth authorization timed out after 5 minutes."));
+      }, OAuthAuth.CALLBACK_TIMEOUT);
+
+      const server = http.createServer(async (req, res) => {
+        if (!req.url) {
+          res.writeHead(400);
+          res.end("Bad request");
+          return;
+        }
+
+        const url = new URL(req.url, `http://localhost:${this.port}`);
+        const code = url.searchParams.get("code");
+        const error = url.searchParams.get("error");
+
+        if (error) {
+          const errorDesc = url.searchParams.get("error_description") || error;
+          res.writeHead(400, { "Content-Type": "text/html" });
+          res.end(errorPage(errorDesc));
+          clearTimeout(timeout);
+          server.close();
+          reject(new Error(`OAuth error: ${error}`));
+          return;
+        }
+
+        if (!code) {
+          res.writeHead(400);
+          res.end("Missing authorization code. Please try again.");
+          return;
+        }
+
+        console.log("Exchanging authorization code for tokens...");
+
+        try {
+          const tokens = await this.exchangeCode(clientId, clientSecret, code, redirectUri);
+          this.saveTokens(clientId, clientSecret, tokens);
+          res.writeHead(200, { "Content-Type": "text/html" });
+          res.end(successPage());
+          clearTimeout(timeout);
+          server.close();
+          resolve();
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : "Token exchange failed";
+          res.writeHead(400, { "Content-Type": "text/html" });
+          res.end(errorPage(errorMsg));
+          clearTimeout(timeout);
+          server.close();
+          reject(err);
+        }
+      });
+
+      server.on("error", (err) => {
+        clearTimeout(timeout);
+        reject(new Error(`Failed to start callback server: ${err.message}`));
+      });
+
+      server.listen(this.port, "127.0.0.1");
+    });
+  }
+
+  private async exchangeCode(
+    clientId: string,
+    clientSecret: string,
+    code: string,
+    redirectUri: string
+  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+    await initializeClientWithoutAuth();
+
+    const { data: response } = await getOAuth2Token({
+      body: {
+        grant_type: "authorization_code",
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: redirectUri,
+      },
+    });
+
+    if (!response) {
+      throw new Error("Token exchange failed: no response");
+    }
+
+    return {
+      access_token: response.access_token,
+      refresh_token: response.refresh_token,
+      expires_in: response.expires_in,
+    };
+  }
+
+  private saveTokens(
+    clientId: string,
+    clientSecret: string,
+    tokens: { access_token: string; refresh_token: string; expires_in: number }
+  ): void {
+    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+    const config = readConfig();
+
+    config.oauth = {
+      clientId,
+      clientSecret,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      accessTokenExpiresAt: expiresAt,
+    };
+    // Clear API key to ensure OAuth takes precedence
+    delete config.apiKey;
+
+    writeConfig(config);
+  }
+
+  static async refreshToken(): Promise<void> {
+    const config = readConfig();
+    if (!config.oauth) {
+      throw new Error("No OAuth credentials found. Please run 'calcom login --oauth' first.");
+    }
+
+    const { clientId, clientSecret, refreshToken } = config.oauth;
+
+    await initializeClientWithoutAuth();
+
+    const { data: response } = await getOAuth2Token({
+      body: {
+        grant_type: "refresh_token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+      },
+    });
+
+    if (!response) {
+      throw new Error("Token refresh failed: no response");
+    }
+
+    const expiresAt = new Date(Date.now() + response.expires_in * 1000).toISOString();
+
+    config.oauth = {
+      ...config.oauth,
+      accessToken: response.access_token,
+      refreshToken: response.refresh_token,
+      accessTokenExpiresAt: expiresAt,
+    };
+
+    writeConfig(config);
+  }
+}
+
+export async function promptAuthMethod(): Promise<"api-key" | "oauth"> {
+  const choice = await prompt(
+    "Choose authentication method:\n  1) API Key\n  2) OAuth\nEnter choice (1 or 2): "
+  );
+  return choice === "2" ? "oauth" : "api-key";
+}
