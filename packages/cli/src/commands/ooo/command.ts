@@ -132,7 +132,7 @@ function registerOooCreateCommand(oooCmd: Command): void {
             reason: options.reason as "unspecified" | "vacation" | "travel" | "sick" | "public_holiday",
           };
 
-          if (options.notes) {
+          if (options.notes !== undefined) {
             body.notes = options.notes;
           }
           if (options.toUserId) {
