@@ -22,6 +22,17 @@ import {
   bookingsController20240813RescheduleBooking as rescheduleBooking,
   bookingLocationController20240813UpdateBookingLocation as updateBookingLocation,
 } from "../../generated/sdk.gen";
+import {
+  type BookingInputAddressLocation_2024_08_13,
+  type BookingInputAttendeeAddressLocation_2024_08_13,
+  type BookingInputAttendeeDefinedLocation_2024_08_13,
+  type BookingInputAttendeePhoneLocation_2024_08_13,
+  type BookingInputIntegrationLocation_2024_08_13,
+  type BookingInputLinkLocation_2024_08_13,
+  type BookingInputOrganizersDefaultAppLocation_2024_08_13,
+  type BookingInputPhoneLocation_2024_08_13,
+  integration as integrationEnum,
+} from "../../generated/types.gen";
 import { initializeClient } from "../../shared/client";
 import { ApiVersion } from "../../shared/constants";
 import { withErrorHandling } from "../../shared/errors";
@@ -223,6 +234,92 @@ function registerBookingQueryCommands(bookingsCmd: Command): void {
     });
 }
 
+type BookingLocationInput =
+  | BookingInputAddressLocation_2024_08_13
+  | BookingInputAttendeeAddressLocation_2024_08_13
+  | BookingInputAttendeeDefinedLocation_2024_08_13
+  | BookingInputAttendeePhoneLocation_2024_08_13
+  | BookingInputIntegrationLocation_2024_08_13
+  | BookingInputLinkLocation_2024_08_13
+  | BookingInputOrganizersDefaultAppLocation_2024_08_13
+  | BookingInputPhoneLocation_2024_08_13;
+
+type LocationType =
+  | "address"
+  | "link"
+  | "phone"
+  | "integration"
+  | "attendeeAddress"
+  | "attendeePhone"
+  | "attendeeDefined"
+  | "organizersDefaultApp";
+
+interface CreateBookingOptions {
+  start: string;
+  eventTypeId: string;
+  attendeeName: string;
+  attendeeTimezone: string;
+  attendeeEmail?: string;
+  attendeePhone?: string;
+  attendeeLanguage: string;
+  locationType?: LocationType;
+  locationIntegration?: string;
+  locationAddress?: string;
+  locationPhone?: string;
+  locationValue?: string;
+  meetingUrl?: string;
+  json?: boolean;
+}
+
+function buildLocationObject(options: CreateBookingOptions): BookingLocationInput | undefined {
+  if (!options.locationType) {
+    return undefined;
+  }
+
+  switch (options.locationType) {
+    case "address":
+      return { type: "address" };
+    case "link":
+      return { type: "link" };
+    case "phone":
+      return { type: "phone" };
+    case "organizersDefaultApp":
+      return { type: "organizersDefaultApp" };
+    case "integration": {
+      if (!options.locationIntegration) {
+        throw new Error("--location-integration is required when --location-type is 'integration'");
+      }
+      const validIntegrations = Object.values(integrationEnum);
+      if (!validIntegrations.includes(options.locationIntegration as (typeof validIntegrations)[number])) {
+        throw new Error(
+          `Invalid integration: ${options.locationIntegration}. Valid options: ${validIntegrations.join(", ")}`
+        );
+      }
+      return {
+        type: "integration",
+        integration: options.locationIntegration as BookingInputIntegrationLocation_2024_08_13["integration"],
+      };
+    }
+    case "attendeeAddress":
+      if (!options.locationAddress) {
+        throw new Error("--location-address is required when --location-type is 'attendeeAddress'");
+      }
+      return { type: "attendeeAddress", address: options.locationAddress };
+    case "attendeePhone":
+      if (!options.locationPhone) {
+        throw new Error("--location-phone is required when --location-type is 'attendeePhone'");
+      }
+      return { type: "attendeePhone", phone: options.locationPhone };
+    case "attendeeDefined":
+      if (!options.locationValue) {
+        throw new Error("--location-value is required when --location-type is 'attendeeDefined'");
+      }
+      return { type: "attendeeDefined", location: options.locationValue };
+    default:
+      throw new Error(`Unknown location type: ${options.locationType}`);
+  }
+}
+
 function registerBookingCreateCommand(bookingsCmd: Command): void {
   bookingsCmd
     .command("create")
@@ -234,43 +331,42 @@ function registerBookingCreateCommand(bookingsCmd: Command): void {
     .option("--attendee-email <email>", "Attendee email")
     .option("--attendee-phone <phone>", "Attendee phone number (international format)")
     .option("--attendee-language <lang>", "Attendee language (default: en)", "en")
-    .option("--meeting-url <url>", "Meeting URL (deprecated, use --location)")
+    .option(
+      "--location-type <type>",
+      "Location type (address, link, phone, integration, attendeeAddress, attendeePhone, attendeeDefined, organizersDefaultApp)"
+    )
+    .option("--location-integration <integration>", "Integration name (e.g., zoom, google-meet) - for integration type")
+    .option("--location-address <address>", "Address value - for attendeeAddress type")
+    .option("--location-phone <phone>", "Phone number (intl format) - for attendeePhone type")
+    .option("--location-value <value>", "Freeform location text - for attendeeDefined type")
+    .option("--meeting-url <url>", "[DEPRECATED] Use --location-type and related options instead")
     .option("--json", "Output as JSON")
-    .action(
-      async (options: {
-        start: string;
-        eventTypeId: string;
-        attendeeName: string;
-        attendeeTimezone: string;
-        attendeeEmail?: string;
-        attendeePhone?: string;
-        attendeeLanguage: string;
-        meetingUrl?: string;
-        json?: boolean;
-      }) => {
-        await withErrorHandling(async () => {
-          await initializeClient();
+    .action(async (options: CreateBookingOptions) => {
+      await withErrorHandling(async () => {
+        await initializeClient();
 
-          const { data: response } = await createBooking({
-            body: {
-              start: options.start,
-              eventTypeId: Number(options.eventTypeId),
-              attendee: {
-                name: options.attendeeName,
-                timeZone: options.attendeeTimezone,
-                email: options.attendeeEmail,
-                phoneNumber: options.attendeePhone,
-                language: options.attendeeLanguage as "en",
-              },
-              meetingUrl: options.meetingUrl,
+        const location = buildLocationObject(options);
+
+        const { data: response } = await createBooking({
+          body: {
+            start: options.start,
+            eventTypeId: Number(options.eventTypeId),
+            attendee: {
+              name: options.attendeeName,
+              timeZone: options.attendeeTimezone,
+              email: options.attendeeEmail,
+              phoneNumber: options.attendeePhone,
+              language: options.attendeeLanguage as "en",
             },
-            headers: apiVersionHeader(ApiVersion.V2024_08_13),
-          });
-
-          renderBookingCreated(response?.data, options);
+            location,
+            meetingUrl: options.meetingUrl,
+          },
+          headers: apiVersionHeader(ApiVersion.V2024_08_13),
         });
-      }
-    );
+
+        renderBookingCreated(response?.data, options);
+      });
+    });
 }
 
 function registerBookingActionCommands(bookingsCmd: Command): void {
