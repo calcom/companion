@@ -58,7 +58,7 @@ export class ApiKeyAuth {
     }
 
     writeConfig(config);
-    renderSuccess("Logged in successfully. Credentials saved to ~/.calcom/config.json");
+    renderSuccess("Logged in successfully.");
   }
 }
 
@@ -120,7 +120,7 @@ export class OAuthAuth {
 
     console.log("Waiting for authorization callback...");
     await this.handleOAuthCallback(clientId, clientSecret, redirectUri);
-    renderSuccess("OAuth login successful! Tokens saved to ~/.calcom/config.json");
+    renderSuccess("OAuth login successful!");
   }
 
   private buildAuthorizeUrl(clientId: string, redirectUri: string): string {

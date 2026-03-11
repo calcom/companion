@@ -5,7 +5,7 @@ export function renderLogoutSuccess({ json }: OutputOptions = {}): void {
     console.log(JSON.stringify({ status: "success", message: "Logged out" }));
     return;
   }
-  renderSuccess("Logged out. Credentials removed from ~/.calcom/config.json");
+  renderSuccess("Logged out successfully.");
 }
 
 export function renderLoginSuccess(method: string, { json }: OutputOptions = {}): void {
