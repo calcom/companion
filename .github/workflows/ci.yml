@@ -49,7 +49,7 @@ jobs:
         run: bun run typecheck
 
   test:
-    name: Test CLI
+    name: CLI - Unit Tests
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     steps:
