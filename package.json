@@ -2,7 +2,7 @@
   "name": "cal-companion",
   "version": "1.7.6",
   "private": true,
-  "workspaces": ["apps/*"],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "mobile": "cd apps/mobile && bunx expo start",
     "mobile:ios": "cd apps/mobile && bunx expo run:ios",

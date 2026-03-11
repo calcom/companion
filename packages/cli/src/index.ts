@@ -1,0 +1,108 @@
+#!/usr/bin/env node
+import process from "node:process";
+import { Command } from "commander";
+import { registerAgendaCommand } from "./commands/agenda";
+import { registerApiKeysCommand } from "./commands/api-keys";
+import { registerBookingsCommand } from "./commands/bookings";
+import { registerCalendarsCommand } from "./commands/calendars";
+import { registerConferencingCommand } from "./commands/conferencing";
+import { registerDelegationCredentialsCommand } from "./commands/delegation-credentials";
+import { registerDestinationCalendarsCommand } from "./commands/destination-calendars";
+import { registerEventTypeWebhooksCommand } from "./commands/event-type-webhooks";
+import { registerEventTypesCommand } from "./commands/event-types";
+import { registerLoginCommand, registerLogoutCommand } from "./commands/login";
+import { registerManagedOrgsCommand } from "./commands/managed-orgs";
+import { registerMeCommand } from "./commands/me";
+import { registerOAuthCommand } from "./commands/oauth";
+import { registerOooCommand } from "./commands/ooo";
+import { registerOrgAttributesCommand } from "./commands/org-attributes";
+import { registerOrgBookingsCommand } from "./commands/org-bookings";
+import { registerOrgMembershipsCommand } from "./commands/org-memberships";
+import { registerOrgOverviewCommand } from "./commands/org-overview";
+import { registerOrgRolesCommand } from "./commands/org-roles";
+import { registerOrgRoutingFormsCommand } from "./commands/org-routing-forms";
+import { registerOrgTeamVerifiedResourcesCommand } from "./commands/org-team-verified-resources";
+import { registerOrgUserOooCommand } from "./commands/org-user-ooo";
+import { registerOrgUserSchedulesCommand } from "./commands/org-user-schedules";
+import { registerOrgUsersCommand } from "./commands/org-users";
+import { registerOrgWebhooksCommand } from "./commands/org-webhooks";
+import { registerPrivateLinksCommand } from "./commands/private-links";
+import { registerRoutingFormsCommand } from "./commands/routing-forms";
+import { registerSchedulesCommand } from "./commands/schedules";
+import { registerSelectedCalendarsCommand } from "./commands/selected-calendars";
+import { registerSlotsCommand } from "./commands/slots";
+import { registerStripeCommand } from "./commands/stripe";
+import { registerTeamConferencingCommand } from "./commands/team-conferencing";
+import { registerTeamEventTypePrivateLinksCommand } from "./commands/team-event-type-private-links";
+import { registerTeamEventTypeWebhooksCommand } from "./commands/team-event-type-webhooks";
+import { registerTeamEventTypesCommand } from "./commands/team-event-types";
+import { registerTeamRolesCommand } from "./commands/team-roles";
+import { registerTeamRoutingFormsCommand } from "./commands/team-routing-forms";
+import { registerTeamSchedulesCommand } from "./commands/team-schedules";
+import { registerTeamStripeCommand } from "./commands/team-stripe";
+import { registerTeamVerifiedResourcesCommand } from "./commands/team-verified-resources";
+import { registerTeamWorkflowsCommand } from "./commands/team-workflows";
+import { registerTeamsCommand } from "./commands/teams";
+import { registerTimezonesCommand } from "./commands/timezones";
+import { registerVerifiedResourcesCommand } from "./commands/verified-resources";
+import { registerWebhooksCommand } from "./commands/webhooks";
+
+const program: Command = new Command();
+
+program
+  .name("calcom")
+  .description("Cal.com CLI - Manage your Cal.com account from the command line")
+  .version("0.0.1")
+  .enablePositionalOptions();
+
+registerLoginCommand(program);
+registerLogoutCommand(program);
+registerMeCommand(program);
+registerAgendaCommand(program);
+registerBookingsCommand(program);
+registerEventTypesCommand(program);
+registerSchedulesCommand(program);
+registerCalendarsCommand(program);
+registerWebhooksCommand(program);
+registerSlotsCommand(program);
+registerConferencingCommand(program);
+registerDestinationCalendarsCommand(program);
+registerSelectedCalendarsCommand(program);
+registerApiKeysCommand(program);
+registerTimezonesCommand(program);
+registerTeamsCommand(program);
+registerTeamConferencingCommand(program);
+registerTeamEventTypesCommand(program);
+registerTeamRolesCommand(program);
+registerTeamRoutingFormsCommand(program);
+registerTeamSchedulesCommand(program);
+registerTeamStripeCommand(program);
+registerTeamWorkflowsCommand(program);
+registerEventTypeWebhooksCommand(program);
+registerTeamEventTypeWebhooksCommand(program);
+registerTeamEventTypePrivateLinksCommand(program);
+registerOooCommand(program);
+registerPrivateLinksCommand(program);
+registerOrgUsersCommand(program);
+registerOrgWebhooksCommand(program);
+registerOrgRolesCommand(program);
+registerOrgMembershipsCommand(program);
+registerOrgOverviewCommand(program);
+registerOrgAttributesCommand(program);
+registerOrgBookingsCommand(program);
+registerOrgRoutingFormsCommand(program);
+registerOrgUserOooCommand(program);
+registerOrgUserSchedulesCommand(program);
+registerManagedOrgsCommand(program);
+registerDelegationCredentialsCommand(program);
+registerStripeCommand(program);
+registerRoutingFormsCommand(program);
+registerOAuthCommand(program);
+registerVerifiedResourcesCommand(program);
+registerTeamVerifiedResourcesCommand(program);
+registerOrgTeamVerifiedResourcesCommand(program);
+
+program.parseAsync(process.argv).catch((err: Error) => {
+  console.error(`Error: ${err.message}`);
+  process.exit(1);
+});
