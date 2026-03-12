@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin).replace(/\/+$/, "");
   const redirectUri = `${appUrl}/api/auth/slack/callback`;
 
   const slackUrl = new URL("https://slack.com/oauth/v2/authorize");

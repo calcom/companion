@@ -13,8 +13,8 @@ const CALCOM_API_URL = process.env.CALCOM_API_URL ?? "https://api.cal.com";
 // NEXT_PUBLIC_APP_URL is preferred (canonical domain); request.url is the fallback
 // for local dev or misconfigured deployments where the env var is absent.
 function getAppUrl(request: Request): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
-  return new URL(request.url).origin;
+  const raw = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
+  return raw.replace(/\/+$/, "");
 }
 
 interface CalcomMe {
