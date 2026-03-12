@@ -8,6 +8,8 @@ interface PageProps {
 
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
+  const telegramBotUsername = process.env.TELEGRAM_BOT_USERNAME;
+  const telegramUrl = telegramBotUsername ? `https://t.me/${telegramBotUsername}` : null;
 
   return (
     <main style={styles.main}>
@@ -28,7 +30,7 @@ export default async function HomePage({ searchParams }: PageProps) {
               <path d="M16 8v8l5.66 5.66" stroke="#101010" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </div>
-          <span style={styles.logoText}>Cal.com for Slack</span>
+          <span style={styles.logoText}>Cal.com</span>
         </div>
 
         {/* Hero */}
@@ -36,11 +38,11 @@ export default async function HomePage({ searchParams }: PageProps) {
           <h1 style={styles.h1}>
             Your scheduling workflow,
             <br />
-            inside Slack
+            everywhere you work
           </h1>
           <p style={styles.subtitle}>
             Get booking notifications, check availability, and book meetings with teammates —
-            without ever leaving Slack.
+            directly in Slack or Telegram.
           </p>
         </div>
 
@@ -57,13 +59,21 @@ export default async function HomePage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {/* CTA */}
+        {/* CTAs */}
         <div style={styles.cta}>
-          <a href={SLACK_INSTALL_URL} style={styles.installButton}>
-            <SlackIcon />
-            Add to Slack
-          </a>
-          <p style={styles.ctaNote}>Free to install · Requires a Cal.com account</p>
+          <div style={styles.ctaButtons}>
+            <a href={SLACK_INSTALL_URL} style={styles.installButton}>
+              <SlackIcon />
+              Add to Slack
+            </a>
+            {telegramUrl && (
+              <a href={telegramUrl} target="_blank" rel="noopener noreferrer" style={styles.telegramButton}>
+                <TelegramIcon color="#fff" />
+                Open in Telegram
+              </a>
+            )}
+          </div>
+          <p style={styles.ctaNote}>Free to use · Requires a Cal.com account</p>
         </div>
 
         {/* Features */}
@@ -82,13 +92,35 @@ export default async function HomePage({ searchParams }: PageProps) {
         {/* Commands */}
         <div style={styles.commands}>
           <h2 style={styles.h2}>Available commands</h2>
-          <div style={styles.commandList}>
-            {commands.map((c) => (
-              <div key={c.cmd} style={styles.command}>
-                <code style={styles.cmdCode}>{c.cmd}</code>
-                <span style={styles.cmdDesc}>{c.desc}</span>
+          <div style={styles.commandColumns}>
+            <div style={styles.commandColumn}>
+              <p style={styles.platformLabel}>
+                <SlackIcon />
+                Slack
+              </p>
+              <div style={styles.commandList}>
+                {slackCommands.map((c) => (
+                  <div key={c.cmd} style={styles.command}>
+                    <code style={styles.cmdCode}>{c.cmd}</code>
+                    <span style={styles.cmdDesc}>{c.desc}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            <div style={styles.commandColumn}>
+              <p style={styles.platformLabel}>
+                <TelegramIcon />
+                Telegram
+              </p>
+              <div style={styles.commandList}>
+                {telegramCommands.map((c) => (
+                  <div key={c.cmd} style={styles.command}>
+                    <code style={styles.cmdCode}>{c.cmd}</code>
+                    <span style={styles.cmdDesc}>{c.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -113,7 +145,7 @@ export default async function HomePage({ searchParams }: PageProps) {
           </a>
           <span style={styles.footerSep}>·</span>
           <a
-            href="https://github.com/calcom/cal.com"
+            href="https://github.com/calcom/companion"
             target="_blank"
             rel="noopener noreferrer"
             style={styles.footerLink}
@@ -133,6 +165,17 @@ function SlackIcon() {
       <path d="M33.5 19.7a4.7 4.7 0 1 1 0-9.4h13.8a4.7 4.7 0 0 1 0 9.4H33.5Z" fill="#2EB67D" />
       <path d="M34.3 33.5a4.7 4.7 0 1 1 9.4 0V47.3a4.7 4.7 0 0 1-9.4 0V33.5Z" fill="#ECB22E" />
       <path d="M20.5 34.3a4.7 4.7 0 1 1 0 9.4H6.7a4.7 4.7 0 0 1 0-9.4h13.8Z" fill="#E01E5A" />
+    </svg>
+  );
+}
+
+function TelegramIcon({ color = "#229ED9" }: { color?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-label="Telegram" role="img">
+      <path
+        d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0Zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 13.857l-2.95-.924c-.64-.203-.658-.64.135-.954l11.57-4.461c.537-.194 1.006.131.97.703Z"
+        fill={color}
+      />
     </svg>
   );
 }
@@ -160,13 +203,22 @@ const features = [
   },
 ];
 
-const commands = [
+const slackCommands = [
   { cmd: "/cal link", desc: "Connect your Cal.com account" },
   { cmd: "/cal availability [@user]", desc: "Check availability" },
   { cmd: "/cal book @user", desc: "Book a meeting" },
   { cmd: "/cal bookings", desc: "View upcoming bookings" },
   { cmd: "/cal unlink", desc: "Disconnect your Cal.com account" },
   { cmd: "/cal help", desc: "Show all commands" },
+];
+
+const telegramCommands = [
+  { cmd: "/link", desc: "Connect your Cal.com account" },
+  { cmd: "/availability", desc: "Check your availability" },
+  { cmd: "/bookings", desc: "View upcoming bookings" },
+  { cmd: "/unlink", desc: "Disconnect your Cal.com account" },
+  { cmd: "/help", desc: "Show all commands" },
+  { cmd: "@mention", desc: "Ask anything in natural language" },
 ];
 
 const styles: Record<string, React.CSSProperties> = {
@@ -239,6 +291,12 @@ const styles: Record<string, React.CSSProperties> = {
   cta: {
     marginBottom: "3rem",
   },
+  ctaButtons: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    gap: "0.75rem",
+    marginBottom: "0.75rem",
+  },
   installButton: {
     display: "inline-flex",
     alignItems: "center",
@@ -249,8 +307,21 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "1rem",
     padding: "0.75rem 1.5rem",
     borderRadius: "0.5rem",
-    marginBottom: "0.75rem",
     transition: "opacity 0.15s",
+    textDecoration: "none",
+  },
+  telegramButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.6rem",
+    background: "#229ED9",
+    color: "#fff",
+    fontWeight: 600,
+    fontSize: "1rem",
+    padding: "0.75rem 1.5rem",
+    borderRadius: "0.5rem",
+    transition: "opacity 0.15s",
+    textDecoration: "none",
   },
   ctaNote: {
     fontSize: "0.85rem",
@@ -289,6 +360,27 @@ const styles: Record<string, React.CSSProperties> = {
   commands: {
     marginBottom: "3rem",
   },
+  commandColumns: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "1.5rem",
+  },
+  commandColumn: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "0.5rem",
+  },
+  platformLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.4rem",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    color: "#aaa",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.08em",
+    marginBottom: "0.25rem",
+  },
   h2: {
     fontWeight: 600,
     marginBottom: "1rem",
@@ -315,7 +407,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "monospace",
     fontSize: "0.875rem",
     color: "#ededed",
-    minWidth: 220,
+    minWidth: 120,
     flexShrink: 0,
   },
   cmdDesc: {
