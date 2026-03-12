@@ -18,7 +18,13 @@ export function getRedisClient(): RedisClientType {
         "REDIS_URL is required. Set it in .env for user linking, booking flow, and production state."
       );
     }
-    _client = createClient({ url });
+    _client = createClient({
+      url,
+      socket: {
+        reconnectStrategy: (retries) => Math.min(retries * 100, 5000),
+        keepAlive: 30000,
+      },
+    });
     _client.on("error", (err) => logger.error("Redis client error", { err }));
     _client.connect().catch((err) => logger.error("Redis connect failed", { err }));
   }
