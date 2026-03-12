@@ -22,7 +22,7 @@ export function getRedisClient(): RedisClientType {
       url,
       socket: {
         reconnectStrategy: (retries) => Math.min(retries * 100, 5000),
-        keepAlive: 30000,
+        keepAlive: true,
       },
     });
     _client.on("error", (err) => logger.error("Redis client error", { err }));
