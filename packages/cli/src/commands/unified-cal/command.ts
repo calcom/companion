@@ -202,6 +202,12 @@ function registerEventsCommands(unifiedCalCmd: Command): void {
             body.timeZone = options.timezone;
           }
 
+          if (Object.keys(body).length === 0) {
+            throw new Error(
+              "No fields to update. Provide at least one of: --title, --start, --end, --description, --location, --timezone"
+            );
+          }
+
           const query: Record<string, string | undefined> = {
             calendarId: options.calendarId,
           };
