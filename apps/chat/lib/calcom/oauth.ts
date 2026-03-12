@@ -75,6 +75,7 @@ export function generateAuthUrl(platform: string, teamId: string, userId: string
     client_id: CLIENT_ID(),
     redirect_uri: getCalcomOAuthRedirectUri(),
     state,
+    scope: "EVENT_TYPE_READ EVENT_TYPE_WRITE BOOKING_READ BOOKING_WRITE PROFILE_READ PROFILE_WRITE SCHEDULE_READ SCHEDULE_WRITE",
   });
   return `${CALCOM_APP_URL}/auth/oauth2/authorize?${params}`;
 }
