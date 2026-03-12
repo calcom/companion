@@ -1,4 +1,5 @@
 import type {
+  AddAttendeeInput,
   BusyTime,
   CalcomApiResponse,
   CalcomBooking,
@@ -358,6 +359,19 @@ export async function deleteEventType(accessToken: string, eventTypeId: number):
     },
     "2024-06-14"
   );
+}
+
+// ─── Booking attendees ───────────────────────────────────────────────────────
+
+export async function addBookingAttendee(
+  accessToken: string,
+  bookingUid: string,
+  input: AddAttendeeInput
+): Promise<void> {
+  await calcomFetch<unknown>(`/v2/bookings/${bookingUid}/attendees`, accessToken, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 // ─── Booking extras ───────────────────────────────────────────────────────────

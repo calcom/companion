@@ -82,6 +82,7 @@ export interface CreateBookingInput {
     email: string;
     timeZone: string;
   };
+  guests?: string[];
   notes?: string;
   metadata?: Record<string, string>;
 }
@@ -224,6 +225,14 @@ export interface CalendarLink {
   outlook?: string;
   yahoo?: string;
   ics?: string;
+}
+
+// ─── Add Attendee ─────────────────────────────────────────────────────────────
+
+export interface AddAttendeeInput {
+  name: string;
+  email: string;
+  timeZone: string;
 }
 
 // ─── Busy Times ───────────────────────────────────────────────────────────────
