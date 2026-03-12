@@ -235,6 +235,64 @@ function isAsideMessage(text: string): boolean {
   return /^\s*aside\b/i.test(text);
 }
 
+// ─── Helper: normalize Slack-mangled links in message text ──────────────────
+// Slack auto-converts emails to <mailto:email@x.com|email@x.com> and URLs to
+// <https://...|label>. The Chat SDK strips the angle brackets but leaves the
+// raw content, so we get "mailto:email@x.com|email@x.com" in message.text.
+// This normalizes those back to plain email addresses and URLs.
+function normalizeSlackText(text: string): string {
+  // mailto:email@x.com|email@x.com → email@x.com
+  return text.replace(/mailto:[^\s|]+\|([^\s]+)/g, "$1");
+}
+
+// ─── Helper: reconstruct <@USER_ID> mentions from Slack raw blocks ───────────
+// The Chat SDK resolves <@U0AC2LAL3PF> to "@displayname" in message.text.
+// This loses the user ID, which is the only thing lookup_platform_user can use.
+// We rebuild the original <@USER_ID> format by walking the Slack rich_text blocks.
+type SlackRichTextElement =
+  | { type: "text"; text: string }
+  | { type: "user"; user_id: string }
+  | { type: "link"; url: string; text?: string }
+  | { type: string; [key: string]: unknown };
+
+type SlackBlock =
+  | { type: "rich_text"; elements: Array<{ type: string; elements?: SlackRichTextElement[] }> }
+  | { type: string; [key: string]: unknown };
+
+function reconstructSlackMentions(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const blocks = r.blocks as SlackBlock[] | undefined;
+  if (!Array.isArray(blocks)) return null;
+
+  const parts: string[] = [];
+  for (const block of blocks) {
+    if (block.type !== "rich_text") continue;
+    const richBlock = block as { type: "rich_text"; elements: Array<{ type: string; elements?: SlackRichTextElement[] }> };
+    for (const section of richBlock.elements) {
+      if (!Array.isArray(section.elements)) continue;
+      for (const el of section.elements) {
+        if (el.type === "text") {
+          parts.push((el as { type: "text"; text: string }).text);
+        } else if (el.type === "user") {
+          parts.push(`<@${(el as { type: "user"; user_id: string }).user_id}>`);
+        } else if (el.type === "link") {
+          const linkEl = el as { type: "link"; url: string; text?: string };
+          // mailto: links → plain email
+          if (linkEl.url.startsWith("mailto:")) {
+            parts.push(linkEl.url.slice("mailto:".length));
+          } else {
+            parts.push(linkEl.text ?? linkEl.url);
+          }
+        }
+      }
+    }
+  }
+
+  const result = parts.join("").trim();
+  return result.length > 0 ? result : null;
+}
+
 function handleSlackAuthError(err: unknown): boolean {
   if (
     err instanceof Error &&
@@ -550,10 +608,14 @@ bot.onNewMention(async (thread, message) => {
 
   const ctx = extractContext(thread, message);
 
-  // Strip leading @botname that Telegram includes in message.text for group @mentions.
-  // Other platforms (Slack) strip mentions automatically, so this only affects Telegram.
+  // For Slack: reconstruct <@USER_ID> mentions from raw blocks (the SDK resolves
+  // them to display names in message.text, losing the user ID lookup_platform_user needs).
+  // Also handles mailto: email links. Falls back to normalizeSlackText if no blocks.
+  // For Telegram: strip the leading @botname the adapter doesn't strip automatically.
   const userMessage =
-    ctx.platform === "telegram" ? message.text.replace(/^@\S+\s*/, "").trim() : message.text;
+    ctx.platform === "telegram"
+      ? message.text.replace(/^@\S+\s*/, "").trim()
+      : (reconstructSlackMentions(message.raw) ?? normalizeSlackText(message.text));
 
   bot.getLogger("mention").info("New mention", {
     platform: ctx.platform,
@@ -668,9 +730,14 @@ bot.onSubscribedMessage(async (thread, message) => {
   const isTelegramGroup = ctx.platform === "telegram" && thread.id !== `telegram:${ctx.userId}`;
   if (isTelegramGroup && !message.isMention) return;
 
-  // Strip leading @botname for Telegram group @mentions (adapter doesn't strip automatically).
+  // For Slack: reconstruct <@USER_ID> mentions from raw blocks (the SDK resolves
+  // them to display names in message.text, losing the user ID lookup_platform_user needs).
+  // Also handles mailto: email links. Falls back to normalizeSlackText if no blocks.
+  // For Telegram: strip the leading @botname the adapter doesn't strip automatically.
   const userMessage =
-    ctx.platform === "telegram" ? message.text.replace(/^@\S+\s*/, "").trim() : message.text;
+    ctx.platform === "telegram"
+      ? message.text.replace(/^@\S+\s*/, "").trim()
+      : (reconstructSlackMentions(message.raw) ?? normalizeSlackText(message.text));
 
   bot.getLogger("thread-follow-up").info("Thread follow-up", {
     platform: ctx.platform,

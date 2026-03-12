@@ -72,11 +72,14 @@ YOU are always the HOST. The other person(s) are ATTENDEES — they do NOT need 
 
 ### Step 2 — Resolve event type
 - Always call \`list_event_types\` first.
-- If the user named an event type (e.g. "product discussion", "30 min one"):
-  - Fuzzy-match by title or duration. If confident (1 clear match), use it.
+- If the user named an event type (e.g. "product discussion", "30 min one", "15 min"):
+  - Fuzzy-match by title or duration against the returned list. If confident (1 clear match), use it.
   - If ambiguous (2+ plausible matches), show the list and ask which one.
+  - If NO match found: show the full list and ask the user to pick one. NEVER create a new event type.
 - If NO event type was mentioned: show the full list and ask the user to pick one.
   Format: "• *Title* – Xmin" and ask "Which event type should I use?"
+- NEVER call \`create_event_type\` during a booking flow. Only use existing event types from \`list_event_types\`.
+- Only call \`create_event_type\` if the user explicitly says something like "create a new event type" or "add a meeting type". Saying "use 15 min" or "book with the 30 min one" is NOT a create request.
 
 ### Step 3 — Resolve date/time
 - If the user gave a specific date+time (e.g. "15 March 1–2 PM IST"):
@@ -109,11 +112,14 @@ YOU are always the HOST. The other person(s) are ATTENDEES — they do NOT need 
 
 ### Step 2 — Resolve event type
 - Always call \`list_event_types\` first.
-- If the user named an event type (e.g. "product discussion", "30 min one"):
-  - Fuzzy-match by title or duration. If confident (1 clear match), use it.
+- If the user named an event type (e.g. "product discussion", "30 min one", "15 min"):
+  - Fuzzy-match by title or duration against the returned list. If confident (1 clear match), use it.
   - If ambiguous (2+ plausible matches), show the list and ask which one.
+  - If NO match found: show the full list and ask the user to pick one. NEVER create a new event type.
 - If NO event type was mentioned: show the full list and ask the user to pick one.
   Format: "• **Title** – Xmin" and ask "Which event type should I use?"
+- NEVER call \`create_event_type\` during a booking flow. Only use existing event types from \`list_event_types\`.
+- Only call \`create_event_type\` if the user explicitly says something like "create a new event type" or "add a meeting type". Saying "use 15 min" or "book with the 30 min one" is NOT a create request.
 
 ### Step 3 — Resolve date/time
 - If the user gave a specific date+time (e.g. "15 March 1–2 PM IST"):
@@ -179,6 +185,7 @@ Do NOT automatically resume an incomplete task from earlier in the conversation.
 4. During a booking flow, sequential tool calls are expected (e.g. lookup → list_event_types → check_availability → book_meeting). After completing the full task, respond with a text message.
 5. Never call a tool with empty or placeholder arguments.
 6. Avoid calling the same tool with identical arguments. Calling the same tool with different arguments is fine (e.g. lookup_platform_user for two different users).
+7. NEVER call create_event_type, update_event_type, or delete_event_type unless the user has explicitly and clearly asked to create, update, or delete an event type (e.g. "create a new event type called...", "add a 45 min meeting type"). During a booking flow, if the requested event type is not found in list_event_types results, show the available list and ask them to pick one. A user saying "use 15 min event type" or "book with the 30 min one" is NOT a request to create anything.
 
 ## Formatting Rules
 ${
@@ -223,20 +230,29 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
       inputSchema: z.object({}),
       execute: async () => {
         const linked = await getLinkedUser(teamId, userId);
-        if (linked) {
+        if (!linked) {
           return {
-            status: "LINKED",
-            username: linked.calcomUsername,
-            email: linked.calcomEmail,
-            timeZone: linked.calcomTimeZone,
+            status: "NOT_LINKED",
             instruction:
-              "Account is linked. Proceed with the user's request using other tools. Do NOT call check_account_linked again.",
+              "Tell the user to connect their Cal.com account by clicking the 'Continue with Cal.com' button or running /cal link. Do NOT call any other tools.",
+          };
+        }
+        // Verify the token is actually usable (catches revoked/expired refresh tokens).
+        const token = await getValidAccessToken(teamId, userId);
+        if (!token) {
+          return {
+            status: "SESSION_EXPIRED",
+            instruction:
+              "The user's Cal.com session has expired and the token could not be refreshed. Tell them to reconnect by clicking 'Continue with Cal.com' or running /cal link. Do NOT call any other tools.",
           };
         }
         return {
-          status: "NOT_LINKED",
+          status: "LINKED",
+          username: linked.calcomUsername,
+          email: linked.calcomEmail,
+          timeZone: linked.calcomTimeZone,
           instruction:
-            "Tell the user to connect their Cal.com account by clicking the 'Continue with Cal.com' button or running /cal link. Do NOT call any other tools.",
+            "Account is linked. Proceed with the user's request using other tools. Do NOT call check_account_linked again.",
         };
       },
     }),
