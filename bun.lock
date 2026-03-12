@@ -16,6 +16,8 @@
       "name": "@calcom/chat",
       "version": "0.1.0",
       "dependencies": {
+        "@ai-sdk/anthropic": "^3.0.58",
+        "@ai-sdk/google": "^3.0.43",
         "@ai-sdk/groq": "3.0.29",
         "@ai-sdk/openai": "3.0.41",
         "@chat-adapter/shared": "4.19.0",
@@ -150,7 +152,11 @@
 
     "@1natsu/wait-element": ["@1natsu/wait-element@4.1.2", "", { "dependencies": { "defu": "^6.1.4", "many-keys-map": "^2.0.1" } }, "sha512-qWxSJD+Q5b8bKOvESFifvfZ92DuMsY+03SBNjTO34ipJLP6mZ9yK4bQz/vlh48aEQXoJfaZBqUwKL5BdI5iiWw=="],
 
+    "@ai-sdk/anthropic": ["@ai-sdk/anthropic@3.0.58", "", { "dependencies": { "@ai-sdk/provider": "3.0.8", "@ai-sdk/provider-utils": "4.0.19" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-/53SACgmVukO4bkms4dpxpRlYhW8Ct6QZRe6sj1Pi5H00hYhxIrqfiLbZBGxkdRvjsBQeP/4TVGsXgH5rQeb8Q=="],
+
     "@ai-sdk/gateway": ["@ai-sdk/gateway@3.0.66", "", { "dependencies": { "@ai-sdk/provider": "3.0.8", "@ai-sdk/provider-utils": "4.0.19", "@vercel/oidc": "3.1.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-SIQ0YY0iMuv+07HLsZ+bB990zUJ6S4ujORAh+Jv1V2KGNn73qQKnGO0JBk+w+Res8YqOFSycwDoWcFlQrVxS4A=="],
+
+    "@ai-sdk/google": ["@ai-sdk/google@3.0.43", "", { "dependencies": { "@ai-sdk/provider": "3.0.8", "@ai-sdk/provider-utils": "4.0.19" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-NGCgP5g8HBxrNdxvF8Dhww+UKfqAkZAmyYBvbu9YLoBkzAmGKDBGhVptN/oXPB5Vm0jggMdoLycZ8JReQM8Zqg=="],
 
     "@ai-sdk/groq": ["@ai-sdk/groq@3.0.29", "", { "dependencies": { "@ai-sdk/provider": "3.0.8", "@ai-sdk/provider-utils": "4.0.19" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-I/tUoHuOvGXbIr1dJ0CLRLA7W0UPDMtrYT5mgeb3O+P+6I5BAm/7riPwr22Xw5YTzpwQxcoDQlIczOU9XDXBpA=="],
 

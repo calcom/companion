@@ -1,38 +1,59 @@
 /**
  * AI model provider configuration.
  *
- * To switch providers, change the import and the `getModel()` call below.
+ * Controlled by two env vars:
+ *   - AI_PROVIDER: which service to use (groq | openai | anthropic | google). Default: groq
+ *   - AI_MODEL:    optional model override (each provider has a sensible default)
+ *
  * The rest of the codebase only imports `getModel()` from this file.
- *
- * Examples:
- *
- *   Groq (default — fast + cheap):
- *     import { createGroq } from "@ai-sdk/groq";
- *     const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
- *     return groq("llama-3.3-70b-versatile");
- *
- *   Anthropic:
- *     import { anthropic } from "@ai-sdk/anthropic";
- *     return anthropic("claude-sonnet-4-20250514");
- *
- *   OpenAI:
- *     import { openai } from "@ai-sdk/openai";
- *     return openai("gpt-4o");
- *
- *   Any OpenAI-compatible provider (Together, Fireworks, etc.):
- *     import { createOpenAI } from "@ai-sdk/openai";
- *     const provider = createOpenAI({ baseURL: "https://api.together.xyz/v1", apiKey: "..." });
- *     return provider("meta-llama/Llama-3.3-70B-Instruct-Turbo");
  */
 
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
+import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
 
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+export type AIProvider = "groq" | "openai" | "anthropic" | "google";
+
+export const PROVIDER_CONFIG: Record<AIProvider, { defaultModel: string; apiKeyEnv: string }> = {
+  groq: {
+    defaultModel: "llama-3.3-70b-versatile",
+    apiKeyEnv: "GROQ_API_KEY",
+  },
+  openai: { defaultModel: "gpt-4o-mini", apiKeyEnv: "OPENAI_API_KEY" },
+  anthropic: {
+    defaultModel: "claude-haiku-4-5",
+    apiKeyEnv: "ANTHROPIC_API_KEY",
+  },
+  google: {
+    defaultModel: "gemini-2.0-flash",
+    apiKeyEnv: "GOOGLE_GENERATIVE_AI_API_KEY",
+  },
+};
+
+export const SUPPORTED_PROVIDERS = Object.keys(PROVIDER_CONFIG) as AIProvider[];
 
 export function getModel(): LanguageModel {
-  // Model is configurable via AI_MODEL env var. See .env.example for alternatives.
-  return groq(process.env.AI_MODEL ?? "openai/gpt-oss-120b");
+  const provider = (process.env.AI_PROVIDER ?? "groq") as AIProvider;
+  const config = PROVIDER_CONFIG[provider];
+  if (!config) {
+    throw new Error(
+      `Unsupported AI_PROVIDER: "${provider}". Use one of: ${SUPPORTED_PROVIDERS.join(", ")}`
+    );
+  }
+
+  const model = process.env.AI_MODEL ?? config.defaultModel;
+  const apiKey = process.env[config.apiKeyEnv];
+
+  switch (provider) {
+    case "groq":
+      return createGroq({ apiKey })(model);
+    case "openai":
+      return createOpenAI({ apiKey })(model);
+    case "anthropic":
+      return createAnthropic({ apiKey })(model);
+    case "google":
+      return createGoogleGenerativeAI({ apiKey })(model);
+  }
 }

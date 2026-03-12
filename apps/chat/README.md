@@ -33,7 +33,7 @@ app/
 lib/
   bot.ts                           # Chat instance + all event handlers
   agent.ts                         # AI agent tools (bookings, availability, etc.)
-  ai-provider.ts                   # AI provider config (Groq by default; swap to OpenAI, Anthropic, etc.)
+  ai-provider.ts                   # AI provider config (Groq, OpenAI, Anthropic, Google — set via AI_PROVIDER env var)
   notifications.ts                 # Booking notification card builders
   user-linking.ts                  # Redis: platform user <-> Cal.com account linking + token refresh
   format-for-telegram.ts           # Converts markdown/cards to Telegram-safe HTML
@@ -106,8 +106,12 @@ cp .env.example .env
 | `CALCOM_WEBHOOK_SECRET`       | ✅       | Set in Cal.com → Settings → Webhooks                                        |
 | `CALCOM_APP_URL`              | ✅       | `https://app.cal.com`                                                       |
 | `NEXT_PUBLIC_APP_URL`         | ✅       | Your deployed app URL (used for OAuth redirects and install page)           |
-| `GROQ_API_KEY`                | ✅       | From [console.groq.com](https://console.groq.com) — required for AI features |
-| `AI_MODEL`                    | —        | Override the default Groq model (e.g. `llama-3.3-70b-versatile`)           |
+| `AI_PROVIDER`                 | —        | AI provider: `groq` \| `openai` \| `anthropic` \| `google` (default: `groq`) |
+| `AI_MODEL`                    | —        | Override the default model for the selected provider                        |
+| `GROQ_API_KEY`                | ✅*      | Required when `AI_PROVIDER=groq` (default). From [console.groq.com](https://console.groq.com) |
+| `OPENAI_API_KEY`              | ✅*      | Required when `AI_PROVIDER=openai`                                         |
+| `ANTHROPIC_API_KEY`           | ✅*      | Required when `AI_PROVIDER=anthropic`                                      |
+| `GOOGLE_GENERATIVE_AI_API_KEY`| ✅*      | Required when `AI_PROVIDER=google`                                         |
 | `TELEGRAM_BOT_TOKEN`          | —        | From [@BotFather](https://t.me/BotFather) — required to enable Telegram     |
 | `TELEGRAM_BOT_USERNAME`       | —        | Your bot's username (e.g. `CalcomBot`) — required when `TELEGRAM_BOT_TOKEN` is set |
 | `TELEGRAM_WEBHOOK_SECRET_TOKEN` | —      | Optional secret to verify incoming Telegram webhook requests                |
