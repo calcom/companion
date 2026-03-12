@@ -13,6 +13,15 @@ features:
     home_tab_enabled: true
     messages_tab_enabled: true
     messages_tab_read_only_enabled: false
+  assistant_view:
+    assistant_description: "Manage your Cal.com calendar, bookings, and availability from Slack."
+    suggested_prompts:
+      - title: "Show my upcoming bookings"
+        message: "Show me my upcoming bookings"
+      - title: "Check my availability"
+        message: "What's my availability this week?"
+      - title: "Book a meeting"
+        message: "Help me book a meeting"
   bot_user:
     display_name: Cal.com
     always_online: true
