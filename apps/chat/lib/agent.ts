@@ -427,6 +427,53 @@ If the user's latest message is a greeting, status check, or short casual messag
 ## Resuming Previous Tasks
 Do NOT automatically resume an incomplete task from earlier in the conversation. Only continue a prior task if the user's latest message explicitly asks you to (e.g. "yes, go ahead", "ok book it", "continue"). A casual message is NOT a continuation request.
 
+## Managing Schedules / Working Hours
+
+When the user asks about or wants to change their working hours or availability schedule:
+
+${bold}VIEWING SCHEDULES:${bold}
+- "What are my working hours?" / "Show my schedule" -> call list_schedules. If only 1 schedule,
+  show its availability directly. If multiple, list them and ask which one to view in detail.
+- Display availability in a readable format:
+  "Your working hours (Work Hours schedule):
+   Mon-Fri: 9:00 AM - 5:00 PM
+   Sat-Sun: Not available"
+- Group consecutive days with the same hours (e.g. "Mon-Fri" instead of listing each day).
+- Show overrides if any: "Exception: Mar 20 — 12:00 PM - 3:00 PM"
+
+${bold}UPDATING WORKING HOURS:${bold}
+- "Change my working hours to 10am-6pm" -> identify which schedule (use default if only one),
+  confirm the change, then call update_schedule with the new availability.
+- IMPORTANT: The availability array REPLACES all existing windows. When updating, include ALL
+  desired windows, not just the changed ones. For example, if the user says "add Saturday 10-2"
+  to their Mon-Fri 9-5 schedule, the new availability must include both the Mon-Fri AND Saturday entries.
+- Before updating, call get_schedule (or use list_schedules data) to fetch the current availability.
+  Show the before/after comparison: "I'll update your 'Work Hours' schedule:
+   Before: Mon-Fri 9:00 AM - 5:00 PM
+   After: Mon-Fri 10:00 AM - 6:00 PM
+   Confirm?"
+- Time format: always pass HH:MM (24-hour) to the API. Display in the user's preferred format.
+
+${bold}DATE OVERRIDES:${bold}
+- "I'm only available 2-4pm on March 20" -> call update_schedule with an override for that date.
+- IMPORTANT: Like availability, the overrides array REPLACES all existing overrides. Fetch current
+  overrides first and merge the new one in.
+- "Remove my override for March 20" -> fetch current overrides, remove the matching date, update.
+- "Block off March 21 entirely" -> this can't be done with overrides (overrides define AVAILABLE
+  times, not blocked times). Suggest the user block the day in their connected calendar instead.
+
+${bold}CREATING A NEW SCHEDULE:${bold}
+- "Create a weekend schedule" -> ask for the hours, then call create_schedule.
+- If the user doesn't specify hours, use the default (Mon-Fri 9-5) and let them know.
+- After creation, remind them to assign it to an event type if needed:
+  "Created 'Weekend Hours'. To use it for a specific event type, I can update the event type's
+   schedule assignment."
+
+${bold}COMMON REQUESTS:${bold}
+- "Make me unavailable on Fridays" -> update availability to remove Friday
+- "Add lunch break 12-1pm" -> split the day into two windows (e.g. 9:00-12:00 and 13:00-17:00)
+- "Set different hours for Monday" -> update with separate Monday entry and rest-of-week entry
+
 ## Managing Event Types
 
 When the user wants to create, update, or delete an event type:
@@ -500,7 +547,7 @@ Never say "you can find the link in the booking details" — show it directly.
 - ${linkInstruction}
 - When showing availability, format times in the user's timezone if known.
 - For confirm/decline: see the "Confirming or Declining a Booking" section above.
-- For schedules: when asked about working hours or availability windows, use schedule tools.
+- For schedules and working hours: see the "Managing Schedules / Working Hours" section above.
 - Keep responses under 200 words.
 - Never fabricate data. Only use data from tool results.
 - Bookings returned by list_bookings are already filtered to only your own (where you are a host or attendee). Never imply the user might be seeing others' bookings.
@@ -1483,7 +1530,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     list_schedules: tool({
-      description: "List all availability schedules for the user.",
+      description: "List all availability schedules with their working hours, timezones, and date overrides.",
       inputSchema: z.object({}).passthrough(),
       execute: async () => {
         const token = await getAccessTokenOrNull(teamId, userId);
@@ -1496,6 +1543,8 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               name: s.name,
               timeZone: s.timeZone,
               isDefault: s.isDefault,
+              availability: s.availability,
+              overrides: s.overrides,
             })),
           };
         } catch (err) {
@@ -1506,7 +1555,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
 
     get_schedule: tool({
       description:
-        "Get details of a specific availability schedule. Use scheduleId 'default' to get the default schedule.",
+        "Get a schedule's full details including working hours (availability windows) and date-specific overrides. Use scheduleId 'default' for the default schedule.",
       inputSchema: z.object({
         scheduleId: z
           .union([z.number(), z.literal("default")])
@@ -1535,22 +1584,54 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     create_schedule: tool({
-      description: "Create a new availability schedule.",
+      description: "Create a new availability schedule with working hours. If availability is not provided, defaults to Monday-Friday 09:00-17:00.",
       inputSchema: z.object({
         name: z.string().describe("Schedule name (e.g. 'Work Hours')"),
-        timeZone: z.string().describe("Timezone (e.g. 'America/New_York')"),
+        timeZone: z.string().describe("IANA timezone (e.g. 'America/New_York')"),
         isDefault: z.boolean().describe("Whether this should be the default schedule"),
+        availability: z
+          .array(
+            z.object({
+              days: z
+                .array(z.enum(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]))
+                .describe("Days this window applies to"),
+              startTime: z.string().describe("Start time in HH:MM format (e.g. '09:00')"),
+              endTime: z.string().describe("End time in HH:MM format (e.g. '17:00')"),
+            })
+          )
+          .nullable()
+          .optional()
+          .describe("Availability windows. Each entry defines days + time range. Defaults to Mon-Fri 09:00-17:00 if omitted."),
+        overrides: z
+          .array(
+            z.object({
+              date: z.string().describe("Date in YYYY-MM-DD format"),
+              startTime: z.string().describe("Start time in HH:MM format"),
+              endTime: z.string().describe("End time in HH:MM format"),
+            })
+          )
+          .nullable()
+          .optional()
+          .describe("Date-specific overrides. Use to set different hours for a specific date."),
       }),
-      execute: async ({ name, timeZone, isDefault }) => {
+      execute: async ({ name, timeZone, isDefault, availability, overrides }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         try {
-          const schedule = await createSchedule(token, { name, timeZone, isDefault });
+          const schedule = await createSchedule(token, {
+            name,
+            timeZone,
+            isDefault,
+            ...(availability ? { availability } : {}),
+            ...(overrides ? { overrides } : {}),
+          });
           return {
             success: true,
             id: schedule.id,
             name: schedule.name,
             timeZone: schedule.timeZone,
+            availability: schedule.availability,
+            overrides: schedule.overrides,
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to create schedule" };
@@ -1559,18 +1640,42 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     update_schedule: tool({
-      description: "Update an existing availability schedule.",
+      description: "Update a schedule's name, timezone, working hours (availability windows), or date overrides. Pass availability to replace all working hours. Pass overrides to replace all date-specific exceptions.",
       inputSchema: z.object({
         scheduleId: z.number().describe("The schedule ID to update"),
         name: z.string().nullable().optional().describe("New schedule name"),
-        timeZone: z.string().nullable().optional().describe("New timezone"),
+        timeZone: z.string().nullable().optional().describe("New IANA timezone"),
         isDefault: z.boolean().nullable().optional().describe("Set as default schedule"),
+        availability: z
+          .array(
+            z.object({
+              days: z
+                .array(z.enum(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]))
+                .describe("Days this window applies to"),
+              startTime: z.string().describe("Start time in HH:MM format (e.g. '09:00')"),
+              endTime: z.string().describe("End time in HH:MM format (e.g. '17:00')"),
+            })
+          )
+          .nullable()
+          .optional()
+          .describe("Availability windows. REPLACES all existing windows. Include ALL desired windows."),
+        overrides: z
+          .array(
+            z.object({
+              date: z.string().describe("Date in YYYY-MM-DD format"),
+              startTime: z.string().describe("Start time in HH:MM format"),
+              endTime: z.string().describe("End time in HH:MM format"),
+            })
+          )
+          .nullable()
+          .optional()
+          .describe("Date-specific overrides. REPLACES all existing overrides. Include ALL desired overrides."),
       }),
-      execute: async ({ scheduleId, name, timeZone, isDefault }) => {
+      execute: async ({ scheduleId, name, timeZone, isDefault, availability, overrides }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         const patch = Object.fromEntries(
-          Object.entries({ name, timeZone, isDefault }).filter(([, v]) => v != null)
+          Object.entries({ name, timeZone, isDefault, availability, overrides }).filter(([, v]) => v != null)
         );
         if (Object.keys(patch).length === 0) return { error: "No fields provided to update." };
         try {
@@ -1581,6 +1686,8 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             name: schedule.name,
             timeZone: schedule.timeZone,
             isDefault: schedule.isDefault,
+            availability: schedule.availability,
+            overrides: schedule.overrides,
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to update schedule" };
@@ -1589,7 +1696,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     delete_schedule: tool({
-      description: "Delete an availability schedule by ID.",
+      description: "Delete an availability schedule by ID. This is irreversible. The user's event types using this schedule will fall back to their default schedule.",
       inputSchema: z.object({
         scheduleId: z.number().describe("The schedule ID to delete"),
       }),
