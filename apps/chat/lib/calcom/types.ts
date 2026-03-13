@@ -101,6 +101,7 @@ export interface CreatePublicBookingInput {
   notes?: string;
   lengthInMinutes?: number;
   responses?: Record<string, unknown>;
+  metadata?: Record<string, string>;
 }
 
 /** Metadata passed from Cal.com booking form for routing notifications. */

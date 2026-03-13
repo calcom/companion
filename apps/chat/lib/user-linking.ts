@@ -277,7 +277,7 @@ export async function getToolContext(threadId: string): Promise<ToolContextEntry
   const raw = await client.get(toolContextKey(threadId));
   if (!raw) return [];
   try {
-    return JSON.parse(raw) as ToolContextEntry[];
+    return JSON.parse(decryptData(raw)) as ToolContextEntry[];
   } catch {
     return [];
   }
@@ -288,7 +288,7 @@ export async function setToolContext(
   entries: ToolContextEntry[]
 ): Promise<void> {
   const client = getRedisClient();
-  await client.set(toolContextKey(threadId), JSON.stringify(entries), {
+  await client.set(toolContextKey(threadId), encryptData(JSON.stringify(entries)), {
     EX: 60 * 30, // 30 minutes TTL
   });
 }

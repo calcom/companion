@@ -228,7 +228,7 @@ async function getAccessTokenOrNull(teamId: string, userId: string): Promise<str
   return getValidAccessToken(teamId, userId);
 }
 
-function createCalTools(teamId: string, userId: string, lookupPlatformUser?: LookupPlatformUserFn) {
+function createCalTools(teamId: string, userId: string, platform: string, lookupPlatformUser?: LookupPlatformUserFn) {
   return {
     lookup_platform_user: tool({
       description:
@@ -610,6 +610,14 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
         const linked = await getLinkedUser(teamId, userId);
 
         try {
+          const metadata: Record<string, string> = {};
+          if (platform === "slack") {
+            metadata.slack_team_id = teamId;
+            metadata.slack_user_id = userId;
+          } else if (platform === "telegram") {
+            metadata.telegram_chat_id = userId;
+          }
+
           const booking = await createBooking(token, {
             eventTypeId,
             start: startTime,
@@ -621,6 +629,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
             guests: guestEmails?.filter(Boolean) ?? undefined,
             notes: notes ?? undefined,
             responses: responses ?? undefined,
+            metadata,
           });
 
           return {
@@ -697,6 +706,14 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
         const linked = await getLinkedUser(teamId, userId);
 
         try {
+          const metadata: Record<string, string> = {};
+          if (platform === "slack") {
+            metadata.slack_team_id = teamId;
+            metadata.slack_user_id = userId;
+          } else if (platform === "telegram") {
+            metadata.telegram_chat_id = userId;
+          }
+
           const booking = await createBookingPublic({
             eventTypeSlug,
             username,
@@ -710,6 +727,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
             notes: notes ?? undefined,
             lengthInMinutes: lengthInMinutes ?? undefined,
             responses: responses ?? undefined,
+            metadata,
           });
 
           return {
@@ -1344,7 +1362,7 @@ export function runAgentStream({
   userContext,
   toolSet = "core",
 }: AgentStreamOptions) {
-  const allTools = createCalTools(teamId, userId, lookupPlatformUser);
+  const allTools = createCalTools(teamId, userId, platform, lookupPlatformUser);
   const tools = filterTools(allTools, toolSet);
 
   // Keep only the last 10 messages from history to prevent stale context
