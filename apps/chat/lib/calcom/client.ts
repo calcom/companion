@@ -504,8 +504,17 @@ export async function getCalendarLinks(
   return calcomFetch<CalendarLink>(`/v2/bookings/${bookingUid}/calendar-links`, accessToken);
 }
 
-export async function markNoShow(accessToken: string, bookingUid: string): Promise<void> {
+export async function markNoShow(
+  accessToken: string,
+  bookingUid: string,
+  host?: boolean,
+  attendees?: Array<{ email: string; absent: boolean }>
+): Promise<void> {
   await calcomFetch<void>(`/v2/bookings/${bookingUid}/mark-absent`, accessToken, {
     method: "POST",
+    body: JSON.stringify({
+      ...(host !== undefined ? { host } : {}),
+      ...(attendees ? { attendees } : {}),
+    }),
   });
 }

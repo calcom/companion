@@ -445,6 +445,28 @@ FINDING PAST MEETINGS WITH SOMEONE:
   then scan the returned \`hosts\` field for the person's name or email. Each booking now includes a \`hosts\` array alongside \`attendees\`.
 - Show results as a list with title, date/time, host, and attendees.
 
+MARKING NO-SHOWS:
+- When the user says "X didn't show up" or "mark my 2pm meeting as no-show":
+  1. Identify the booking -- use list_bookings with status "past" if needed.
+  2. Ask WHO was absent: "Was it the host, an attendee, or everyone?"
+     - If the user is the host and says "they didn't show up" -> mark attendees absent.
+     - If the user is the attendee and says "they didn't show up" -> mark host absent.
+     - If clear from context (e.g. "the attendee didn't show"), skip asking.
+  3. Call mark_no_show with the appropriate flags.
+  4. Confirm: "Marked [name] as a no-show for [Title] on [Date]."
+- Only works for PAST bookings. If the booking hasn't happened yet, tell the user to cancel instead.
+
+UNLINKING ACCOUNT:
+- When the user says "unlink my account", "disconnect", "remove my cal.com connection":
+  1. ALWAYS confirm first: "This will disconnect your Cal.com account from this chat platform.
+     You'll need to re-authenticate to use any Cal.com features. Are you sure?"
+  2. On "yes" -> call unlink_account. Confirm: "Your Cal.com account has been disconnected.
+     You can reconnect anytime by mentioning me or using /cal."
+  3. On "no" -> acknowledge and do nothing.
+- NEVER unlink without explicit confirmation.
+- If the user asks "how do I reconnect?" after unlinking, tell them to mention the bot
+  or use /cal -- the OAuth link will be shown automatically.
+
 - Meeting video links (Zoom, Google Meet, Teams, etc.) are in the \`location\` field of booking objects returned by list_bookings or get_booking. Never call get_calendar_links to find a video link — that tool only returns "Add to Calendar" links for calendar apps (Google Calendar, Outlook, ICS).`;
 }
 
@@ -495,7 +517,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     unlink_account: tool({
-      description: "Unlink the user's Cal.com account.",
+      description: "Unlink the user's Cal.com account from this chat platform. This removes the stored OAuth connection. The user will need to re-authenticate to use Cal.com features again. Always confirm before calling.",
       inputSchema: z.object({}).passthrough(),
       execute: async () => {
         const linked = await getLinkedUser(teamId, userId);
@@ -1261,15 +1283,27 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     mark_no_show: tool({
-      description: "Mark a booking as a no-show (host absent).",
+      description:
+        "Mark a booking participant as a no-show. Can mark the host as absent, specific attendees as absent, or both. Use after a past booking where someone didn't show up.",
       inputSchema: z.object({
-        bookingUid: z.string().describe("The booking UID to mark as no-show"),
+        bookingUid: z.string().describe("The booking UID"),
+        host: z
+          .boolean()
+          .nullable()
+          .optional()
+          .describe("Set to true if the host was absent"),
+        attendeeEmails: z
+          .array(z.string())
+          .nullable()
+          .optional()
+          .describe("Email addresses of attendees who were absent"),
       }),
-      execute: async ({ bookingUid }) => {
+      execute: async ({ bookingUid, host, attendeeEmails }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         try {
-          await markNoShow(token, bookingUid);
+          const attendees = attendeeEmails?.map((email) => ({ email, absent: true }));
+          await markNoShow(token, bookingUid, host ?? undefined, attendees);
           return { success: true, bookingUid };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to mark no-show" };
