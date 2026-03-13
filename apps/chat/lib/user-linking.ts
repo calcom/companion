@@ -259,6 +259,40 @@ export async function clearBookingFlow(teamId: string, userId: string): Promise<
   await client.del(`calcom:booking_flow:${teamId}:${userId}`);
 }
 
+// ─── Tool context persistence (per-thread, survives across webhook invocations) ─
+
+export interface ToolContextEntry {
+  toolName: string;
+  args: Record<string, unknown>;
+  result: unknown;
+  timestamp: number;
+}
+
+function toolContextKey(threadId: string): string {
+  return `calcom:tool_context:${threadId}`;
+}
+
+export async function getToolContext(threadId: string): Promise<ToolContextEntry[]> {
+  const client = getRedisClient();
+  const raw = await client.get(toolContextKey(threadId));
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as ToolContextEntry[];
+  } catch {
+    return [];
+  }
+}
+
+export async function setToolContext(
+  threadId: string,
+  entries: ToolContextEntry[]
+): Promise<void> {
+  const client = getRedisClient();
+  await client.set(toolContextKey(threadId), JSON.stringify(entries), {
+    EX: 60 * 30, // 30 minutes TTL
+  });
+}
+
 // ─── Workspace notification config (unchanged) ──────────────────────────────
 
 export interface WorkspaceNotificationConfig {

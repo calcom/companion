@@ -41,9 +41,17 @@ export type LookupPlatformUserFn = (userId: string) => Promise<PlatformUserProfi
 
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
 
+// ─── User context injected from bot layer ────────────────────────────────────
+
+export interface UserContext {
+  calcomEmail: string;
+  calcomUsername: string;
+  calcomTimeZone: string;
+}
+
 // Booking: Slack uses interactive modal flow (handlers/slack.ts); Telegram uses natural language only.
 // Agent tools (book_meeting, check_availability, etc.) work for both; system prompt adapts per platform.
-function getSystemPrompt(platform: string) {
+function getSystemPrompt(platform: string, userContext?: UserContext) {
   const isSlack = platform === "slack";
 
   const formattingGuide = isSlack
@@ -51,97 +59,15 @@ function getSystemPrompt(platform: string) {
     : "Use Telegram Markdown: **bold** (double asterisks), _italic_, `code`, bullet lists. Links: [link text](url) (e.g. [Join Meeting](https://app.cal.com/video/abc)). NEVER use single * for bold—Telegram requires **. NEVER use markdown tables (| col |)—Telegram does not render them. Use bullet lists instead.";
 
   const platformName = isSlack ? "Slack" : "Telegram";
+  const bold = isSlack ? "*" : "**";
 
-  const mentionSection = isSlack
-    ? `## Slack Mention Parsing
-- User mentions in Slack appear as \`<@USER_ID>\` (e.g. \`<@U012AB3CD>\`).
-- When you see a mention like \`<@U012AB3CD>\`, extract just the USER_ID part (strip \`<@\` and \`>\`).
-- Always call \`lookup_platform_user\` first to resolve who that person is before booking with them.`
-    : `## Telegram Users
-- On Telegram, users cannot be @mentioned by ID. Ask the user to provide the attendee's name and email directly.
-- The \`lookup_platform_user\` tool is not available on Telegram.`;
-
-  const bookingFlow = isSlack
-    ? `## Booking a Meeting — Clarification-First Flow
-YOU are always the HOST. The other person(s) are ATTENDEES — they do NOT need a Cal.com account.
-
-### Step 1 — Resolve attendees
-- For each @mention (\`<@USER_ID>\`), call \`lookup_platform_user\` to get name + email.
-- If email is missing for any attendee, ask the user to provide it before continuing.
-- Multiple attendees: resolve ALL of them first.
-
-### Step 2 — Resolve event type
-- Always call \`list_event_types\` first.
-- If the user named an event type (e.g. "product discussion", "30 min one", "15 min"):
-  - Fuzzy-match by title or duration against the returned list. If confident (1 clear match), use it.
-  - If ambiguous (2+ plausible matches), show the list and ask which one.
-  - If NO match found: show the full list and ask the user to pick one. NEVER create a new event type.
-- If NO event type was mentioned: show the full list and ask the user to pick one.
-  Format: "• *Title* – Xmin" and ask "Which event type should I use?"
-- NEVER call \`create_event_type\` during a booking flow. Only use existing event types from \`list_event_types\`.
-- Only call \`create_event_type\` if the user explicitly says something like "create a new event type" or "add a meeting type". Saying "use 15 min" or "book with the 30 min one" is NOT a create request.
-
-### Step 3 — Resolve date/time
-- If the user gave a specific date+time (e.g. "15 March 1–2 PM IST"):
-  - Convert to UTC. Call \`check_availability\` for that day.
-  - If the exact slot exists → proceed to Step 4.
-  - If the slot is NOT available → tell the user and show up to 5 alternative slots. Ask them to pick one.
-- If NO date/time was given: call \`check_availability\` for the next 7 days and show up to 5 slots. Ask the user to pick one.
-
-### Step 4 — Confirm then book
-- **Fast path**: If ALL of these are true, skip the confirmation prompt and book immediately:
-  1. All attendee emails are known
-  2. Event type is unambiguous (exact match or only one exists)
-  3. Date AND time are both specified by the user
-  4. The user's message contains explicit confirmation language ("go ahead", "confirm", "just do it", "book it")
-- **Otherwise**: Show a summary and ask "Reply *yes* to confirm":
-  "Book *[event type]* with [attendee name(s)] on [date/time timezone]?"
-- Only call \`book_meeting\` after the user confirms or fast-path conditions are met.
-
-### Step 5 — Multi-attendee handling
-- The primary attendee goes in \`attendeeName\`/\`attendeeEmail\` of \`book_meeting\`.
-- Additional attendees resolved via \`lookup_platform_user\` (with name + timezone): use \`add_booking_attendee\` after booking.
-- Additional attendees with email only: pass as \`guestEmails\` in the \`book_meeting\` call.
-- After booking, show: title, time, all attendee names, and Join Meeting link.`
-    : `## Booking a Meeting — Clarification-First Flow
-YOU are always the HOST. The other person(s) are ATTENDEES — they do NOT need a Cal.com account.
-
-### Step 1 — Resolve attendees
-- On Telegram, users cannot be @mentioned by ID. Ask the user for the attendee's name and email directly.
-- If multiple attendees, collect all names and emails first.
-
-### Step 2 — Resolve event type
-- Always call \`list_event_types\` first.
-- If the user named an event type (e.g. "product discussion", "30 min one", "15 min"):
-  - Fuzzy-match by title or duration against the returned list. If confident (1 clear match), use it.
-  - If ambiguous (2+ plausible matches), show the list and ask which one.
-  - If NO match found: show the full list and ask the user to pick one. NEVER create a new event type.
-- If NO event type was mentioned: show the full list and ask the user to pick one.
-  Format: "• **Title** – Xmin" and ask "Which event type should I use?"
-- NEVER call \`create_event_type\` during a booking flow. Only use existing event types from \`list_event_types\`.
-- Only call \`create_event_type\` if the user explicitly says something like "create a new event type" or "add a meeting type". Saying "use 15 min" or "book with the 30 min one" is NOT a create request.
-
-### Step 3 — Resolve date/time
-- If the user gave a specific date+time (e.g. "15 March 1–2 PM IST"):
-  - Convert to UTC. Call \`check_availability\` for that day.
-  - If the exact slot exists → proceed to Step 4.
-  - If the slot is NOT available → tell the user and show up to 5 alternative slots. Ask them to pick one.
-- If NO date/time was given: call \`check_availability\` for the next 7 days and show up to 5 slots. Ask the user to pick one.
-
-### Step 4 — Confirm then book
-- **Fast path**: If ALL of these are true, skip the confirmation prompt and book immediately:
-  1. All attendee emails are known
-  2. Event type is unambiguous (exact match or only one exists)
-  3. Date AND time are both specified by the user
-  4. The user's message contains explicit confirmation language ("go ahead", "confirm", "just do it", "book it")
-- **Otherwise**: Show a summary and ask "Reply **yes** to confirm":
-  "Book **[event type]** with [attendee name(s)] on [date/time timezone]?"
-- Only call \`book_meeting\` after the user confirms or fast-path conditions are met.
-
-### Step 5 — Multi-attendee handling
-- The primary attendee goes in \`attendeeName\`/\`attendeeEmail\` of \`book_meeting\`.
-- Additional attendees with email only: pass as \`guestEmails\` in the \`book_meeting\` call.
-- After booking, show: title, time, all attendee names, and Join Meeting link.`;
+  const userAccountSection = userContext
+    ? `## Your Account (pre-verified)
+- Email: ${userContext.calcomEmail}
+- Username: ${userContext.calcomUsername}
+- Timezone: ${userContext.calcomTimeZone}
+- Account status: linked and verified (do NOT call get_my_profile for this info)`
+    : "";
 
   const linkInstruction = isSlack
     ? 'If the user is not linked, tell them to use the "Continue with Cal.com" button or run `/cal link` to connect their account.'
@@ -153,17 +79,33 @@ You are "Cal", the Cal.com bot. Be concise, friendly, and action-oriented. ${for
 
 Current date/time: ${new Date().toISOString()}
 
-## Available Capabilities
-- *Account*: check_account_linked, unlink_account, get_my_profile, update_profile
-- *Event Types*: list_event_types, create_event_type, update_event_type, delete_event_type
-- *Availability*: check_availability, check_busy_times
-- *Bookings*: book_meeting, add_booking_attendee, list_bookings, get_booking, cancel_booking, reschedule_booking, confirm_booking, decline_booking, get_calendar_links, mark_no_show
-- *Schedules*: list_schedules, get_schedule (pass 'default' for default), create_schedule, update_schedule, delete_schedule
-- *People*: lookup_platform_user — resolve a user mention to their name and email (Slack only)
+${userAccountSection}
 
-${mentionSection}
+## Booking a Meeting
+You are always the HOST. The attendee does NOT need a Cal.com account.
 
-${bookingFlow}
+To book a meeting, you need these 4 pieces of information:
+1. ${bold}Attendee name + email${bold} — check [Context: @mentions resolved] first, then conversation history
+2. ${bold}Event type ID${bold} — check conversation history and [tool-context] first, then call list_event_types
+3. ${bold}Date + time in UTC${bold} — convert from user's timezone (yours: ${userContext?.calcomTimeZone ?? "UTC"})
+4. ${bold}Slot is available${bold} — call check_availability
+
+DECISION LOGIC:
+- If attendee info is in [Context: @mentions resolved], use it directly. Do NOT call lookup_platform_user.
+- If event types or availability data are in conversation history or [tool-context] from a previous turn, use them. Do NOT re-call the tool.
+- If you have all 4 pieces AND the user used explicit confirmation language ("go ahead", "confirm", "just do it", "book it"), call book_meeting immediately.
+- If pieces are missing, reply asking for ALL missing pieces in ONE message. Include event type list (call list_event_types) and/or available slots (call check_availability) in the same response.
+- If the user named an event type (e.g. "product discussion", "30 min", "15 min"): fuzzy-match by title or duration against the list. If confident (1 clear match), use it. If ambiguous, show the list and ask.
+- If the user's requested slot is unavailable, show up to 5 alternatives and ask them to pick.
+- NEVER create a new event type during a booking flow. If no match, show the list and ask.
+
+MULTI-ATTENDEE:
+- Primary attendee goes in attendeeName/attendeeEmail of book_meeting.
+- Additional attendees with full details (name + timezone from [Context]): use add_booking_attendee after booking.
+- Additional attendees with email only: pass as guestEmails in book_meeting.
+- After booking: show title, time, all attendee names, and Join Meeting link.
+
+EFFICIENCY: Minimize tool calls. Each tool call adds latency. Prefer using data already in context/history over making speculative tool calls.
 
 ## Timezone Conversion
 - IST = Asia/Kolkata (UTC+5:30)
@@ -179,13 +121,12 @@ If the user's latest message is a greeting, status check, or short casual messag
 Do NOT automatically resume an incomplete task from earlier in the conversation. Only continue a prior task if the user's latest message explicitly asks you to (e.g. "yes, go ahead", "ok book it", "continue"). A casual message is NOT a continuation request.
 
 ## CRITICAL RULES FOR TOOL USAGE
-1. check_account_linked: Call this ONCE per conversation thread. If the conversation history already contains a successful check_account_linked result, skip it entirely and proceed directly with the user's request.
-2. Re-using data from history: Before calling any tool, check whether the answer is already in the conversation history from a previous turn. If list_bookings, list_event_types, check_availability, or any other tool was already called earlier in this thread and returned the data you need, use that data — do NOT call the tool again.
-3. check_availability: Call once per date range. If the user's requested slot is unavailable, you may call it again with a different range to show alternatives.
-4. During a booking flow, sequential tool calls are expected (e.g. lookup → list_event_types → check_availability → book_meeting). After completing the full task, respond with a text message.
-5. Never call a tool with empty or placeholder arguments.
-6. Avoid calling the same tool with identical arguments. Calling the same tool with different arguments is fine (e.g. lookup_platform_user for two different users).
-7. NEVER call create_event_type, update_event_type, or delete_event_type unless the user has explicitly and clearly asked to create, update, or delete an event type (e.g. "create a new event type called...", "add a 45 min meeting type"). During a booking flow, if the requested event type is not found in list_event_types results, show the available list and ask them to pick one. A user saying "use 15 min event type" or "book with the 30 min one" is NOT a request to create anything.
+1. Re-using data: Before calling any tool, check [Context: @mentions resolved], [tool-context] blocks, and conversation history. If the data is already there, do NOT call the tool again.
+2. check_availability: Call once per date range. If the user's requested slot is unavailable, you may call it again with a different range to show alternatives.
+3. During a booking flow, sequential tool calls are expected (e.g. list_event_types → check_availability → book_meeting). After completing the full task, respond with a text message.
+4. Never call a tool with empty or placeholder arguments.
+5. Avoid calling the same tool with identical arguments. Calling the same tool with different arguments is fine.
+6. NEVER call create_event_type, update_event_type, or delete_event_type unless the user has explicitly asked to create, update, or delete an event type (e.g. "create a new event type called..."). Saying "use 15 min" or "book with the 30 min one" is NOT a create request — show the existing list and ask.
 
 ## Formatting Rules
 ${
@@ -201,10 +142,6 @@ ${
 
 ## Displaying Bookings and Lists
 When listing bookings, event types, availability slots, schedules, busy times, or calendar links: ALWAYS use bullet lists (never tables). Include video/meeting links inline. The link is in the \`location\` field of each booking object.
-- Bookings: \`• *Title* – Date/Time – <url|Join Meeting>\` (Slack) or \`• **Title** – Date/Time – [Join Meeting](url)\` (Telegram)
-- Event types: \`• *Title* – duration\` (Slack) or \`• **Title** – duration\` (Telegram)
-- Availability: \`• Date/Time – <url|Book>\` (Slack) or \`• Date/Time – [Book](url)\` (Telegram)
-- Calendar links (get_calendar_links): format each service (Google, Outlook, ICS) as a link per platform
 Never say "you can find the link in the booking details" — show it directly.
 
 ## Behavior
@@ -224,39 +161,6 @@ async function getAccessTokenOrNull(teamId: string, userId: string): Promise<str
 
 function createCalTools(teamId: string, userId: string, lookupPlatformUser?: LookupPlatformUserFn) {
   return {
-    check_account_linked: tool({
-      description:
-        "Check if the current user has linked their Cal.com account. Call this ONCE per conversation thread. If the conversation history already shows this was called and returned linked:true, skip this tool entirely and proceed with the user's request.",
-      inputSchema: z.object({}),
-      execute: async () => {
-        const linked = await getLinkedUser(teamId, userId);
-        if (!linked) {
-          return {
-            status: "NOT_LINKED",
-            instruction:
-              "Tell the user to connect their Cal.com account by clicking the 'Continue with Cal.com' button or running /cal link. Do NOT call any other tools.",
-          };
-        }
-        // Verify the token is actually usable (catches revoked/expired refresh tokens).
-        const token = await getValidAccessToken(teamId, userId);
-        if (!token) {
-          return {
-            status: "SESSION_EXPIRED",
-            instruction:
-              "The user's Cal.com session has expired and the token could not be refreshed. Tell them to reconnect by clicking 'Continue with Cal.com' or running /cal link. Do NOT call any other tools.",
-          };
-        }
-        return {
-          status: "LINKED",
-          username: linked.calcomUsername,
-          email: linked.calcomEmail,
-          timeZone: linked.calcomTimeZone,
-          instruction:
-            "Account is linked. Proceed with the user's request using other tools. Do NOT call check_account_linked again.",
-        };
-      },
-    }),
-
     lookup_platform_user: tool({
       description:
         "Look up a user on the current platform by their user ID to get their name and email. On Slack, resolves mentions like <@USER_ID>. On Telegram, this is not available — ask the user to provide the attendee's name and email directly.",
@@ -1005,6 +909,66 @@ export function isAIRateLimitError(err: unknown): boolean {
   return hasRateLimit || (status429 && (msg.includes("retry") || causeMsg.includes("retry")));
 }
 
+// ─── Context-aware tool filtering ─────────────────────────────────────────────
+
+const CORE_TOOL_NAMES = new Set([
+  "list_event_types",
+  "check_availability",
+  "book_meeting",
+  "add_booking_attendee",
+  "list_bookings",
+  "get_booking",
+  "cancel_booking",
+]);
+
+const ADMIN_KEYWORDS = [
+  "create event",
+  "update event",
+  "delete event",
+  "schedule",
+  "working hours",
+  "profile",
+  "unlink",
+  "no-show",
+  "no show",
+  "confirm booking",
+  "decline",
+  "reschedule",
+  "calendar link",
+  "busy times",
+];
+
+export function detectToolSet(
+  message: string,
+  history: ModelMessage[]
+): "core" | "all" {
+  const lowerMsg = message.toLowerCase();
+  if (ADMIN_KEYWORDS.some((kw) => lowerMsg.includes(kw))) return "all";
+  // Also check last few history messages for admin context
+  for (const msg of history.slice(-3)) {
+    if (typeof msg.content === "string" && ADMIN_KEYWORDS.some((kw) => msg.content.toString().toLowerCase().includes(kw))) {
+      return "all";
+    }
+  }
+  return "core";
+}
+
+function filterTools<T extends Record<string, unknown>>(
+  allTools: T,
+  toolSet: "core" | "all"
+): T {
+  if (toolSet === "all") return allTools;
+  const filtered = {} as Record<string, unknown>;
+  for (const [name, t] of Object.entries(allTools)) {
+    if (CORE_TOOL_NAMES.has(name)) {
+      filtered[name] = t;
+    }
+  }
+  return filtered as T;
+}
+
+// ─── Agent stream ─────────────────────────────────────────────────────────────
+
 export interface AgentStreamOptions {
   teamId: string;
   userId: string;
@@ -1015,6 +979,10 @@ export interface AgentStreamOptions {
   logger?: Logger;
   /** When set, rate-limit errors from the stream are stored here for the caller to surface a friendly message. */
   onErrorRef?: { current: Error | null };
+  /** Pre-verified user context from bot layer — injected into system prompt. */
+  userContext?: UserContext;
+  /** Which tool set to expose: 'core' (booking only) or 'all' (includes admin tools). */
+  toolSet?: "core" | "all";
 }
 
 export function runAgentStream({
@@ -1026,8 +994,11 @@ export function runAgentStream({
   platform,
   logger,
   onErrorRef,
+  userContext,
+  toolSet = "core",
 }: AgentStreamOptions) {
-  const tools = createCalTools(teamId, userId, lookupPlatformUser);
+  const allTools = createCalTools(teamId, userId, lookupPlatformUser);
+  const tools = filterTools(allTools, toolSet);
 
   // Keep only the last 10 messages from history to prevent stale context
   // (e.g. an old booking request) from hijacking unrelated follow-up messages.
@@ -1038,23 +1009,46 @@ export function runAgentStream({
     { role: "user" as const, content: userMessage },
   ];
 
-  // A multi-attendee booking flow needs: check_account_linked + 2x lookup_platform_user +
-  // list_event_types + check_availability + book_meeting + add_booking_attendee + final reply = 8+ steps.
-  // Keep a hard cap to prevent runaway loops, but give enough room for complex flows.
-  const MAX_STEPS = 15;
+  // With pre-resolution, user context injection, and tool result persistence,
+  // the agent should need at most 3-4 steps per request. Keep a hard cap as safety net.
+  const MAX_STEPS = 8;
+
+  // ─── Loop guard ───────────────────────────────────────────────────────────
+  // Track tool calls across steps. If the same tool is called 3+ times with
+  // identical arguments, force a text response to break the loop.
+  const toolCallTracker = new Map<string, number>();
 
   const result = streamText({
     model: getModel(),
-    system: getSystemPrompt(platform),
+    system: getSystemPrompt(platform, userContext),
     messages,
     tools,
     toolChoice: "auto",
     stopWhen: stepCountIs(MAX_STEPS),
-    prepareStep({ stepNumber }) {
+    prepareStep({ stepNumber, steps: previousSteps }) {
+      // Track tool calls from all previous steps for loop detection
+      toolCallTracker.clear();
+      for (const prev of previousSteps) {
+        if (!prev.toolCalls || prev.toolCalls.length === 0) continue;
+        for (const tc of prev.toolCalls) {
+          const input = "input" in tc ? tc.input : undefined;
+          const key = `${tc.toolName}:${JSON.stringify(input)}`;
+          toolCallTracker.set(key, (toolCallTracker.get(key) ?? 0) + 1);
+        }
+      }
+      const hasLoop = [...toolCallTracker.values()].some(
+        (count) => count >= 3
+      );
+      if (hasLoop) {
+        logger?.warn("Loop detected, forcing text response", {
+          tracker: Object.fromEntries(toolCallTracker),
+        });
+        return { toolChoice: "none" as const };
+      }
       // On the final allowed step, force a text response so the model
       // cannot keep calling tools indefinitely.
       if (stepNumber === MAX_STEPS - 1) {
-        return { toolChoice: "none" };
+        return { toolChoice: "none" as const };
       }
       return {};
     },

@@ -25,8 +25,8 @@ import {
   NotImplementedError,
   RateLimitError,
 } from "chat";
-import type { LookupPlatformUserFn } from "./agent";
-import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
+import type { LookupPlatformUserFn, UserContext } from "./agent";
+import { detectToolSet, isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
 import { formatForTelegram } from "./format-for-telegram";
@@ -34,7 +34,7 @@ import { RETRY_STOP_BLOCKS, registerSlackHandlers } from "./handlers/slack";
 import { registerTelegramHandlers } from "./handlers/telegram";
 import { logger as botLogger } from "./logger";
 import { helpCard, telegramHelpCard } from "./notifications";
-import { getLinkedUser } from "./user-linking";
+import { getLinkedUser, getToolContext, setToolContext, type ToolContextEntry } from "./user-linking";
 
 validateRequiredEnv();
 
@@ -293,6 +293,80 @@ function reconstructSlackMentions(raw: unknown): string | null {
   return result.length > 0 ? result : null;
 }
 
+// ─── Helper: pre-resolve Slack @mentions to name + email ─────────────────────
+// Extracts <@USER_ID> patterns from the message, resolves each via Slack API,
+// and prepends a [Context: @mentions resolved] block to the user message.
+async function preResolveMentions(
+  userMessage: string,
+  teamId: string,
+  logger: ReturnType<typeof bot.getLogger>
+): Promise<string> {
+  const mentionPattern = /<@([A-Z0-9]+)>/g;
+  const matches = [...userMessage.matchAll(mentionPattern)];
+  if (matches.length === 0) return userMessage;
+
+  const uniqueIds = [...new Set(matches.map((m) => m[1]))];
+  const lookup = makeLookupSlackUser(teamId);
+
+  const results = await Promise.all(
+    uniqueIds.map(async (uid) => {
+      try {
+        const profile = await lookup(uid);
+        if (!profile) return null;
+        return { uid, name: profile.realName ?? profile.name, email: profile.email ?? null };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const resolved = results.filter(
+    (r): r is { uid: string; name: string; email: string | null } => r !== null
+  );
+  if (resolved.length === 0) return userMessage;
+
+  const contextLines = resolved.map((r) =>
+    r.email
+      ? `- <@${r.uid}> = "${r.name}" <${r.email}>`
+      : `- <@${r.uid}> = "${r.name}" (email not visible)`
+  );
+
+  logger.info("Pre-resolved mentions", { resolved: resolved.map((r) => r.uid) });
+
+  return `[Context: @mentions resolved]\n${contextLines.join("\n")}\n[End context]\n\n${userMessage}`;
+}
+
+// ─── Helper: build UserContext from linked user data ─────────────────────────
+function buildUserContext(linked: {
+  calcomEmail: string;
+  calcomUsername: string;
+  calcomTimeZone: string;
+}): UserContext {
+  return {
+    calcomEmail: linked.calcomEmail,
+    calcomUsername: linked.calcomUsername,
+    calcomTimeZone: linked.calcomTimeZone,
+  };
+}
+
+// ─── Helper: inject tool context from Redis into conversation history ────────
+async function injectToolContext(
+  history: import("ai").ModelMessage[],
+  threadId: string
+): Promise<import("ai").ModelMessage[]> {
+  const entries = await getToolContext(threadId);
+  if (entries.length === 0) return history;
+
+  const summary = entries
+    .map((e) => `[tool-context] ${e.toolName}: ${JSON.stringify(e.result)}`)
+    .join("\n");
+
+  return [
+    ...history,
+    { role: "assistant" as const, content: summary },
+  ];
+}
+
 function handleSlackAuthError(err: unknown): boolean {
   if (
     err instanceof Error &&
@@ -455,7 +529,11 @@ async function withTelegramTypingRefresh(
 // textStream can yield empty when used with multi-step tool calls; result.text resolves to the full text.
 async function postAgentStream(
   thread: Thread,
-  agentResult: { textStream: AsyncIterable<string>; text: PromiseLike<string> },
+  agentResult: {
+    textStream: AsyncIterable<string>;
+    text: PromiseLike<string>;
+    steps?: PromiseLike<unknown[]>;
+  },
   ctx: PlatformContext,
   options?: { onErrorRef?: { current: Error | null } }
 ): Promise<void> {
@@ -501,6 +579,43 @@ async function postAgentStream(
         await thread.post(agentResult.textStream as unknown as string);
       }
       log.info("Stream posted", { platform: ctx.platform, userId: ctx.userId });
+    }
+
+    // Persist tool results to Redis for subsequent turns in this thread
+    try {
+      if (!agentResult.steps) return;
+      const steps = await agentResult.steps;
+      const toolEntries: ToolContextEntry[] = [];
+      for (const step of steps) {
+        const s = step as Record<string, unknown>;
+        const toolResults = s.toolResults;
+        if (!Array.isArray(toolResults)) continue;
+        for (const tr of toolResults) {
+          const r = tr as Record<string, unknown>;
+          if (typeof r.toolName === "string" && r.args && r.result !== undefined) {
+            toolEntries.push({
+              toolName: r.toolName,
+              args: r.args as Record<string, unknown>,
+              result: r.result,
+              timestamp: Date.now(),
+            });
+          }
+        }
+      }
+      if (toolEntries.length > 0) {
+        // Merge with existing context (keep last 10 entries to avoid unbounded growth)
+        const existing = await getToolContext(thread.id);
+        const merged = [...existing, ...toolEntries].slice(-10);
+        await setToolContext(thread.id, merged);
+        log.info("Tool context persisted", {
+          threadId: thread.id,
+          newEntries: toolEntries.length,
+          totalEntries: merged.length,
+        });
+      }
+    } catch (persistErr) {
+      // Non-fatal: tool context persistence failure should not break the response
+      log.warn("Failed to persist tool context", { err: persistErr, threadId: thread.id });
     }
   } catch (err) {
     log.error("Stream failed", {
@@ -563,7 +678,11 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
         await thread.subscribe();
       }
 
-      const history = await buildHistory(thread);
+      const userContext = buildUserContext(linked);
+      const rawHistory = await buildHistory(thread);
+      const history = await injectToolContext(rawHistory, thread.id);
+      const toolSet = detectToolSet(message.text, history);
+
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
         bot
           .getLogger("telegram-freeform")
@@ -577,6 +696,8 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
           platform: ctx.platform,
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
+          userContext,
+          toolSet,
         });
         await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
       });
@@ -681,22 +802,34 @@ bot.onNewMention(async (thread, message) => {
         await thread.subscribe();
       }
 
-      const history = await buildHistory(thread);
+      const userContext = buildUserContext(linked);
+
+      // Pre-resolve @mentions for Slack so the agent doesn't need to call lookup_platform_user
+      const resolvedMessage =
+        ctx.platform === "slack"
+          ? await preResolveMentions(userMessage, ctx.teamId, bot.getLogger("mention"))
+          : userMessage;
+
+      const rawHistory = await buildHistory(thread);
+      const history = await injectToolContext(rawHistory, thread.id);
+      const toolSet = detectToolSet(userMessage, history);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
         bot
           .getLogger("mention")
-          .info("Running agent", { userId: ctx.userId, textLength: userMessage.length });
+          .info("Running agent", { userId: ctx.userId, textLength: resolvedMessage.length });
         const result = runAgentStream({
           teamId: ctx.teamId,
           userId: ctx.userId,
-          userMessage,
+          userMessage: resolvedMessage,
           conversationHistory: history.slice(0, -1),
           lookupPlatformUser:
             ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
           platform: ctx.platform,
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
+          userContext,
+          toolSet,
         });
         await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
       });
@@ -794,22 +927,34 @@ bot.onSubscribedMessage(async (thread, message) => {
         await thread.subscribe();
       }
 
-      const history = await buildHistory(thread);
+      const userContext = buildUserContext(linked);
+
+      // Pre-resolve @mentions for Slack so the agent doesn't need to call lookup_platform_user
+      const resolvedMessage =
+        ctx.platform === "slack"
+          ? await preResolveMentions(userMessage, ctx.teamId, bot.getLogger("thread-follow-up"))
+          : userMessage;
+
+      const rawHistory = await buildHistory(thread);
+      const history = await injectToolContext(rawHistory, thread.id);
+      const toolSet = detectToolSet(userMessage, history);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
         bot
           .getLogger("thread-follow-up")
-          .info("Running agent", { userId: ctx.userId, textLength: userMessage.length });
+          .info("Running agent", { userId: ctx.userId, textLength: resolvedMessage.length });
         const result = runAgentStream({
           teamId: ctx.teamId,
           userId: ctx.userId,
-          userMessage,
+          userMessage: resolvedMessage,
           conversationHistory: history.slice(0, -1),
           lookupPlatformUser:
             ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
           platform: ctx.platform,
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
+          userContext,
+          toolSet,
         });
         await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
       });
