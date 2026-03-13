@@ -101,6 +101,7 @@ export interface GetSlotsParams {
   end: string;
   timeZone?: string;
   duration?: number;
+  bookingUidToReschedule?: string;
 }
 
 export async function getAvailableSlots(
@@ -113,8 +114,9 @@ export async function getAvailableSlots(
     end: params.end,
     ...(params.timeZone ? { timeZone: params.timeZone } : {}),
     ...(params.duration ? { duration: String(params.duration) } : {}),
+    ...(params.bookingUidToReschedule ? { bookingUidToReschedule: params.bookingUidToReschedule } : {}),
   });
-  const data = await calcomFetch<SlotsResponse>(`/v2/slots?${query}`, accessToken);
+  const data = await calcomFetch<SlotsResponse>(`/v2/slots?${query}`, accessToken, {}, "2024-09-04");
   return data.slots;
 }
 
@@ -268,11 +270,16 @@ export async function rescheduleBooking(
   accessToken: string,
   bookingUid: string,
   newStart: string,
-  reason?: string
+  reason?: string,
+  rescheduledBy?: string
 ): Promise<CalcomBooking> {
   return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/reschedule`, accessToken, {
     method: "POST",
-    body: JSON.stringify({ start: newStart, reschedulingReason: reason }),
+    body: JSON.stringify({
+      start: newStart,
+      reschedulingReason: reason,
+      ...(rescheduledBy ? { rescheduledBy } : {}),
+    }),
   });
 }
 

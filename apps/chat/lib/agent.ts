@@ -163,10 +163,10 @@ DURATION VALIDATION:
 CUSTOM BOOKING FIELDS:
 - When \`list_event_types_by_username\` returns event types with \`bookingFields\`, check for fields with \`required: true\`.
 - Before calling \`book_meeting_public\` (or \`book_meeting\`), ask the user for values for ALL required custom fields.
-- Pass the collected values as \`responses\` in the booking call. The key is the field's \`name\` (slug), the value is the user's answer.
-  Example: if bookingFields includes \`{ name: "what-are-you-working-on", type: "text", required: true }\`, ask the user and pass \`responses: { "what-are-you-working-on": "their answer" }\`.
-- CRITICAL: The \`responses\` object must NEVER be empty \`{}\` if there are required fields. Always map each required field slug to the user's answer. If the user provided the value in a previous message, use it — do NOT pass \`responses: {}\`.
-- The default "Notes" field has slug \`"notes"\`. If the user provides a note (e.g. "note: xyz" or "notes: xyz"), map it to \`responses: { "notes": "xyz" }\`.
+- Pass the collected values as \`bookingFieldsResponses\` in the booking call. The key is the field's \`name\` (slug), the value is the user's answer.
+  Example: if bookingFields includes \`{ name: "what-are-you-working-on", type: "text", required: true }\`, ask the user and pass \`bookingFieldsResponses: { "what-are-you-working-on": "their answer" }\`.
+- CRITICAL: The \`bookingFieldsResponses\` object must NEVER be empty \`{}\` if there are required fields. Always map each required field slug to the user's answer. If the user provided the value in a previous message, use it — do NOT pass \`bookingFieldsResponses: {}\`.
+- The default "Notes" field has slug \`"notes"\`. If the user provides a note (e.g. "note: xyz" or "notes: xyz"), map it to \`bookingFieldsResponses: { "notes": "xyz" }\`.
 - Non-required fields can be skipped unless the user volunteers the info.
 
 MULTI-ATTENDEE:
@@ -677,13 +677,12 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .describe(
             "Email addresses of additional attendees (email-only). Use when you have emails but not full details for extra guests."
           ),
-        notes: z.string().nullable().optional().describe("Optional notes for the booking"),
-        responses: z
+        bookingFieldsResponses: z
           .record(z.string(), z.unknown())
           .nullable()
           .optional()
           .describe(
-            "Custom booking field responses. Keys are field slugs from the event type's bookingFields, values are the user's answers. Required when the event type has required custom fields."
+            "Custom booking field responses. Keys are field slugs from the event type's bookingFields, values are the user's answers. The default 'Notes' field has slug 'notes'. Required when the event type has required custom fields."
           ),
       }),
       execute: async ({
@@ -693,8 +692,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         attendeeEmail,
         attendeeTimeZone,
         guestEmails,
-        notes,
-        responses,
+        bookingFieldsResponses,
       }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
@@ -718,8 +716,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               timeZone: attendeeTimeZone ?? linked?.calcomTimeZone ?? "UTC",
             },
             guests: guestEmails?.filter(Boolean) ?? undefined,
-            notes: notes ?? undefined,
-            responses: responses ?? undefined,
+            bookingFieldsResponses: bookingFieldsResponses ?? undefined,
             metadata,
           });
 
@@ -768,18 +765,17 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .nullable()
           .optional()
           .describe("Optional additional guest emails"),
-        notes: z.string().nullable().optional().describe("Optional notes for the booking"),
         lengthInMinutes: z
           .number()
           .nullable()
           .optional()
           .describe("Duration in minutes. Only needed if the event type supports multiple durations."),
-        responses: z
+        bookingFieldsResponses: z
           .record(z.string(), z.unknown())
           .nullable()
           .optional()
           .describe(
-            "Custom booking field responses. Keys are field slugs from the event type's bookingFields, values are the user's answers. Required when the event type has required custom fields."
+            "Custom booking field responses. Keys are field slugs from the event type's bookingFields, values are the user's answers. The default 'Notes' field has slug 'notes'. Required when the event type has required custom fields."
           ),
       }),
       execute: async ({
@@ -790,9 +786,8 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         attendeeEmail,
         attendeeTimeZone,
         guests,
-        notes,
         lengthInMinutes,
-        responses,
+        bookingFieldsResponses,
       }) => {
         const linked = await getLinkedUser(teamId, userId);
 
@@ -815,9 +810,8 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               timeZone: attendeeTimeZone ?? linked?.calcomTimeZone ?? "UTC",
             },
             guests: guests?.filter(Boolean) ?? undefined,
-            notes: notes ?? undefined,
             lengthInMinutes: lengthInMinutes ?? undefined,
-            responses: responses ?? undefined,
+            bookingFieldsResponses: bookingFieldsResponses ?? undefined,
             metadata,
           });
 

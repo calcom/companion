@@ -18,7 +18,7 @@ import {
 } from "chat";
 import type { LookupPlatformUserFn } from "../agent";
 import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "../agent";
-import { createBooking, getAvailableSlots, getBookings, getEventTypes } from "../calcom/client";
+import { CalcomApiError, createBooking, getAvailableSlots, getBookings, getEventTypes } from "../calcom/client";
 import { generateAuthUrl } from "../calcom/oauth";
 import { formatBookingTime } from "../calcom/webhooks";
 import { getLogger } from "../logger";
@@ -40,6 +40,18 @@ import {
 
 const logger = getLogger("slack-handlers");
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
+
+function isSlackAuthError(err: unknown): boolean {
+  if (
+    err instanceof Error &&
+    "code" in err &&
+    (err as Record<string, unknown>).code === "slack_webapi_platform_error"
+  ) {
+    const slackErr = (err as Record<string, unknown>).data as Record<string, unknown> | undefined;
+    return slackErr?.error === "not_authed" || slackErr?.error === "invalid_auth";
+  }
+  return false;
+}
 
 const RETRY_STOP_BLOCKS = cardToBlockKit(
   Card({
@@ -242,15 +254,23 @@ export function registerSlackHandlers(
         type: "home",
         blocks: cardToBlockKit(homeCard),
       });
-    } catch {
+    } catch (err) {
+      const isAuthError = err instanceof CalcomApiError && (err.statusCode === 401 || err.statusCode === 403);
       const authUrl = generateAuthUrl("slack", teamId, userId);
-      const errorCard = Card({
-        title: "Could Not Load Bookings",
-        children: [
-          CardText("Your session may have expired — please reconnect."),
-          Actions([LinkButton({ url: authUrl, label: "Reconnect Cal.com" })]),
-        ],
-      });
+      const errorCard = isAuthError
+        ? Card({
+            title: "Could Not Load Bookings",
+            children: [
+              CardText("Your session may have expired — please reconnect."),
+              Actions([LinkButton({ url: authUrl, label: "Reconnect Cal.com" })]),
+            ],
+          })
+        : Card({
+            title: "Could Not Load Bookings",
+            children: [
+              CardText("Could not load bookings. Please try again later."),
+            ],
+          });
       await slack.publishHomeView(userId, {
         type: "home",
         blocks: cardToBlockKit(errorCard),
@@ -556,12 +576,16 @@ export function registerSlackHandlers(
       {
         postError: (msg) => safeChannelPost(event, msg).catch(() => {}),
         logContext: "/cal",
-        getCustomErrorMessage: () => {
+        getCustomErrorMessage: (err) => {
           if (!lastStreamErrorRef.current) return undefined;
           if (isAIRateLimitError(lastStreamErrorRef.current))
             return "I've hit my daily token limit. Please try again later when the limit resets.";
           if (isAIToolCallError(lastStreamErrorRef.current))
             return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+          if (lastStreamErrorRef.current instanceof CalcomApiError)
+            return `The request failed: ${lastStreamErrorRef.current.statusCode === 401 || lastStreamErrorRef.current.statusCode === 403 ? "Your Cal.com session has expired. Please reconnect your account." : lastStreamErrorRef.current.statusCode === 429 ? "Cal.com rate limit reached. Please try again in a moment." : "Something went wrong with the Cal.com API. Please try again."}`;
+          if (isSlackAuthError(err))
+            return "Sorry, something went wrong while processing your request. Please try again.";
           return undefined;
         },
       }
@@ -914,8 +938,14 @@ export function registerSlackHandlers(
       {
         postError: (msg) => thread.post(msg).catch(() => {}),
         logContext: "confirm_booking",
-        getCustomErrorMessage: (err) =>
-          err instanceof Error ? `Failed to create booking: ${err.message}` : undefined,
+        getCustomErrorMessage: (err) => {
+          if (err instanceof CalcomApiError) {
+            if (err.statusCode === 409) return "This time slot is no longer available. Please pick another.";
+            if (err.statusCode === 422) return "The booking details are incomplete. Please try again.";
+            return "Failed to create the booking. Please try again.";
+          }
+          return err instanceof Error ? "Failed to create the booking. Please try again." : undefined;
+        },
       }
     );
   });
@@ -968,12 +998,16 @@ export function registerSlackHandlers(
       {
         postError: (msg) => thread.post(msg).catch(() => {}),
         logContext: "retry_response",
-        getCustomErrorMessage: () => {
+        getCustomErrorMessage: (err) => {
           if (!lastStreamErrorRef.current) return undefined;
           if (isAIRateLimitError(lastStreamErrorRef.current))
             return "I've hit my daily token limit. Please try again later when the limit resets.";
           if (isAIToolCallError(lastStreamErrorRef.current))
             return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+          if (lastStreamErrorRef.current instanceof CalcomApiError)
+            return `The request failed: ${lastStreamErrorRef.current.statusCode === 401 || lastStreamErrorRef.current.statusCode === 403 ? "Your Cal.com session has expired. Please reconnect your account." : lastStreamErrorRef.current.statusCode === 429 ? "Cal.com rate limit reached. Please try again in a moment." : "Something went wrong with the Cal.com API. Please try again."}`;
+          if (isSlackAuthError(err))
+            return "Sorry, something went wrong while processing your request. Please try again.";
           return undefined;
         },
       }

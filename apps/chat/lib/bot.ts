@@ -27,6 +27,7 @@ import {
 } from "chat";
 import type { LookupPlatformUserFn, UserContext } from "./agent";
 import { detectToolSet, isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
+import { CalcomApiError } from "./calcom/client";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
 import { formatForTelegram } from "./format-for-telegram";
@@ -425,6 +426,27 @@ function isSlackAuthError(err: unknown): boolean {
   return false;
 }
 
+function friendlyCalcomError(err: CalcomApiError): string {
+  switch (err.statusCode) {
+    case 400:
+    case 422:
+      return "The request was invalid. Please check the details and try again.";
+    case 401:
+    case 403:
+      return "Your Cal.com session has expired. Please reconnect your account.";
+    case 404:
+      return "The booking or event type was not found.";
+    case 409:
+      return "This time slot is no longer available.";
+    case 429:
+      return "Cal.com rate limit reached. Please try again in a moment.";
+    default:
+      return err.statusCode && err.statusCode >= 500
+        ? "Cal.com is experiencing issues. Please try again later."
+        : "Something went wrong with the Cal.com API. Please try again.";
+  }
+}
+
 /** Wraps async handlers with consistent LockError, RateLimitError, adapter errors, and Slack auth error handling. */
 async function withBotErrorHandling(
   fn: () => Promise<void>,
@@ -491,6 +513,14 @@ async function withBotErrorHandling(
       botLogger.warn("Feature not supported", err.feature);
       return;
     }
+    // Cal.com API errors — show status-specific messages
+    if (err instanceof CalcomApiError) {
+      botLogger.warn("Cal.com API error", { statusCode: err.statusCode, message: err.message });
+      await options
+        .postError(friendlyCalcomError(err))
+        .catch(() => {});
+      return;
+    }
     // AI/LLM rate limit (e.g. Groq tokens-per-day) — show friendly message
     if (isAIRateLimitError(err)) {
       botLogger.warn("AI rate limit", err);
@@ -524,7 +554,7 @@ async function withBotErrorHandling(
       botLogger.error("Slack auth error — workspace may need reinstall", err);
       await options
         .postError(
-          "The Slack app token has expired or been revoked. Please reinstall the app by visiting the Cal.com app settings."
+          "Sorry, I'm having trouble connecting to Slack right now. If this persists, please ask your workspace admin to reinstall the Cal.com app."
         )
         .catch(() => {});
       return;
@@ -837,7 +867,8 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
           return "I've hit my daily token limit. Please try again later when the limit resets.";
         if (isAIToolCallError(lastStreamErrorRef.current))
           return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
-        // Any other stream error should NOT fall through to Slack auth check
+        if (lastStreamErrorRef.current instanceof CalcomApiError)
+          return friendlyCalcomError(lastStreamErrorRef.current);
         if (isSlackAuthError(err))
           return "Sorry, something went wrong while processing your request. Please try again.";
         return undefined;
@@ -960,7 +991,8 @@ bot.onNewMention(async (thread, message) => {
           return "I've hit my daily token limit. Please try again later when the limit resets.";
         if (isAIToolCallError(lastStreamErrorRef.current))
           return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
-        // Any other stream error should NOT fall through to Slack auth check
+        if (lastStreamErrorRef.current instanceof CalcomApiError)
+          return friendlyCalcomError(lastStreamErrorRef.current);
         if (isSlackAuthError(err))
           return "Sorry, something went wrong while processing your request. Please try again.";
         return undefined;
@@ -1070,7 +1102,8 @@ bot.onSubscribedMessage(async (thread, message) => {
           return "I've hit my daily token limit. Please try again later when the limit resets.";
         if (isAIToolCallError(lastStreamErrorRef.current))
           return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
-        // Any other stream error should NOT fall through to Slack auth check
+        if (lastStreamErrorRef.current instanceof CalcomApiError)
+          return friendlyCalcomError(lastStreamErrorRef.current);
         if (isSlackAuthError(err))
           return "Sorry, something went wrong while processing your request. Please try again.";
         return undefined;

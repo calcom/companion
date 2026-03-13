@@ -83,9 +83,8 @@ export interface CreateBookingInput {
     timeZone: string;
   };
   guests?: string[];
-  notes?: string;
   metadata?: Record<string, string>;
-  responses?: Record<string, unknown>;
+  bookingFieldsResponses?: Record<string, unknown>;
 }
 
 export interface CreatePublicBookingInput {
@@ -98,9 +97,8 @@ export interface CreatePublicBookingInput {
     timeZone: string;
   };
   guests?: string[];
-  notes?: string;
   lengthInMinutes?: number;
-  responses?: Record<string, unknown>;
+  bookingFieldsResponses?: Record<string, unknown>;
   metadata?: Record<string, string>;
 }
 
