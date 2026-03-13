@@ -19,6 +19,7 @@ import {
   getCalendarLinks,
   getDefaultSchedule,
   getEventTypes,
+  getEventTypesByUsername,
   getMe,
   getSchedule,
   getSchedules,
@@ -133,6 +134,16 @@ DURATION VALIDATION:
 - If it conflicts with the selected event type duration (e.g. 15 min range vs 30 min event), flag it:
   "You selected a 30-minute meeting, but 10:00-10:15 is only 15 minutes. Shall I book 10:00-10:30 instead, or switch to a 15-minute event type?"
 - The event type duration is canonical. Use the START of the user's range as startTime.
+
+WHOSE CALENDAR TO USE:
+When the user wants to book a meeting with someone:
+1. Ask: "Whose event types should I use — yours (you host) or theirs (they host)?"
+2. If YOURS: proceed with current flow (list_event_types → check_availability → book_meeting). You are the host, the other person is the attendee.
+3. If THEIRS: ask for the other person's Cal.com username, then call list_event_types_by_username. The other person is the host, the requesting user is the attendee.
+   - Use their event type ID for check_availability and book_meeting.
+   - The requesting user's name + email goes in attendeeName/attendeeEmail (they are the attendee).
+4. If the user says "use mine" or "my calendar" → option 2.
+5. If the user provides a Cal.com username directly (e.g. "book on peer's cal.com") → skip to option 3.
 
 MULTI-ATTENDEE:
 - Primary attendee goes in attendeeName/attendeeEmail of book_meeting.
@@ -285,6 +296,42 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to fetch event types" };
+        }
+      },
+    }),
+
+    list_event_types_by_username: tool({
+      description:
+        "Fetch another person's public Cal.com event types by their username. Use when the user wants to book on someone else's calendar instead of their own.",
+      inputSchema: z.object({
+        username: z.string().describe("The Cal.com username (e.g. 'peer', 'dhairyashil')"),
+      }),
+      execute: async ({ username }) => {
+        try {
+          const types = await getEventTypesByUsername(username);
+          if (types.length === 0) {
+            return {
+              username,
+              error: `No public event types found for username "${username}". The user may not exist or has no public event types.`,
+            };
+          }
+          return {
+            username,
+            eventTypes: types.map((et) => ({
+              id: et.id,
+              title: et.title,
+              slug: et.slug,
+              duration: et.length,
+              description: et.description,
+              hidden: et.hidden,
+              bookingUrl: et.bookingUrl,
+            })),
+          };
+        } catch (err) {
+          return {
+            username,
+            error: err instanceof Error ? err.message : "Failed to fetch event types for this user",
+          };
         }
       },
     }),
@@ -982,6 +1029,7 @@ export function isAIRateLimitError(err: unknown): boolean {
 
 const CORE_TOOL_NAMES = new Set([
   "list_event_types",
+  "list_event_types_by_username",
   "check_availability",
   "book_meeting",
   "add_booking_attendee",

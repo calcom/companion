@@ -374,6 +374,29 @@ export async function addBookingAttendee(
   });
 }
 
+// ─── Public event types (no auth) ─────────────────────────────────────────────
+
+export async function getEventTypesByUsername(username: string): Promise<CalcomEventType[]> {
+  const url = `${CALCOM_API_URL}/v2/event-types?username=${encodeURIComponent(username)}`;
+  const res = await fetch(url, {
+    headers: {
+      "cal-api-version": "2024-06-14",
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) {
+    throw new CalcomApiError(`Failed to fetch event types for ${username}`, res.status);
+  }
+  const json = (await res.json()) as CalcomApiResponse<CalcomEventType[]>;
+  if (json.status === "error") {
+    throw new CalcomApiError(json.error?.message ?? "User not found", undefined, json.error?.code);
+  }
+  return (json.data ?? []).map((et) => ({
+    ...et,
+    length: et.length ?? et.lengthInMinutes ?? 0,
+  }));
+}
+
 // ─── Booking extras ───────────────────────────────────────────────────────────
 
 export async function getCalendarLinks(
