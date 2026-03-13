@@ -20,6 +20,12 @@ import type {
 const CALCOM_API_URL = process.env.CALCOM_API_URL ?? "https://api.cal.com";
 const API_VERSION = "2024-08-13";
 
+const FETCH_TIMEOUT_MS = 10_000;
+const MAX_RETRIES = 2;
+const RETRY_BASE_MS = 500;
+const RETRY_MULTIPLIER = 3;
+const RETRYABLE_STATUS_CODES = new Set([500, 502, 503, 504]);
+
 export class CalcomApiError extends Error {
   constructor(
     message: string,
@@ -31,14 +37,54 @@ export class CalcomApiError extends Error {
   }
 }
 
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit = {},
+  maxRetries: number = MAX_RETRIES
+): Promise<Response> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+
+      if (RETRYABLE_STATUS_CODES.has(res.status) && attempt < maxRetries) {
+        await sleep(RETRY_BASE_MS * RETRY_MULTIPLIER ** attempt);
+        continue;
+      }
+
+      return res;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < maxRetries) {
+        await sleep(RETRY_BASE_MS * RETRY_MULTIPLIER ** attempt);
+      }
+    }
+  }
+
+  throw new CalcomApiError(
+    `Cal.com API request failed after ${maxRetries + 1} attempts: ${lastError?.message ?? "unknown error"}`,
+    undefined,
+    "FETCH_RETRY_EXHAUSTED"
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function calcomFetch<T>(
   path: string,
   accessToken: string,
   options: RequestInit = {},
-  apiVersion: string = API_VERSION
+  apiVersion: string = API_VERSION,
+  retries: number = MAX_RETRIES
 ): Promise<T> {
   const url = `${CALCOM_API_URL}${path}`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     ...options,
     headers: {
       "cal-api-version": apiVersion,
@@ -46,7 +92,7 @@ async function calcomFetch<T>(
       "Content-Type": "application/json",
       ...options.headers,
     },
-  });
+  }, retries);
 
   if (!res.ok) {
     let errorMessage = `Cal.com API error: ${res.status} ${res.statusText}`;
@@ -147,7 +193,7 @@ export async function getAvailableSlotsPublic(
     ...(params.bookingUidToReschedule ? { bookingUidToReschedule: params.bookingUidToReschedule } : {}),
   });
   const url = `${CALCOM_API_URL}/v2/slots?${query}`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     headers: {
       "cal-api-version": "2024-09-04",
       "Content-Type": "application/json",
@@ -232,21 +278,21 @@ export async function createBooking(
   return calcomFetch<CalcomBooking>("/v2/bookings", accessToken, {
     method: "POST",
     body: JSON.stringify(input),
-  });
+  }, API_VERSION, 0);
 }
 
 export async function createBookingPublic(
   input: CreatePublicBookingInput
 ): Promise<CalcomBooking> {
   const url = `${CALCOM_API_URL}/v2/bookings`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: "POST",
     headers: {
       "cal-api-version": "2024-08-13",
       "Content-Type": "application/json",
     },
     body: JSON.stringify(input),
-  });
+  }, 0);
   if (!res.ok) {
     const body = await res.text();
     let message = `Booking failed (${res.status})`;
@@ -471,14 +517,14 @@ export async function addBookingAttendee(
   await calcomFetch<unknown>(`/v2/bookings/${bookingUid}/attendees`, accessToken, {
     method: "POST",
     body: JSON.stringify(input),
-  });
+  }, API_VERSION, 0);
 }
 
 // ─── Public event types (no auth) ─────────────────────────────────────────────
 
 export async function getEventTypesByUsername(username: string): Promise<CalcomEventType[]> {
   const url = `${CALCOM_API_URL}/v2/event-types?username=${encodeURIComponent(username)}`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     headers: {
       "cal-api-version": "2024-06-14",
       "Content-Type": "application/json",
