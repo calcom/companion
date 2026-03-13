@@ -31,7 +31,7 @@ import {
   updateMe,
   updateSchedule,
 } from "./calcom/client";
-import { getLinkedUser, getValidAccessToken, unlinkUser } from "./user-linking";
+import { getLinkedUser, getValidAccessToken, linkUser, unlinkUser } from "./user-linking";
 
 export interface PlatformUserProfile {
   id: string;
@@ -306,6 +306,42 @@ ${bold}EDGE CASES:${bold}
   event types -- suggest they create a "Focus Time" or "Blocked" event type, or block time
   directly in their connected calendar (Google Calendar, Outlook, etc.).
 
+## Profile Management
+
+When the user asks about or wants to change their profile settings:
+
+${bold}VIEWING PROFILE:${bold}
+- "What's my timezone?", "What's my email?" -- answer from the "Your Account" section above. Do NOT call get_my_profile unless the user explicitly says "refresh" or you suspect the cached data is stale.
+- "Show my full profile" -- call get_my_profile to get all fields including bio, time format, week start, locale.
+
+${bold}UPDATING PROFILE:${bold}
+- Always confirm before making changes. Show what will change:
+  "I'll update your timezone from Asia/Kolkata to America/Los_Angeles. Confirm?"
+- If the user says "change my timezone to PST", resolve the abbreviation to the IANA timezone:
+  PST/PDT -> America/Los_Angeles, EST/EDT -> America/New_York, CST/CDT -> America/Chicago,
+  MST/MDT -> America/Denver, IST -> Asia/Kolkata, GMT/UTC -> UTC, CET/CEST -> Europe/Berlin,
+  BST -> Europe/London, JST -> Asia/Tokyo, AEST -> Australia/Sydney, NZST -> Pacific/Auckland.
+  If ambiguous (e.g. "CST" could be US Central or China Standard), ask the user to clarify.
+- For email changes: warn the user that email updates require verification -- "I'll request the change
+  to [new email]. Cal.com will send a verification email to the new address. Your current email stays
+  active until you verify."
+- After a successful update, confirm what changed: "Done! Your timezone is now America/Los_Angeles.
+  All future time displays will use this timezone."
+
+${bold}FIELDS THE USER CAN UPDATE:${bold}
+- name -- display name
+- email -- requires verification (see above)
+- timeZone -- IANA timezone string (e.g. "America/New_York")
+- timeFormat -- 12-hour or 24-hour clock
+- weekStart -- which day the week starts on (Monday, Sunday, etc.)
+- locale -- language preference (e.g. "en", "es", "de")
+- bio -- short bio text
+
+${bold}FAST-PATH:${bold}
+- If the user says "set my timezone to PST" or "change my name to John" with clear intent,
+  show the confirmation and proceed on "yes". Do NOT ask for additional fields.
+- If the user says "update my profile" without specifying what to change, ask what they'd like to update.
+
 ## Timezone Conversion
 - IST = Asia/Kolkata (UTC+5:30)
 - PST = America/Los_Angeles (UTC-8), PDT = UTC-7
@@ -432,7 +468,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     get_my_profile: tool({
-      description: "Get the linked user's Cal.com profile information.",
+      description: "Get the linked user's full Cal.com profile from the API. Only call this when the user asks for their full profile or fields not in the 'Your Account' section (like bio, time format, week start, locale). For basic info (email, username, timezone), use the pre-verified data in the system prompt.",
       inputSchema: z.object({}).passthrough(),
       execute: async () => {
         const token = await getAccessTokenOrNull(teamId, userId);
@@ -1197,7 +1233,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
 
     update_profile: tool({
       description:
-        "Update the user's Cal.com profile (name, email, timezone, time format, week start, etc.).",
+        "Update the user's Cal.com profile. Always confirm with the user before calling. For timezone, use IANA timezone strings (e.g. 'America/New_York', not 'EST'). Email changes require verification.",
       inputSchema: z.object({
         name: z.string().nullable().optional().describe("Display name"),
         email: z.string().nullable().optional().describe("Email address"),
@@ -1222,6 +1258,26 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         if (Object.keys(patch).length === 0) return { error: "No fields provided to update." };
         try {
           const me = await updateMe(token, patch);
+
+          // Sync changed fields back to Redis so the cached LinkedUser stays fresh.
+          // This ensures the system prompt's "Your Account" section and all timezone
+          // conversions use the updated values.
+          const linked = await getLinkedUser(teamId, userId);
+          if (linked) {
+            let dirty = false;
+            if (me.email && me.email !== linked.calcomEmail) {
+              linked.calcomEmail = me.email;
+              dirty = true;
+            }
+            if (me.timeZone && me.timeZone !== linked.calcomTimeZone) {
+              linked.calcomTimeZone = me.timeZone;
+              dirty = true;
+            }
+            if (dirty) {
+              await linkUser(teamId, userId, linked);
+            }
+          }
+
           return { success: true, name: me.name, email: me.email, timeZone: me.timeZone };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to update profile" };
