@@ -1769,67 +1769,6 @@ export function isAIRateLimitError(err: unknown): boolean {
   return hasRateLimit || (status429 && (msg.includes("retry") || causeMsg.includes("retry")));
 }
 
-// ─── Context-aware tool filtering ─────────────────────────────────────────────
-
-const CORE_TOOL_NAMES = new Set([
-  "list_event_types",
-  "list_event_types_by_username",
-  "check_availability",
-  "check_availability_public",
-  "book_meeting",
-  "book_meeting_public",
-  "add_booking_attendee",
-  "list_bookings",
-  "get_booking",
-  "cancel_booking",
-  "reschedule_booking",
-  "create_event_type",
-  "update_event_type",
-  "delete_event_type",
-]);
-
-const ADMIN_KEYWORDS = [
-  "schedule",
-  "working hours",
-  "profile",
-  "unlink",
-  "no-show",
-  "no show",
-  "confirm booking",
-  "decline",
-  "calendar link",
-  "busy times",
-];
-
-export function detectToolSet(
-  message: string,
-  history: ModelMessage[]
-): "core" | "all" {
-  const lowerMsg = message.toLowerCase();
-  if (ADMIN_KEYWORDS.some((kw) => lowerMsg.includes(kw))) return "all";
-  // Also check last few history messages for admin context
-  for (const msg of history.slice(-3)) {
-    if (typeof msg.content === "string" && ADMIN_KEYWORDS.some((kw) => msg.content.toString().toLowerCase().includes(kw))) {
-      return "all";
-    }
-  }
-  return "core";
-}
-
-function filterTools<T extends Record<string, unknown>>(
-  allTools: T,
-  toolSet: "core" | "all"
-): T {
-  if (toolSet === "all") return allTools;
-  const filtered = {} as Record<string, unknown>;
-  for (const [name, t] of Object.entries(allTools)) {
-    if (CORE_TOOL_NAMES.has(name)) {
-      filtered[name] = t;
-    }
-  }
-  return filtered as T;
-}
-
 // ─── Agent stream ─────────────────────────────────────────────────────────────
 
 export interface AgentStreamOptions {
@@ -1844,8 +1783,6 @@ export interface AgentStreamOptions {
   onErrorRef?: { current: Error | null };
   /** Pre-verified user context from bot layer — injected into system prompt. */
   userContext?: UserContext;
-  /** Which tool set to expose: 'core' (booking only) or 'all' (includes admin tools). */
-  toolSet?: "core" | "all";
 }
 
 export function runAgentStream({
@@ -1858,10 +1795,8 @@ export function runAgentStream({
   logger,
   onErrorRef,
   userContext,
-  toolSet = "core",
 }: AgentStreamOptions) {
-  const allTools = createCalTools(teamId, userId, platform, lookupPlatformUser);
-  const tools = filterTools(allTools, toolSet);
+  const tools = createCalTools(teamId, userId, platform, lookupPlatformUser);
 
   // Keep only the last 10 messages from history to prevent stale context
   // (e.g. an old booking request) from hijacking unrelated follow-up messages.

@@ -26,7 +26,7 @@ import {
   RateLimitError,
 } from "chat";
 import type { LookupPlatformUserFn, UserContext } from "./agent";
-import { detectToolSet, isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
+import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
 import { CalcomApiError } from "./calcom/client";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
@@ -837,7 +837,6 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
 
       const enrichedMessage = await buildEnrichedMessage(message.text, thread.id);
       const rawHistory = await buildHistory(thread);
-      const toolSet = detectToolSet(message.text, rawHistory);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
         bot
@@ -853,7 +852,6 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
           userContext,
-          toolSet,
         });
         await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
       });
@@ -960,7 +958,6 @@ bot.onNewMention(async (thread, message) => {
 
       const enrichedMessage = await buildEnrichedMessage(resolvedMessage, thread.id);
       const rawHistory = await buildHistory(thread);
-      const toolSet = detectToolSet(userMessage, rawHistory);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
         bot
@@ -977,7 +974,6 @@ bot.onNewMention(async (thread, message) => {
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
           userContext,
-          toolSet,
         });
         await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
       });
@@ -1071,7 +1067,6 @@ bot.onSubscribedMessage(async (thread, message) => {
 
       const enrichedMessage = await buildEnrichedMessage(resolvedMessage, thread.id);
       const rawHistory = await buildHistory(thread);
-      const toolSet = detectToolSet(userMessage, rawHistory);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
         bot
@@ -1088,7 +1083,6 @@ bot.onSubscribedMessage(async (thread, message) => {
           logger: bot.getLogger("agent"),
           onErrorRef: lastStreamErrorRef,
           userContext,
-          toolSet,
         });
         await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
       });
