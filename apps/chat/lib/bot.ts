@@ -520,7 +520,8 @@ async function promptUserToLink(
   } else {
     // Ephemeral messages are unreliable in Slack assistant threads, so post as a
     // regular thread message. The OAuth URL is user-specific and safe to show.
-    await thread.post(card);
+    // Wrap with withSlackToken to ensure the bot token is in context.
+    await withSlackToken(ctx.teamId, () => thread.post(card));
   }
 }
 
@@ -552,6 +553,20 @@ async function withTelegramTypingRefresh(
   })();
 }
 
+/**
+ * Run an async function with the Slack bot token explicitly set in context.
+ * Prevents `not_authed` errors when AsyncLocalStorage context is lost across
+ * async boundaries (e.g. Vercel waitUntil, long-running agent streams).
+ */
+async function withSlackToken<T>(teamId: string, fn: () => Promise<T>): Promise<T> {
+  const slack = getSlackAdapter();
+  const installation = await slack.getInstallation(teamId);
+  if (installation?.botToken) {
+    return slack.withBotToken(installation.botToken, fn);
+  }
+  return fn();
+}
+
 // Streaming flow (see chat/docs/streaming.mdx): Slack uses the native chatStream API via
 // adapter.stream() with stopBlocks for the Retry button; other platforms use the post+edit
 // fallback via thread.post(textStream).
@@ -577,12 +592,14 @@ async function postAgentStream(
   try {
     if (ctx.platform === "slack") {
       const slack = getSlackAdapter();
-      await slack.stream(thread.id, agentResult.textStream, {
-        recipientUserId: ctx.userId,
-        recipientTeamId: ctx.teamId,
-        stopBlocks: RETRY_STOP_BLOCKS,
+      await withSlackToken(ctx.teamId, async () => {
+        await slack.stream(thread.id, agentResult.textStream, {
+          recipientUserId: ctx.userId,
+          recipientTeamId: ctx.teamId,
+          stopBlocks: RETRY_STOP_BLOCKS,
+        });
+        log.info("Slack stream completed", { userId: ctx.userId });
       });
-      log.info("Slack stream completed", { userId: ctx.userId });
     } else {
       if (ctx.platform === "telegram") {
         const fullText = await agentResult.text;
@@ -782,6 +799,11 @@ bot.onNewMention(async (thread, message) => {
   });
 
   const lastStreamErrorRef = { current: null as Error | null };
+  const safePost = (msg: string) =>
+    ctx.platform === "slack"
+      ? withSlackToken(ctx.teamId, () => thread.post(msg)).catch(() => {})
+      : thread.post(msg).catch(() => {});
+
   await withBotErrorHandling(
     async () => {
       // Telegram commands handled by onNewMessage (slash command handler)
@@ -850,7 +872,7 @@ bot.onNewMention(async (thread, message) => {
       });
     },
     {
-      postError: (msg) => thread.post(msg).catch(() => {}),
+      postError: safePost,
       logContext: "handling mention",
       getCustomErrorMessage: () => {
         if (!lastStreamErrorRef.current) return undefined;
@@ -896,6 +918,11 @@ bot.onSubscribedMessage(async (thread, message) => {
   });
 
   const lastStreamErrorRef = { current: null as Error | null };
+  const safePost = (msg: string) =>
+    ctx.platform === "slack"
+      ? withSlackToken(ctx.teamId, () => thread.post(msg)).catch(() => {})
+      : thread.post(msg).catch(() => {});
+
   await withBotErrorHandling(
     async () => {
       const linked = await getLinkedUser(ctx.teamId, ctx.userId);
@@ -951,7 +978,7 @@ bot.onSubscribedMessage(async (thread, message) => {
       });
     },
     {
-      postError: (msg) => thread.post(msg).catch(() => {}),
+      postError: safePost,
       logContext: "thread follow-up",
       getCustomErrorMessage: () => {
         if (!lastStreamErrorRef.current) return undefined;
