@@ -117,6 +117,54 @@ export async function getAvailableSlots(
   return data.slots;
 }
 
+export interface GetPublicSlotsParams {
+  eventTypeSlug: string;
+  username: string;
+  start: string;
+  end: string;
+  timeZone?: string;
+  duration?: number;
+}
+
+interface PublicSlotEntry {
+  start: string;
+}
+
+export async function getAvailableSlotsPublic(
+  params: GetPublicSlotsParams
+): Promise<Record<string, CalcomSlot[]>> {
+  const query = new URLSearchParams({
+    eventTypeSlug: params.eventTypeSlug,
+    username: params.username,
+    start: params.start,
+    end: params.end,
+    ...(params.timeZone ? { timeZone: params.timeZone } : {}),
+    ...(params.duration ? { duration: String(params.duration) } : {}),
+  });
+  const url = `${CALCOM_API_URL}/v2/slots?${query}`;
+  const res = await fetch(url, {
+    headers: {
+      "cal-api-version": "2024-09-04",
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) {
+    throw new CalcomApiError(`Failed to fetch public slots: ${res.status}`, res.status);
+  }
+  const json = (await res.json()) as { status: string; data: Record<string, PublicSlotEntry[]> };
+  if (json.status === "error") {
+    throw new CalcomApiError("Failed to fetch slots for this user", res.status);
+  }
+  const normalized: Record<string, CalcomSlot[]> = {};
+  for (const [date, slots] of Object.entries(json.data)) {
+    normalized[date] = slots.map((s) => ({
+      time: s.start,
+      available: true,
+    }));
+  }
+  return normalized;
+}
+
 export interface GetBookingsParams {
   status?: "upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed";
   take?: number;

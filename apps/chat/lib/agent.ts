@@ -13,6 +13,7 @@ import {
   deleteEventType,
   deleteSchedule,
   getAvailableSlots,
+  getAvailableSlotsPublic,
   getBooking,
   getBookings,
   getBusyTimes,
@@ -98,52 +99,65 @@ IMPORTANT: When the user mentions a date, compare it against the date in THEIR t
 
 ${userAccountSection}
 
-## Booking a Meeting
-You are always the HOST. The attendee does NOT need a Cal.com account.
+## Booking a Meeting — FIRST STEP: Whose Calendar?
+When the user wants to book a meeting with someone, you MUST first determine whose calendar to use. This is the VERY FIRST question before anything else.
 
-To book a meeting, you need these 4 pieces of information:
-1. ${bold}Attendee name + email${bold} — check [CACHED TOOL DATA] and [Context: @mentions resolved] first, then conversation history
-2. ${bold}Event type ID${bold} — check [CACHED TOOL DATA] and conversation history first. Only call list_event_types if NOT already available.
+${bold}STEP 0 — WHOSE CALENDAR:${bold}
+Ask the user: "Whose event types should I use to book this meeting?"
+• ${bold}Yours${bold} (you are the host, the other person is the attendee) — uses your event types
+• ${bold}Theirs${bold} (they are the host, you book on their calendar) — requires their Cal.com username
+
+Rules:
+- If the user says "use mine", "my calendar", "I'll host" → YOUR calendar (Option A).
+- If the user says "use theirs", "their calendar", "book on their cal.com", or provides a Cal.com username → THEIR calendar (Option B).
+- If the user provides a Cal.com username directly in the booking request (e.g. "book on peer's cal.com", "book meeting with username dhairyashil") → skip asking and go to Option B with that username.
+- Do NOT skip this step. Do NOT assume "yours" by default. Always ask unless the user already indicated a preference.
+
+${bold}Option A — YOUR calendar (you host):${bold}
+You are the host. The other person is the attendee.
+To book, you need these 4 pieces:
+1. ${bold}Attendee name + email${bold} — check [CACHED TOOL DATA] and [Context: @mentions resolved] first
+2. ${bold}Event type ID${bold} — from YOUR event types (list_event_types)
 3. ${bold}Date + time in UTC${bold} — convert from user's timezone (${userTz})
 4. ${bold}Slot is available${bold} — call check_availability ONCE
+
+${bold}Option B — THEIR calendar (they host):${bold}
+The other person is the host. The requesting user is the attendee.
+1. Ask for the other person's Cal.com username if not provided.
+2. Call \`list_event_types_by_username\` with their username.
+3. Show their event types and let the user pick. Note the \`slug\` from the result.
+4. Call \`check_availability_public\` with the event type \`slug\` and \`username\`. Do NOT use \`check_availability\` — that requires the host's auth token which you don't have.
+5. Present available slots and let the user pick.
+6. Call book_meeting with their event type ID. Use the requesting user's name + email (from Your Account above) as attendeeName/attendeeEmail.
 
 EVENT TYPE SELECTION:
 - If there is only 1 non-hidden event type, auto-select it. Tell the user which one you're using.
 - If there are 2-3, list them and ask. If the user's message hints at duration (e.g. "quick chat" = 15 min, "meeting" = 30 min), fuzzy-match and auto-select.
 - If the user named an event type (e.g. "product discussion", "30 min", "15 min"): fuzzy-match by title or duration. If 1 clear match, use it. If ambiguous, show the list and ask.
-- NEVER create a new event type during a booking flow. If no match, show the list and ask.
+- NEVER create a new event type during a booking flow.
 
 DECISION LOGIC:
 - If [CACHED TOOL DATA] contains \`_resolved_attendees\`, use the name and email from there for book_meeting. Do NOT ask the user for attendee details that are already resolved. Do NOT call lookup_platform_user.
 - If attendee info is in [Context: @mentions resolved] in the current message, use it directly.
-- If event types are in [CACHED TOOL DATA] (as \`list_event_types\` result) or conversation history, use them. Do NOT re-call list_event_types.
+- If event types are in [CACHED TOOL DATA] (as \`list_event_types\` or \`list_event_types_by_username\` result) or conversation history, use them. Do NOT re-call the tool.
 - If you have all 4 pieces AND the user used explicit confirmation language ("go ahead", "confirm", "just do it", "book it"), call book_meeting immediately.
 - If pieces are missing, reply asking for ALL missing pieces in ONE message.
 
 URGENCY ("ASAP", "as soon as possible", "earliest", "next available"):
 - If the user wants the soonest slot, OR if [CACHED TOOL DATA] contains \`_booking_intent\` with urgency "asap":
-  1. Get event types from [CACHED TOOL DATA] or call list_event_types (ONCE).
-  2. If only 1 non-hidden event type, auto-select it. If 2-3, ask which one.
-  3. Once the event type is known, call check_availability with startDate = today, daysAhead = 3.
-  4. Present the first 3-5 available slots and ask the user to pick.
+  1. First resolve WHOSE CALENDAR (Step 0 above) — still ask this even for ASAP.
+  2. Get event types from [CACHED TOOL DATA] or call list_event_types / list_event_types_by_username (ONCE).
+  3. If only 1 non-hidden event type, auto-select it. If 2-3, ask which one.
+  4a. ${bold}If YOUR calendar (Option A):${bold} call check_availability with startDate = today, daysAhead = 3. Present the first 3-5 available slots and ask the user to pick.
+  4b. ${bold}If THEIR calendar (Option B):${bold} call check_availability_public with the event type slug, username, startDate = today, daysAhead = 3. Present the first 3-5 available slots and ask the user to pick.
   5. Do NOT ask "what date/time?" — the user already said they want the soonest.
-- IMPORTANT: When the user picks an event type in a follow-up message (e.g. "15 min meeting"), check [CACHED TOOL DATA] for \`_booking_intent\`. If it says "asap", immediately check availability — do NOT ask for date/time.
+- IMPORTANT: When the user picks an event type in a follow-up message (e.g. "15 min meeting"), check [CACHED TOOL DATA] for \`_booking_intent\`. If it says "asap", immediately check availability (check_availability for Option A, check_availability_public for Option B) — do NOT ask for date/time.
 
 DURATION VALIDATION:
 - If the user specifies a time range (e.g. "10:00-10:15 AM"), calculate the implied duration.
 - If it conflicts with the selected event type duration (e.g. 15 min range vs 30 min event), flag it:
   "You selected a 30-minute meeting, but 10:00-10:15 is only 15 minutes. Shall I book 10:00-10:30 instead, or switch to a 15-minute event type?"
 - The event type duration is canonical. Use the START of the user's range as startTime.
-
-WHOSE CALENDAR TO USE:
-When the user wants to book a meeting with someone:
-1. Ask: "Whose event types should I use — yours (you host) or theirs (they host)?"
-2. If YOURS: proceed with current flow (list_event_types → check_availability → book_meeting). You are the host, the other person is the attendee.
-3. If THEIRS: ask for the other person's Cal.com username, then call list_event_types_by_username. The other person is the host, the requesting user is the attendee.
-   - Use their event type ID for check_availability and book_meeting.
-   - The requesting user's name + email goes in attendeeName/attendeeEmail (they are the attendee).
-4. If the user says "use mine" or "my calendar" → option 2.
-5. If the user provides a Cal.com username directly (e.g. "book on peer's cal.com") → skip to option 3.
 
 MULTI-ATTENDEE:
 - Primary attendee goes in attendeeName/attendeeEmail of book_meeting.
@@ -170,6 +184,7 @@ Do NOT automatically resume an incomplete task from earlier in the conversation.
 3. NEVER call check_availability more than once per step. Pick ONE eventTypeId and ONE date range.
 4. If check_availability returns \`totalSlots: 0\`, read the \`noSlotsReason\` and present the \`nextAvailableSlots\` as alternatives. NEVER say "I wasn't able to check" or "I couldn't check" — the check succeeded, there are just no slots for that date.
 5. If check_availability returns slots, USE them in your response. Do not discard results.
+6. NEVER call \`check_availability\` for another user's event type — it requires the host's auth token. Use \`check_availability_public\` instead (pass eventTypeSlug + username).
 6. Never call a tool with empty or placeholder arguments.
 7. During a booking flow, sequential tool calls across steps are expected (list_event_types → check_availability → book_meeting). After completing the task, respond with text.
 8. NEVER call create_event_type, update_event_type, or delete_event_type unless the user explicitly asked to create/update/delete an event type.
@@ -338,7 +353,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
 
     check_availability: tool({
       description:
-        "Check YOUR available time slots for a specific event type. You are always the host. Call this to find available slots for a date range. You may call it again with a different range if the user's requested slot is unavailable.",
+        "Check YOUR available time slots for a specific event type. Only works for your own event types (requires your auth token). Do NOT use this for another user's event types — there is no public availability API.",
       inputSchema: z.object({
         eventTypeId: z.number().describe("The event type ID to check availability for"),
         daysAhead: z
@@ -392,10 +407,9 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
             const dayName = from.toLocaleDateString("en-US", { weekday: "long", timeZone: tz });
             const isWeekend = ["Saturday", "Sunday"].includes(dayName);
             const noSlotsReason = isWeekend
-              ? `No availability on ${dayName}. Your schedule does not include weekends.`
+              ? `No availability on ${dayName}. The schedule does not include weekends.`
               : `No available slots in the requested date range (${formatSlot(from.toISOString())} – ${formatSlot(end.toISOString())}).`;
 
-            // Auto-search the next 14 days for alternatives
             const extEnd = new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000);
             const extSlotsMap = await getAvailableSlots(token, {
               eventTypeId,
@@ -427,6 +441,114 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to fetch availability" };
+        }
+      },
+    }),
+
+    check_availability_public: tool({
+      description:
+        "Check available time slots on ANOTHER user's public Cal.com calendar. Use this after list_event_types_by_username — pass the event type slug and username. Does NOT require the other user's auth token.",
+      inputSchema: z.object({
+        eventTypeSlug: z
+          .string()
+          .describe("The event type slug (e.g. 'meet', '30min') from list_event_types_by_username result"),
+        username: z
+          .string()
+          .describe("The Cal.com username of the host (e.g. 'peer')"),
+        daysAhead: z
+          .number()
+          .nullable()
+          .optional()
+          .default(7)
+          .describe("Number of days ahead to check. Default 7."),
+        startDate: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "ISO 8601 date to start from (defaults to now). Use this when the user specifies a date."
+          ),
+        duration: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Duration in minutes. Only needed if the event type supports multiple durations."),
+      }),
+      execute: async ({ eventTypeSlug, username, daysAhead, startDate, duration }) => {
+        const linked = await getLinkedUser(teamId, userId);
+        const tz = linked?.calcomTimeZone ?? "UTC";
+
+        const formatSlot = (time: string) =>
+          new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          }).format(new Date(time));
+
+        try {
+          const from = startDate ? new Date(startDate) : new Date();
+          const end = new Date(from.getTime() + (daysAhead ?? 7) * 24 * 60 * 60 * 1000);
+          const slotsMap = await getAvailableSlotsPublic({
+            eventTypeSlug,
+            username,
+            start: from.toISOString().split("T")[0]!,
+            end: end.toISOString().split("T")[0]!,
+            timeZone: tz,
+            ...(duration ? { duration } : {}),
+          });
+
+          const allSlots = Object.entries(slotsMap).flatMap(([date, slots]) =>
+            slots
+              .filter((s) => s.available)
+              .map((s) => ({ date, time: s.time, formatted: formatSlot(s.time) }))
+          );
+
+          if (allSlots.length === 0) {
+            const dayName = from.toLocaleDateString("en-US", { weekday: "long", timeZone: tz });
+            const isWeekend = ["Saturday", "Sunday"].includes(dayName);
+            const noSlotsReason = isWeekend
+              ? `No availability on ${dayName}. ${username}'s schedule does not include weekends.`
+              : `No available slots for ${username} in the requested date range (${formatSlot(from.toISOString())} – ${formatSlot(end.toISOString())}).`;
+
+            const extEnd = new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000);
+            const extSlotsMap = await getAvailableSlotsPublic({
+              eventTypeSlug,
+              username,
+              start: from.toISOString().split("T")[0]!,
+              end: extEnd.toISOString().split("T")[0]!,
+              timeZone: tz,
+              ...(duration ? { duration } : {}),
+            });
+            const nextSlots = Object.entries(extSlotsMap)
+              .flatMap(([date, slots]) =>
+                slots.filter((s) => s.available).map((s) => ({ date, time: s.time, formatted: formatSlot(s.time) }))
+              )
+              .slice(0, 5);
+
+            return {
+              timeZone: tz,
+              username,
+              totalSlots: 0,
+              slots: [],
+              noSlotsReason,
+              nextAvailableSlots: nextSlots,
+              instruction: `Tell the user why ${username} has no availability for the requested date and present the nextAvailableSlots as alternatives.`,
+            };
+          }
+
+          return {
+            timeZone: tz,
+            username,
+            totalSlots: allSlots.length,
+            slots: allSlots.slice(0, 15),
+            hasMore: allSlots.length > 15,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : `Failed to fetch availability for ${username}` };
         }
       },
     }),
@@ -1031,6 +1153,7 @@ const CORE_TOOL_NAMES = new Set([
   "list_event_types",
   "list_event_types_by_username",
   "check_availability",
+  "check_availability_public",
   "book_meeting",
   "add_booking_attendee",
   "list_bookings",
