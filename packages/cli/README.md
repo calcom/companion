@@ -35,12 +35,25 @@ calcom login
 calcom --help
 ```
 
-## Output Formats
-
-All commands support JSON output for scripting:
+## Development
 
 ```sh
-calcom bookings list --json
+# Install dependencies
+bun install
+
+# Run locally
+bun run --filter @calcom/cli dev -- --help
+
+# Build
+bun run --filter @calcom/cli build
+
+# Type check
+bun run --filter @calcom/cli type-check
+
+# Build tarball and install locally
+cd packages/cli
+npm pack
+npm install -g calcom-cli-0.0.1.tgz
 ```
 
 ## Self-hosted Cal.com
