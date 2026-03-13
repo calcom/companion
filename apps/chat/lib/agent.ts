@@ -1165,7 +1165,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
 
     list_bookings: tool({
       description:
-        "List the user's bookings. Can filter by status, attendee name/email, and date range. Supports sorting by start time. Returns hosts and attendees for each booking. Note: attendeeEmail/attendeeName filters only match attendees, not hosts.",
+        "List the user's bookings with pagination. Can filter by status, attendee name/email, and date range. Supports sorting by start time. Returns hosts and attendees for each booking. Use skip/take for pagination. Note: attendeeEmail/attendeeName filters only match attendees, not hosts.",
       inputSchema: z.object({
         status: z
           .enum(["upcoming", "past", "cancelled", "recurring", "unconfirmed"])
@@ -1204,8 +1204,14 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .optional()
           .default(5)
           .describe("Max bookings to return. Default: 5."),
+        skip: z
+          .number()
+          .nullable()
+          .optional()
+          .default(0)
+          .describe("Number of bookings to skip for pagination. Default: 0."),
       }),
-      execute: async ({ status, attendeeEmail, attendeeName, afterStart, beforeEnd, sortStart, take }) => {
+      execute: async ({ status, attendeeEmail, attendeeName, afterStart, beforeEnd, sortStart, take, skip }) => {
         const [token, linked] = await Promise.all([
           getAccessTokenOrNull(teamId, userId),
           getLinkedUser(teamId, userId),
@@ -1215,11 +1221,13 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           const currentUser = linked
             ? { id: linked.calcomUserId, email: linked.calcomEmail }
             : undefined;
+          const requestedTake = take ?? 5;
           const bookings = await getBookings(
             token,
             {
               status: status ?? "upcoming",
-              take: take ?? 5,
+              take: requestedTake + 1,
+              skip: skip ?? 0,
               ...(attendeeEmail ? { attendeeEmail } : {}),
               ...(attendeeName ? { attendeeName } : {}),
               ...(afterStart ? { afterStart } : {}),
@@ -1228,8 +1236,10 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             },
             currentUser
           );
+          const hasMore = bookings.length > requestedTake;
+          const trimmed = hasMore ? bookings.slice(0, requestedTake) : bookings;
           return {
-            bookings: bookings.map((b) => ({
+            bookings: trimmed.map((b) => ({
               uid: b.uid,
               title: b.title,
               status: b.status,
@@ -1245,6 +1255,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               description: b.description,
               recurringBookingUid: b.recurringBookingUid ?? null,
             })),
+            hasMore,
             manageUrl: `${CALCOM_APP_URL}/bookings`,
           };
         } catch (err) {
