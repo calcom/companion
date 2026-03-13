@@ -20,6 +20,7 @@ import {
   getBusyTimes,
   getCalendarLinks,
   getDefaultSchedule,
+  getEventType,
   getEventTypes,
   getEventTypesByUsername,
   getMe,
@@ -176,6 +177,9 @@ CUSTOM BOOKING FIELDS:
 - CRITICAL: The \`bookingFieldsResponses\` object must NEVER be empty \`{}\` if there are required fields. Always map each required field slug to the user's answer. If the user provided the value in a previous message, use it — do NOT pass \`bookingFieldsResponses: {}\`.
 - The default "Notes" field has slug \`"notes"\`. If the user provides a note (e.g. "note: xyz" or "notes: xyz"), map it to \`bookingFieldsResponses: { "notes": "xyz" }\`.
 - Non-required fields can be skipped unless the user volunteers the info.
+- If you already have the event type ID but don't have its bookingFields (e.g., from a previous
+  step or from a booking's eventType.id), call get_event_type to fetch the full details including
+  custom fields. This is faster than re-calling list_event_types.
 
 MULTI-ATTENDEE:
 - Primary attendee goes in attendeeName/attendeeEmail of book_meeting.
@@ -498,6 +502,7 @@ ${bold}CREATING AN EVENT TYPE:${bold}
 ${bold}UPDATING AN EVENT TYPE:${bold}
 - First, identify which event type to update. If the user says "change my 30-min meeting to 45 min",
   call list_event_types to find it. If multiple match, ask the user to pick.
+- To inspect an event type's full configuration before updating, call get_event_type with its ID.
 - Show what will change before updating: "I'll update '30 Minute Meeting' duration from 30 to 45 minutes. Confirm?"
 - After update, show the updated fields.
 
@@ -750,6 +755,38 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             username,
             error: err instanceof Error ? err.message : "Failed to fetch event types for this user",
           };
+        }
+      },
+    }),
+
+    get_event_type: tool({
+      description:
+        "Get full details of a single event type by ID. Returns bookingFields (custom form fields), buffers, minimum booking notice, slot interval, schedule assignment, locations, and more. Use when you already have the event type ID and need its details (e.g., to check required custom fields before booking).",
+      inputSchema: z.object({
+        eventTypeId: z.number().describe("The event type ID"),
+      }),
+      execute: async ({ eventTypeId }) => {
+        const [token, linked] = await Promise.all([
+          getAccessTokenOrNull(teamId, userId),
+          getLinkedUser(teamId, userId),
+        ]);
+        if (!token) return { error: "Account not connected." };
+        try {
+          const et = await getEventType(token, eventTypeId);
+          return {
+            id: et.id,
+            title: et.title,
+            slug: et.slug,
+            duration: et.length,
+            description: et.description,
+            hidden: et.hidden,
+            bookingFields: et.bookingFields,
+            bookingUrl: linked?.calcomUsername
+              ? `${CALCOM_APP_URL}/${linked.calcomUsername}/${et.slug}`
+              : null,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to fetch event type" };
         }
       },
     }),

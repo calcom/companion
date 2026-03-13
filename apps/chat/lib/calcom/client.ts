@@ -133,12 +133,13 @@ export async function getEventType(
   accessToken: string,
   eventTypeId: number
 ): Promise<CalcomEventType> {
-  return calcomFetch<CalcomEventType>(
+  const raw = await calcomFetch<CalcomEventType>(
     `/v2/event-types/${eventTypeId}`,
     accessToken,
     {},
     "2024-06-14"
   );
+  return { ...raw, length: raw.length ?? raw.lengthInMinutes ?? 0 };
 }
 
 export interface GetSlotsParams {
