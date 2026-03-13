@@ -84,7 +84,7 @@ export interface CreateBookingInput {
   };
   guests?: string[];
   metadata?: Record<string, string>;
-  bookingFieldsResponses?: Record<string, unknown>;
+  bookingFieldsResponses?: Record<string, string>;
 }
 
 export interface CreatePublicBookingInput {
@@ -98,7 +98,7 @@ export interface CreatePublicBookingInput {
   };
   guests?: string[];
   lengthInMinutes?: number;
-  bookingFieldsResponses?: Record<string, unknown>;
+  bookingFieldsResponses?: Record<string, string>;
   metadata?: Record<string, string>;
 }
 

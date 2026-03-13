@@ -678,7 +678,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             "Email addresses of additional attendees (email-only). Use when you have emails but not full details for extra guests."
           ),
         bookingFieldsResponses: z
-          .record(z.string(), z.unknown())
+          .record(z.string(), z.string())
           .nullable()
           .optional()
           .describe(
@@ -771,7 +771,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .optional()
           .describe("Duration in minutes. Only needed if the event type supports multiple durations."),
         bookingFieldsResponses: z
-          .record(z.string(), z.unknown())
+          .record(z.string(), z.string())
           .nullable()
           .optional()
           .describe(
@@ -1537,8 +1537,16 @@ export function runAgentStream({
     },
     onError({ error }) {
       logger?.error("Stream error", error);
-      if (onErrorRef)
-        onErrorRef.current = error instanceof Error ? error : new Error(String(error));
+      if (onErrorRef) {
+        if (error instanceof Error) {
+          onErrorRef.current = error;
+        } else if (typeof error === "object" && error !== null && "message" in error) {
+          const msg = (error as { message: string }).message;
+          onErrorRef.current = new Error(msg);
+        } else {
+          onErrorRef.current = new Error(String(error));
+        }
+      }
     },
     onStepFinish({ finishReason, toolCalls, text }) {
       logger?.info("Step finished", {
