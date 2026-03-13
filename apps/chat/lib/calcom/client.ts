@@ -348,6 +348,8 @@ export interface CalcomMe {
   email: string;
   name: string;
   timeZone: string;
+  organizationId: number | null;
+  organization?: { isPlatform: boolean; id: number };
 }
 
 export async function getMe(accessToken: string): Promise<CalcomMe> {

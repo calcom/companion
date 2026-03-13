@@ -85,6 +85,17 @@ export interface LinkedUser {
   calcomUsername: string;
   calcomTimeZone: string;
   linkedAt: string;
+  calcomOrganizationId: number | null;
+  calcomOrgIsPlatform: boolean | null;
+}
+
+/**
+ * Returns true if the linked user is on the Cal.com Organizations plan.
+ * Platform (API-tier) orgs and free/individual users return false.
+ * Existing Redis entries without org fields are treated as non-org (safe default).
+ */
+export function isOrgPlanUser(linked: LinkedUser): boolean {
+  return linked.calcomOrganizationId != null && linked.calcomOrgIsPlatform === false;
 }
 
 function userKey(teamId: string, userId: string): string {
