@@ -300,10 +300,10 @@ async function preResolveMentions(
   userMessage: string,
   teamId: string,
   logger: ReturnType<typeof bot.getLogger>
-): Promise<string> {
+): Promise<{ text: string; attendees: Array<{ uid: string; name: string; email: string | null }> }> {
   const mentionPattern = /<@([A-Z0-9]+)>/g;
   const matches = [...userMessage.matchAll(mentionPattern)];
-  if (matches.length === 0) return userMessage;
+  if (matches.length === 0) return { text: userMessage, attendees: [] };
 
   const uniqueIds = [...new Set(matches.map((m) => m[1]))];
   const lookup = makeLookupSlackUser(teamId);
@@ -323,7 +323,7 @@ async function preResolveMentions(
   const resolved = results.filter(
     (r): r is { uid: string; name: string; email: string | null } => r !== null
   );
-  if (resolved.length === 0) return userMessage;
+  if (resolved.length === 0) return { text: userMessage, attendees: [] };
 
   const contextLines = resolved.map((r) =>
     r.email
@@ -333,7 +333,10 @@ async function preResolveMentions(
 
   logger.info("Pre-resolved mentions", { resolved: resolved.map((r) => r.uid) });
 
-  return `[Context: @mentions resolved]\n${contextLines.join("\n")}\n[End context]\n\n${userMessage}`;
+  return {
+    text: `[Context: @mentions resolved]\n${contextLines.join("\n")}\n[End context]\n\n${userMessage}`,
+    attendees: resolved,
+  };
 }
 
 // ─── Helper: build UserContext from linked user data ─────────────────────────
@@ -349,31 +352,65 @@ function buildUserContext(linked: {
   };
 }
 
-// ─── Helper: inject tool context from Redis into conversation history ────────
-async function injectToolContext(
-  history: import("ai").ModelMessage[],
-  threadId: string
-): Promise<import("ai").ModelMessage[]> {
-  const entries = await getToolContext(threadId);
-  if (entries.length === 0) return history;
+// ─── Helper: persist booking context (ASAP intent + resolved attendees) ──────
+const ASAP_PATTERN = /\b(asap|as soon as possible|earliest|next available|soonest)\b/i;
 
-  // Only include the most recent result per tool name (deduplication)
+async function persistBookingContext(
+  threadId: string,
+  userMessage: string,
+  attendees: Array<{ uid: string; name: string; email: string | null }>
+): Promise<void> {
+  const entries: ToolContextEntry[] = [];
+
+  if (ASAP_PATTERN.test(userMessage)) {
+    entries.push({
+      toolName: "_booking_intent",
+      args: {},
+      result: { urgency: "asap" },
+      timestamp: Date.now(),
+    });
+  }
+
+  if (attendees.length > 0) {
+    entries.push({
+      toolName: "_resolved_attendees",
+      args: {},
+      result: {
+        attendees: attendees.map((a) => ({
+          name: a.name,
+          email: a.email,
+          slackUserId: a.uid,
+        })),
+      },
+      timestamp: Date.now(),
+    });
+  }
+
+  if (entries.length === 0) return;
+
+  const existing = await getToolContext(threadId);
+  const merged = [...existing, ...entries].slice(-10);
+  await setToolContext(threadId, merged);
+}
+
+// ─── Helper: build enriched user message with cached tool data ───────────────
+async function buildEnrichedMessage(
+  userMessage: string,
+  threadId: string
+): Promise<string> {
+  const entries = await getToolContext(threadId);
+  if (entries.length === 0) return userMessage;
+
   const latestByTool = new Map<string, ToolContextEntry>();
   for (const e of entries) {
     latestByTool.set(e.toolName, e);
   }
 
   const summary = [...latestByTool.values()]
-    .map((e) => `${e.toolName} result: ${JSON.stringify(e.result)}`)
+    .map((e) => `${e.toolName}: ${JSON.stringify(e.result)}`)
     .join("\n");
 
-  const contextMsg: import("ai").ModelMessage = {
-    role: "user" as const,
-    content: `[CACHED TOOL DATA - use this instead of re-calling these tools]\n${summary}\n[END CACHED DATA]`,
-  };
-
-  // Inject at the beginning of history so it's always visible to the model
-  return [contextMsg, ...history];
+  return `[CACHED TOOL DATA - DO NOT re-call these tools]\n${summary}\n[END CACHED DATA]\n\n${userMessage}`;
 }
 
 function isSlackAuthError(err: unknown): boolean {
@@ -741,19 +778,24 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
       }
 
       const userContext = buildUserContext(linked);
+
+      if (ASAP_PATTERN.test(message.text)) {
+        await persistBookingContext(thread.id, message.text, []);
+      }
+
+      const enrichedMessage = await buildEnrichedMessage(message.text, thread.id);
       const rawHistory = await buildHistory(thread);
-      const history = await injectToolContext(rawHistory, thread.id);
-      const toolSet = detectToolSet(message.text, history);
+      const toolSet = detectToolSet(message.text, rawHistory);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
         bot
           .getLogger("telegram-freeform")
-          .info("Running agent", { userId: ctx.userId, textLength: message.text.length });
+          .info("Running agent", { userId: ctx.userId, textLength: enrichedMessage.length });
         const result = runAgentStream({
           teamId: ctx.teamId,
           userId: ctx.userId,
-          userMessage: message.text,
-          conversationHistory: history.slice(0, -1),
+          userMessage: enrichedMessage,
+          conversationHistory: rawHistory.slice(0, -1),
           lookupPlatformUser: undefined,
           platform: ctx.platform,
           logger: bot.getLogger("agent"),
@@ -851,24 +893,28 @@ bot.onNewMention(async (thread, message) => {
       const userContext = buildUserContext(linked);
 
       // Pre-resolve @mentions for Slack so the agent doesn't need to call lookup_platform_user
-      const resolvedMessage =
-        ctx.platform === "slack"
-          ? await preResolveMentions(userMessage, ctx.teamId, bot.getLogger("mention"))
-          : userMessage;
+      let resolvedMessage = userMessage;
+      if (ctx.platform === "slack") {
+        const { text, attendees } = await preResolveMentions(userMessage, ctx.teamId, bot.getLogger("mention"));
+        resolvedMessage = text;
+        await persistBookingContext(thread.id, userMessage, attendees);
+      } else if (ASAP_PATTERN.test(userMessage)) {
+        await persistBookingContext(thread.id, userMessage, []);
+      }
 
+      const enrichedMessage = await buildEnrichedMessage(resolvedMessage, thread.id);
       const rawHistory = await buildHistory(thread);
-      const history = await injectToolContext(rawHistory, thread.id);
-      const toolSet = detectToolSet(userMessage, history);
+      const toolSet = detectToolSet(userMessage, rawHistory);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
         bot
           .getLogger("mention")
-          .info("Running agent", { userId: ctx.userId, textLength: resolvedMessage.length });
+          .info("Running agent", { userId: ctx.userId, textLength: enrichedMessage.length });
         const result = runAgentStream({
           teamId: ctx.teamId,
           userId: ctx.userId,
-          userMessage: resolvedMessage,
-          conversationHistory: history.slice(0, -1),
+          userMessage: enrichedMessage,
+          conversationHistory: rawHistory.slice(0, -1),
           lookupPlatformUser:
             ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
           platform: ctx.platform,
@@ -957,24 +1003,25 @@ bot.onSubscribedMessage(async (thread, message) => {
       const userContext = buildUserContext(linked);
 
       // Pre-resolve @mentions for Slack so the agent doesn't need to call lookup_platform_user
-      const resolvedMessage =
-        ctx.platform === "slack"
-          ? await preResolveMentions(userMessage, ctx.teamId, bot.getLogger("thread-follow-up"))
-          : userMessage;
+      let resolvedMessage = userMessage;
+      if (ctx.platform === "slack") {
+        const { text } = await preResolveMentions(userMessage, ctx.teamId, bot.getLogger("thread-follow-up"));
+        resolvedMessage = text;
+      }
 
+      const enrichedMessage = await buildEnrichedMessage(resolvedMessage, thread.id);
       const rawHistory = await buildHistory(thread);
-      const history = await injectToolContext(rawHistory, thread.id);
-      const toolSet = detectToolSet(userMessage, history);
+      const toolSet = detectToolSet(userMessage, rawHistory);
 
       await withTelegramTypingRefresh(thread, ctx.platform, async () => {
         bot
           .getLogger("thread-follow-up")
-          .info("Running agent", { userId: ctx.userId, textLength: resolvedMessage.length });
+          .info("Running agent", { userId: ctx.userId, textLength: enrichedMessage.length });
         const result = runAgentStream({
           teamId: ctx.teamId,
           userId: ctx.userId,
-          userMessage: resolvedMessage,
-          conversationHistory: history.slice(0, -1),
+          userMessage: enrichedMessage,
+          conversationHistory: rawHistory.slice(0, -1),
           lookupPlatformUser:
             ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
           platform: ctx.platform,
