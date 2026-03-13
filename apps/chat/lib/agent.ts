@@ -761,7 +761,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
 
     get_event_type: tool({
       description:
-        "Get full details of a single event type by ID. Returns bookingFields (custom form fields), buffers, minimum booking notice, slot interval, schedule assignment, locations, and more. Use when you already have the event type ID and need its details (e.g., to check required custom fields before booking).",
+        "Get full details of a single event type by ID. Returns bookingFields (custom form fields), duration, description, visibility, and booking URL. Use when you already have the event type ID and need its details (e.g., to check required custom fields before booking) without re-listing all event types.",
       inputSchema: z.object({
         eventTypeId: z.number().describe("The event type ID"),
       }),
