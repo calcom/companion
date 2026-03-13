@@ -170,6 +170,11 @@ export async function getAvailableSlotsPublic(
 
 export interface GetBookingsParams {
   status?: "upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed";
+  attendeeEmail?: string;
+  attendeeName?: string;
+  afterStart?: string;
+  beforeEnd?: string;
+  sortStart?: "asc" | "desc";
   take?: number;
   skip?: number;
 }
@@ -186,6 +191,11 @@ export async function getBookings(
 ): Promise<CalcomBooking[]> {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
+  if (params.attendeeEmail) query.set("attendeeEmail", params.attendeeEmail);
+  if (params.attendeeName) query.set("attendeeName", params.attendeeName);
+  if (params.afterStart) query.set("afterStart", params.afterStart);
+  if (params.beforeEnd) query.set("beforeEnd", params.beforeEnd);
+  if (params.sortStart) query.set("sortStart", params.sortStart);
   if (params.take) query.set("take", String(params.take));
   if (params.skip) query.set("skip", String(params.skip));
   const qs = query.toString() ? `?${query}` : "";

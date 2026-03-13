@@ -312,6 +312,17 @@ Never say "you can find the link in the booking details" — show it directly.
 - Keep responses under 200 words.
 - Never fabricate data. Only use data from tool results.
 - Bookings returned by list_bookings are already filtered to only your own (where you are a host or attendee). Never imply the user might be seeing others' bookings.
+
+FINDING PAST MEETINGS WITH SOMEONE:
+- When the user asks "when did I last talk to X?" or "find my meetings with X":
+  1. If an @mention was resolved with an email, use attendeeEmail to filter.
+  2. If only a name is given, use attendeeName to filter.
+  3. If the user provides an email directly (e.g. "check david@cal.com"), use attendeeEmail.
+  4. Always pass status: "past" and sortStart: "desc" to get the most recent meeting first.
+  5. Use take: 10 to get enough history.
+- Show results as a list with title, date/time, and attendees.
+- If no results found with the given filters, suggest the user double-check the name/email spelling.
+
 - Meeting video links (Zoom, Google Meet, Teams, etc.) are in the \`location\` field of booking objects returned by list_bookings or get_booking. Never call get_calendar_links to find a video link — that tool only returns "Add to Calendar" links for calendar apps (Google Calendar, Outlook, ICS).`;
 }
 
@@ -869,7 +880,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
 
     list_bookings: tool({
       description:
-        "List the user's bookings. Can filter by status: upcoming, past, cancelled, recurring, unconfirmed.",
+        "List the user's bookings. Can filter by status, attendee name/email, and date range. Supports sorting by start time.",
       inputSchema: z.object({
         status: z
           .enum(["upcoming", "past", "cancelled", "recurring", "unconfirmed"])
@@ -877,6 +888,31 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .optional()
           .default("upcoming")
           .describe("Booking status filter. Default: upcoming."),
+        attendeeEmail: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Filter by attendee email address."),
+        attendeeName: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Filter by attendee name (partial match)."),
+        afterStart: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Only bookings starting after this ISO 8601 date."),
+        beforeEnd: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Only bookings ending before this ISO 8601 date."),
+        sortStart: z
+          .enum(["asc", "desc"])
+          .nullable()
+          .optional()
+          .describe("Sort by start time. Use 'desc' for most recent first."),
         take: z
           .number()
           .nullable()
@@ -884,7 +920,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .default(5)
           .describe("Max bookings to return. Default: 5."),
       }),
-      execute: async ({ status, take }) => {
+      execute: async ({ status, attendeeEmail, attendeeName, afterStart, beforeEnd, sortStart, take }) => {
         const [token, linked] = await Promise.all([
           getAccessTokenOrNull(teamId, userId),
           getLinkedUser(teamId, userId),
@@ -896,7 +932,15 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             : undefined;
           const bookings = await getBookings(
             token,
-            { status: status ?? "upcoming", take: take ?? 5 },
+            {
+              status: status ?? "upcoming",
+              take: take ?? 5,
+              ...(attendeeEmail ? { attendeeEmail } : {}),
+              ...(attendeeName ? { attendeeName } : {}),
+              ...(afterStart ? { afterStart } : {}),
+              ...(beforeEnd ? { beforeEnd } : {}),
+              ...(sortStart ? { sortStart } : {}),
+            },
             currentUser
           );
           return {
