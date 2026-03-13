@@ -727,6 +727,18 @@ async function postAgentStream(
       userId: ctx.userId,
       threadId: thread.id,
     });
+    // If the thrown error is a Slack auth error but the agent stream itself had
+    // issues (captured via onErrorRef), the Slack error is a secondary failure
+    // caused by AsyncLocalStorage context loss — not a real token problem.
+    // Re-throw as a generic error so withBotErrorHandling doesn't misclassify it.
+    if (isSlackAuthError(err) && options?.onErrorRef?.current) {
+      log.warn("Slack auth error is secondary to stream error, re-throwing as generic", {
+        streamError: options.onErrorRef.current.message,
+      });
+      throw new Error(
+        `Agent stream failed: ${options.onErrorRef.current.message}`
+      );
+    }
     throw err;
   }
 }
@@ -819,12 +831,15 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
     {
       postError: (msg) => thread.post(msg).catch(() => {}),
       logContext: "telegram freeform",
-      getCustomErrorMessage: () => {
+      getCustomErrorMessage: (err) => {
         if (!lastStreamErrorRef.current) return undefined;
         if (isAIRateLimitError(lastStreamErrorRef.current))
           return "I've hit my daily token limit. Please try again later when the limit resets.";
         if (isAIToolCallError(lastStreamErrorRef.current))
           return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+        // Any other stream error should NOT fall through to Slack auth check
+        if (isSlackAuthError(err))
+          return "Sorry, something went wrong while processing your request. Please try again.";
         return undefined;
       },
     }
@@ -939,12 +954,15 @@ bot.onNewMention(async (thread, message) => {
     {
       postError: safePost,
       logContext: "handling mention",
-      getCustomErrorMessage: () => {
+      getCustomErrorMessage: (err) => {
         if (!lastStreamErrorRef.current) return undefined;
         if (isAIRateLimitError(lastStreamErrorRef.current))
           return "I've hit my daily token limit. Please try again later when the limit resets.";
         if (isAIToolCallError(lastStreamErrorRef.current))
           return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+        // Any other stream error should NOT fall through to Slack auth check
+        if (isSlackAuthError(err))
+          return "Sorry, something went wrong while processing your request. Please try again.";
         return undefined;
       },
     }
@@ -1046,12 +1064,15 @@ bot.onSubscribedMessage(async (thread, message) => {
     {
       postError: safePost,
       logContext: "thread follow-up",
-      getCustomErrorMessage: () => {
+      getCustomErrorMessage: (err) => {
         if (!lastStreamErrorRef.current) return undefined;
         if (isAIRateLimitError(lastStreamErrorRef.current))
           return "I've hit my daily token limit. Please try again later when the limit resets.";
         if (isAIToolCallError(lastStreamErrorRef.current))
           return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+        // Any other stream error should NOT fall through to Slack auth check
+        if (isSlackAuthError(err))
+          return "Sorry, something went wrong while processing your request. Please try again.";
         return undefined;
       },
     }

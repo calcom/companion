@@ -160,6 +160,13 @@ DURATION VALIDATION:
   "You selected a 30-minute meeting, but 10:00-10:15 is only 15 minutes. Shall I book 10:00-10:30 instead, or switch to a 15-minute event type?"
 - The event type duration is canonical. Use the START of the user's range as startTime.
 
+CUSTOM BOOKING FIELDS:
+- When \`list_event_types_by_username\` returns event types with \`bookingFields\`, check for fields with \`required: true\`.
+- Before calling \`book_meeting_public\` (or \`book_meeting\`), ask the user for values for ALL required custom fields.
+- Pass the collected values as \`responses\` in the booking call. The key is the field's \`name\` (slug), the value is the user's answer.
+  Example: if bookingFields includes \`{ name: "what-are-you-working-on", type: "text", required: true }\`, ask the user and pass \`responses: { "what-are-you-working-on": "their answer" }\`.
+- Non-required fields can be skipped unless the user volunteers the info.
+
 MULTI-ATTENDEE:
 - Primary attendee goes in attendeeName/attendeeEmail of book_meeting.
 - Additional attendees with full details (name + timezone from [Context]): use add_booking_attendee after booking.
@@ -186,9 +193,9 @@ Do NOT automatically resume an incomplete task from earlier in the conversation.
 4. If check_availability returns \`totalSlots: 0\`, read the \`noSlotsReason\` and present the \`nextAvailableSlots\` as alternatives. NEVER say "I wasn't able to check" or "I couldn't check" — the check succeeded, there are just no slots for that date.
 5. If check_availability returns slots, USE them in your response. Do not discard results.
 6. NEVER call \`check_availability\` for another user's event type — it requires the host's auth token. Use \`check_availability_public\` instead (pass eventTypeSlug + username).
-6. Never call a tool with empty or placeholder arguments.
-7. During a booking flow, sequential tool calls across steps are expected (list_event_types → check_availability → book_meeting). After completing the task, respond with text.
-8. NEVER call create_event_type, update_event_type, or delete_event_type unless the user explicitly asked to create/update/delete an event type.
+7. Never call a tool with empty or placeholder arguments.
+8. During a booking flow, sequential tool calls across steps are expected (list_event_types → check_availability → book_meeting). After completing the task, respond with text.
+9. NEVER call create_event_type, update_event_type, or delete_event_type unless the user explicitly asked to create/update/delete an event type.
 
 ## Formatting Rules
 ${
@@ -341,6 +348,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
               description: et.description,
               hidden: et.hidden,
               bookingUrl: et.bookingUrl,
+              bookingFields: et.bookingFields,
             })),
           };
         } catch (err) {
@@ -579,6 +587,13 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
             "Email addresses of additional attendees (email-only). Use when you have emails but not full details for extra guests."
           ),
         notes: z.string().nullable().optional().describe("Optional notes for the booking"),
+        responses: z
+          .record(z.string(), z.unknown())
+          .nullable()
+          .optional()
+          .describe(
+            "Custom booking field responses. Keys are field slugs from the event type's bookingFields, values are the user's answers. Required when the event type has required custom fields."
+          ),
       }),
       execute: async ({
         eventTypeId,
@@ -588,6 +603,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
         attendeeTimeZone,
         guestEmails,
         notes,
+        responses,
       }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
@@ -604,6 +620,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
             },
             guests: guestEmails?.filter(Boolean) ?? undefined,
             notes: notes ?? undefined,
+            responses: responses ?? undefined,
           });
 
           return {
@@ -657,6 +674,13 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
           .nullable()
           .optional()
           .describe("Duration in minutes. Only needed if the event type supports multiple durations."),
+        responses: z
+          .record(z.string(), z.unknown())
+          .nullable()
+          .optional()
+          .describe(
+            "Custom booking field responses. Keys are field slugs from the event type's bookingFields, values are the user's answers. Required when the event type has required custom fields."
+          ),
       }),
       execute: async ({
         eventTypeSlug,
@@ -668,6 +692,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
         guests,
         notes,
         lengthInMinutes,
+        responses,
       }) => {
         const linked = await getLinkedUser(teamId, userId);
 
@@ -684,6 +709,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
             guests: guests?.filter(Boolean) ?? undefined,
             notes: notes ?? undefined,
             lengthInMinutes: lengthInMinutes ?? undefined,
+            responses: responses ?? undefined,
           });
 
           return {

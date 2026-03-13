@@ -85,6 +85,7 @@ export interface CreateBookingInput {
   guests?: string[];
   notes?: string;
   metadata?: Record<string, string>;
+  responses?: Record<string, unknown>;
 }
 
 export interface CreatePublicBookingInput {
@@ -99,6 +100,7 @@ export interface CreatePublicBookingInput {
   guests?: string[];
   notes?: string;
   lengthInMinutes?: number;
+  responses?: Record<string, unknown>;
 }
 
 /** Metadata passed from Cal.com booking form for routing notifications. */
