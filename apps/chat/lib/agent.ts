@@ -264,6 +264,48 @@ ${bold}AFTER CONFIRM/DECLINE:${bold}
   the attendee will be notified.
 - On error: show the error message from the tool result.
 
+## Checking Your Availability / "Am I Free?"
+
+When the user asks about their own availability ("am I free at X?", "what do I have tomorrow?",
+"do I have anything on Friday?", "what's my schedule for next week?"):
+
+${bold}STEP 1 -- DETERMINE THE TIME RANGE:${bold}
+- "Am I free at 2pm Tuesday?" -> afterStart = Tuesday 00:00 UTC, beforeEnd = Tuesday 23:59 UTC
+  (fetch all bookings for that day, then check if any overlap with 2pm)
+- "What do I have tomorrow?" -> afterStart = tomorrow 00:00, beforeEnd = tomorrow 23:59
+- "Am I free next week?" -> afterStart = next Monday 00:00, beforeEnd = next Friday 23:59
+- "What's on my calendar March 20?" -> afterStart = Mar 20 00:00, beforeEnd = Mar 20 23:59
+- Always convert to UTC using the user's timezone.
+
+${bold}STEP 2 -- FETCH BOOKINGS:${bold}
+- Call list_bookings with status "upcoming", the computed afterStart/beforeEnd, sortStart "asc",
+  and take 20 (to capture a full day/week).
+- Do NOT use check_busy_times -- it requires calendar-specific credentials and is unreliable.
+
+${bold}STEP 3 -- ANSWER THE QUESTION:${bold}
+- "Am I free at [specific time]?":
+  - Check if any returned booking overlaps with the requested time.
+  - If no overlap: "Yes, you're free at [time] on [date]!"
+  - If overlap: "No, you have [Title] from [start] to [end] at that time."
+  - Also mention nearby bookings so the user sees the full picture:
+    "Your closest bookings that day are [Title] at [time] and [Title] at [time]."
+- "What do I have tomorrow?" / "What's my schedule for [date]?":
+  - List all bookings for that day in chronological order.
+  - If no bookings: "Your [day] is clear -- no meetings scheduled!"
+  - If bookings exist: show them as a bullet list with title, time range, and attendees.
+- "Am I free next week?" / "What does my week look like?":
+  - List all bookings grouped by day.
+  - Highlight free days: "Tuesday and Thursday are completely free."
+
+${bold}EDGE CASES:${bold}
+- If the user asks about a past date: answer from past bookings (status "past" instead of "upcoming").
+- If the user says "am I free?" with no date/time: ask "Which date or time would you like me to check?"
+- If the user asks "am I free for a 30-min meeting at 2pm?": check if there's a gap of at least
+  30 minutes starting at 2pm (no booking overlapping 2:00-2:30).
+- "Block off" or "mark as busy" requests: explain that Cal.com bookings are created through
+  event types -- suggest they create a "Focus Time" or "Blocked" event type, or block time
+  directly in their connected calendar (Google Calendar, Outlook, etc.).
+
 ## Timezone Conversion
 - IST = Asia/Kolkata (UTC+5:30)
 - PST = America/Los_Angeles (UTC-8), PDT = UTC-7
@@ -287,6 +329,7 @@ Do NOT automatically resume an incomplete task from earlier in the conversation.
 7. Never call a tool with empty or placeholder arguments.
 8. During a booking flow, sequential tool calls across steps are expected (list_event_types → check_availability → book_meeting). After completing the task, respond with text.
 9. NEVER call create_event_type, update_event_type, or delete_event_type unless the user explicitly asked to create/update/delete an event type.
+10. For "am I free?" questions, use list_bookings with afterStart/beforeEnd date filters -- do NOT use check_busy_times.
 
 ## Formatting Rules
 ${
@@ -1187,7 +1230,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     check_busy_times: tool({
-      description: "Check the user's busy times from all connected calendars for a given period.",
+      description: "Check the user's busy times from connected calendars. Requires calendar credential info -- prefer using list_bookings with afterStart/beforeEnd filters for availability checks.",
       inputSchema: z.object({
         start: z.string().describe("Start of the range in ISO 8601 format"),
         end: z.string().describe("End of the range in ISO 8601 format"),
