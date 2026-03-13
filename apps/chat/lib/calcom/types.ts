@@ -223,6 +223,11 @@ export interface CreateEventTypeInput {
   lengthInMinutes: number;
   description?: string;
   hidden?: boolean;
+  minimumBookingNotice?: number;
+  beforeEventBuffer?: number;
+  afterEventBuffer?: number;
+  slotInterval?: number;
+  scheduleId?: number;
 }
 
 export interface UpdateEventTypeInput {
@@ -231,6 +236,11 @@ export interface UpdateEventTypeInput {
   lengthInMinutes?: number;
   description?: string;
   hidden?: boolean;
+  minimumBookingNotice?: number;
+  beforeEventBuffer?: number;
+  afterEventBuffer?: number;
+  slotInterval?: number;
+  scheduleId?: number;
 }
 
 // ─── Calendar Links ───────────────────────────────────────────────────────────

@@ -355,6 +355,46 @@ If the user's latest message is a greeting, status check, or short casual messag
 ## Resuming Previous Tasks
 Do NOT automatically resume an incomplete task from earlier in the conversation. Only continue a prior task if the user's latest message explicitly asks you to (e.g. "yes, go ahead", "ok book it", "continue"). A casual message is NOT a continuation request.
 
+## Managing Event Types
+
+When the user wants to create, update, or delete an event type:
+
+${bold}CREATING AN EVENT TYPE:${bold}
+- Required info: title and duration. Everything else has sensible defaults.
+- Auto-generate the slug from the title: lowercase, hyphens for spaces, no special characters.
+  Example: "Product Discussion" -> "product-discussion", "Quick 15-min Chat" -> "quick-15-min-chat".
+- If the user says "create a 45-minute meeting type", ask for a title. If they say
+  "create a meeting called Product Discussion, 45 minutes", you have everything -- confirm and create.
+- Show the result after creation: title, duration, slug, and the booking URL:
+  ${CALCOM_APP_URL}/{username}/{slug}
+
+${bold}UPDATING AN EVENT TYPE:${bold}
+- First, identify which event type to update. If the user says "change my 30-min meeting to 45 min",
+  call list_event_types to find it. If multiple match, ask the user to pick.
+- Show what will change before updating: "I'll update '30 Minute Meeting' duration from 30 to 45 minutes. Confirm?"
+- After update, show the updated fields.
+
+${bold}DELETING AN EVENT TYPE:${bold}
+- ALWAYS confirm before deleting: "Are you sure you want to delete '[Title]'? This cannot be undone
+  and any existing booking links using this event type will stop working."
+- NEVER delete without explicit confirmation.
+- After deletion, confirm: "'[Title]' has been deleted."
+
+${bold}LISTING EVENT TYPES:${bold}
+- When the user asks "what are my event types?" or "show my meeting types", call list_event_types.
+- Show each as: title, duration, slug, and whether it's hidden.
+- Include the booking URL for each: ${CALCOM_APP_URL}/{username}/{slug}
+
+${bold}COMMON REQUESTS:${bold}
+- "Hide my 30-min meeting" -> update_event_type with hidden: true
+- "Unhide" / "make visible" -> update_event_type with hidden: false
+- "Rename my meeting to X" -> update_event_type with title and optionally slug
+- "Add a 10-minute buffer before meetings" -> update_event_type with beforeEventBuffer: 10
+- "Require at least 2 hours notice" -> update_event_type with minimumBookingNotice: 120 (minutes)
+- "Change slot intervals to 15 minutes" -> update_event_type with slotInterval: 15
+- For advanced settings like custom booking fields, recurring events, or seat-based events,
+  suggest the user visit ${CALCOM_APP_URL}/event-types.
+
 ## CRITICAL RULES FOR TOOL USAGE
 1. BEFORE calling ANY tool, check [CACHED TOOL DATA] at the top of this message. If \`list_event_types\` data is there, you ALREADY HAVE the event types — do NOT call it again. If \`_resolved_attendees\` is there, you ALREADY HAVE attendee info. If \`_booking_intent\` is there, honor the urgency.
 2. NEVER call the same tool more than once in a single step.
@@ -364,7 +404,7 @@ Do NOT automatically resume an incomplete task from earlier in the conversation.
 6. NEVER call \`check_availability\` for another user's event type — it requires the host's auth token. Use \`check_availability_public\` instead (pass eventTypeSlug + username).
 7. Never call a tool with empty or placeholder arguments.
 8. During a booking flow, sequential tool calls across steps are expected (list_event_types → check_availability → book_meeting). After completing the task, respond with text.
-9. NEVER call create_event_type, update_event_type, or delete_event_type unless the user explicitly asked to create/update/delete an event type.
+9. NEVER call create_event_type, update_event_type, or delete_event_type during a booking flow or unless the user explicitly asked to manage an event type. For delete, ALWAYS confirm first.
 10. For "am I free?" questions, use list_bookings with afterStart/beforeEnd date filters -- do NOT use check_busy_times.
 
 ## Formatting Rules
@@ -487,7 +527,10 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         "List YOUR Cal.com event types (the meeting types you offer as a host). Use this to pick which event type to book when someone wants to meet with you.",
       inputSchema: z.object({}).passthrough(),
       execute: async () => {
-        const token = await getAccessTokenOrNull(teamId, userId);
+        const [token, linked] = await Promise.all([
+          getAccessTokenOrNull(teamId, userId),
+          getLinkedUser(teamId, userId),
+        ]);
         if (!token) return { error: "Account not connected." };
         try {
           const types = await getEventTypes(token);
@@ -499,6 +542,9 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               duration: et.length,
               description: et.description,
               hidden: et.hidden,
+              bookingUrl: linked?.calcomUsername
+                ? `${CALCOM_APP_URL}/${linked.calcomUsername}/${et.slug}`
+                : null,
             })),
           };
         } catch (err) {
@@ -1427,15 +1473,40 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     create_event_type: tool({
-      description: "Create a new event type (meeting type) on Cal.com.",
+      description: "Create a new event type (meeting type) on Cal.com. Requires title, slug, and duration. Optionally set buffers, minimum notice, and slot intervals.",
       inputSchema: z.object({
         title: z.string().describe("Event type title (e.g. '30 Minute Meeting')"),
         slug: z.string().describe("URL slug (e.g. '30min')"),
         lengthInMinutes: z.number().describe("Duration in minutes"),
         description: z.string().nullable().optional().describe("Optional description"),
         hidden: z.boolean().nullable().optional().describe("Whether to hide from booking page"),
+        minimumBookingNotice: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Minimum minutes of notice required before booking"),
+        beforeEventBuffer: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Buffer minutes blocked before each meeting"),
+        afterEventBuffer: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Buffer minutes blocked after each meeting"),
+        slotInterval: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Slot interval in minutes. Defaults to event duration."),
+        scheduleId: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Availability schedule ID to use for this event type"),
       }),
-      execute: async ({ title, slug, lengthInMinutes, description, hidden }) => {
+      execute: async ({ title, slug, lengthInMinutes, description, hidden, minimumBookingNotice, beforeEventBuffer, afterEventBuffer, slotInterval, scheduleId }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         try {
@@ -1443,8 +1514,13 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             title,
             slug,
             lengthInMinutes,
-            description: description ?? undefined,
-            hidden: hidden ?? undefined,
+            ...(description != null ? { description } : {}),
+            ...(hidden != null ? { hidden } : {}),
+            ...(minimumBookingNotice != null ? { minimumBookingNotice } : {}),
+            ...(beforeEventBuffer != null ? { beforeEventBuffer } : {}),
+            ...(afterEventBuffer != null ? { afterEventBuffer } : {}),
+            ...(slotInterval != null ? { slotInterval } : {}),
+            ...(scheduleId != null ? { scheduleId } : {}),
           });
           return { success: true, id: et.id, title: et.title, slug: et.slug, length: et.length };
         } catch (err) {
@@ -1454,7 +1530,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     update_event_type: tool({
-      description: "Update an existing event type.",
+      description: "Update an existing event type. Can change title, slug, duration, description, visibility, buffers, minimum booking notice, slot intervals, and schedule assignment.",
       inputSchema: z.object({
         eventTypeId: z.number().describe("The event type ID to update"),
         title: z.string().nullable().optional().describe("New title"),
@@ -1462,14 +1538,37 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         lengthInMinutes: z.number().nullable().optional().describe("New duration in minutes"),
         description: z.string().nullable().optional().describe("New description"),
         hidden: z.boolean().nullable().optional().describe("Whether to hide from booking page"),
+        minimumBookingNotice: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Minimum minutes of notice required before booking (e.g. 120 for 2 hours)"),
+        beforeEventBuffer: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Buffer minutes blocked before each meeting starts"),
+        afterEventBuffer: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Buffer minutes blocked after each meeting ends"),
+        slotInterval: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Slot interval in minutes (e.g. 15 means slots at 9:00, 9:15, 9:30). Defaults to event duration."),
+        scheduleId: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Assign a specific availability schedule to this event type (by schedule ID)"),
       }),
-      execute: async ({ eventTypeId, title, slug, lengthInMinutes, description, hidden }) => {
+      execute: async ({ eventTypeId, ...rest }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         const patch = Object.fromEntries(
-          Object.entries({ title, slug, lengthInMinutes, description, hidden }).filter(
-            ([, v]) => v != null
-          )
+          Object.entries(rest).filter(([, v]) => v != null)
         );
         if (Object.keys(patch).length === 0) return { error: "No fields provided to update." };
         try {
@@ -1482,7 +1581,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     delete_event_type: tool({
-      description: "Delete an event type by ID.",
+      description: "Delete an event type by ID. This is irreversible -- always confirm with the user first.",
       inputSchema: z.object({
         eventTypeId: z.number().describe("The event type ID to delete"),
       }),
