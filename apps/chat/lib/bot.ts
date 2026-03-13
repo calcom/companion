@@ -426,24 +426,34 @@ function isSlackAuthError(err: unknown): boolean {
   return false;
 }
 
-function friendlyCalcomError(err: CalcomApiError): string {
+function friendlyCalcomError(err: CalcomApiError, context?: string): string {
+  const apiDetail = err.message && !err.message.startsWith("Cal.com API error:")
+    ? ` (${err.message})`
+    : "";
+
   switch (err.statusCode) {
     case 400:
-    case 422:
-      return "The request was invalid. Please check the details and try again.";
+      return `The request had invalid data${apiDetail}. Please check the details and try again.`;
     case 401:
     case 403:
-      return "Your Cal.com session has expired. Please reconnect your account.";
+      return "Your Cal.com session has expired. Please reconnect your account to continue.";
     case 404:
-      return "The booking or event type was not found.";
+      return `The requested resource was not found${apiDetail}. It may have been deleted or the ID is incorrect.`;
     case 409:
-      return "This time slot is no longer available.";
+      return context === "booking"
+        ? "This time slot is no longer available \u2014 someone else may have just booked it. Would you like me to check for other available times?"
+        : `There was a conflict${apiDetail}. The resource may have been modified. Please try again.`;
+    case 422:
+      return `The request was missing required information${apiDetail}. Please provide all required fields and try again.`;
     case 429:
-      return "Cal.com rate limit reached. Please try again in a moment.";
+      return "Cal.com's rate limit has been reached. Please wait about 30 seconds and try again.";
     default:
-      return err.statusCode && err.statusCode >= 500
-        ? "Cal.com is experiencing issues. Please try again later."
-        : "Something went wrong with the Cal.com API. Please try again.";
+      if (err.statusCode && err.statusCode >= 500) {
+        return err.code === "FETCH_RETRY_EXHAUSTED"
+          ? "Cal.com is not responding after multiple attempts. The service may be temporarily down \u2014 please try again in a few minutes."
+          : "Cal.com is experiencing issues right now. Please try again in a moment.";
+      }
+      return `Something went wrong with the Cal.com API${apiDetail}. Please try again.`;
   }
 }
 
@@ -1126,4 +1136,5 @@ registerSlackHandlers(bot, getSlackAdapter, {
   extractTeamIdFromRaw,
   buildHistory,
   makeLookupSlackUser,
+  friendlyCalcomError,
 });

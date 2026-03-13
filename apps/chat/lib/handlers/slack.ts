@@ -90,6 +90,7 @@ export interface RegisterSlackHandlersDeps {
   extractTeamIdFromRaw: (raw: unknown, adapterName?: string) => string;
   buildHistory: (thread: Thread) => Promise<ModelMessage[]>;
   makeLookupSlackUser: (teamId: string) => LookupPlatformUserFn;
+  friendlyCalcomError: (err: import("../calcom/client").CalcomApiError, context?: string) => string;
 }
 
 function oauthLinkMessage(platform: string, teamId: string, userId: string) {
@@ -119,6 +120,7 @@ export function registerSlackHandlers(
     extractTeamIdFromRaw,
     buildHistory,
     makeLookupSlackUser,
+    friendlyCalcomError,
   } = deps;
 
   async function safeChannelPost(
@@ -583,7 +585,7 @@ export function registerSlackHandlers(
           if (isAIToolCallError(lastStreamErrorRef.current))
             return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
           if (lastStreamErrorRef.current instanceof CalcomApiError)
-            return `The request failed: ${lastStreamErrorRef.current.statusCode === 401 || lastStreamErrorRef.current.statusCode === 403 ? "Your Cal.com session has expired. Please reconnect your account." : lastStreamErrorRef.current.statusCode === 429 ? "Cal.com rate limit reached. Please try again in a moment." : "Something went wrong with the Cal.com API. Please try again."}`;
+            return friendlyCalcomError(lastStreamErrorRef.current);
           if (isSlackAuthError(err))
             return "Sorry, something went wrong while processing your request. Please try again.";
           return undefined;
@@ -940,9 +942,7 @@ export function registerSlackHandlers(
         logContext: "confirm_booking",
         getCustomErrorMessage: (err) => {
           if (err instanceof CalcomApiError) {
-            if (err.statusCode === 409) return "This time slot is no longer available. Please pick another.";
-            if (err.statusCode === 422) return "The booking details are incomplete. Please try again.";
-            return "Failed to create the booking. Please try again.";
+            return friendlyCalcomError(err, "booking");
           }
           return err instanceof Error ? "Failed to create the booking. Please try again." : undefined;
         },
@@ -1005,7 +1005,7 @@ export function registerSlackHandlers(
           if (isAIToolCallError(lastStreamErrorRef.current))
             return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
           if (lastStreamErrorRef.current instanceof CalcomApiError)
-            return `The request failed: ${lastStreamErrorRef.current.statusCode === 401 || lastStreamErrorRef.current.statusCode === 403 ? "Your Cal.com session has expired. Please reconnect your account." : lastStreamErrorRef.current.statusCode === 429 ? "Cal.com rate limit reached. Please try again in a moment." : "Something went wrong with the Cal.com API. Please try again."}`;
+            return friendlyCalcomError(lastStreamErrorRef.current);
           if (isSlackAuthError(err))
             return "Sorry, something went wrong while processing your request. Please try again.";
           return undefined;
