@@ -165,6 +165,8 @@ CUSTOM BOOKING FIELDS:
 - Before calling \`book_meeting_public\` (or \`book_meeting\`), ask the user for values for ALL required custom fields.
 - Pass the collected values as \`responses\` in the booking call. The key is the field's \`name\` (slug), the value is the user's answer.
   Example: if bookingFields includes \`{ name: "what-are-you-working-on", type: "text", required: true }\`, ask the user and pass \`responses: { "what-are-you-working-on": "their answer" }\`.
+- CRITICAL: The \`responses\` object must NEVER be empty \`{}\` if there are required fields. Always map each required field slug to the user's answer. If the user provided the value in a previous message, use it — do NOT pass \`responses: {}\`.
+- The default "Notes" field has slug \`"notes"\`. If the user provides a note (e.g. "note: xyz" or "notes: xyz"), map it to \`responses: { "notes": "xyz" }\`.
 - Non-required fields can be skipped unless the user volunteers the info.
 
 MULTI-ATTENDEE:
@@ -1368,9 +1370,11 @@ export function isAIToolCallError(err: unknown): boolean {
     msg.includes("invalid_request_error") ||
     msg.includes("tool call validation failed") ||
     msg.includes("which was not in request.tools") ||
+    msg.includes("tool choice is none") ||
     causeMsg.includes("failed to call a function") ||
     causeMsg.includes("failed_generation") ||
-    causeMsg.includes("tool call validation failed")
+    causeMsg.includes("tool call validation failed") ||
+    causeMsg.includes("tool choice is none")
   );
 }
 
@@ -1539,7 +1543,7 @@ export function runAgentStream({
     },
     onError({ error }) {
       logger?.error("Stream error", error);
-      if (onErrorRef && (isAIRateLimitError(error) || isAIToolCallError(error)))
+      if (onErrorRef)
         onErrorRef.current = error instanceof Error ? error : new Error(String(error));
     },
     onStepFinish({ finishReason, toolCalls, text }) {
