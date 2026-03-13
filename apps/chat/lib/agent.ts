@@ -684,6 +684,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               duration: et.length,
               description: et.description,
               hidden: et.hidden,
+              bookingFields: et.bookingFields,
               bookingUrl: linked?.calcomUsername
                 ? `${CALCOM_APP_URL}/${linked.calcomUsername}/${et.slug}`
                 : null,
