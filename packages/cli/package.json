@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/calcom/cal.com",
+    "url": "https://github.com/calcom/companion",
     "directory": "packages/cli"
   },
   "engines": {
