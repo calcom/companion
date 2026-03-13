@@ -1783,12 +1783,12 @@ const CORE_TOOL_NAMES = new Set([
   "get_booking",
   "cancel_booking",
   "reschedule_booking",
+  "create_event_type",
+  "update_event_type",
+  "delete_event_type",
 ]);
 
 const ADMIN_KEYWORDS = [
-  "create event",
-  "update event",
-  "delete event",
   "schedule",
   "working hours",
   "profile",
