@@ -127,6 +127,7 @@ export interface GetPublicSlotsParams {
   end: string;
   timeZone?: string;
   duration?: number;
+  bookingUidToReschedule?: string;
 }
 
 interface PublicSlotEntry {
@@ -143,6 +144,7 @@ export async function getAvailableSlotsPublic(
     end: params.end,
     ...(params.timeZone ? { timeZone: params.timeZone } : {}),
     ...(params.duration ? { duration: String(params.duration) } : {}),
+    ...(params.bookingUidToReschedule ? { bookingUidToReschedule: params.bookingUidToReschedule } : {}),
   });
   const url = `${CALCOM_API_URL}/v2/slots?${query}`;
   const res = await fetch(url, {

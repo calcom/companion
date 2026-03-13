@@ -72,6 +72,7 @@ export interface CalcomBooking {
   meetingUrl: string | null;
   location: string | null;
   absentHost: boolean;
+  recurringBookingUid: string | null;
 }
 
 export interface CreateBookingInput {

@@ -219,6 +219,78 @@ ${bold}BATCH CANCELLATION:${bold}
   next turn.
 - NEVER cancel multiple bookings without explicit confirmation.
 
+## Rescheduling a Booking
+
+When the user wants to reschedule a booking, follow these steps:
+
+${bold}STEP 1 -- IDENTIFY THE BOOKING:${bold}
+- If the user provides a booking UID directly, use it.
+- If the user describes the booking by name, time, or attendee (e.g. "move my 2pm",
+  "reschedule the meeting with John"), call list_bookings with status "upcoming" to find it.
+- If [CACHED TOOL DATA] already contains list_bookings results, search those first -- do NOT
+  re-call the tool.
+- If multiple bookings match, list the matches and ask the user to pick one.
+  Show: title, date/time (in user's timezone), and attendees for each.
+- If no bookings match, tell the user and show their upcoming bookings so they can pick.
+- Once identified, note the booking's eventType.id (or eventType.slug + host username for
+  public bookings) -- you will need this for the availability check.
+
+${bold}STEP 2 -- DETERMINE THE NEW TIME:${bold}
+- If the user already specified a new time (e.g. "move my 2pm to 4pm"), proceed to Step 3.
+- If the user only said "reschedule" without a new time, ask: "When would you like to
+  reschedule [Title] to? I can also show you available slots."
+- If the user says "show me available slots" or doesn't have a specific time, proceed to
+  Step 3 to check availability.
+
+${bold}STEP 3 -- CHECK AVAILABILITY (MANDATORY before rescheduling):${bold}
+- ALWAYS check availability before calling reschedule_booking. Never reschedule blindly.
+- Determine if you are the host or an attendee:
+  - If the booking's hosts include your email -> you are the host.
+    Use check_availability with eventTypeId from the booking.
+  - If you are an attendee -> use check_availability_public with the host's
+    eventType.slug and username.
+- CRITICAL: Always pass bookingUidToReschedule with the original booking's UID.
+  This ensures the original time slot appears as available (it's currently "taken"
+  by the existing booking).
+- If the user specified a new time, verify it appears in the available slots.
+  - If available: proceed to Step 4.
+  - If NOT available: tell the user that time is not available and present
+    alternatives from the slot results.
+- If the user did not specify a time, present the first 5 available slots and ask
+  them to pick one.
+
+${bold}STEP 4 -- CONFIRM AND RESCHEDULE:${bold}
+- Show the change summary and ask for confirmation in ONE message:
+  "Reschedule [Title] from [OldDate] at [OldTime] to [NewDate] at [NewTime]?
+   You can optionally include a reason."
+- "yes" / "do it" / "confirmed" -> reschedule without reason.
+- "yes, conflict" / "yes -- got a conflict" -> reschedule WITH the provided reason.
+- "no" / "never mind" -> abort and acknowledge.
+- When calling reschedule_booking:
+  - If you are the host (your email is in the booking's hosts), pass
+    rescheduledBy with your email for auto-confirmation.
+  - If you are an attendee, omit rescheduledBy (the host will need to confirm).
+
+${bold}FAST-PATH:${bold} If the user's message identifies exactly 1 booking + specifies a new time +
+uses imperative language (e.g. "move my 2pm to 4pm"), AND the new time is available:
+skip the confirm step and call reschedule_booking immediately. Show the result as
+confirmation including old and new times.
+
+${bold}RECURRING BOOKINGS:${bold}
+- If the booking has a recurringBookingUid (it's part of a recurring series), note that
+  reschedule_booking only reschedules the single occurrence -- it does NOT affect future
+  occurrences.
+- Tell the user: "This is a recurring booking. I can reschedule this single occurrence.
+  To change the recurring schedule itself, you'd need to update the event type or
+  schedule directly."
+- Proceed with rescheduling the single occurrence as normal.
+
+${bold}AFTER RESCHEDULING:${bold}
+- On success: show "Rescheduled [Title] from [OldTime] to [NewTime]." with attendee
+  names so the user knows who will be notified.
+- If rescheduledBy was NOT the host, add: "The host will need to confirm the new time."
+- On error: show the error message from the tool result.
+
 ## Confirming or Declining a Booking
 
 When the user wants to confirm or decline a pending booking, follow these steps:
@@ -406,6 +478,7 @@ ${bold}COMMON REQUESTS:${bold}
 8. During a booking flow, sequential tool calls across steps are expected (list_event_types → check_availability → book_meeting). After completing the task, respond with text.
 9. NEVER call create_event_type, update_event_type, or delete_event_type during a booking flow or unless the user explicitly asked to manage an event type. For delete, ALWAYS confirm first.
 10. For "am I free?" questions, use list_bookings with afterStart/beforeEnd date filters -- do NOT use check_busy_times.
+11. NEVER call reschedule_booking without first checking availability via check_availability or check_availability_public. Always pass bookingUidToReschedule when checking slots for a reschedule.
 
 ## Formatting Rules
 ${
@@ -630,8 +703,13 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .describe(
             "ISO 8601 date to start from (defaults to now). Use this when the user specifies a date."
           ),
+        bookingUidToReschedule: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("When rescheduling, pass the original booking UID so its time slot is not blocked."),
       }),
-      execute: async ({ eventTypeId, daysAhead, startDate }) => {
+      execute: async ({ eventTypeId, daysAhead, startDate, bookingUidToReschedule }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         const linked = await getLinkedUser(teamId, userId);
@@ -656,6 +734,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             start: from.toISOString(),
             end: end.toISOString(),
             timeZone: tz,
+            ...(bookingUidToReschedule ? { bookingUidToReschedule } : {}),
           });
 
           const allSlots = Object.entries(slotsMap).flatMap(([date, slots]) =>
@@ -677,6 +756,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               start: from.toISOString(),
               end: extEnd.toISOString(),
               timeZone: tz,
+              ...(bookingUidToReschedule ? { bookingUidToReschedule } : {}),
             });
             const nextSlots = Object.entries(extSlotsMap)
               .flatMap(([date, slots]) =>
@@ -734,8 +814,13 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .nullable()
           .optional()
           .describe("Duration in minutes. Only needed if the event type supports multiple durations."),
+        bookingUidToReschedule: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("When rescheduling, pass the original booking UID so its time slot is not blocked."),
       }),
-      execute: async ({ eventTypeSlug, username, daysAhead, startDate, duration }) => {
+      execute: async ({ eventTypeSlug, username, daysAhead, startDate, duration, bookingUidToReschedule }) => {
         const linked = await getLinkedUser(teamId, userId);
         const tz = linked?.calcomTimeZone ?? "UTC";
 
@@ -760,6 +845,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             end: end.toISOString().split("T")[0] ?? "",
             timeZone: tz,
             ...(duration ? { duration } : {}),
+            ...(bookingUidToReschedule ? { bookingUidToReschedule } : {}),
           });
 
           const allSlots = Object.entries(slotsMap).flatMap(([date, slots]) =>
@@ -783,6 +869,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               end: extEnd.toISOString().split("T")[0] ?? "",
               timeZone: tz,
               ...(duration ? { duration } : {}),
+              ...(bookingUidToReschedule ? { bookingUidToReschedule } : {}),
             });
             const nextSlots = Object.entries(extSlotsMap)
               .flatMap(([date, slots]) =>
@@ -1108,6 +1195,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
                 ? { id: b.eventType.id, title: b.eventType.title, slug: b.eventType.slug }
                 : null,
               description: b.description,
+              recurringBookingUid: b.recurringBookingUid ?? null,
             })),
             manageUrl: `${CALCOM_APP_URL}/bookings`,
           };
@@ -1141,6 +1229,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               ? { id: b.eventType.id, title: b.eventType.title, slug: b.eventType.slug }
               : null,
             description: b.description,
+            recurringBookingUid: b.recurringBookingUid ?? null,
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to fetch booking" };
@@ -1181,28 +1270,38 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     reschedule_booking: tool({
-      description: "Reschedule a booking to a new time.",
+      description: "Reschedule a booking to a new time. Returns both old and new times for confirmation. Pass rescheduledBy with the host's email for auto-confirmation on confirmation-required event types.",
       inputSchema: z.object({
         bookingUid: z.string().describe("The booking UID to reschedule"),
         newStartTime: z.string().describe("New start time in ISO 8601 format"),
         reason: z.string().nullable().optional().describe("Reason for rescheduling"),
+        rescheduledBy: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Email of the person rescheduling. Pass the event-type owner's email for auto-confirmation."),
       }),
-      execute: async ({ bookingUid, newStartTime, reason }) => {
+      execute: async ({ bookingUid, newStartTime, reason, rescheduledBy }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         try {
-          const booking = await rescheduleBooking(
+          const original = await getBooking(token, bookingUid);
+          const rescheduled = await rescheduleBooking(
             token,
             bookingUid,
             newStartTime,
-            reason ?? undefined
+            reason ?? undefined,
+            rescheduledBy ?? undefined
           );
           return {
             success: true,
-            bookingUid: booking.uid,
-            title: booking.title,
-            newStart: booking.start,
-            newEnd: booking.end,
+            bookingUid: rescheduled.uid,
+            title: rescheduled.title,
+            previousStart: original.start,
+            previousEnd: original.end,
+            newStart: rescheduled.start,
+            newEnd: rescheduled.end,
+            attendees: rescheduled.attendees.map((a) => ({ name: a.name, email: a.email })),
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to reschedule booking" };
@@ -1683,6 +1782,7 @@ const CORE_TOOL_NAMES = new Set([
   "list_bookings",
   "get_booking",
   "cancel_booking",
+  "reschedule_booking",
 ]);
 
 const ADMIN_KEYWORDS = [
@@ -1697,7 +1797,6 @@ const ADMIN_KEYWORDS = [
   "no show",
   "confirm booking",
   "decline",
-  "reschedule",
   "calendar link",
   "busy times",
 ];
