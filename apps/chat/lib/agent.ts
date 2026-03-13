@@ -1265,7 +1265,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     get_booking: tool({
-      description: "Get details of a specific booking by its UID.",
+      description: "Get full details of a booking by UID, including status, start/end times, hosts, attendees, event type, meeting URL, and location. Use before cancel/reschedule to show the user what they're changing.",
       inputSchema: z.object({
         bookingUid: z.string().describe("The booking UID"),
       }),
@@ -1369,7 +1369,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     confirm_booking: tool({
-      description: "Confirm a pending booking that requires confirmation.",
+      description: "Confirm a pending booking. Only works on bookings with status 'pending' (from event types that require manual confirmation). The attendee will be notified once confirmed.",
       inputSchema: z.object({
         bookingUid: z.string().describe("The booking UID to confirm"),
       }),
@@ -1395,7 +1395,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     decline_booking: tool({
-      description: "Decline a pending booking that requires confirmation.",
+      description: "Decline a pending booking with an optional reason. Only works on bookings with status 'pending'. The attendee will be notified of the decline and reason.",
       inputSchema: z.object({
         bookingUid: z.string().describe("The booking UID to decline"),
         reason: z.string().nullable().optional().describe("Reason for declining"),
@@ -1542,7 +1542,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     list_schedules: tool({
-      description: "List all availability schedules with their working hours, timezones, and date overrides.",
+      description: "List all availability schedules with their working hours, timezones, and date overrides. Schedules define when the user is bookable (e.g. Mon-Fri 9-5). Each event type can be assigned a specific schedule.",
       inputSchema: z.object({}).passthrough(),
       execute: async () => {
         const token = await getAccessTokenOrNull(teamId, userId);
@@ -1596,7 +1596,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     create_schedule: tool({
-      description: "Create a new availability schedule with working hours. If availability is not provided, defaults to Monday-Friday 09:00-17:00.",
+      description: "Create a new availability schedule with working hours. If availability is not provided, defaults to Monday-Friday 09:00-17:00. After creation, assign it to an event type via update_event_type if needed.",
       inputSchema: z.object({
         name: z.string().describe("Schedule name (e.g. 'Work Hours')"),
         timeZone: z.string().describe("IANA timezone (e.g. 'America/New_York')"),
@@ -1652,7 +1652,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     update_schedule: tool({
-      description: "Update a schedule's name, timezone, working hours (availability windows), or date overrides. Pass availability to replace all working hours. Pass overrides to replace all date-specific exceptions.",
+      description: "Update a schedule's name, timezone, working hours, or date overrides. The availability array REPLACES all existing windows -- always include the complete set of desired hours, not just changes.",
       inputSchema: z.object({
         scheduleId: z.number().describe("The schedule ID to update"),
         name: z.string().nullable().optional().describe("New schedule name"),
@@ -1708,7 +1708,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     delete_schedule: tool({
-      description: "Delete an availability schedule by ID. This is irreversible. The user's event types using this schedule will fall back to their default schedule.",
+      description: "Delete an availability schedule. This is irreversible. Event types using this schedule will fall back to the user's default schedule. Always confirm with the user before deleting.",
       inputSchema: z.object({
         scheduleId: z.number().describe("The schedule ID to delete"),
       }),
