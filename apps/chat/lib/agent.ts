@@ -69,9 +69,8 @@ function getSystemPrompt(platform: string, userContext?: UserContext) {
 - Account status: linked and verified (do NOT call get_my_profile for this info)`
     : "";
 
-  const linkInstruction = isSlack
-    ? 'If the user is not linked, tell them to use the "Continue with Cal.com" button or run `/cal link` to connect their account.'
-    : 'If the user is not linked, tell them to use the "Continue with Cal.com" button or send /link to connect their account.';
+  const linkInstruction =
+    "If any tool returns an 'Account not connected' error, tell the user their session has expired and they need to reconnect. Do NOT tell them to run /cal link — the reconnect button is shown automatically.";
 
   return `You are Cal.com's scheduling assistant on ${platformName}. You help users manage their calendar, book meetings, check availability, and handle bookings — all through natural conversation.
 
@@ -203,7 +202,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
 
     unlink_account: tool({
       description: "Unlink the user's Cal.com account.",
-      inputSchema: z.object({}),
+      inputSchema: z.object({}).passthrough(),
       execute: async () => {
         const linked = await getLinkedUser(teamId, userId);
         if (!linked) {
@@ -216,7 +215,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
 
     get_my_profile: tool({
       description: "Get the linked user's Cal.com profile information.",
-      inputSchema: z.object({}),
+      inputSchema: z.object({}).passthrough(),
       execute: async () => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
@@ -232,7 +231,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
     list_event_types: tool({
       description:
         "List YOUR Cal.com event types (the meeting types you offer as a host). Use this to pick which event type to book when someone wants to meet with you.",
-      inputSchema: z.object({}),
+      inputSchema: z.object({}).passthrough(),
       execute: async () => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
@@ -682,7 +681,7 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
 
     list_schedules: tool({
       description: "List all availability schedules for the user.",
-      inputSchema: z.object({}),
+      inputSchema: z.object({}).passthrough(),
       execute: async () => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
@@ -887,8 +886,11 @@ export function isAIToolCallError(err: unknown): boolean {
     msg.includes("failed to call a function") ||
     msg.includes("failed_generation") ||
     msg.includes("invalid_request_error") ||
+    msg.includes("tool call validation failed") ||
+    msg.includes("which was not in request.tools") ||
     causeMsg.includes("failed to call a function") ||
-    causeMsg.includes("failed_generation")
+    causeMsg.includes("failed_generation") ||
+    causeMsg.includes("tool call validation failed")
   );
 }
 

@@ -34,7 +34,7 @@ import { RETRY_STOP_BLOCKS, registerSlackHandlers } from "./handlers/slack";
 import { registerTelegramHandlers } from "./handlers/telegram";
 import { logger as botLogger } from "./logger";
 import { helpCard, telegramHelpCard } from "./notifications";
-import { getLinkedUser, getToolContext, setToolContext, type ToolContextEntry } from "./user-linking";
+import { getLinkedUser, getValidAccessToken, getToolContext, setToolContext, type ToolContextEntry } from "./user-linking";
 
 validateRequiredEnv();
 
@@ -367,17 +367,14 @@ async function injectToolContext(
   ];
 }
 
-function handleSlackAuthError(err: unknown): boolean {
+function isSlackAuthError(err: unknown): boolean {
   if (
     err instanceof Error &&
     "code" in err &&
     (err as Record<string, unknown>).code === "slack_webapi_platform_error"
   ) {
     const slackErr = (err as Record<string, unknown>).data as Record<string, unknown> | undefined;
-    if (slackErr?.error === "not_authed" || slackErr?.error === "invalid_auth") {
-      botLogger.error("Slack auth error — workspace may need reinstall", err);
-      return true;
-    }
+    return slackErr?.error === "not_authed" || slackErr?.error === "invalid_auth";
   }
   return false;
 }
@@ -448,7 +445,15 @@ async function withBotErrorHandling(
       botLogger.warn("Feature not supported", err.feature);
       return;
     }
-    if (handleSlackAuthError(err)) return;
+    if (isSlackAuthError(err)) {
+      botLogger.error("Slack auth error — workspace may need reinstall", err);
+      await options
+        .postError(
+          "The Slack app token has expired or been revoked. Please reinstall the app by visiting the Cal.com app settings."
+        )
+        .catch(() => {});
+      return;
+    }
     // AI/LLM rate limit (e.g. Groq tokens-per-day) — show friendly message
     if (isAIRateLimitError(err)) {
       botLogger.warn("AI rate limit", err);
@@ -479,10 +484,13 @@ async function withBotErrorHandling(
 
 // ─── Helper: post OAuth link prompt ─────────────────────────────────────────
 
-function oauthLinkMessage(platform: string, teamId: string, userId: string) {
+function oauthLinkMessage(platform: string, teamId: string, userId: string, reason?: "expired" | "not_linked") {
   const authUrl = generateAuthUrl(platform, teamId, userId);
+  const title = reason === "expired"
+    ? "Your Cal.com Session Has Expired"
+    : "Connect Your Cal.com Account";
   return Card({
-    title: "Connect Your Cal.com Account",
+    title,
     children: [
       Actions([
         LinkButton({
@@ -492,6 +500,28 @@ function oauthLinkMessage(platform: string, teamId: string, userId: string) {
       ]),
     ],
   });
+}
+
+async function promptUserToLink(
+  thread: Thread,
+  author: Parameters<Thread["postEphemeral"]>[0],
+  ctx: PlatformContext,
+  reason: "expired" | "not_linked" = "not_linked"
+): Promise<void> {
+  const card = oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId, reason);
+  if (ctx.platform === "telegram") {
+    const isGroup = thread.id !== `telegram:${ctx.userId}`;
+    if (isGroup) {
+      await thread.post("Please check your DMs to connect your Cal.com account.");
+      await thread.postEphemeral(author, card, { fallbackToDM: true });
+    } else {
+      await thread.post(card);
+    }
+  } else {
+    // Ephemeral messages are unreliable in Slack assistant threads, so post as a
+    // regular thread message. The OAuth URL is user-specific and safe to show.
+    await thread.post(card);
+  }
 }
 
 function getSlackAdapter(): SlackAdapter {
@@ -673,6 +703,12 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
         await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
         return;
       }
+      const token = await getValidAccessToken(ctx.teamId, ctx.userId);
+      if (!token) {
+        bot.getLogger("telegram-freeform").warn("Token expired/revoked", { userId: ctx.userId });
+        await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId, "expired"));
+        return;
+      }
 
       if (!(await thread.isSubscribed())) {
         await thread.subscribe();
@@ -761,34 +797,13 @@ bot.onNewMention(async (thread, message) => {
         .info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
       if (!linked) {
         bot.getLogger("mention").warn("User not linked", { userId: ctx.userId });
-        if (ctx.platform === "telegram") {
-          // Never expose the signed OAuth URL in a group — any member could click it and
-          // link their Cal.com account to the requester's Telegram ID.
-          const isGroup = thread.id !== `telegram:${ctx.userId}`;
-          if (isGroup) {
-            await thread.post("Please check your DMs to connect your Cal.com account.");
-            await thread.postEphemeral(
-              message.author,
-              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
-              { fallbackToDM: true }
-            );
-          } else {
-            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
-          }
-        } else {
-          try {
-            await thread.postEphemeral(
-              message.author,
-              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
-              { fallbackToDM: true }
-            );
-          } catch (ephemeralErr) {
-            bot
-              .getLogger("mention")
-              .error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
-            throw ephemeralErr;
-          }
-        }
+        await promptUserToLink(thread, message.author, ctx);
+        return;
+      }
+      const token = await getValidAccessToken(ctx.teamId, ctx.userId);
+      if (!token) {
+        bot.getLogger("mention").warn("Token expired/revoked", { userId: ctx.userId });
+        await promptUserToLink(thread, message.author, ctx, "expired");
         return;
       }
 
@@ -889,37 +904,13 @@ bot.onSubscribedMessage(async (thread, message) => {
         .info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
       if (!linked) {
         bot.getLogger("thread-follow-up").warn("User not linked", { userId: ctx.userId });
-        if (ctx.platform === "telegram") {
-          // Never expose the signed OAuth URL in a group — any member could click it and
-          // link their Cal.com account to the requester's Telegram ID.
-          const isGroup = thread.id !== `telegram:${ctx.userId}`;
-          if (isGroup) {
-            await thread.post("Please check your DMs to connect your Cal.com account.");
-            await thread.postEphemeral(
-              message.author,
-              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
-              { fallbackToDM: true }
-            );
-          } else {
-            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
-          }
-        } else {
-          try {
-            await thread.postEphemeral(
-              message.author,
-              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
-              { fallbackToDM: true }
-            );
-            bot
-              .getLogger("thread-follow-up")
-              .info("Ephemeral OAuth link posted", { userId: ctx.userId });
-          } catch (ephemeralErr) {
-            bot
-              .getLogger("thread-follow-up")
-              .error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
-            throw ephemeralErr;
-          }
-        }
+        await promptUserToLink(thread, message.author, ctx);
+        return;
+      }
+      const token = await getValidAccessToken(ctx.teamId, ctx.userId);
+      if (!token) {
+        bot.getLogger("thread-follow-up").warn("Token expired/revoked", { userId: ctx.userId });
+        await promptUserToLink(thread, message.author, ctx, "expired");
         return;
       }
 
