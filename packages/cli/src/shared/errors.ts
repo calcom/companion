@@ -1,4 +1,5 @@
 import process from "node:process";
+import { DryRunAbort } from "./client";
 import { isGlobalJsonMode, renderError } from "./output";
 
 interface ValidationConstraints {
@@ -151,6 +152,9 @@ export async function withErrorHandling<T>(fn: () => Promise<T>): Promise<T | un
   try {
     return await fn();
   } catch (error) {
+    if (error instanceof DryRunAbort) {
+      process.exit(0);
+    }
     handleSdkError(error);
     process.exit(1);
   }

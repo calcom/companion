@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import process from "node:process";
 import { Command } from "commander";
-import { setGlobalJsonMode } from "./shared/output";
+import { setCompactMode, setDryRunMode, setGlobalJsonMode, stdoutIsTTY } from "./shared/output";
 import { registerAgendaCommand } from "./commands/agenda";
 import { registerApiKeysCommand } from "./commands/api-keys";
 import { registerBookingsCommand } from "./commands/bookings";
@@ -29,6 +29,7 @@ import { registerOrgUsersCommand } from "./commands/org-users";
 import { registerOrgWebhooksCommand } from "./commands/org-webhooks";
 import { registerPrivateLinksCommand } from "./commands/private-links";
 import { registerRoutingFormsCommand } from "./commands/routing-forms";
+import { registerSchemaCommand } from "./commands/schema/command";
 import { registerSchedulesCommand } from "./commands/schedules";
 import { registerSelectedCalendarsCommand } from "./commands/selected-calendars";
 import { registerSlotsCommand } from "./commands/slots";
@@ -55,13 +56,25 @@ program
   .description("Cal.com CLI - Manage your Cal.com account from the command line")
   .version("0.0.1")
   .option("--json", "Output as JSON (applies to all commands)")
+  .option("--compact", "Compact single-line JSON output (implies --json)")
+  .option("--dry-run", "Print the API request that would be sent without executing it (implies --json)")
   .enablePositionalOptions()
   .hook("preAction", (_thisCommand, actionCommand) => {
-    const globalJson = program.opts().json === true || process.env.CAL_OUTPUT === "json";
+    const opts = program.opts();
+    const compact = opts.compact === true;
+    const dryRun = opts.dryRun === true;
+    // Auto-enable JSON when stdout is not a TTY (piped), or via flag / env var
+    const globalJson =
+      opts.json === true || compact || dryRun || process.env.CAL_OUTPUT === "json" || !stdoutIsTTY();
     if (globalJson) {
       setGlobalJsonMode(true);
-      // Propagate to the action command so existing per-command --json checks work
       actionCommand.setOptionValue("json", true);
+    }
+    if (compact || (globalJson && !stdoutIsTTY())) {
+      setCompactMode(true);
+    }
+    if (dryRun) {
+      setDryRunMode(true);
     }
   });
 
@@ -111,9 +124,16 @@ registerOAuthCommand(program);
 registerVerifiedResourcesCommand(program);
 registerTeamVerifiedResourcesCommand(program);
 registerOrgTeamVerifiedResourcesCommand(program);
+registerSchemaCommand(program);
 
 program.parseAsync(process.argv).catch((err: Error) => {
-  const globalJson = program.opts().json === true || process.env.CAL_OUTPUT === "json";
+  const opts = program.opts();
+  const globalJson =
+    opts.json === true ||
+    opts.compact === true ||
+    opts.dryRun === true ||
+    process.env.CAL_OUTPUT === "json" ||
+    !stdoutIsTTY();
   if (globalJson) {
     console.error(JSON.stringify({ status: "error", error: { message: err.message } }));
   } else {
