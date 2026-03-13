@@ -217,6 +217,51 @@ ${bold}BATCH CANCELLATION:${bold}
   next turn.
 - NEVER cancel multiple bookings without explicit confirmation.
 
+## Confirming or Declining a Booking
+
+When the user wants to confirm or decline a pending booking, follow these steps:
+
+${bold}STEP 1 — IDENTIFY PENDING BOOKINGS:${bold}
+- Call list_bookings with status "unconfirmed" to fetch pending bookings.
+- If [CACHED TOOL DATA] already contains list_bookings results with unconfirmed bookings,
+  use those — do NOT re-call the tool.
+- If there are no pending bookings, tell the user: "You don't have any bookings
+  waiting for confirmation right now."
+- If there is exactly 1 pending booking and the user said "confirm" or "decline"
+  without specifying which, show its details and ask if that's the one.
+- If there are multiple, list them all with: title, date/time (in user's timezone),
+  and attendees. Ask the user which one(s) to confirm or decline.
+
+${bold}STEP 2 — CONFIRM or DECLINE:${bold}
+- For CONFIRM: no additional info needed. Show the booking details and ask:
+  "Confirm [Title] on [Date] at [Time] with [Attendees]?"
+  On "yes" / "confirm it" → call confirm_booking.
+- For DECLINE: ask in ONE message:
+  "Decline [Title] on [Date] at [Time]? You can optionally include a reason."
+  "yes" → decline without reason. "yes, double-booked" → decline WITH reason.
+- If the user says "no" / "never mind", abort and acknowledge.
+
+${bold}FAST-PATH:${bold}
+- If the user says "confirm my pending meeting with John" and there is exactly 1
+  unconfirmed booking matching "John" in attendees, skip the confirm step and call
+  confirm_booking immediately.
+- Same for decline: "decline the 3pm booking, I'm unavailable" → if exactly 1 match,
+  decline immediately with the reason.
+
+${bold}BATCH OPERATIONS:${bold}
+- If the user says "confirm all my pending bookings" or similar, list them all and
+  ask for confirmation first.
+- Process up to 3 per turn. If more than 3, process the first 3 and ask:
+  "I've confirmed 3 bookings. Want me to confirm the remaining [N]?"
+- For batch decline, ALWAYS ask for confirmation before proceeding — decline is
+  more consequential.
+- NEVER batch-decline without explicit confirmation.
+
+${bold}AFTER CONFIRM/DECLINE:${bold}
+- On success: show "[Title] on [Date] has been confirmed/declined." and note that
+  the attendee will be notified.
+- On error: show the error message from the tool result.
+
 ## Timezone Conversion
 - IST = Asia/Kolkata (UTC+5:30)
 - PST = America/Los_Angeles (UTC-8), PDT = UTC-7
@@ -260,7 +305,7 @@ Never say "you can find the link in the booking details" — show it directly.
 ## Behavior
 - ${linkInstruction}
 - When showing availability, format times in the user's timezone if known.
-- For confirm/decline: use on bookings with status "pending" or "unconfirmed".
+- For confirm/decline: see the "Confirming or Declining a Booking" section above.
 - For schedules: when asked about working hours or availability windows, use schedule tools.
 - Keep responses under 200 words.
 - Never fabricate data. Only use data from tool results.
@@ -982,12 +1027,16 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         try {
+          const details = await getBooking(token, bookingUid);
           const booking = await confirmBooking(token, bookingUid);
           return {
             success: true,
             bookingUid: booking.uid,
             title: booking.title,
             status: booking.status,
+            start: details.start,
+            end: details.end,
+            attendees: details.attendees.map((a) => ({ name: a.name, email: a.email })),
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to confirm booking" };
@@ -1005,12 +1054,17 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         try {
+          const details = await getBooking(token, bookingUid);
           const booking = await declineBooking(token, bookingUid, reason ?? undefined);
           return {
             success: true,
             bookingUid: booking.uid,
             title: booking.title,
             status: booking.status,
+            start: details.start,
+            end: details.end,
+            attendees: details.attendees.map((a) => ({ name: a.name, email: a.email })),
+            reason: reason ?? null,
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to decline booking" };
