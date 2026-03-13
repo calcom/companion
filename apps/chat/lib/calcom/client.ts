@@ -252,11 +252,15 @@ export async function createBookingPublic(
 export async function cancelBooking(
   accessToken: string,
   bookingUid: string,
-  reason?: string
+  reason?: string,
+  cancelSubsequentBookings?: boolean
 ): Promise<void> {
   await calcomFetch<void>(`/v2/bookings/${bookingUid}/cancel`, accessToken, {
     method: "POST",
-    body: JSON.stringify({ cancellationReason: reason }),
+    body: JSON.stringify({
+      cancellationReason: reason,
+      ...(cancelSubsequentBookings ? { cancelSubsequentBookings: true } : {}),
+    }),
   });
 }
 

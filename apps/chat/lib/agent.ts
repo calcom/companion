@@ -173,6 +173,50 @@ MULTI-ATTENDEE:
 - Additional attendees with email only: pass as guestEmails in book_meeting.
 - After booking: show title, time, all attendee names, and Join Meeting link.
 
+## Cancelling a Booking
+
+When the user wants to cancel a booking, follow these steps:
+
+${bold}STEP 1 — IDENTIFY THE BOOKING:${bold}
+- If the user provides a booking UID directly, use it.
+- If the user describes the booking by name, time, or attendee (e.g. "cancel my 2pm meeting",
+  "cancel the meeting with John"), call list_bookings with status "upcoming" to find it.
+- If [CACHED TOOL DATA] already contains list_bookings results, search those first — do NOT
+  re-call the tool.
+- If multiple bookings match the description, list the matches and ask the user to pick one.
+  Show: title, date/time (in user's timezone), and attendees for each.
+- If no bookings match, tell the user and show their upcoming bookings so they can pick.
+
+${bold}STEP 2 — CONFIRM + REASON (combined):${bold}
+- Show the booking details and ask in ONE message:
+  "Are you sure you want to cancel ${bold}[Title]${bold} on [Date] at [Time] with [Attendees]?
+   You can optionally include a reason."
+- "yes" / "cancel it" / "go ahead" → cancel without reason.
+- "yes, scheduling conflict" / "yes — something came up" → cancel WITH the provided reason.
+- "no" / "never mind" → abort and acknowledge.
+- If the user already provided a reason in their original message (e.g. "cancel my 2pm,
+  something came up"), use that reason — do NOT ask again.
+
+${bold}FAST-PATH:${bold} If the user's message has clear intent + identifies exactly 1 booking + uses
+imperative language (e.g. "cancel my 2pm meeting, something came up"), AND list_bookings
+returns exactly 1 match: skip the confirm step and call cancel_booking immediately with the
+reason. Show the result as confirmation.
+
+${bold}RECURRING BOOKINGS:${bold}
+- If the booking is part of a recurring series, ask:
+  "This is a recurring booking. Do you want to cancel just this one, or this and all future occurrences?"
+- "just this one" → call cancel_booking with cancelSubsequentBookings: false (or omit it).
+- "all future" / "all of them" → call cancel_booking with cancelSubsequentBookings: true.
+  This cancels the specified booking and all subsequent occurrences in one API call.
+
+${bold}BATCH CANCELLATION:${bold}
+- If the user says "cancel all my meetings tomorrow" or similar, call list_bookings and
+  filter to the matching date/criteria. Show the list and ask for confirmation.
+- Cancel up to 3 bookings per turn. If more than 3 match, cancel the first 3 and ask
+  "I've cancelled 3 bookings. Want me to cancel the remaining [N]?" to continue in the
+  next turn.
+- NEVER cancel multiple bookings without explicit confirmation.
+
 ## Timezone Conversion
 - IST = Asia/Kolkata (UTC+5:30)
 - PST = America/Los_Angeles (UTC-8), PDT = UTC-7
@@ -824,6 +868,10 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               attendees: b.attendees.map((a) => ({ name: a.name, email: a.email })),
               meetingUrl: b.meetingUrl,
               location: b.location,
+              eventType: b.eventType
+                ? { id: b.eventType.id, title: b.eventType.title, slug: b.eventType.slug }
+                : null,
+              description: b.description,
             })),
             manageUrl: `${CALCOM_APP_URL}/bookings`,
           };
@@ -852,6 +900,10 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             attendees: b.attendees.map((a) => ({ name: a.name, email: a.email })),
             meetingUrl: b.meetingUrl,
             location: b.location,
+            eventType: b.eventType
+              ? { id: b.eventType.id, title: b.eventType.title, slug: b.eventType.slug }
+              : null,
+            description: b.description,
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to fetch booking" };
@@ -860,17 +912,31 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
     }),
 
     cancel_booking: tool({
-      description: "Cancel a booking by its UID. Optionally provide a reason.",
+      description: "Cancel a booking by its UID. Optionally provide a reason. For recurring bookings, set cancelSubsequentBookings to true to cancel this and all future occurrences.",
       inputSchema: z.object({
         bookingUid: z.string().describe("The booking UID to cancel"),
         reason: z.string().nullable().optional().describe("Cancellation reason"),
+        cancelSubsequentBookings: z
+          .boolean()
+          .nullable()
+          .optional()
+          .describe("For recurring bookings only. If true, cancels this booking AND all future occurrences."),
       }),
-      execute: async ({ bookingUid, reason }) => {
+      execute: async ({ bookingUid, reason, cancelSubsequentBookings }) => {
         const token = await getAccessTokenOrNull(teamId, userId);
         if (!token) return { error: "Account not connected." };
         try {
-          await cancelBooking(token, bookingUid, reason ?? undefined);
-          return { success: true, bookingUid };
+          const booking = await getBooking(token, bookingUid);
+          await cancelBooking(token, bookingUid, reason ?? undefined, cancelSubsequentBookings ?? undefined);
+          return {
+            success: true,
+            bookingUid,
+            title: booking.title,
+            start: booking.start,
+            end: booking.end,
+            attendees: booking.attendees.map((a) => ({ name: a.name, email: a.email })),
+            cancelledSubsequent: cancelSubsequentBookings ?? false,
+          };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to cancel booking" };
         }
