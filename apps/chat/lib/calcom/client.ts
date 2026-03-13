@@ -8,6 +8,7 @@ import type {
   CalcomSlot,
   CalendarLink,
   CreateBookingInput,
+  CreatePublicBookingInput,
   CreateEventTypeInput,
   CreateScheduleInput,
   SlotsResponse,
@@ -218,6 +219,34 @@ export async function createBooking(
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export async function createBookingPublic(
+  input: CreatePublicBookingInput
+): Promise<CalcomBooking> {
+  const url = `${CALCOM_API_URL}/v2/bookings`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "cal-api-version": "2024-08-13",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    let message = `Booking failed (${res.status})`;
+    try {
+      const parsed = JSON.parse(body);
+      message = parsed.error?.message ?? parsed.message ?? message;
+    } catch { /* use default */ }
+    throw new CalcomApiError(message, res.status);
+  }
+  const json = (await res.json()) as CalcomApiResponse<CalcomBooking>;
+  if (json.status === "error") {
+    throw new CalcomApiError(json.error?.message ?? "Booking failed", undefined, json.error?.code);
+  }
+  return json.data;
 }
 
 export async function cancelBooking(

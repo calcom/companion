@@ -87,6 +87,20 @@ export interface CreateBookingInput {
   metadata?: Record<string, string>;
 }
 
+export interface CreatePublicBookingInput {
+  eventTypeSlug: string;
+  username: string;
+  start: string; // ISO 8601 UTC
+  attendee: {
+    name: string;
+    email: string;
+    timeZone: string;
+  };
+  guests?: string[];
+  notes?: string;
+  lengthInMinutes?: number;
+}
+
 /** Metadata passed from Cal.com booking form for routing notifications. */
 export interface CalcomWebhookMetadata {
   /** Slack workspace/team ID for routing to Slack */

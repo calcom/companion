@@ -7,6 +7,7 @@ import {
   cancelBooking,
   confirmBooking,
   createBooking,
+  createBookingPublic,
   createEventType,
   createSchedule,
   declineBooking,
@@ -122,13 +123,13 @@ To book, you need these 4 pieces:
 4. ${bold}Slot is available${bold} — call check_availability ONCE
 
 ${bold}Option B — THEIR calendar (they host):${bold}
-The other person is the host. The requesting user is the attendee.
+The other person is the host. The requesting user (you) is the attendee.
 1. Ask for the other person's Cal.com username if not provided.
 2. Call \`list_event_types_by_username\` with their username.
 3. Show their event types and let the user pick. Note the \`slug\` from the result.
 4. Call \`check_availability_public\` with the event type \`slug\` and \`username\`. Do NOT use \`check_availability\` — that requires the host's auth token which you don't have.
 5. Present available slots and let the user pick.
-6. Call book_meeting with their event type ID. Use the requesting user's name + email (from Your Account above) as attendeeName/attendeeEmail.
+6. Call \`book_meeting_public\` (NOT book_meeting) with the event type slug + username. For attendeeName and attendeeEmail, use the ${bold}requesting user's${bold} name and email from "Your Account" above — the requesting user is the attendee in this flow. NEVER use the bot name "Cal.com" as attendeeName.
 
 EVENT TYPE SELECTION:
 - If there is only 1 non-hidden event type, auto-select it. Tell the user which one you're using.
@@ -614,6 +615,85 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
             meetingUrl: booking.meetingUrl,
             attendees: booking.attendees.map((a) => ({ name: a.name, email: a.email })),
             manageUrl: `${CALCOM_APP_URL}/bookings`,
+          };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Failed to create booking" };
+        }
+      },
+    }),
+
+    book_meeting_public: tool({
+      description:
+        "Book a meeting on ANOTHER user's Cal.com calendar using their public event type. Use this for Option B (they host). Does NOT require the host's auth token. Pass eventTypeSlug + username instead of eventTypeId. The attendee is the requesting user (you) — use YOUR name and email.",
+      inputSchema: z.object({
+        eventTypeSlug: z
+          .string()
+          .describe("The event type slug from list_event_types_by_username (e.g. 'meet')"),
+        username: z
+          .string()
+          .describe("The Cal.com username of the host (e.g. 'peer')"),
+        startTime: z
+          .string()
+          .describe("Start time in ISO 8601 UTC format (e.g. '2026-03-23T10:30:00Z')"),
+        attendeeName: z
+          .string()
+          .describe("YOUR full name (the requesting user, not the host)"),
+        attendeeEmail: z
+          .string()
+          .describe("YOUR email address (the requesting user, not the host)"),
+        attendeeTimeZone: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Your timezone (e.g. 'Asia/Kolkata'). Defaults to your linked timezone."),
+        guests: z
+          .array(z.string())
+          .nullable()
+          .optional()
+          .describe("Optional additional guest emails"),
+        notes: z.string().nullable().optional().describe("Optional notes for the booking"),
+        lengthInMinutes: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Duration in minutes. Only needed if the event type supports multiple durations."),
+      }),
+      execute: async ({
+        eventTypeSlug,
+        username,
+        startTime,
+        attendeeName,
+        attendeeEmail,
+        attendeeTimeZone,
+        guests,
+        notes,
+        lengthInMinutes,
+      }) => {
+        const linked = await getLinkedUser(teamId, userId);
+
+        try {
+          const booking = await createBookingPublic({
+            eventTypeSlug,
+            username,
+            start: startTime,
+            attendee: {
+              name: attendeeName,
+              email: attendeeEmail,
+              timeZone: attendeeTimeZone ?? linked?.calcomTimeZone ?? "UTC",
+            },
+            guests: guests?.filter(Boolean) ?? undefined,
+            notes: notes ?? undefined,
+            lengthInMinutes: lengthInMinutes ?? undefined,
+          });
+
+          return {
+            success: true,
+            bookingUid: booking.uid,
+            title: booking.title,
+            start: booking.start,
+            end: booking.end,
+            meetingUrl: booking.meetingUrl,
+            attendees: booking.attendees.map((a) => ({ name: a.name, email: a.email })),
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to create booking" };
@@ -1155,6 +1235,7 @@ const CORE_TOOL_NAMES = new Set([
   "check_availability",
   "check_availability_public",
   "book_meeting",
+  "book_meeting_public",
   "add_booking_attendee",
   "list_bookings",
   "get_booking",

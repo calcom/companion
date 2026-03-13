@@ -491,15 +491,6 @@ async function withBotErrorHandling(
       botLogger.warn("Feature not supported", err.feature);
       return;
     }
-    if (isSlackAuthError(err)) {
-      botLogger.error("Slack auth error — workspace may need reinstall", err);
-      await options
-        .postError(
-          "The Slack app token has expired or been revoked. Please reinstall the app by visiting the Cal.com app settings."
-        )
-        .catch(() => {});
-      return;
-    }
     // AI/LLM rate limit (e.g. Groq tokens-per-day) — show friendly message
     if (isAIRateLimitError(err)) {
       botLogger.warn("AI rate limit", err);
@@ -518,10 +509,29 @@ async function withBotErrorHandling(
         .catch(() => {});
       return;
     }
-    botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
+    // Check for a custom error message from the handler (e.g. captured AI stream error)
+    // before falling through to Slack auth — a Slack not_authed can be a secondary
+    // failure caused by the stream crashing, not a real token issue.
     const customMsg = options.getCustomErrorMessage?.(err);
+    if (customMsg) {
+      botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
+      await options.postError(customMsg).catch((postErr) => {
+        botLogger.error("Failed to post error message to user", { postErr, originalErr: err });
+      });
+      return;
+    }
+    if (isSlackAuthError(err)) {
+      botLogger.error("Slack auth error — workspace may need reinstall", err);
+      await options
+        .postError(
+          "The Slack app token has expired or been revoked. Please reinstall the app by visiting the Cal.com app settings."
+        )
+        .catch(() => {});
+      return;
+    }
+    botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
     await options
-      .postError(customMsg ?? "Sorry, something went wrong. Please try again.")
+      .postError("Sorry, something went wrong. Please try again.")
       .catch((postErr) => {
         botLogger.error("Failed to post error message to user", { postErr, originalErr: err });
       });
