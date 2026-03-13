@@ -504,8 +504,8 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
           const slotsMap = await getAvailableSlotsPublic({
             eventTypeSlug,
             username,
-            start: from.toISOString().split("T")[0]!,
-            end: end.toISOString().split("T")[0]!,
+            start: from.toISOString().split("T")[0] ?? "",
+            end: end.toISOString().split("T")[0] ?? "",
             timeZone: tz,
             ...(duration ? { duration } : {}),
           });
@@ -527,8 +527,8 @@ function createCalTools(teamId: string, userId: string, lookupPlatformUser?: Loo
             const extSlotsMap = await getAvailableSlotsPublic({
               eventTypeSlug,
               username,
-              start: from.toISOString().split("T")[0]!,
-              end: extEnd.toISOString().split("T")[0]!,
+              start: from.toISOString().split("T")[0] ?? "",
+              end: extEnd.toISOString().split("T")[0] ?? "",
               timeZone: tz,
               ...(duration ? { duration } : {}),
             });
