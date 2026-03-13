@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import process from "node:process";
 import { Command } from "commander";
+import { setGlobalJsonMode } from "./shared/output";
 import { registerAgendaCommand } from "./commands/agenda";
 import { registerApiKeysCommand } from "./commands/api-keys";
 import { registerBookingsCommand } from "./commands/bookings";
@@ -53,7 +54,16 @@ program
   .name("calcom")
   .description("Cal.com CLI - Manage your Cal.com account from the command line")
   .version("0.0.1")
-  .enablePositionalOptions();
+  .option("--json", "Output as JSON (applies to all commands)")
+  .enablePositionalOptions()
+  .hook("preAction", (_thisCommand, actionCommand) => {
+    const globalJson = program.opts().json === true || process.env.CAL_OUTPUT === "json";
+    if (globalJson) {
+      setGlobalJsonMode(true);
+      // Propagate to the action command so existing per-command --json checks work
+      actionCommand.setOptionValue("json", true);
+    }
+  });
 
 registerLoginCommand(program);
 registerLogoutCommand(program);
@@ -103,6 +113,11 @@ registerTeamVerifiedResourcesCommand(program);
 registerOrgTeamVerifiedResourcesCommand(program);
 
 program.parseAsync(process.argv).catch((err: Error) => {
-  console.error(`Error: ${err.message}`);
+  const globalJson = program.opts().json === true || process.env.CAL_OUTPUT === "json";
+  if (globalJson) {
+    console.error(JSON.stringify({ status: "error", error: { message: err.message } }));
+  } else {
+    console.error(`Error: ${err.message}`);
+  }
   process.exit(1);
 });
