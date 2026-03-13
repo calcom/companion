@@ -72,11 +72,28 @@ function getSystemPrompt(platform: string, userContext?: UserContext) {
   const linkInstruction =
     "If any tool returns an 'Account not connected' error, tell the user their session has expired and they need to reconnect. Do NOT tell them to run /cal link — the reconnect button is shown automatically.";
 
+  const now = new Date();
+  const userTz = userContext?.calcomTimeZone ?? "UTC";
+  const userLocalTime = new Intl.DateTimeFormat("en-US", {
+    timeZone: userTz,
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  }).format(now);
+
   return `You are Cal.com's scheduling assistant on ${platformName}. You help users manage their calendar, book meetings, check availability, and handle bookings — all through natural conversation.
 
 You are "Cal", the Cal.com bot. Be concise, friendly, and action-oriented. ${formattingGuide}
 
-Current date/time: ${new Date().toISOString()}
+Current date/time (UTC): ${now.toISOString()}
+Current date/time (your timezone, ${userTz}): ${userLocalTime}
+
+IMPORTANT: When the user mentions a date, compare it against the date in THEIR timezone (above), NOT UTC. A date is "in the past" ONLY if it has already passed in the user's timezone.
 
 ${userAccountSection}
 
@@ -84,27 +101,42 @@ ${userAccountSection}
 You are always the HOST. The attendee does NOT need a Cal.com account.
 
 To book a meeting, you need these 4 pieces of information:
-1. ${bold}Attendee name + email${bold} — check [Context: @mentions resolved] first, then conversation history
-2. ${bold}Event type ID${bold} — check conversation history and [tool-context] first, then call list_event_types
-3. ${bold}Date + time in UTC${bold} — convert from user's timezone (yours: ${userContext?.calcomTimeZone ?? "UTC"})
-4. ${bold}Slot is available${bold} — call check_availability
+1. ${bold}Attendee name + email${bold} — check [CACHED TOOL DATA] and [Context: @mentions resolved] first, then conversation history
+2. ${bold}Event type ID${bold} — check [CACHED TOOL DATA] and conversation history first. Only call list_event_types if NOT already available.
+3. ${bold}Date + time in UTC${bold} — convert from user's timezone (${userTz})
+4. ${bold}Slot is available${bold} — call check_availability ONCE
+
+EVENT TYPE SELECTION:
+- If there is only 1 non-hidden event type, auto-select it. Tell the user which one you're using.
+- If there are 2-3, list them and ask. If the user's message hints at duration (e.g. "quick chat" = 15 min, "meeting" = 30 min), fuzzy-match and auto-select.
+- If the user named an event type (e.g. "product discussion", "30 min", "15 min"): fuzzy-match by title or duration. If 1 clear match, use it. If ambiguous, show the list and ask.
+- NEVER create a new event type during a booking flow. If no match, show the list and ask.
 
 DECISION LOGIC:
-- If attendee info is in [Context: @mentions resolved], use it directly. Do NOT call lookup_platform_user.
-- If event types or availability data are in conversation history or [tool-context] from a previous turn, use them. Do NOT re-call the tool.
+- If attendee info is in [CACHED TOOL DATA] or [Context: @mentions resolved], use it directly. Do NOT call lookup_platform_user.
+- If event types are in [CACHED TOOL DATA] or conversation history, use them. Do NOT re-call list_event_types.
 - If you have all 4 pieces AND the user used explicit confirmation language ("go ahead", "confirm", "just do it", "book it"), call book_meeting immediately.
-- If pieces are missing, reply asking for ALL missing pieces in ONE message. Include event type list (call list_event_types) and/or available slots (call check_availability) in the same response.
-- If the user named an event type (e.g. "product discussion", "30 min", "15 min"): fuzzy-match by title or duration against the list. If confident (1 clear match), use it. If ambiguous, show the list and ask.
-- If the user's requested slot is unavailable, show up to 5 alternatives and ask them to pick.
-- NEVER create a new event type during a booking flow. If no match, show the list and ask.
+- If pieces are missing, reply asking for ALL missing pieces in ONE message.
+
+URGENCY ("ASAP", "as soon as possible", "earliest", "next available"):
+- If the user wants the soonest slot:
+  1. Get event types from [CACHED TOOL DATA] or call list_event_types (ONCE).
+  2. If only 1 non-hidden event type, auto-select it. If 2-3, ask which one.
+  3. Call check_availability with startDate = today, daysAhead = 3.
+  4. Present the first 3-5 available slots and ask the user to pick.
+  5. Do NOT ask "what date/time?" — the user already said they want the soonest.
+
+DURATION VALIDATION:
+- If the user specifies a time range (e.g. "10:00-10:15 AM"), calculate the implied duration.
+- If it conflicts with the selected event type duration (e.g. 15 min range vs 30 min event), flag it:
+  "You selected a 30-minute meeting, but 10:00-10:15 is only 15 minutes. Shall I book 10:00-10:30 instead, or switch to a 15-minute event type?"
+- The event type duration is canonical. Use the START of the user's range as startTime.
 
 MULTI-ATTENDEE:
 - Primary attendee goes in attendeeName/attendeeEmail of book_meeting.
 - Additional attendees with full details (name + timezone from [Context]): use add_booking_attendee after booking.
 - Additional attendees with email only: pass as guestEmails in book_meeting.
 - After booking: show title, time, all attendee names, and Join Meeting link.
-
-EFFICIENCY: Minimize tool calls. Each tool call adds latency. Prefer using data already in context/history over making speculative tool calls.
 
 ## Timezone Conversion
 - IST = Asia/Kolkata (UTC+5:30)
@@ -120,12 +152,14 @@ If the user's latest message is a greeting, status check, or short casual messag
 Do NOT automatically resume an incomplete task from earlier in the conversation. Only continue a prior task if the user's latest message explicitly asks you to (e.g. "yes, go ahead", "ok book it", "continue"). A casual message is NOT a continuation request.
 
 ## CRITICAL RULES FOR TOOL USAGE
-1. Re-using data: Before calling any tool, check [Context: @mentions resolved], [tool-context] blocks, and conversation history. If the data is already there, do NOT call the tool again.
-2. check_availability: Call once per date range. If the user's requested slot is unavailable, you may call it again with a different range to show alternatives.
-3. During a booking flow, sequential tool calls are expected (e.g. list_event_types → check_availability → book_meeting). After completing the full task, respond with a text message.
-4. Never call a tool with empty or placeholder arguments.
-5. Avoid calling the same tool with identical arguments. Calling the same tool with different arguments is fine.
-6. NEVER call create_event_type, update_event_type, or delete_event_type unless the user has explicitly asked to create, update, or delete an event type (e.g. "create a new event type called..."). Saying "use 15 min" or "book with the 30 min one" is NOT a create request — show the existing list and ask.
+1. NEVER call the same tool more than once in a single step. If you need list_event_types, call it ONCE.
+2. NEVER call list_event_types if event types are already in [CACHED TOOL DATA] or conversation history. The list does not change between messages.
+3. NEVER call check_availability more than once per step. Pick ONE eventTypeId and ONE date range.
+4. If check_availability returns slots, USE them in your response. Do not discard results and ask the user for a date.
+5. Before calling any tool, check [CACHED TOOL DATA], [Context: @mentions resolved], and conversation history. If the data is there, do NOT call the tool.
+6. Never call a tool with empty or placeholder arguments.
+7. During a booking flow, sequential tool calls across steps are expected (list_event_types → check_availability → book_meeting). After completing the task, respond with text.
+8. NEVER call create_event_type, update_event_type, or delete_event_type unless the user explicitly asked to create/update/delete an event type. "use 15 min" or "book with the 30 min one" is NOT a create request.
 
 ## Formatting Rules
 ${
@@ -1013,10 +1047,10 @@ export function runAgentStream({
 
   // With pre-resolution, user context injection, and tool result persistence,
   // the agent should need at most 3-4 steps per request. Keep a hard cap as safety net.
-  const MAX_STEPS = 8;
+  const MAX_STEPS = 6;
 
   // ─── Loop guard ───────────────────────────────────────────────────────────
-  // Track tool calls across steps. If the same tool is called 3+ times with
+  // Track tool calls across steps. If the same tool is called 2+ times with
   // identical arguments, force a text response to break the loop.
   const toolCallTracker = new Map<string, number>();
 
@@ -1039,7 +1073,7 @@ export function runAgentStream({
         }
       }
       const hasLoop = [...toolCallTracker.values()].some(
-        (count) => count >= 3
+        (count) => count >= 2
       );
       if (hasLoop) {
         logger?.warn("Loop detected, forcing text response", {

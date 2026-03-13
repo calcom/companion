@@ -357,14 +357,23 @@ async function injectToolContext(
   const entries = await getToolContext(threadId);
   if (entries.length === 0) return history;
 
-  const summary = entries
-    .map((e) => `[tool-context] ${e.toolName}: ${JSON.stringify(e.result)}`)
+  // Only include the most recent result per tool name (deduplication)
+  const latestByTool = new Map<string, ToolContextEntry>();
+  for (const e of entries) {
+    latestByTool.set(e.toolName, e);
+  }
+
+  const summary = [...latestByTool.values()]
+    .map((e) => `${e.toolName} result: ${JSON.stringify(e.result)}`)
     .join("\n");
 
-  return [
-    ...history,
-    { role: "assistant" as const, content: summary },
-  ];
+  const contextMsg: import("ai").ModelMessage = {
+    role: "user" as const,
+    content: `[CACHED TOOL DATA - use this instead of re-calling these tools]\n${summary}\n[END CACHED DATA]`,
+  };
+
+  // Inject at the beginning of history so it's always visible to the model
+  return [contextMsg, ...history];
 }
 
 function isSlackAuthError(err: unknown): boolean {
