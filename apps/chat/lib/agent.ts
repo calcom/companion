@@ -44,6 +44,14 @@ export type LookupPlatformUserFn = (userId: string) => Promise<PlatformUserProfi
 
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
 
+// ─── Named constants ────────────────────────────────────────────────────────
+const MAX_HISTORY_MESSAGES = 10;
+const MAX_AGENT_STEPS = 6;
+const MAX_SLOTS_RETURNED = 15;
+const MAX_NEXT_AVAILABLE_SLOTS = 5;
+const EXTENDED_SEARCH_DAYS = 14;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 // ─── User context injected from bot layer ────────────────────────────────────
 
 export interface UserContext {
@@ -590,7 +598,20 @@ UNLINKING ACCOUNT:
 - Meeting video links (Zoom, Google Meet, Teams, etc.) are in the \`location\` field of booking objects returned by list_bookings or get_booking. Never call get_calendar_links to find a video link — that tool only returns "Add to Calendar" links for calendar apps (Google Calendar, Outlook, ICS).`;
 }
 
-async function getAccessTokenOrNull(teamId: string, userId: string): Promise<string | null> {
+function makeFormatSlot(tz: string) {
+  return (time: string) =>
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(new Date(time));
+}
+
+function getAccessTokenOrNull(teamId: string, userId: string): Promise<string | null> {
   return getValidAccessToken(teamId, userId);
 }
 
@@ -762,21 +783,11 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         if (!token) return { error: "Account not connected." };
         const linked = await getLinkedUser(teamId, userId);
         const tz = linked?.calcomTimeZone ?? "UTC";
-
-        const formatSlot = (time: string) =>
-          new Intl.DateTimeFormat("en-US", {
-            timeZone: tz,
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }).format(new Date(time));
+        const formatSlot = makeFormatSlot(tz);
 
         try {
           const from = startDate ? new Date(startDate) : new Date();
-          const end = new Date(from.getTime() + (daysAhead ?? 7) * 24 * 60 * 60 * 1000);
+          const end = new Date(from.getTime() + (daysAhead ?? 7) * MS_PER_DAY);
           const slotsMap = await getAvailableSlots(token, {
             eventTypeId,
             start: from.toISOString(),
@@ -798,7 +809,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               ? `No availability on ${dayName}. The schedule does not include weekends.`
               : `No available slots in the requested date range (${formatSlot(from.toISOString())} – ${formatSlot(end.toISOString())}).`;
 
-            const extEnd = new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000);
+            const extEnd = new Date(from.getTime() + EXTENDED_SEARCH_DAYS * MS_PER_DAY);
             const extSlotsMap = await getAvailableSlots(token, {
               eventTypeId,
               start: from.toISOString(),
@@ -810,7 +821,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               .flatMap(([date, slots]) =>
                 slots.filter((s) => s.available).map((s) => ({ date, time: s.time, formatted: formatSlot(s.time) }))
               )
-              .slice(0, 5);
+              .slice(0, MAX_NEXT_AVAILABLE_SLOTS);
 
             return {
               timeZone: tz,
@@ -825,8 +836,8 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           return {
             timeZone: tz,
             totalSlots: allSlots.length,
-            slots: allSlots.slice(0, 15),
-            hasMore: allSlots.length > 15,
+            slots: allSlots.slice(0, MAX_SLOTS_RETURNED),
+            hasMore: allSlots.length > MAX_SLOTS_RETURNED,
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to fetch availability" };
@@ -871,21 +882,11 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
       execute: async ({ eventTypeSlug, username, daysAhead, startDate, duration, bookingUidToReschedule }) => {
         const linked = await getLinkedUser(teamId, userId);
         const tz = linked?.calcomTimeZone ?? "UTC";
-
-        const formatSlot = (time: string) =>
-          new Intl.DateTimeFormat("en-US", {
-            timeZone: tz,
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }).format(new Date(time));
+        const formatSlot = makeFormatSlot(tz);
 
         try {
           const from = startDate ? new Date(startDate) : new Date();
-          const end = new Date(from.getTime() + (daysAhead ?? 7) * 24 * 60 * 60 * 1000);
+          const end = new Date(from.getTime() + (daysAhead ?? 7) * MS_PER_DAY);
           const slotsMap = await getAvailableSlotsPublic({
             eventTypeSlug,
             username,
@@ -909,7 +910,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               ? `No availability on ${dayName}. ${username}'s schedule does not include weekends.`
               : `No available slots for ${username} in the requested date range (${formatSlot(from.toISOString())} – ${formatSlot(end.toISOString())}).`;
 
-            const extEnd = new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000);
+            const extEnd = new Date(from.getTime() + EXTENDED_SEARCH_DAYS * MS_PER_DAY);
             const extSlotsMap = await getAvailableSlotsPublic({
               eventTypeSlug,
               username,
@@ -923,7 +924,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               .flatMap(([date, slots]) =>
                 slots.filter((s) => s.available).map((s) => ({ date, time: s.time, formatted: formatSlot(s.time) }))
               )
-              .slice(0, 5);
+              .slice(0, MAX_NEXT_AVAILABLE_SLOTS);
 
             return {
               timeZone: tz,
@@ -940,8 +941,8 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             timeZone: tz,
             username,
             totalSlots: allSlots.length,
-            slots: allSlots.slice(0, 15),
-            hasMore: allSlots.length > 15,
+            slots: allSlots.slice(0, MAX_SLOTS_RETURNED),
+            hasMore: allSlots.length > MAX_SLOTS_RETURNED,
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : `Failed to fetch availability for ${username}` };
@@ -1919,7 +1920,7 @@ export function runAgentStream({
 
   // Keep only the last 10 messages from history to prevent stale context
   // (e.g. an old booking request) from hijacking unrelated follow-up messages.
-  const recentHistory = (conversationHistory ?? []).slice(-10);
+  const recentHistory = (conversationHistory ?? []).slice(-MAX_HISTORY_MESSAGES);
 
   const messages: ModelMessage[] = [
     ...recentHistory,
@@ -1928,7 +1929,6 @@ export function runAgentStream({
 
   // With pre-resolution, user context injection, and tool result persistence,
   // the agent should need at most 3-4 steps per request. Keep a hard cap as safety net.
-  const MAX_STEPS = 6;
 
   // ─── Loop guard ───────────────────────────────────────────────────────────
   // Track tool calls across steps. If the same tool is called 2+ times with
@@ -1941,7 +1941,7 @@ export function runAgentStream({
     messages,
     tools,
     toolChoice: "auto",
-    stopWhen: stepCountIs(MAX_STEPS),
+    stopWhen: stepCountIs(MAX_AGENT_STEPS),
     prepareStep({ stepNumber, steps: previousSteps }) {
       // Track tool calls from all previous steps for loop detection
       toolCallTracker.clear();
@@ -1964,7 +1964,7 @@ export function runAgentStream({
       }
       // On the final allowed step, force a text response so the model
       // cannot keep calling tools indefinitely.
-      if (stepNumber === MAX_STEPS - 1) {
+      if (stepNumber === MAX_AGENT_STEPS - 1) {
         return { toolChoice: "none" as const };
       }
       return {};
