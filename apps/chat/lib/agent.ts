@@ -320,8 +320,11 @@ FINDING PAST MEETINGS WITH SOMEONE:
   3. If the user provides an email directly (e.g. "check david@cal.com"), use attendeeEmail.
   4. Always pass status: "past" and sortStart: "desc" to get the most recent meeting first.
   5. Use take: 10 to get enough history.
-- Show results as a list with title, date/time, and attendees.
-- If no results found with the given filters, suggest the user double-check the name/email spelling.
+- IMPORTANT: The attendeeEmail/attendeeName API filters only match the ATTENDEES list, not the host.
+  If the person is the HOST of the meeting (e.g. the user booked onto their calendar), the attendee filter will miss it.
+  When attendee filters return no results, do a second call: list_bookings with status "past", sortStart "desc", take 10 (no attendee filter),
+  then scan the returned \`hosts\` field for the person's name or email. Each booking now includes a \`hosts\` array alongside \`attendees\`.
+- Show results as a list with title, date/time, host, and attendees.
 
 - Meeting video links (Zoom, Google Meet, Teams, etc.) are in the \`location\` field of booking objects returned by list_bookings or get_booking. Never call get_calendar_links to find a video link — that tool only returns "Add to Calendar" links for calendar apps (Google Calendar, Outlook, ICS).`;
 }
@@ -880,7 +883,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
 
     list_bookings: tool({
       description:
-        "List the user's bookings. Can filter by status, attendee name/email, and date range. Supports sorting by start time.",
+        "List the user's bookings. Can filter by status, attendee name/email, and date range. Supports sorting by start time. Returns hosts and attendees for each booking. Note: attendeeEmail/attendeeName filters only match attendees, not hosts.",
       inputSchema: z.object({
         status: z
           .enum(["upcoming", "past", "cancelled", "recurring", "unconfirmed"])
@@ -950,6 +953,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               status: b.status,
               start: b.start,
               end: b.end,
+              hosts: b.hosts?.map((h) => ({ name: h.name, email: h.email })) ?? [],
               attendees: b.attendees.map((a) => ({ name: a.name, email: a.email })),
               meetingUrl: b.meetingUrl,
               location: b.location,
@@ -982,6 +986,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             status: b.status,
             start: b.start,
             end: b.end,
+            hosts: b.hosts?.map((h) => ({ name: h.name, email: h.email })) ?? [],
             attendees: b.attendees.map((a) => ({ name: a.name, email: a.email })),
             meetingUrl: b.meetingUrl,
             location: b.location,
