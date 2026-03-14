@@ -791,8 +791,8 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             })),
           };
         } catch (err) {
-          const message = err instanceof Error ? err.message : "Failed to fetch event types for this user";
-          const isNetwork = message.includes("fetch") || message.includes("timeout") || message.includes("ECONNREFUSED");
+          const message = err instanceof Error ? err.message : "Unknown error looking up event types";
+          const isNetwork = err instanceof Error && (message.includes("fetch") || message.includes("timeout") || message.includes("ECONNREFUSED"));
           return {
             username,
             error: message,
@@ -1124,10 +1124,11 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             manageUrl: `${CALCOM_APP_URL}/bookings`,
           };
         } catch (err) {
-          const message = err instanceof Error ? err.message : "Failed to create booking";
-          const isConflict = message.includes("409") || message.includes("conflict") || message.includes("already booked");
-          const isNetwork = message.includes("fetch") || message.includes("timeout") || message.includes("ECONNREFUSED");
-          const isMissingField = message.includes("required") || message.includes("400") || message.includes("validation") || message.includes("missing");
+          const isRealError = err instanceof Error;
+          const message = isRealError ? err.message : "Unknown error creating booking";
+          const isConflict = isRealError && (message.includes("409") || message.includes("conflict") || message.includes("already booked"));
+          const isNetwork = isRealError && (message.includes("timeout") || message.includes("ECONNREFUSED"));
+          const isMissingField = isRealError && (message.includes("required") || message.includes("400") || message.includes("validation") || message.includes("missing"));
           return {
             error: message,
             retryable: isConflict || isNetwork || isMissingField,
@@ -1245,10 +1246,11 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             attendees: booking.attendees.map((a) => ({ name: a.name, email: a.email })),
           };
         } catch (err) {
-          const message = err instanceof Error ? err.message : "Failed to create booking";
-          const isConflict = message.includes("409") || message.includes("conflict") || message.includes("already booked");
-          const isNetwork = message.includes("fetch") || message.includes("timeout") || message.includes("ECONNREFUSED");
-          const isMissingField = message.includes("required") || message.includes("400") || message.includes("validation") || message.includes("missing");
+          const isRealError = err instanceof Error;
+          const message = isRealError ? err.message : "Unknown error creating booking";
+          const isConflict = isRealError && (message.includes("409") || message.includes("conflict") || message.includes("already booked"));
+          const isNetwork = isRealError && (message.includes("timeout") || message.includes("ECONNREFUSED"));
+          const isMissingField = isRealError && (message.includes("required") || message.includes("400") || message.includes("validation") || message.includes("missing"));
           return {
             error: message,
             retryable: isConflict || isNetwork || isMissingField,
