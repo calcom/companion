@@ -260,6 +260,26 @@ export interface BookingFlowState {
   step: "awaiting_slot" | "awaiting_confirmation";
   slots?: Array<{ time: string; label: string }>;
   selectedSlot?: string;
+  targetUsername?: string;
+  eventTypeSlug?: string;
+  isPublicBooking?: boolean;
+}
+
+export interface CancelFlowState {
+  bookingUid: string;
+  bookingTitle: string;
+  isRecurring: boolean;
+  step: "awaiting_confirmation";
+}
+
+export interface RescheduleFlowState {
+  bookingUid: string;
+  bookingTitle: string;
+  originalStart: string;
+  eventTypeId: number;
+  step: "awaiting_slot" | "awaiting_confirmation";
+  slots?: Array<{ time: string; label: string }>;
+  selectedSlot?: string;
 }
 
 export async function setBookingFlow(
@@ -290,6 +310,70 @@ export async function getBookingFlow(
 export async function clearBookingFlow(teamId: string, userId: string): Promise<void> {
   const client = getRedisClient();
   await client.del(`calcom:booking_flow:${teamId}:${userId}`);
+}
+
+// ─── Cancel flow state ───────────────────────────────────────────────────────
+
+export async function setCancelFlow(
+  teamId: string,
+  userId: string,
+  state: CancelFlowState
+): Promise<void> {
+  const client = getRedisClient();
+  const key = `calcom:cancel_flow:${teamId}:${userId}`;
+  await client.set(key, JSON.stringify(state), { EX: BOOKING_FLOW_TTL_SECONDS });
+}
+
+export async function getCancelFlow(
+  teamId: string,
+  userId: string
+): Promise<CancelFlowState | null> {
+  const client = getRedisClient();
+  const key = `calcom:cancel_flow:${teamId}:${userId}`;
+  const raw = await client.get(key);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as CancelFlowState;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearCancelFlow(teamId: string, userId: string): Promise<void> {
+  const client = getRedisClient();
+  await client.del(`calcom:cancel_flow:${teamId}:${userId}`);
+}
+
+// ─── Reschedule flow state ───────────────────────────────────────────────────
+
+export async function setRescheduleFlow(
+  teamId: string,
+  userId: string,
+  state: RescheduleFlowState
+): Promise<void> {
+  const client = getRedisClient();
+  const key = `calcom:reschedule_flow:${teamId}:${userId}`;
+  await client.set(key, JSON.stringify(state), { EX: BOOKING_FLOW_TTL_SECONDS });
+}
+
+export async function getRescheduleFlow(
+  teamId: string,
+  userId: string
+): Promise<RescheduleFlowState | null> {
+  const client = getRedisClient();
+  const key = `calcom:reschedule_flow:${teamId}:${userId}`;
+  const raw = await client.get(key);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as RescheduleFlowState;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearRescheduleFlow(teamId: string, userId: string): Promise<void> {
+  const client = getRedisClient();
+  await client.del(`calcom:reschedule_flow:${teamId}:${userId}`);
 }
 
 // ─── Tool context persistence (per-thread, survives across webhook invocations) ─

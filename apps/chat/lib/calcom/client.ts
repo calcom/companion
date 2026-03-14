@@ -11,7 +11,6 @@ import type {
   CreatePublicBookingInput,
   CreateEventTypeInput,
   CreateScheduleInput,
-  SlotsResponse,
   UpdateEventTypeInput,
   UpdateMeInput,
   UpdateScheduleInput,
@@ -163,8 +162,21 @@ export async function getAvailableSlots(
     ...(params.duration ? { duration: String(params.duration) } : {}),
     ...(params.bookingUidToReschedule ? { bookingUidToReschedule: params.bookingUidToReschedule } : {}),
   });
-  const data = await calcomFetch<SlotsResponse>(`/v2/slots?${query}`, accessToken, {}, "2024-09-04");
-  return data.slots;
+  // The v2/slots API (2024-09-04) returns `data` as a date-keyed map of
+  // `{ start }` objects — there is no wrapper `slots` property. Normalize to
+  // the `CalcomSlot` shape (time + available) used by the rest of the codebase,
+  // matching what `getAvailableSlotsPublic` already does.
+  const raw = await calcomFetch<Record<string, Array<{ start: string }>>>(
+    `/v2/slots?${query}`,
+    accessToken,
+    {},
+    "2024-09-04"
+  );
+  const normalized: Record<string, CalcomSlot[]> = {};
+  for (const [date, slots] of Object.entries(raw ?? {})) {
+    normalized[date] = slots.map((s) => ({ time: s.start, available: true }));
+  }
+  return normalized;
 }
 
 export interface GetPublicSlotsParams {

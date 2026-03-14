@@ -32,7 +32,7 @@ import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
 import { formatForTelegram } from "./format-for-telegram";
 import { RETRY_STOP_BLOCKS, registerSlackHandlers } from "./handlers/slack";
-import { registerTelegramHandlers } from "./handlers/telegram";
+import { handleTelegramCommand, registerTelegramHandlers, TELEGRAM_COMMAND_RE } from "./handlers/telegram";
 import { logger as botLogger } from "./logger";
 import { helpCard, telegramHelpCard } from "./notifications";
 import { getLinkedUser, getValidAccessToken, getToolContext, setToolContext, isOrgPlanUser, type ToolContextEntry } from "./user-linking";
@@ -912,7 +912,7 @@ registerTelegramHandlers(bot, {
 bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
   if (thread.adapter.name !== "telegram") return;
   if (message.author.isBot || message.author.isMe) return;
-  if (/^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(message.text.trim()))
+  if (TELEGRAM_COMMAND_RE.test(message.text.trim()))
     return;
   if (isAsideMessage(message.text)) return;
 
@@ -992,7 +992,7 @@ bot.onNewMention(async (thread, message) => {
       // Telegram commands handled by onNewMessage (slash command handler)
       if (
         ctx.platform === "telegram" &&
-        /^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(userMessage)
+        TELEGRAM_COMMAND_RE.test(userMessage)
       )
         return;
 
@@ -1035,6 +1035,17 @@ bot.onSubscribedMessage(async (thread, message) => {
   // Telegram's privacy mode and deliver all group messages).
   const isTelegramGroup = ctx.platform === "telegram" && thread.id !== `telegram:${ctx.userId}`;
   if (isTelegramGroup && !message.isMention) return;
+
+  // Telegram slash commands should use the dedicated handler, not the agent.
+  // In DMs the thread becomes subscribed after the first interaction, so commands
+  // like /availability would otherwise fall through to the agent.
+  if (ctx.platform === "telegram") {
+    const handled = await handleTelegramCommand(thread, message, {
+      withBotErrorHandling,
+      extractContext,
+    });
+    if (handled) return;
+  }
 
   // For Slack: reconstruct <@USER_ID> mentions from raw blocks (the SDK resolves
   // them to display names in message.text, losing the user ID lookup_platform_user needs).
