@@ -18,7 +18,7 @@ export type AIProvider = "groq" | "openai" | "anthropic" | "google";
 
 export const PROVIDER_CONFIG: Record<AIProvider, { defaultModel: string; apiKeyEnv: string }> = {
   groq: {
-    defaultModel: "llama-3.3-70b-versatile",
+    defaultModel: "openai/gpt-oss-120b",
     apiKeyEnv: "GROQ_API_KEY",
   },
   openai: { defaultModel: "gpt-4o-mini", apiKeyEnv: "OPENAI_API_KEY" },
