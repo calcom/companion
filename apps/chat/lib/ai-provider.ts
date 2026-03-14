@@ -27,8 +27,9 @@ export function getModel(): string {
 export function getFallbackModels(): string[] | undefined {
   const raw = process.env.AI_FALLBACK_MODELS;
   if (!raw) return undefined;
-  return raw
+  const models = raw
     .split(",")
     .map((m) => m.trim())
     .filter(Boolean);
+  return models.length > 0 ? models : undefined;
 }

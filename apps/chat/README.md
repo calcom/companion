@@ -33,7 +33,7 @@ app/
 lib/
   bot.ts                           # Chat instance + all event handlers
   agent.ts                         # AI agent tools (bookings, availability, etc.)
-  ai-provider.ts                   # AI provider config (Groq by default; swap to OpenAI, Anthropic, etc.)
+  ai-provider.ts                   # AI model config (Vercel AI Gateway — swap models via AI_MODEL env var)
   notifications.ts                 # Booking notification card builders
   user-linking.ts                  # Redis: platform user <-> Cal.com account linking + token refresh
   format-for-telegram.ts           # Converts markdown/cards to Telegram-safe HTML
@@ -106,8 +106,9 @@ cp .env.example .env
 | `CALCOM_WEBHOOK_SECRET`       | ✅       | Set in Cal.com → Settings → Webhooks                                        |
 | `CALCOM_APP_URL`              | ✅       | `https://app.cal.com`                                                       |
 | `NEXT_PUBLIC_APP_URL`         | ✅       | Your deployed app URL (used for OAuth redirects and install page)           |
-| `GROQ_API_KEY`                | ✅       | From [console.groq.com](https://console.groq.com) — required for AI features |
-| `AI_MODEL`                    | —        | Override the default Groq model (e.g. `llama-3.3-70b-versatile`)           |
+| `AI_GATEWAY_API_KEY`          | ✅       | From [vercel.com/ai-gateway](https://vercel.com/ai-gateway) — required for AI features |
+| `AI_MODEL`                    | —        | Model in `provider/model` format (default: `groq/gpt-oss-120b`). Browse at [vercel.com/ai-gateway/models](https://vercel.com/ai-gateway/models) |
+| `AI_FALLBACK_MODELS`          | —        | Comma-separated fallback models tried in order if the primary fails (e.g. `anthropic/claude-sonnet-4.6,google/gemini-2.0-flash`) |
 | `TELEGRAM_BOT_TOKEN`          | —        | From [@BotFather](https://t.me/BotFather) — required to enable Telegram     |
 | `TELEGRAM_BOT_USERNAME`       | —        | Your bot's username (e.g. `CalcomBot`) — required when `TELEGRAM_BOT_TOKEN` is set |
 | `TELEGRAM_WEBHOOK_SECRET_TOKEN` | —      | Optional secret to verify incoming Telegram webhook requests                |
