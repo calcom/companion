@@ -286,7 +286,7 @@ export function helpCard() {
           Field({ label: "/cal event-types", value: "List your event types" }),
           Field({ label: "/cal schedules", value: "Show your working hours" }),
           Field({ label: "/cal profile", value: "Show your profile" }),
-          Field({ label: "/cal link / unlink", value: "Connect or disconnect Cal.com" }),
+          Field({ label: "/cal link, /cal unlink", value: "Connect or disconnect Cal.com" }),
           Field({ label: "/cal help", value: "Show this help message" }),
         ]),
       ]),
@@ -746,7 +746,7 @@ export function bookEventTypePickerCard(
             id: "select_book_event_type",
             label: "Event Type",
             placeholder: "Select an event type",
-            options: eventTypes.map((et) =>
+            options: eventTypes.slice(0, 100).map((et) =>
               SelectOption({ label: `${et.title} (${et.length}min)`, value: et.slug })
             ),
           }),

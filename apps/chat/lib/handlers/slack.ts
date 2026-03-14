@@ -487,7 +487,7 @@ export function registerSlackHandlers(
                 event.user,
                 availabilityListCard(allSlots, eventType.title, {
                   targetName,
-                  hint: `Use \`/cal book ${targetName}\` to book a meeting.`,
+                  hint: "Use `/cal book <cal-username>` to book a meeting (Cal.com username, not Slack name).",
                 }),
                 { fallbackToDM: true }
               );
