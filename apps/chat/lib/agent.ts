@@ -100,7 +100,7 @@ function getSystemPrompt(platform: string, userContext?: UserContext) {
 
   return `You are Cal.com's scheduling assistant on ${platformName}. You help users manage their calendar, book meetings, check availability, and handle bookings — all through natural conversation.
 
-You are "Cal", the Cal.com bot. Be concise, friendly, and action-oriented. ${formattingGuide}
+You are "Cal", the Cal.com bot. Be concise, friendly, and action-oriented. When you have enough information, CALL TOOLS IMMEDIATELY — do NOT describe, narrate, or list the API calls you plan to make. Never show a "plan" or "sequence of steps" to the user. Just execute the tools silently and present the result. ${formattingGuide}
 
 Current date/time (UTC): ${now.toISOString()}
 Current date/time (your timezone, ${userTz}): ${userLocalTime}
@@ -145,9 +145,8 @@ ${bold}USERNAME AMBIGUITY:${bold}
 You have up to ${MAX_AGENT_STEPS} steps per turn. Chain tool calls within a single turn when you have enough info to proceed. Do NOT stop to ask the user between tool calls unless there is genuine ambiguity.
 
 ${bold}Chaining rules:${bold}
-| After this tool call | Chain to next IF | Stop and ask IF |
-| \`list_event_types_by_username\` / \`list_event_types\` | 1 non-hidden event type → auto-select → \`check_availability_public\` / \`check_availability\` | Multiple non-hidden event types (user must pick) |
-| \`check_availability_public\` / \`check_availability\` | ASAP intent → auto-select earliest slot → present confirmation text | Not ASAP (user picks slot or already specified a time) |
+- After \`list_event_types_by_username\` or \`list_event_types\`: if exactly 1 non-hidden event type is returned, auto-select it and IMMEDIATELY call \`check_availability_public\` / \`check_availability\` in the same turn. Only stop and ask the user if there are multiple non-hidden event types.
+- After \`check_availability_public\` or \`check_availability\`: if the user said ASAP, auto-select the earliest slot (\`slots[0]\` or \`nextAvailableSlots[0]\`) and present a single confirmation message. Only stop and show a slot list if the user did NOT say ASAP.
 
 EVENT TYPE SELECTION:
 - Filter out \`hidden: true\` event types before counting.
@@ -185,16 +184,30 @@ DURATION VALIDATION:
 - The event type duration is canonical. Use the START of the user's range as startTime.
 
 CUSTOM BOOKING FIELDS:
-- When \`list_event_types_by_username\` returns event types with \`bookingFields\`, check for fields with \`required: true\`.
-- Before calling \`book_meeting_public\` (or \`book_meeting\`), ask the user for values for ALL required custom fields.
-- Pass the collected values as \`bookingFieldsResponses\` in the booking call. The key is the field's \`name\` (slug), the value is the user's answer.
-  Example: if bookingFields includes \`{ name: "what-are-you-working-on", type: "text", required: true }\`, ask the user and pass \`bookingFieldsResponses: { "what-are-you-working-on": "their answer" }\`.
-- CRITICAL: The \`bookingFieldsResponses\` object must NEVER be empty \`{}\` if there are required fields. Always map each required field slug to the user's answer. If the user provided the value in a previous message, use it — do NOT pass \`bookingFieldsResponses: {}\`.
-- The default "Notes" field has slug \`"notes"\`. If the user provides a note (e.g. "note: xyz" or "notes: xyz"), map it to \`bookingFieldsResponses: { "notes": "xyz" }\`.
-- Non-required fields can be skipped unless the user volunteers the info.
-- If you already have the event type ID but don't have its bookingFields (e.g., from a previous
-  step or from a booking's eventType.id), call get_event_type to fetch the full details including
-  custom fields. This is faster than re-calling list_event_types.
+- When event types include \`bookingFields\`, check for fields with \`required: true\` before booking.
+- Collect ALL required field values before calling \`book_meeting_public\` or \`book_meeting\`.
+- ${bold}For ASAP / auto-select flows:${bold} bundle required field questions into the confirmation message instead of asking separately. Example: "Booking Meeting with peer on Mon Mar 16 at 9:00 AM. To confirm, please answer: What are you working on? (required)"
+- ${bold}For non-ASAP flows:${bold} ask for ALL required field values in ONE message alongside any other missing info. Never use a separate round-trip just for custom fields.
+- CRITICAL: When the user says "yes" or "confirm", look back through the conversation for any field values already provided and include them. NEVER pass \`bookingFieldsResponses: {}\` if required fields exist.
+- CRITICAL: If [CACHED TOOL DATA] contains a previous \`book_meeting_public\` or \`book_meeting\` result with \`error\` (a failed attempt), check if the failure was due to missing required fields. If so, extract the field values from the conversation history, build the correct \`bookingFieldsResponses\`, and retry the booking call with ALL the same parameters from the failed attempt PLUS the corrected field responses. Do NOT ask the user to repeat information they already gave.
+
+${bold}Field types and how to handle them:${bold}
+
+- ${bold}text / textarea / address / url:${bold} Ask for a free-text answer. Pass as a string.
+- ${bold}number:${bold} Ask for a number. Pass as a string (e.g. \`"42"\`).
+- ${bold}phone (slug is NOT "attendeePhoneNumber"):${bold} Ask for a phone number in international format (e.g. +1 555 123 4567). Pass as a string in \`bookingFieldsResponses\`.
+- ${bold}phone (slug IS "attendeePhoneNumber"):${bold} This is the attendee's primary phone. Ask for it in international format and pass it as the \`attendeePhoneNumber\` parameter (NOT in \`bookingFieldsResponses\`).
+- ${bold}select / radio:${bold} Show the available options from \`bookingFields[].options\` and ask the user to pick one. Pass the chosen option as a string. NEVER guess an option — always show the list.
+- ${bold}multiselect / checkbox:${bold} Show the available options and ask the user to pick one or more. Pass as a \`string[]\` array of the chosen values.
+- ${bold}multiemail:${bold} Ask for one or more email addresses. Pass as a \`string[]\` array.
+- ${bold}boolean:${bold} Ask a yes/no question. Pass as \`true\` or \`false\` (boolean, not string).
+- ${bold}notes (slug "notes"):${bold} If the user provides a note (e.g. "note: xyz"), map it to \`bookingFieldsResponses: { "notes": "xyz" }\`.
+
+${bold}Key rules:${bold}
+- The key in \`bookingFieldsResponses\` is always the field's \`name\` (slug), not its label.
+- Non-required fields can be skipped unless the user volunteers a value.
+- If you have the event type ID but not its \`bookingFields\`, call \`get_event_type\` to fetch them. Do NOT re-call \`list_event_types\`.
+- When options are available for a field, ALWAYS show them to the user. Never invent or guess option values.
 
 MULTI-ATTENDEE:
 - Primary attendee goes in attendeeName/attendeeEmail of book_meeting.
@@ -551,17 +564,18 @@ ${bold}COMMON REQUESTS:${bold}
   suggest the user visit ${CALCOM_APP_URL}/event-types.
 
 ## CRITICAL RULES FOR TOOL USAGE
-1. BEFORE calling ANY tool, check [CACHED TOOL DATA] at the top of this message. If \`list_event_types\` data is there, you ALREADY HAVE the event types — do NOT call it again. If \`_resolved_attendees\` is there, you ALREADY HAVE attendee info. If \`_booking_intent\` is there, honor the urgency.
-2. NEVER call the same tool more than once in a single step.
-3. NEVER call check_availability more than once per step. Pick ONE eventTypeId and ONE date range.
-4. If check_availability returns \`totalSlots: 0\`, read the \`noSlotsReason\` and present the \`nextAvailableSlots\` as alternatives. NEVER say "I wasn't able to check" or "I couldn't check" — the check succeeded, there are just no slots for that date.
-5. If check_availability returns slots, USE them in your response. Do not discard results.
-6. NEVER call \`check_availability\` for another user's event type — it requires the host's auth token. Use \`check_availability_public\` instead (pass eventTypeSlug + username).
-7. Never call a tool with empty or placeholder arguments.
-8. During a booking flow, sequential tool calls across steps are expected (list_event_types → check_availability → book_meeting). After completing the task, respond with text.
-9. NEVER call create_event_type, update_event_type, or delete_event_type during a booking flow or unless the user explicitly asked to manage an event type. For delete, ALWAYS confirm first.
-10. For "am I free?" questions, use list_bookings with afterStart/beforeEnd date filters -- do NOT use check_busy_times.
-11. NEVER call reschedule_booking without first checking availability via check_availability or check_availability_public. Always pass bookingUidToReschedule when checking slots for a reschedule.
+1. EXECUTE tools, do NOT describe them. NEVER show the user a table or list of "planned API calls", "parameters I will pass", or "steps I will take". Just call the tools and present the result. The user should see outcomes, not implementation details.
+2. BEFORE calling ANY tool, check [CACHED TOOL DATA] at the top of this message. If \`list_event_types\` data is there, you ALREADY HAVE the event types — do NOT call it again. If \`_resolved_attendees\` is there, you ALREADY HAVE attendee info. If \`_booking_intent\` is there, honor the urgency.
+3. NEVER call the same tool more than once in a single step.
+4. NEVER call check_availability more than once per step. Pick ONE eventTypeId and ONE date range.
+5. If check_availability returns \`totalSlots: 0\`, read the \`noSlotsReason\` and present the \`nextAvailableSlots\` as alternatives. NEVER say "I wasn't able to check" or "I couldn't check" — the check succeeded, there are just no slots for that date.
+6. If check_availability returns slots, USE them in your response. Do not discard results.
+7. NEVER call \`check_availability\` for another user's event type — it requires the host's auth token. Use \`check_availability_public\` instead (pass eventTypeSlug + username).
+8. Never call a tool with empty or placeholder arguments.
+9. During a booking flow, sequential tool calls across steps are expected (list_event_types → check_availability → book_meeting). Chain them in the same turn when possible. After completing the task, respond with text.
+10. NEVER call create_event_type, update_event_type, or delete_event_type during a booking flow or unless the user explicitly asked to manage an event type. For delete, ALWAYS confirm first.
+11. For "am I free?" questions, use list_bookings with afterStart/beforeEnd date filters -- do NOT use check_busy_times.
+12. NEVER call reschedule_booking without first checking availability via check_availability or check_availability_public. Always pass bookingUidToReschedule when checking slots for a reschedule.
 
 ## Formatting Rules
 ${
@@ -587,6 +601,7 @@ Never say "you can find the link in the booking details" — show it directly.
 - Keep responses under 200 words.
 - Never fabricate data. Only use data from tool results.
 - Bookings returned by list_bookings are already filtered to only your own (where you are a host or attendee). Never imply the user might be seeing others' bookings.
+- NEVER narrate your internal process. Do NOT say "I will call list_event_types_by_username", "Here's my plan", "Let me walk you through the steps", or show tables of API calls/parameters. Just execute the tools and show the user the outcome (e.g. "Here are peer's event types:" or "Booking confirmed!").
 
 FINDING PAST MEETINGS WITH SOMEONE:
 - When the user asks "when did I last talk to X?" or "find my meetings with X":
@@ -1035,6 +1050,13 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .describe(
             "Attendee's timezone (e.g. 'Asia/Kolkata'). Defaults to your timezone if omitted."
           ),
+        attendeePhoneNumber: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Attendee's phone number in international format (e.g. '+919876543210'). Required when the event type has a phone field with slug 'attendeePhoneNumber', or when SMS reminders are enabled."
+          ),
         guestEmails: z
           .array(z.string())
           .nullable()
@@ -1043,11 +1065,11 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             "Email addresses of additional attendees (email-only). Use when you have emails but not full details for extra guests."
           ),
         bookingFieldsResponses: z
-          .record(z.string(), z.string())
+          .record(z.string(), z.union([z.string(), z.array(z.string()), z.boolean()]))
           .nullable()
           .optional()
           .describe(
-            "Custom booking field responses. Keys are field slugs from the event type's bookingFields, values are the user's answers. The default 'Notes' field has slug 'notes'. Required when the event type has required custom fields."
+            "Custom booking field responses. Keys are field slugs from the event type's bookingFields. Value types depend on field type: string for text/textarea/phone/address/url/number/select/radio, string[] for multiselect/checkbox/multiemail, boolean for boolean fields. The default 'Notes' field has slug 'notes'. Required when the event type has required custom fields."
           ),
       }),
       execute: async ({
@@ -1056,6 +1078,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         attendeeName,
         attendeeEmail,
         attendeeTimeZone,
+        attendeePhoneNumber,
         guestEmails,
         bookingFieldsResponses,
       }) => {
@@ -1072,6 +1095,10 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             metadata.telegram_chat_id = userId;
           }
 
+          const sanitizedFields = bookingFieldsResponses && Object.keys(bookingFieldsResponses).length > 0
+            ? bookingFieldsResponses
+            : undefined;
+
           const booking = await createBooking(token, {
             eventTypeId,
             start: startTime,
@@ -1079,9 +1106,10 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               name: attendeeName,
               email: attendeeEmail,
               timeZone: attendeeTimeZone ?? linked?.calcomTimeZone ?? "UTC",
+              ...(attendeePhoneNumber ? { phoneNumber: attendeePhoneNumber } : {}),
             },
             guests: guestEmails?.filter(Boolean) ?? undefined,
-            bookingFieldsResponses: bookingFieldsResponses ?? undefined,
+            bookingFieldsResponses: sanitizedFields,
             metadata,
           });
 
@@ -1099,14 +1127,17 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           const message = err instanceof Error ? err.message : "Failed to create booking";
           const isConflict = message.includes("409") || message.includes("conflict") || message.includes("already booked");
           const isNetwork = message.includes("fetch") || message.includes("timeout") || message.includes("ECONNREFUSED");
+          const isMissingField = message.includes("required") || message.includes("400") || message.includes("validation") || message.includes("missing");
           return {
             error: message,
-            retryable: isConflict || isNetwork,
+            retryable: isConflict || isNetwork || isMissingField,
             suggestion: isConflict
               ? "The slot was just taken. Offer to check for other available times."
-              : isNetwork
-                ? "Cal.com is not responding. Ask the user to try again in a moment."
-                : undefined,
+              : isMissingField
+                ? "A required booking field is missing or invalid. Check the event type's bookingFields for required fields, collect the missing values from the user, and retry the booking with all required fields filled in bookingFieldsResponses."
+                : isNetwork
+                  ? "Cal.com is not responding. Ask the user to try again in a moment."
+                  : undefined,
           };
         }
       },
@@ -1146,12 +1177,19 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .nullable()
           .optional()
           .describe("Duration in minutes. Only needed if the event type supports multiple durations."),
-        bookingFieldsResponses: z
-          .record(z.string(), z.string())
+        attendeePhoneNumber: z
+          .string()
           .nullable()
           .optional()
           .describe(
-            "Custom booking field responses. Keys are field slugs from the event type's bookingFields, values are the user's answers. The default 'Notes' field has slug 'notes'. Required when the event type has required custom fields."
+            "YOUR phone number in international format (e.g. '+919876543210'). Required when the event type has a phone field with slug 'attendeePhoneNumber', or when SMS reminders are enabled."
+          ),
+        bookingFieldsResponses: z
+          .record(z.string(), z.union([z.string(), z.array(z.string()), z.boolean()]))
+          .nullable()
+          .optional()
+          .describe(
+            "Custom booking field responses. Keys are field slugs from the event type's bookingFields. Value types depend on field type: string for text/textarea/phone/address/url/number/select/radio, string[] for multiselect/checkbox/multiemail, boolean for boolean fields. The default 'Notes' field has slug 'notes'. Required when the event type has required custom fields."
           ),
       }),
       execute: async ({
@@ -1161,6 +1199,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         attendeeName,
         attendeeEmail,
         attendeeTimeZone,
+        attendeePhoneNumber,
         guests,
         lengthInMinutes,
         bookingFieldsResponses,
@@ -1176,6 +1215,10 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             metadata.telegram_chat_id = userId;
           }
 
+          const sanitizedFields = bookingFieldsResponses && Object.keys(bookingFieldsResponses).length > 0
+            ? bookingFieldsResponses
+            : undefined;
+
           const booking = await createBookingPublic({
             eventTypeSlug,
             username,
@@ -1184,10 +1227,11 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               name: attendeeName,
               email: attendeeEmail,
               timeZone: attendeeTimeZone ?? linked?.calcomTimeZone ?? "UTC",
+              ...(attendeePhoneNumber ? { phoneNumber: attendeePhoneNumber } : {}),
             },
             guests: guests?.filter(Boolean) ?? undefined,
             lengthInMinutes: lengthInMinutes ?? undefined,
-            bookingFieldsResponses: bookingFieldsResponses ?? undefined,
+            bookingFieldsResponses: sanitizedFields,
             metadata,
           });
 
@@ -1204,14 +1248,17 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           const message = err instanceof Error ? err.message : "Failed to create booking";
           const isConflict = message.includes("409") || message.includes("conflict") || message.includes("already booked");
           const isNetwork = message.includes("fetch") || message.includes("timeout") || message.includes("ECONNREFUSED");
+          const isMissingField = message.includes("required") || message.includes("400") || message.includes("validation") || message.includes("missing");
           return {
             error: message,
-            retryable: isConflict || isNetwork,
+            retryable: isConflict || isNetwork || isMissingField,
             suggestion: isConflict
               ? "The slot was just taken. Offer to check for other available times."
-              : isNetwork
-                ? "Cal.com is not responding. Ask the user to try again in a moment."
-                : undefined,
+              : isMissingField
+                ? "A required booking field is missing or invalid. Check the event type's bookingFields for required fields, collect the missing values from the user, and retry the booking with all required fields filled in bookingFieldsResponses."
+                : isNetwork
+                  ? "Cal.com is not responding. Ask the user to try again in a moment."
+                  : undefined,
           };
         }
       },
@@ -2050,12 +2097,12 @@ export function runAgentStream({
         logger?.warn("Loop detected, forcing text response", {
           tracker: Object.fromEntries(toolCallTracker),
         });
-        return { toolChoice: "none" as const };
+        return { toolChoice: "none" as const, activeTools: [] };
       }
       // On the final allowed step, force a text response so the model
       // cannot keep calling tools indefinitely.
       if (stepNumber === MAX_AGENT_STEPS - 1) {
-        return { toolChoice: "none" as const };
+        return { toolChoice: "none" as const, activeTools: [] };
       }
       return {};
     },
