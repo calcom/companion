@@ -109,19 +109,16 @@ IMPORTANT: When the user mentions a date, compare it against the date in THEIR t
 
 ${userAccountSection}
 
-## Booking a Meeting — FIRST STEP: Whose Calendar?
-When the user wants to book a meeting with someone, you MUST first determine whose calendar to use. This is the VERY FIRST question before anything else.
+## Booking a Meeting — Whose Calendar?
+When the user wants to book a meeting, first determine whose calendar to use.
 
-${bold}STEP 0 — WHOSE CALENDAR:${bold}
-Ask the user: "Whose event types should I use to book this meeting?"
-• ${bold}Yours${bold} (you are the host, the other person is the attendee) — uses your event types
-• ${bold}Theirs${bold} (they are the host, you book on their calendar) — requires their Cal.com username
-
-Rules:
-- If the user says "use mine", "my calendar", "I'll host" → YOUR calendar (Option A).
-- If the user says "use theirs", "their calendar", "book on their cal.com", or provides a Cal.com username → THEIR calendar (Option B).
-- If the user provides a Cal.com username directly in the booking request (e.g. "book on peer's cal.com", "book meeting with username dhairyashil") → skip asking and go to Option B with that username.
-- Do NOT skip this step. Do NOT assume "yours" by default. Always ask unless the user already indicated a preference.
+${bold}STEP 0 — WHOSE CALENDAR (default to theirs when username is present):${bold}
+- "book with X", "book meeting with username X", "theirs, username X", or any message containing a Cal.com username → ${bold}Option B immediately${bold}. Do NOT ask "Yours or Theirs?"
+- "I'll host", "use mine", "my calendar", or user provides only a name/email (no username) → ${bold}Option A${bold}.
+- "they're not on Cal.com", "I only have their email" → ${bold}Option A${bold}, ask for name + email.
+- No name, no username, no preference stated → ask "Whose event types should I use?" ONCE:
+  • ${bold}Yours${bold} (you host, they attend) — uses your event types
+  • ${bold}Theirs${bold} (they host, you attend) — requires their Cal.com username
 
 ${bold}Option A — YOUR calendar (you host):${bold}
 You are the host. The other person is the attendee.
@@ -133,16 +130,29 @@ To book, you need these 4 pieces:
 
 ${bold}Option B — THEIR calendar (they host):${bold}
 The other person is the host. The requesting user (you) is the attendee.
-1. Ask for the other person's Cal.com username if not provided.
-2. Call \`list_event_types_by_username\` with their username.
-3. Show their event types and let the user pick. Note the \`slug\` from the result.
+1. Call \`list_event_types_by_username\` with their username. (Ask for the username only if not provided.)
+2. If the tool returns 0 event types or an error → ${bold}FALLBACK${bold}: say "No public event types found for '[username]'. They may not be on Cal.com. I can book on your calendar instead — just give me their name and email." Then switch to Option A (preserve ASAP intent if set).
+3. Filter out hidden event types (\`hidden: true\`). Count only non-hidden ones.
 4. Call \`check_availability_public\` with the event type \`slug\` and \`username\`. Do NOT use \`check_availability\` — that requires the host's auth token which you don't have.
-5. Present available slots and let the user pick.
+5. Present available slots (or auto-select for ASAP — see below).
 6. Call \`book_meeting_public\` (NOT book_meeting) with the event type slug + username. For attendeeName and attendeeEmail, use the ${bold}requesting user's${bold} name and email from "Your Account" above — the requesting user is the attendee in this flow. NEVER use the bot name "Cal.com" as attendeeName.
 
+${bold}USERNAME AMBIGUITY:${bold}
+- Cal.com resolves a username to one account globally. If the user says "wrong person" or "that's not them": respond with "Cal.com usernames map to a single account. If you're looking for someone else with a similar name, please share their direct booking link (e.g. cal.com/their-username/event-slug) and I can book from there."
+- Do NOT retry the same username. Do NOT guess a different username.
+
+## Tool Chaining — Minimize Round-Trips
+You have up to ${MAX_AGENT_STEPS} steps per turn. Chain tool calls within a single turn when you have enough info to proceed. Do NOT stop to ask the user between tool calls unless there is genuine ambiguity.
+
+${bold}Chaining rules:${bold}
+| After this tool call | Chain to next IF | Stop and ask IF |
+| \`list_event_types_by_username\` / \`list_event_types\` | 1 non-hidden event type → auto-select → \`check_availability_public\` / \`check_availability\` | Multiple non-hidden event types (user must pick) |
+| \`check_availability_public\` / \`check_availability\` | ASAP intent → auto-select earliest slot → present confirmation text | Not ASAP (user picks slot or already specified a time) |
+
 EVENT TYPE SELECTION:
-- If there is only 1 non-hidden event type, auto-select it. Tell the user which one you're using.
-- If there are 2-3, list them and ask. If the user's message hints at duration (e.g. "quick chat" = 15 min, "meeting" = 30 min), fuzzy-match and auto-select.
+- Filter out \`hidden: true\` event types before counting.
+- If there is only 1 non-hidden event type, auto-select it. Tell the user which one you're using, then immediately chain to the next tool call.
+- If there are 2+, list them and ask. If the user's message hints at duration (e.g. "quick chat" = 15 min, "meeting" = 30 min), fuzzy-match and auto-select.
 - If the user named an event type (e.g. "product discussion", "30 min", "15 min"): fuzzy-match by title or duration. If 1 clear match, use it. If ambiguous, show the list and ask.
 - NEVER create a new event type during a booking flow.
 
@@ -150,17 +160,22 @@ DECISION LOGIC:
 - If [CACHED TOOL DATA] contains \`_resolved_attendees\`, use the name and email from there for book_meeting. Do NOT ask the user for attendee details that are already resolved. Do NOT call lookup_platform_user.
 - If attendee info is in [Context: @mentions resolved] in the current message, use it directly.
 - If event types are in [CACHED TOOL DATA] (as \`list_event_types\` or \`list_event_types_by_username\` result) or conversation history, use them. Do NOT re-call the tool.
-- If you have all 4 pieces AND the user used explicit confirmation language ("go ahead", "confirm", "just do it", "book it"), call book_meeting immediately.
 - If pieces are missing, reply asking for ALL missing pieces in ONE message.
 
-URGENCY ("ASAP", "as soon as possible", "earliest", "next available"):
+${bold}FAST-PATH (Option A only):${bold}
+- If you have all 4 pieces AND the user used imperative language ("go ahead", "confirm", "just do it", "book it"), call book_meeting immediately — skip the confirmation step.
+- This fast-path applies ONLY to Option A (your calendar). For Option B (someone else's calendar), ALWAYS ask for confirmation before booking — even with imperative language. Booking on another person's calendar is higher-risk.
+
+URGENCY ("ASAP", "as soon as possible", "earliest", "next available", "soonest"):
 - If the user wants the soonest slot, OR if [CACHED TOOL DATA] contains \`_booking_intent\` with urgency "asap":
-  1. First resolve WHOSE CALENDAR (Step 0 above) — still ask this even for ASAP.
+  1. Resolve whose calendar using the rules above (default to theirs if username present — do NOT ask).
   2. Get event types from [CACHED TOOL DATA] or call list_event_types / list_event_types_by_username (ONCE).
-  3. If only 1 non-hidden event type, auto-select it. If 2-3, ask which one.
-  4a. ${bold}If YOUR calendar (Option A):${bold} call check_availability with startDate = today, daysAhead = 3. Present the first 3-5 available slots and ask the user to pick.
-  4b. ${bold}If THEIR calendar (Option B):${bold} call check_availability_public with the event type slug, username, startDate = today, daysAhead = 3. Present the first 3-5 available slots and ask the user to pick.
-  5. Do NOT ask "what date/time?" — the user already said they want the soonest.
+  3. If only 1 non-hidden event type, auto-select it and immediately chain to check availability. If 2+, ask which one.
+  4. Call check_availability (Option A) or check_availability_public (Option B) with startDate = today, daysAhead = 3.
+  5. ${bold}If slots are returned:${bold} auto-select \`slots[0]\` (the earliest). Do NOT show a list. Present a single confirmation: "Booking [Title] with [Person] on [Date] at [Time]. Confirm?"
+  6. ${bold}If 0 slots in 3 days:${bold} the tool response includes \`nextAvailableSlots\` (extended ${EXTENDED_SEARCH_DAYS}-day search). Use \`nextAvailableSlots[0]\` instead. Do NOT re-call the tool. Say: "No slots in the next 3 days. The earliest available is [date/time]. Book that? Or I can show more options."
+  7. On "yes" → book. On "no" / "different time" → show the next 3-5 slots from the same response.
+  8. Do NOT ask "what date/time?" — the user already said they want the soonest.
 - IMPORTANT: When the user picks an event type in a follow-up message (e.g. "15 min meeting"), check [CACHED TOOL DATA] for \`_booking_intent\`. If it says "asap", immediately check availability (check_availability for Option A, check_availability_public for Option B) — do NOT ask for date/time.
 
 DURATION VALIDATION:
@@ -743,6 +758,8 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             return {
               username,
               error: `No public event types found for username "${username}". The user may not exist or has no public event types.`,
+              fallbackSuggestion:
+                "Offer to book on the requesting user's own calendar (Option A) with the attendee's name and email instead.",
             };
           }
           return {
@@ -759,9 +776,15 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             })),
           };
         } catch (err) {
+          const message = err instanceof Error ? err.message : "Failed to fetch event types for this user";
+          const isNetwork = message.includes("fetch") || message.includes("timeout") || message.includes("ECONNREFUSED");
           return {
             username,
-            error: err instanceof Error ? err.message : "Failed to fetch event types for this user",
+            error: message,
+            retryable: isNetwork,
+            fallbackSuggestion: isNetwork
+              ? "Cal.com is not responding. Ask the user to try again in a moment."
+              : "Username may not exist. Ask if they have the correct Cal.com username, or offer to book on the user's own calendar (Option A) with name and email.",
           };
         }
       },
@@ -1073,7 +1096,18 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             manageUrl: `${CALCOM_APP_URL}/bookings`,
           };
         } catch (err) {
-          return { error: err instanceof Error ? err.message : "Failed to create booking" };
+          const message = err instanceof Error ? err.message : "Failed to create booking";
+          const isConflict = message.includes("409") || message.includes("conflict") || message.includes("already booked");
+          const isNetwork = message.includes("fetch") || message.includes("timeout") || message.includes("ECONNREFUSED");
+          return {
+            error: message,
+            retryable: isConflict || isNetwork,
+            suggestion: isConflict
+              ? "The slot was just taken. Offer to check for other available times."
+              : isNetwork
+                ? "Cal.com is not responding. Ask the user to try again in a moment."
+                : undefined,
+          };
         }
       },
     }),
@@ -1167,7 +1201,18 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             attendees: booking.attendees.map((a) => ({ name: a.name, email: a.email })),
           };
         } catch (err) {
-          return { error: err instanceof Error ? err.message : "Failed to create booking" };
+          const message = err instanceof Error ? err.message : "Failed to create booking";
+          const isConflict = message.includes("409") || message.includes("conflict") || message.includes("already booked");
+          const isNetwork = message.includes("fetch") || message.includes("timeout") || message.includes("ECONNREFUSED");
+          return {
+            error: message,
+            retryable: isConflict || isNetwork,
+            suggestion: isConflict
+              ? "The slot was just taken. Offer to check for other available times."
+              : isNetwork
+                ? "Cal.com is not responding. Ask the user to try again in a moment."
+                : undefined,
+          };
         }
       },
     }),
