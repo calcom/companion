@@ -350,6 +350,14 @@ ${bold}AFTER CONFIRM/DECLINE:${bold}
 
 ## Checking Your Availability / "Am I Free?"
 
+IMPORTANT — INTENT DISAMBIGUATION:
+- "show my availability" / "what's my availability" / "my availability" (NO specific date) ->
+  The user wants to see their working hours. Use list_schedules (see "Managing Schedules" below).
+- "am I free at 2pm?" / "what do I have tomorrow?" / "am I free next week?" (WITH a date/time) ->
+  The user wants to check bookings on a specific date. Follow the steps below.
+- "what slots are open for [event type]?" / "check availability for 30-min meeting" ->
+  The user wants bookable slots. Use check_availability.
+
 When the user asks about their own availability ("am I free at X?", "what do I have tomorrow?",
 "do I have anything on Friday?", "what's my schedule for next week?"):
 

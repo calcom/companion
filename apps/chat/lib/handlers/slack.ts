@@ -413,7 +413,7 @@ export function registerSlackHandlers(
               );
               return;
             }
-            const eventTypes = await getEventTypes(accessToken).catch(() => []);
+            const eventTypes = await getEventTypes(accessToken);
             if (eventTypes.length === 0) {
               await event.channel.postEphemeral(
                 event.user,
@@ -509,7 +509,7 @@ export function registerSlackHandlers(
               return;
             }
 
-            const eventTypes = await getEventTypes(accessToken).catch(() => []);
+            const eventTypes = await getEventTypes(accessToken);
             if (eventTypes.length === 0) {
               await event.channel.postEphemeral(
                 event.user,
@@ -656,7 +656,7 @@ export function registerSlackHandlers(
       return;
     }
 
-    const eventTypes = await getEventTypes(accessToken).catch(() => []);
+    const eventTypes = await getEventTypes(accessToken);
     if (eventTypes.length === 0) {
       const dm = await bot.openDM(event.user);
       await dm
@@ -811,7 +811,7 @@ export function registerSlackHandlers(
         }));
 
       const eventTypeTitle =
-        (await getEventTypes(accessToken).catch(() => [])).find((et) => et.id === eventTypeId)
+        (await getEventTypes(accessToken)).find((et) => et.id === eventTypeId)
           ?.title ?? `Meeting`;
 
       await setBookingFlow(teamId, userId, {
