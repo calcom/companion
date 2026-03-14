@@ -1,7 +1,7 @@
 import { type ModelMessage, stepCountIs, streamText, tool } from "ai";
 import type { Logger } from "chat";
 import { z } from "zod";
-import { getModel } from "./ai-provider";
+import { getFallbackModels, getModel } from "./ai-provider";
 import {
   addBookingAttendee,
   cancelBooking,
@@ -2074,6 +2074,7 @@ export function runAgentStream({
   // identical arguments, force a text response to break the loop.
   const toolCallTracker = new Map<string, number>();
 
+  const fallbackModels = getFallbackModels();
   const result = streamText({
     model: getModel(),
     system: getSystemPrompt(platform, userContext),
@@ -2081,6 +2082,11 @@ export function runAgentStream({
     tools,
     toolChoice: "auto",
     stopWhen: stepCountIs(MAX_AGENT_STEPS),
+    ...(fallbackModels && {
+      providerOptions: {
+        gateway: { models: fallbackModels },
+      },
+    }),
     prepareStep({ stepNumber, steps: previousSteps }) {
       // Track tool calls from all previous steps for loop detection
       toolCallTracker.clear();
