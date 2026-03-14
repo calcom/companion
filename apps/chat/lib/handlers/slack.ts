@@ -571,7 +571,15 @@ export function registerSlackHandlers(
             }
 
             const linked = await getLinkedUser(teamId, userId);
-            if (!linked || !isOrgPlanUser(linked)) {
+            if (!linked) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            if (!isOrgPlanUser(linked)) {
               await event.channel.postEphemeral(
                 event.user,
                 "The AI assistant is available on the Cal.com Organizations plan. Use `/cal help` to see available slash commands, or upgrade at <https://cal.com/pricing|cal.com/pricing>.",

@@ -842,7 +842,11 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
     const upgradeMsg = opts.ctx.platform === "slack"
       ? "The AI assistant is available on the Cal.com Organizations plan. Use `/cal help` to see available slash commands, or upgrade at <https://cal.com/pricing|cal.com/pricing>."
       : "The AI assistant is available on the Cal.com Organizations plan. Use /help to see available commands, or upgrade at [cal.com/pricing](https://cal.com/pricing).";
-    await opts.thread.post(upgradeMsg);
+    if (opts.ctx.platform === "slack") {
+      await withSlackToken(opts.ctx.teamId, () => opts.thread.post(upgradeMsg));
+    } else {
+      await opts.thread.post(upgradeMsg);
+    }
     return;
   }
 
