@@ -792,7 +792,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           };
         } catch (err) {
           const message = err instanceof Error ? err.message : "Unknown error looking up event types";
-          const isNetwork = err instanceof Error && (message.includes("fetch") || message.includes("timeout") || message.includes("ECONNREFUSED"));
+          const isNetwork = err instanceof Error && (message.includes("fetch failed") || message.includes("timeout") || message.includes("ECONNREFUSED"));
           return {
             username,
             error: message,
@@ -1127,7 +1127,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           const isRealError = err instanceof Error;
           const message = isRealError ? err.message : "Unknown error creating booking";
           const isConflict = isRealError && (message.includes("409") || message.includes("conflict") || message.includes("already booked"));
-          const isNetwork = isRealError && (message.includes("timeout") || message.includes("ECONNREFUSED"));
+          const isNetwork = isRealError && (message.includes("fetch failed") || message.includes("timeout") || message.includes("ECONNREFUSED"));
           const isMissingField = isRealError && (message.includes("required") || message.includes("400") || message.includes("validation") || message.includes("missing"));
           return {
             error: message,
@@ -1249,7 +1249,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           const isRealError = err instanceof Error;
           const message = isRealError ? err.message : "Unknown error creating booking";
           const isConflict = isRealError && (message.includes("409") || message.includes("conflict") || message.includes("already booked"));
-          const isNetwork = isRealError && (message.includes("timeout") || message.includes("ECONNREFUSED"));
+          const isNetwork = isRealError && (message.includes("fetch failed") || message.includes("timeout") || message.includes("ECONNREFUSED"));
           const isMissingField = isRealError && (message.includes("required") || message.includes("400") || message.includes("validation") || message.includes("missing"));
           return {
             error: message,
