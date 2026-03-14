@@ -150,7 +150,7 @@ export async function handleTelegramCommand(
           return;
         }
         logger.info("Availability: fetching event types", { calcomUserId: linked.calcomUserId });
-        const eventTypes = await getEventTypes(accessToken).catch(() => []);
+        const eventTypes = await getEventTypes(accessToken);
         if (eventTypes.length === 0) {
           logger.info("Availability: no event types found");
           await thread.post(
