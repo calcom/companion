@@ -164,7 +164,7 @@ export async function getAvailableSlots(
     ...(params.bookingUidToReschedule ? { bookingUidToReschedule: params.bookingUidToReschedule } : {}),
   });
   const data = await calcomFetch<SlotsResponse>(`/v2/slots?${query}`, accessToken, {}, "2024-09-04");
-  return data.slots;
+  return data.slots ?? {};
 }
 
 export interface GetPublicSlotsParams {
