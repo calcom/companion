@@ -18,28 +18,70 @@ import {
 } from "chat";
 import type { LookupPlatformUserFn } from "../agent";
 import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "../agent";
-import { createBooking, getAvailableSlots, getBookings, getEventTypes } from "../calcom/client";
+import {
+  CalcomApiError,
+  cancelBooking,
+  createBooking,
+  createBookingPublic,
+  getAvailableSlots,
+  getAvailableSlotsPublic,
+  getBookings,
+  getEventTypes,
+  getEventTypesByUsername,
+  getSchedules,
+  rescheduleBooking,
+} from "../calcom/client";
 import { generateAuthUrl } from "../calcom/oauth";
 import { formatBookingTime } from "../calcom/webhooks";
 import { getLogger } from "../logger";
 import {
   availabilityCard,
   availabilityListCard,
+  bookConfirmCard,
+  bookEventTypePickerCard,
+  bookSlotPickerCard,
   bookingConfirmationCard,
+  cancelBookingPickerCard,
+  cancelConfirmCard,
+  eventTypesListCard,
   helpCard,
+  profileCard,
+  rescheduleBookingPickerCard,
+  rescheduleConfirmCard,
+  rescheduleSlotPickerCard,
+  schedulesListCard,
   upcomingBookingsCard,
 } from "../notifications";
 import {
   clearBookingFlow,
+  clearCancelFlow,
+  clearRescheduleFlow,
   getBookingFlow,
+  getCancelFlow,
   getLinkedUser,
+  getRescheduleFlow,
   getValidAccessToken,
+  isOrgPlanUser,
   setBookingFlow,
+  setCancelFlow,
+  setRescheduleFlow,
   unlinkUser,
 } from "../user-linking";
 
 const logger = getLogger("slack-handlers");
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
+
+function isSlackAuthError(err: unknown): boolean {
+  if (
+    err instanceof Error &&
+    "code" in err &&
+    (err as Record<string, unknown>).code === "slack_webapi_platform_error"
+  ) {
+    const slackErr = (err as Record<string, unknown>).data as Record<string, unknown> | undefined;
+    return slackErr?.error === "not_authed" || slackErr?.error === "invalid_auth";
+  }
+  return false;
+}
 
 const RETRY_STOP_BLOCKS = cardToBlockKit(
   Card({
@@ -78,6 +120,7 @@ export interface RegisterSlackHandlersDeps {
   extractTeamIdFromRaw: (raw: unknown, adapterName?: string) => string;
   buildHistory: (thread: Thread) => Promise<ModelMessage[]>;
   makeLookupSlackUser: (teamId: string) => LookupPlatformUserFn;
+  friendlyCalcomError: (err: import("../calcom/client").CalcomApiError, context?: string) => string;
 }
 
 function oauthLinkMessage(platform: string, teamId: string, userId: string) {
@@ -107,6 +150,7 @@ export function registerSlackHandlers(
     extractTeamIdFromRaw,
     buildHistory,
     makeLookupSlackUser,
+    friendlyCalcomError,
   } = deps;
 
   async function safeChannelPost(
@@ -242,15 +286,23 @@ export function registerSlackHandlers(
         type: "home",
         blocks: cardToBlockKit(homeCard),
       });
-    } catch {
+    } catch (err) {
+      const isAuthError = err instanceof CalcomApiError && (err.statusCode === 401 || err.statusCode === 403);
       const authUrl = generateAuthUrl("slack", teamId, userId);
-      const errorCard = Card({
-        title: "Could Not Load Bookings",
-        children: [
-          CardText("Your session may have expired — please reconnect."),
-          Actions([LinkButton({ url: authUrl, label: "Reconnect Cal.com" })]),
-        ],
-      });
+      const errorCard = isAuthError
+        ? Card({
+            title: "Could Not Load Bookings",
+            children: [
+              CardText("Your session may have expired — please reconnect."),
+              Actions([LinkButton({ url: authUrl, label: "Reconnect Cal.com" })]),
+            ],
+          })
+        : Card({
+            title: "Could Not Load Bookings",
+            children: [
+              CardText("Could not load bookings. Please try again later."),
+            ],
+          });
       await slack.publishHomeView(userId, {
         type: "home",
         blocks: cardToBlockKit(errorCard),
@@ -332,7 +384,7 @@ export function registerSlackHandlers(
             await handleUnlink(event, teamId, userId);
             break;
           case "help":
-            await safeChannelPost(event, helpCard());
+            await event.channel.postEphemeral(event.user, helpCard(), { fallbackToDM: true });
             break;
           case "bookings": {
             const accessToken = await getValidAccessToken(teamId, userId);
@@ -368,7 +420,7 @@ export function registerSlackHandlers(
                 meetingUrl: b.meetingUrl ?? null,
               }))
             );
-            await safeChannelPost(event, card);
+            await event.channel.postEphemeral(event.user, card, { fallbackToDM: true });
             break;
           }
           case "availability": {
@@ -390,7 +442,7 @@ export function registerSlackHandlers(
               );
               return;
             }
-            const eventTypes = await getEventTypes(accessToken).catch(() => []);
+            const eventTypes = await getEventTypes(accessToken);
             if (eventTypes.length === 0) {
               await event.channel.postEphemeral(
                 event.user,
@@ -431,46 +483,25 @@ export function registerSlackHandlers(
               const lookupTarget = makeLookupSlackUser(teamId);
               const targetProfile = await lookupTarget(targetSlackId);
               const targetName = targetProfile?.realName ?? targetProfile?.name ?? "Attendee";
-              const targetEmail = targetProfile?.email;
-              if (targetEmail) {
-                await setBookingFlow(teamId, userId, {
-                  eventTypeId: eventType.id,
-                  eventTypeTitle: eventType.title,
-                  targetUserSlackId: targetSlackId,
+              await event.channel.postEphemeral(
+                event.user,
+                availabilityListCard(allSlots, eventType.title, {
                   targetName,
-                  targetEmail,
-                  step: "awaiting_slot",
-                  slots: allSlots,
-                });
-                await safeChannelPost(
-                  event,
-                  availabilityCard(allSlots, eventType.title, targetName)
-                );
-              } else {
-                await safeChannelPost(event, availabilityListCard(allSlots, eventType.title));
-              }
+                  hint: "Use `/cal book <cal-username>` to book a meeting (Cal.com username, not Slack name).",
+                }),
+                { fallbackToDM: true }
+              );
             } else {
-              await safeChannelPost(event, availabilityListCard(allSlots, eventType.title));
+              await event.channel.postEphemeral(event.user, availabilityListCard(allSlots, eventType.title), { fallbackToDM: true });
             }
             break;
           }
           case "book": {
-            const mentionMatch = event.text.match(/<@([A-Z0-9]+)>/);
-            const targetSlackId = mentionMatch?.[1];
-            if (!targetSlackId) {
+            const targetUsername = args.slice(1).join(" ").trim().replace(/^@/, "");
+            if (!targetUsername) {
               await event.channel.postEphemeral(
                 event.user,
-                "Usage: `/cal book @user` — mention the person you want to book with.",
-                { fallbackToDM: true }
-              );
-              return;
-            }
-
-            const accessToken = await getValidAccessToken(teamId, userId);
-            if (!accessToken) {
-              await event.channel.postEphemeral(
-                event.user,
-                oauthLinkMessage("slack", teamId, userId),
+                "Usage: `/cal book <username>` — enter the Cal.com username to book with.",
                 { fallbackToDM: true }
               );
               return;
@@ -486,56 +517,252 @@ export function registerSlackHandlers(
               return;
             }
 
-            const eventTypes = await getEventTypes(accessToken).catch(() => []);
-            if (eventTypes.length === 0) {
+            const targetEventTypes = await getEventTypesByUsername(targetUsername);
+            if (targetEventTypes.length === 0) {
               await event.channel.postEphemeral(
                 event.user,
-                `You have no event types. Create one at ${CALCOM_APP_URL} first.`,
+                `No public event types found for *${targetUsername}*. Check the username and try again.`,
                 { fallbackToDM: true }
               );
               return;
             }
 
-            const openModal = (event as { openModal?: (modal: unknown) => Promise<unknown> })
-              .openModal;
-            if (!openModal) {
-              const result = runAgentStream({
-                teamId,
-                userId,
-                userMessage: `book meeting with <@${targetSlackId}>`,
-                lookupPlatformUser: makeLookupSlackUser(teamId),
-                platform: "slack",
-                logger: bot.getLogger("agent"),
-                onErrorRef: lastStreamErrorRef,
+            if (targetEventTypes.length === 1) {
+              const et = targetEventTypes[0];
+              const now = new Date();
+              const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+              const slotsMap = await getAvailableSlotsPublic({
+                eventTypeSlug: et.slug,
+                username: targetUsername,
+                start: now.toISOString(),
+                end: weekLater.toISOString(),
+                timeZone: linked.calcomTimeZone,
               });
-              await safeChannelPost(event, result.textStream);
+              const allSlots = Object.values(slotsMap)
+                .flat()
+                .filter((s) => s.available)
+                .slice(0, 5)
+                .map((s) => ({
+                  time: s.time,
+                  label: new Intl.DateTimeFormat("en-US", {
+                    timeZone: linked.calcomTimeZone,
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  }).format(new Date(s.time)),
+                }));
+
+              await setBookingFlow(teamId, userId, {
+                eventTypeId: et.id,
+                eventTypeTitle: et.title,
+                targetUsername,
+                eventTypeSlug: et.slug,
+                isPublicBooking: true,
+                step: "awaiting_slot",
+                slots: allSlots,
+              });
+
+              await event.channel.postEphemeral(
+                event.user,
+                bookSlotPickerCard(allSlots, et.title, targetUsername),
+                { fallbackToDM: true }
+              );
+            } else {
+              await setBookingFlow(teamId, userId, {
+                eventTypeId: 0,
+                eventTypeTitle: "",
+                targetUsername,
+                isPublicBooking: true,
+                step: "awaiting_slot",
+              });
+
+              await event.channel.postEphemeral(
+                event.user,
+                bookEventTypePickerCard(targetEventTypes, targetUsername),
+                { fallbackToDM: true }
+              );
+            }
+            break;
+          }
+          case "profile": {
+            const accessToken = await getValidAccessToken(teamId, userId);
+            if (!accessToken) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
               return;
             }
-
-            const bookModal = Modal({
-              callbackId: "book_event_type",
-              title: "Book a Meeting",
-              submitLabel: "Continue",
-              notifyOnClose: true,
-              privateMetadata: JSON.stringify({ teamId, targetSlackId }),
-              children: [
-                Select({
-                  id: "event_type",
-                  label: "Event Type",
-                  placeholder: "Select a meeting type",
-                  options: eventTypes.map((et) =>
-                    SelectOption({ label: et.title, value: String(et.id) })
-                  ),
-                }),
-              ],
+            const linked = await getLinkedUser(teamId, userId);
+            if (!linked) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const card = profileCard({
+              calcomUsername: linked.calcomUsername,
+              calcomEmail: linked.calcomEmail,
+              calcomTimeZone: linked.calcomTimeZone,
+              linkedAt: linked.linkedAt,
+              calcomOrganizationId: linked.calcomOrganizationId,
             });
-            await openModal(bookModal);
+            await event.channel.postEphemeral(event.user, card, { fallbackToDM: true });
+            break;
+          }
+          case "event-types":
+          case "eventtypes": {
+            const accessToken = await getValidAccessToken(teamId, userId);
+            if (!accessToken) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const linked = await getLinkedUser(teamId, userId);
+            if (!linked) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const eventTypes = await getEventTypes(accessToken);
+            const card = eventTypesListCard(
+              eventTypes.map((et) => ({
+                title: et.title,
+                slug: et.slug,
+                length: et.length,
+                hidden: et.hidden,
+              })),
+              linked.calcomUsername
+            );
+            await event.channel.postEphemeral(event.user, card, { fallbackToDM: true });
+            break;
+          }
+          case "schedules": {
+            const accessToken = await getValidAccessToken(teamId, userId);
+            if (!accessToken) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const schedules = await getSchedules(accessToken);
+            const card = schedulesListCard(
+              schedules.map((s) => ({
+                name: s.name,
+                isDefault: s.isDefault,
+                timeZone: s.timeZone,
+                availability: s.availability,
+              }))
+            );
+            await event.channel.postEphemeral(event.user, card, { fallbackToDM: true });
+            break;
+          }
+          case "cancel": {
+            const accessToken = await getValidAccessToken(teamId, userId);
+            if (!accessToken) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const linked = await getLinkedUser(teamId, userId);
+            if (!linked) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const bookings = await getBookings(
+              accessToken,
+              { status: "upcoming", take: 10 },
+              { id: linked.calcomUserId, email: linked.calcomEmail }
+            );
+            const card = cancelBookingPickerCard(
+              bookings.map((b) => ({
+                uid: b.uid,
+                title: b.title,
+                start: b.start,
+                end: b.end,
+              }))
+            );
+            await event.channel.postEphemeral(event.user, card, { fallbackToDM: true });
+            break;
+          }
+          case "reschedule": {
+            const accessToken = await getValidAccessToken(teamId, userId);
+            if (!accessToken) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const linked = await getLinkedUser(teamId, userId);
+            if (!linked) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            const bookings = await getBookings(
+              accessToken,
+              { status: "upcoming", take: 10 },
+              { id: linked.calcomUserId, email: linked.calcomEmail }
+            );
+            const card = rescheduleBookingPickerCard(
+              bookings.map((b) => ({
+                uid: b.uid,
+                title: b.title,
+                start: b.start,
+                end: b.end,
+              }))
+            );
+            await event.channel.postEphemeral(event.user, card, { fallbackToDM: true });
             break;
           }
           default: {
             const naturalQuery = event.text.trim();
             if (!naturalQuery) {
-              await safeChannelPost(event, helpCard());
+              await event.channel.postEphemeral(event.user, helpCard(), { fallbackToDM: true });
+              return;
+            }
+
+            const linked = await getLinkedUser(teamId, userId);
+            if (!linked) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            if (!isOrgPlanUser(linked)) {
+              await event.channel.postEphemeral(
+                event.user,
+                "The AI assistant is available on the Cal.com Organizations plan. Use `/cal help` to see available slash commands, or upgrade at <https://cal.com/pricing|cal.com/pricing>.",
+                { fallbackToDM: true }
+              );
               return;
             }
 
@@ -556,12 +783,16 @@ export function registerSlackHandlers(
       {
         postError: (msg) => safeChannelPost(event, msg).catch(() => {}),
         logContext: "/cal",
-        getCustomErrorMessage: () => {
+        getCustomErrorMessage: (err) => {
           if (!lastStreamErrorRef.current) return undefined;
           if (isAIRateLimitError(lastStreamErrorRef.current))
             return "I've hit my daily token limit. Please try again later when the limit resets.";
           if (isAIToolCallError(lastStreamErrorRef.current))
             return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+          if (lastStreamErrorRef.current instanceof CalcomApiError)
+            return friendlyCalcomError(lastStreamErrorRef.current);
+          if (isSlackAuthError(err))
+            return "Sorry, something went wrong while processing your request. Please try again.";
           return undefined;
         },
       }
@@ -603,7 +834,7 @@ export function registerSlackHandlers(
       return;
     }
 
-    const eventTypes = await getEventTypes(accessToken).catch(() => []);
+    const eventTypes = await getEventTypes(accessToken);
     if (eventTypes.length === 0) {
       const dm = await bot.openDM(event.user);
       await dm
@@ -758,7 +989,7 @@ export function registerSlackHandlers(
         }));
 
       const eventTypeTitle =
-        (await getEventTypes(accessToken).catch(() => [])).find((et) => et.id === eventTypeId)
+        (await getEventTypes(accessToken)).find((et) => et.id === eventTypeId)
           ?.title ?? `Meeting`;
 
       await setBookingFlow(teamId, userId, {
@@ -914,8 +1145,490 @@ export function registerSlackHandlers(
       {
         postError: (msg) => thread.post(msg).catch(() => {}),
         logContext: "confirm_booking",
-        getCustomErrorMessage: (err) =>
-          err instanceof Error ? `Failed to create booking: ${err.message}` : undefined,
+        getCustomErrorMessage: (err) => {
+          if (err instanceof CalcomApiError) {
+            return friendlyCalcomError(err, "booking");
+          }
+          return err instanceof Error ? "Failed to create the booking. Please try again." : undefined;
+        },
+      }
+    );
+  });
+
+  // ─── Public booking flow action handlers (/cal book <username>) ───────────
+
+  bot.onAction("select_book_event_type", async (event) => {
+    if (event.adapter.name !== "slack") return;
+
+    const ctx = extractPlatformContextFromEvent(event);
+    const { teamId, userId } = ctx;
+    const selectedSlug = event.value ?? "";
+    if (!event.thread) return;
+    const thread = event.thread;
+
+    await withBotErrorHandling(
+      async () => {
+        const [flow, linked] = await Promise.all([
+          getBookingFlow(teamId, userId),
+          getLinkedUser(teamId, userId),
+        ]);
+
+        if (!flow || !flow.targetUsername || !linked) {
+          await thread.post("Booking session expired. Please start again with `/cal book <username>`.");
+          return;
+        }
+
+        const targetUsername = flow.targetUsername;
+        const targetEventTypes = await getEventTypesByUsername(targetUsername);
+        const selectedEt = targetEventTypes.find((et) => et.slug === selectedSlug);
+        if (!selectedEt) {
+          await thread.post("Event type not found. Please start again with `/cal book <username>`.");
+          return;
+        }
+
+        const now = new Date();
+        const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const slotsMap = await getAvailableSlotsPublic({
+          eventTypeSlug: selectedSlug,
+          username: targetUsername,
+          start: now.toISOString(),
+          end: weekLater.toISOString(),
+          timeZone: linked.calcomTimeZone,
+        });
+        const allSlots = Object.values(slotsMap)
+          .flat()
+          .filter((s) => s.available)
+          .slice(0, 5)
+          .map((s) => ({
+            time: s.time,
+            label: new Intl.DateTimeFormat("en-US", {
+              timeZone: linked.calcomTimeZone,
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            }).format(new Date(s.time)),
+          }));
+
+        await setBookingFlow(teamId, userId, {
+          ...flow,
+          eventTypeId: selectedEt.id,
+          eventTypeTitle: selectedEt.title,
+          eventTypeSlug: selectedSlug,
+          step: "awaiting_slot",
+          slots: allSlots,
+        });
+
+        await thread.post(bookSlotPickerCard(allSlots, selectedEt.title, targetUsername));
+      },
+      {
+        postError: (msg) => thread.post(msg).catch(() => {}),
+        logContext: "select_book_event_type",
+      }
+    );
+  });
+
+  bot.onAction("select_book_slot", async (event) => {
+    if (event.adapter.name !== "slack") return;
+
+    const ctx = extractPlatformContextFromEvent(event);
+    const { teamId, userId } = ctx;
+    const selectedTime = event.value ?? "";
+    if (!event.thread) return;
+    const thread = event.thread;
+
+    await withBotErrorHandling(
+      async () => {
+        const flow = await getBookingFlow(teamId, userId);
+
+        if (!flow || !flow.targetUsername) {
+          await thread.post("Booking session expired. Please start again with `/cal book <username>`.");
+          return;
+        }
+
+        const slotLabel = flow.slots?.find((s) => s.time === selectedTime)?.label ?? selectedTime;
+
+        await setBookingFlow(teamId, userId, {
+          ...flow,
+          step: "awaiting_confirmation",
+          selectedSlot: selectedTime,
+        });
+
+        await thread.post(
+          bookConfirmCard(flow.eventTypeTitle, slotLabel, flow.targetUsername)
+        );
+      },
+      {
+        postError: (msg) => thread.post(msg).catch(() => {}),
+        logContext: "select_book_slot",
+      }
+    );
+  });
+
+  bot.onAction(["confirm_book", "cancel_book"], async (event) => {
+    if (event.adapter.name !== "slack") return;
+
+    const ctx = extractPlatformContextFromEvent(event);
+    const { teamId, userId } = ctx;
+    if (!event.thread) return;
+    const thread = event.thread;
+
+    if (event.actionId === "cancel_book") {
+      await withBotErrorHandling(
+        async () => {
+          await clearBookingFlow(teamId, userId);
+          await thread.post("Booking cancelled.");
+        },
+        {
+          postError: (msg) => thread.post(msg).catch(() => {}),
+          logContext: "cancel_book",
+        }
+      );
+      return;
+    }
+
+    await withBotErrorHandling(
+      async () => {
+        const [flow, linked] = await Promise.all([
+          getBookingFlow(teamId, userId),
+          getLinkedUser(teamId, userId),
+        ]);
+
+        if (
+          !flow ||
+          !flow.selectedSlot ||
+          !flow.eventTypeSlug ||
+          !flow.targetUsername ||
+          !linked
+        ) {
+          await thread.post(
+            "Booking session expired. Please start again with `/cal book <username>`."
+          );
+          return;
+        }
+
+        const sent = await thread.post("Creating your booking...");
+
+        const booking = await createBookingPublic({
+          eventTypeSlug: flow.eventTypeSlug,
+          username: flow.targetUsername,
+          start: flow.selectedSlot,
+          attendee: {
+            name: linked.calcomUsername ?? linked.calcomEmail,
+            email: linked.calcomEmail,
+            timeZone: linked.calcomTimeZone,
+          },
+        });
+
+        await clearBookingFlow(teamId, userId);
+
+        const time = formatBookingTime(booking.start, booking.end, linked.calcomTimeZone);
+
+        const confirmCard = Card({
+          title: "Booking Confirmed!",
+          subtitle: booking.title,
+          children: [
+            Fields([
+              Field({ label: "When", value: time }),
+              Field({
+                label: "With",
+                value: flow.targetUsername,
+              }),
+            ]),
+            Divider(),
+            Actions([
+              ...(booking.meetingUrl
+                ? [LinkButton({ url: booking.meetingUrl, label: "Join Meeting" })]
+                : []),
+              LinkButton({
+                url: `${CALCOM_APP_URL}/bookings`,
+                label: "View Bookings",
+              }),
+            ]),
+          ],
+        });
+        await sent.edit(confirmCard);
+      },
+      {
+        postError: (msg) => thread.post(msg).catch(() => {}),
+        logContext: "confirm_book",
+        getCustomErrorMessage: (err) => {
+          if (err instanceof CalcomApiError) {
+            return friendlyCalcomError(err, "booking");
+          }
+          return err instanceof Error
+            ? "Failed to create the booking. Please try again."
+            : undefined;
+        },
+      }
+    );
+  });
+
+  // ─── Cancel flow action handlers ──────────────────────────────────────────
+
+  bot.onAction("cancel_bk", async (event) => {
+    if (event.adapter.name !== "slack") return;
+
+    const ctx = extractPlatformContextFromEvent(event);
+    const { teamId, userId } = ctx;
+    const bookingUid = event.value ?? "";
+    if (!event.thread) return;
+    const thread = event.thread;
+
+    await withBotErrorHandling(
+      async () => {
+        const accessToken = await getValidAccessToken(teamId, userId);
+        if (!accessToken) return;
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return;
+
+        const bookings = await getBookings(
+          accessToken,
+          { status: "upcoming", take: 10 },
+          { id: linked.calcomUserId, email: linked.calcomEmail }
+        );
+        const selected = bookings.find((b) => b.uid === bookingUid);
+        if (!selected) {
+          await thread.post("Booking not found. It may have already been cancelled.");
+          return;
+        }
+
+        await setCancelFlow(teamId, userId, {
+          bookingUid: selected.uid,
+          bookingTitle: selected.title,
+          isRecurring: !!selected.recurringBookingUid,
+          step: "awaiting_confirmation",
+        });
+
+        const time = formatBookingTime(selected.start, selected.end, linked.calcomTimeZone);
+        await thread.post(cancelConfirmCard(selected.title, time, !!selected.recurringBookingUid));
+      },
+      {
+        postError: (msg) => thread.post(msg).catch(() => {}),
+        logContext: "cancel_bk action",
+      }
+    );
+  });
+
+  bot.onAction(["cancel_confirm", "cancel_all", "cancel_back"], async (event) => {
+    if (event.adapter.name !== "slack") return;
+
+    const ctx = extractPlatformContextFromEvent(event);
+    const { teamId, userId } = ctx;
+    if (!event.thread) return;
+    const thread = event.thread;
+
+    if (event.actionId === "cancel_back") {
+      await clearCancelFlow(teamId, userId);
+      await thread.post("Cancellation aborted.");
+      return;
+    }
+
+    await withBotErrorHandling(
+      async () => {
+        const flow = await getCancelFlow(teamId, userId);
+        if (!flow?.bookingUid) {
+          await thread.post("Cancel session expired. Please start again with `/cal cancel`.");
+          return;
+        }
+        const accessToken = await getValidAccessToken(teamId, userId);
+        if (!accessToken) return;
+
+        const cancelAll = event.actionId === "cancel_all";
+        await cancelBooking(accessToken, flow.bookingUid, "Cancelled via Slack bot", cancelAll);
+        await clearCancelFlow(teamId, userId);
+
+        const msg = cancelAll
+          ? `Booking *${flow.bookingTitle}* and all future occurrences have been cancelled.`
+          : `Booking *${flow.bookingTitle}* has been cancelled.`;
+        await thread.post(msg);
+      },
+      {
+        postError: (msg) => thread.post(msg).catch(() => {}),
+        logContext: "cancel_confirm action",
+        getCustomErrorMessage: (err) => {
+          if (err instanceof CalcomApiError) return friendlyCalcomError(err);
+          return undefined;
+        },
+      }
+    );
+  });
+
+  // ─── Reschedule flow action handlers ────────────────────────────────────────
+
+  bot.onAction("reschedule_bk", async (event) => {
+    if (event.adapter.name !== "slack") return;
+
+    const ctx = extractPlatformContextFromEvent(event);
+    const { teamId, userId } = ctx;
+    const bookingUid = event.value ?? "";
+    if (!event.thread) return;
+    const thread = event.thread;
+
+    await withBotErrorHandling(
+      async () => {
+        const accessToken = await getValidAccessToken(teamId, userId);
+        if (!accessToken) return;
+        const linked = await getLinkedUser(teamId, userId);
+        if (!linked) return;
+
+        const bookings = await getBookings(
+          accessToken,
+          { status: "upcoming", take: 10 },
+          { id: linked.calcomUserId, email: linked.calcomEmail }
+        );
+        const selected = bookings.find((b) => b.uid === bookingUid);
+        if (!selected) {
+          await thread.post("Booking not found. It may have already been cancelled.");
+          return;
+        }
+
+        const eventTypeId = selected.eventType?.id ?? 0;
+        if (!eventTypeId) {
+          await thread.post("Cannot reschedule: event type information is missing for this booking.");
+          return;
+        }
+
+        const now = new Date();
+        const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const slotsMap = await getAvailableSlots(accessToken, {
+          eventTypeId,
+          start: now.toISOString(),
+          end: weekLater.toISOString(),
+          timeZone: linked.calcomTimeZone,
+          bookingUidToReschedule: bookingUid,
+        });
+        const allSlots = Object.values(slotsMap)
+          .flat()
+          .filter((s) => s.available)
+          .slice(0, 5)
+          .map((s) => ({
+            time: s.time,
+            label: new Intl.DateTimeFormat("en-US", {
+              timeZone: linked.calcomTimeZone,
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            }).format(new Date(s.time)),
+          }));
+
+        if (allSlots.length === 0) {
+          await thread.post("No available slots in the next 7 days. Please try again later.");
+          return;
+        }
+
+        await setRescheduleFlow(teamId, userId, {
+          bookingUid: selected.uid,
+          bookingTitle: selected.title,
+          originalStart: selected.start,
+          eventTypeId,
+          step: "awaiting_slot",
+          slots: allSlots,
+        });
+
+        const originalTime = formatBookingTime(selected.start, selected.end, linked.calcomTimeZone);
+        await thread.post(rescheduleSlotPickerCard(allSlots, selected.title, originalTime));
+      },
+      {
+        postError: (msg) => thread.post(msg).catch(() => {}),
+        logContext: "reschedule_bk action",
+      }
+    );
+  });
+
+  bot.onAction("reschedule_select_slot", async (event) => {
+    if (event.adapter.name !== "slack") return;
+
+    const ctx = extractPlatformContextFromEvent(event);
+    const { teamId, userId } = ctx;
+    const selectedTime = event.value ?? "";
+    if (!event.thread) return;
+    const thread = event.thread;
+
+    await withBotErrorHandling(
+      async () => {
+        const flow = await getRescheduleFlow(teamId, userId);
+        if (!flow) {
+          await thread.post("Reschedule session expired. Please start again with `/cal reschedule`.");
+          return;
+        }
+
+        const slotLabel = flow.slots?.find((s) => s.time === selectedTime)?.label ?? selectedTime;
+        const linked = await getLinkedUser(teamId, userId);
+        const tz = linked?.calcomTimeZone ?? "UTC";
+        const oldTime = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz,
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }).format(new Date(flow.originalStart));
+
+        await setRescheduleFlow(teamId, userId, {
+          ...flow,
+          selectedSlot: selectedTime,
+          step: "awaiting_confirmation",
+        });
+
+        await thread.post(rescheduleConfirmCard(flow.bookingTitle, oldTime, slotLabel));
+      },
+      {
+        postError: (msg) => thread.post(msg).catch(() => {}),
+        logContext: "reschedule_select_slot action",
+      }
+    );
+  });
+
+  bot.onAction(["reschedule_confirm", "reschedule_back"], async (event) => {
+    if (event.adapter.name !== "slack") return;
+
+    const ctx = extractPlatformContextFromEvent(event);
+    const { teamId, userId } = ctx;
+    if (!event.thread) return;
+    const thread = event.thread;
+
+    if (event.actionId === "reschedule_back") {
+      await clearRescheduleFlow(teamId, userId);
+      await thread.post("Reschedule cancelled.");
+      return;
+    }
+
+    await withBotErrorHandling(
+      async () => {
+        const flow = await getRescheduleFlow(teamId, userId);
+        if (!flow?.selectedSlot) {
+          await thread.post("Reschedule session expired. Please start again with `/cal reschedule`.");
+          return;
+        }
+        const accessToken = await getValidAccessToken(teamId, userId);
+        if (!accessToken) return;
+
+        const booking = await rescheduleBooking(
+          accessToken,
+          flow.bookingUid,
+          flow.selectedSlot,
+          "Rescheduled via Slack bot"
+        );
+        const linked = await getLinkedUser(teamId, userId);
+        const tz = linked?.calcomTimeZone ?? "UTC";
+        const newTime = formatBookingTime(booking.start, booking.end, tz);
+        await clearRescheduleFlow(teamId, userId);
+        await thread.post(`Booking *${flow.bookingTitle}* rescheduled to ${newTime}.`);
+      },
+      {
+        postError: (msg) => thread.post(msg).catch(() => {}),
+        logContext: "reschedule_confirm action",
+        getCustomErrorMessage: (err) => {
+          if (err instanceof CalcomApiError) return friendlyCalcomError(err);
+          return undefined;
+        },
       }
     );
   });
@@ -968,12 +1681,16 @@ export function registerSlackHandlers(
       {
         postError: (msg) => thread.post(msg).catch(() => {}),
         logContext: "retry_response",
-        getCustomErrorMessage: () => {
+        getCustomErrorMessage: (err) => {
           if (!lastStreamErrorRef.current) return undefined;
           if (isAIRateLimitError(lastStreamErrorRef.current))
             return "I've hit my daily token limit. Please try again later when the limit resets.";
           if (isAIToolCallError(lastStreamErrorRef.current))
             return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+          if (lastStreamErrorRef.current instanceof CalcomApiError)
+            return friendlyCalcomError(lastStreamErrorRef.current);
+          if (isSlackAuthError(err))
+            return "Sorry, something went wrong while processing your request. Please try again.";
           return undefined;
         },
       }
