@@ -278,19 +278,15 @@ export function helpCard() {
       Section([
         CardText("Here's what I can do:", { style: "bold" }),
         Fields([
-          Field({
-            label: "/cal availability [@user]",
-            value: "Check availability",
-          }),
-          Field({ label: "/cal book @user", value: "Book a meeting with someone" }),
-          Field({ label: "/cal bookings", value: "View your upcoming bookings" }),
+          Field({ label: "/cal availability [@user]", value: "Check availability" }),
+          Field({ label: "/cal book @user", value: "Book a meeting" }),
+          Field({ label: "/cal bookings", value: "View upcoming bookings" }),
           Field({ label: "/cal cancel", value: "Cancel a booking" }),
           Field({ label: "/cal reschedule", value: "Reschedule a booking" }),
           Field({ label: "/cal event-types", value: "List your event types" }),
-          Field({ label: "/cal profile", value: "Show your linked profile" }),
           Field({ label: "/cal schedules", value: "Show your working hours" }),
-          Field({ label: "/cal link", value: "Connect your Cal.com account" }),
-          Field({ label: "/cal unlink", value: "Disconnect your Cal.com account" }),
+          Field({ label: "/cal profile", value: "Show your profile" }),
+          Field({ label: "/cal link / unlink", value: "Connect or disconnect Cal.com" }),
           Field({ label: "/cal help", value: "Show this help message" }),
         ]),
       ]),
@@ -309,16 +305,14 @@ export function telegramHelpCard() {
         Fields([
           Field({ label: "/availability", value: "Check your availability" }),
           Field({ label: "/book <username>", value: "Book a meeting" }),
-          Field({ label: "/bookings", value: "View your upcoming bookings" }),
+          Field({ label: "/bookings", value: "View upcoming bookings" }),
           Field({ label: "/cancel", value: "Cancel a booking" }),
           Field({ label: "/reschedule", value: "Reschedule a booking" }),
           Field({ label: "/eventtypes", value: "List your event types" }),
-          Field({ label: "/profile", value: "Show your linked profile" }),
           Field({ label: "/schedules", value: "Show your working hours" }),
-          Field({ label: "/link", value: "Connect your Cal.com account" }),
-          Field({ label: "/unlink", value: "Disconnect your Cal.com account" }),
-          Field({ label: "/help", value: "Show this help message" }),
-          Field({ label: "@mention me", value: "Ask anything in natural language" }),
+          Field({ label: "/profile", value: "Show your profile" }),
+          Field({ label: "/link / /unlink", value: "Connect or disconnect Cal.com" }),
+          Field({ label: "/help · @mention", value: "Help or ask in natural language" }),
         ]),
       ]),
       Divider(),
@@ -379,17 +373,21 @@ export function eventTypesListCard(
     });
   }
 
+  const fields = eventTypes.map((et) =>
+    Field({
+      label: `${et.title}${et.hidden ? " (hidden)" : ""}`,
+      value: `${et.length}min · cal.com/${username}/${et.slug}`,
+    })
+  );
+  const chunks: (typeof fields)[] = [];
+  for (let i = 0; i < fields.length; i += 10) {
+    chunks.push(fields.slice(i, i + 10));
+  }
+
   return Card({
     title: `Your Event Types (${eventTypes.length})`,
     children: [
-      Fields(
-        eventTypes.map((et) =>
-          Field({
-            label: `${et.title}${et.hidden ? " (hidden)" : ""}`,
-            value: `${et.length}min · cal.com/${username}/${et.slug}`,
-          })
-        )
-      ),
+      ...chunks.map((chunk) => Fields(chunk)),
       Divider(),
       Actions([LinkButton({ url: CALCOM_APP_URL, label: "Open Cal.com" })]),
     ],
@@ -477,17 +475,21 @@ export function schedulesListCard(
     });
   }
 
+  const fields = schedules.map((s) =>
+    Field({
+      label: `${s.name}${s.isDefault ? " (default)" : ""}`,
+      value: `${s.timeZone}\n${formatAvailabilitySummary(s.availability)}`,
+    })
+  );
+  const chunks: (typeof fields)[] = [];
+  for (let i = 0; i < fields.length; i += 10) {
+    chunks.push(fields.slice(i, i + 10));
+  }
+
   return Card({
     title: `Your Schedules (${schedules.length})`,
     children: [
-      Fields(
-        schedules.map((s) =>
-          Field({
-            label: `${s.name}${s.isDefault ? " (default)" : ""}`,
-            value: `${s.timeZone}\n${formatAvailabilitySummary(s.availability)}`,
-          })
-        )
-      ),
+      ...chunks.map((chunk) => Fields(chunk)),
       Divider(),
       Actions([LinkButton({ url: CALCOM_APP_URL, label: "Open Cal.com" })]),
     ],
@@ -517,14 +519,13 @@ export function cancelBookingPickerCard(
   return Card({
     title: "Cancel a Booking",
     subtitle: "Select a booking to cancel",
-    children: [
-      ...bookings.map((b) => {
-        const time = formatBookingTime(b.start, b.end);
-        return Actions([
-          Button({ id: "cancel_bk", value: b.uid, label: `${b.title} — ${time}` }),
-        ]);
-      }),
-    ],
+    children: bookings.flatMap((b, i) => {
+      const time = formatBookingTime(b.start, b.end);
+      return [
+        CardText(`${i + 1}. **${b.title}**\n${time}`),
+        Actions([Button({ id: "cancel_bk", value: b.uid, label: `Cancel #${i + 1}` })]),
+      ];
+    }),
   });
 }
 
@@ -579,14 +580,13 @@ export function rescheduleBookingPickerCard(
   return Card({
     title: "Reschedule a Booking",
     subtitle: "Select a booking to reschedule",
-    children: [
-      ...bookings.map((b) => {
-        const time = formatBookingTime(b.start, b.end);
-        return Actions([
-          Button({ id: "reschedule_bk", value: b.uid, label: `${b.title} — ${time}` }),
-        ]);
-      }),
-    ],
+    children: bookings.flatMap((b, i) => {
+      const time = formatBookingTime(b.start, b.end);
+      return [
+        CardText(`${i + 1}. **${b.title}**\n${time}`),
+        Actions([Button({ id: "reschedule_bk", value: b.uid, label: `Reschedule #${i + 1}` })]),
+      ];
+    }),
   });
 }
 
