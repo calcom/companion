@@ -279,7 +279,7 @@ export function helpCard() {
         CardText("Here's what I can do:", { style: "bold" }),
         Fields([
           Field({ label: "/cal availability [@user]", value: "Check availability" }),
-          Field({ label: "/cal book @user", value: "Book a meeting" }),
+          Field({ label: "/cal book <username>", value: "Book a meeting" }),
           Field({ label: "/cal bookings", value: "View upcoming bookings" }),
           Field({ label: "/cal cancel", value: "Cancel a booking" }),
           Field({ label: "/cal reschedule", value: "Reschedule a booking" }),
@@ -725,6 +725,91 @@ export function availabilityEventTypePickerCard(
             ),
           }),
         ]),
+      ]),
+    ],
+  });
+}
+
+// ─── Public booking flow cards (Slack /cal book <username>) ─────────────────
+
+export function bookEventTypePickerCard(
+  eventTypes: Array<{ title: string; slug: string; length: number }>,
+  targetUsername: string
+) {
+  return Card({
+    title: `Book with ${targetUsername}`,
+    subtitle: "Select an event type",
+    children: [
+      Section([
+        Actions([
+          Select({
+            id: "select_book_event_type",
+            label: "Event Type",
+            placeholder: "Select an event type",
+            options: eventTypes.map((et) =>
+              SelectOption({ label: `${et.title} (${et.length}min)`, value: et.slug })
+            ),
+          }),
+        ]),
+      ]),
+    ],
+  });
+}
+
+export function bookSlotPickerCard(
+  slots: Array<{ time: string; label: string }>,
+  eventTypeTitle: string,
+  targetUsername: string
+) {
+  if (slots.length === 0) {
+    return Card({
+      title: "No Available Slots",
+      children: [
+        CardText(
+          `No available slots found for ${eventTypeTitle} with ${targetUsername} in the next 7 days.`
+        ),
+        Actions([LinkButton({ url: CALCOM_APP_URL, label: "Open Cal.com" })]),
+      ],
+    });
+  }
+
+  return Card({
+    title: `Book with ${targetUsername}`,
+    subtitle: eventTypeTitle,
+    children: [
+      Section([
+        Actions([
+          Select({
+            id: "select_book_slot",
+            label: "Time",
+            placeholder: "Select a time",
+            options: slots
+              .slice(0, 5)
+              .map((s) => SelectOption({ label: s.label, value: s.time })),
+          }),
+        ]),
+      ]),
+    ],
+  });
+}
+
+export function bookConfirmCard(
+  eventTypeTitle: string,
+  slotLabel: string,
+  targetUsername: string
+) {
+  return Card({
+    title: "Confirm Booking",
+    children: [
+      Fields([
+        Field({ label: "Event", value: eventTypeTitle }),
+        Field({ label: "When", value: slotLabel }),
+        Field({ label: "With", value: targetUsername }),
+      ]),
+      Divider(),
+      Actions([
+        Button({ id: "confirm_book", style: "primary", label: "Confirm" }),
+        Button({ id: "cancel_book", style: "danger", label: "Cancel" }),
       ]),
     ],
   });
