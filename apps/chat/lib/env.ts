@@ -2,6 +2,9 @@
  * Validates required environment variables for the chat bot.
  * Call at startup to fail fast if critical config is missing.
  */
+
+import { type AIProvider, PROVIDER_CONFIG, SUPPORTED_PROVIDERS } from "./ai-provider";
+
 export function validateRequiredEnv(): void {
   const missing: string[] = [];
 
@@ -12,6 +15,20 @@ export function validateRequiredEnv(): void {
 
   if (process.env.TELEGRAM_BOT_TOKEN && !process.env.TELEGRAM_BOT_USERNAME) {
     missing.push("TELEGRAM_BOT_USERNAME (required when TELEGRAM_BOT_TOKEN is set)");
+  }
+
+  // Validate AI_PROVIDER value
+  const provider = (process.env.AI_PROVIDER ?? "groq") as string;
+  if (!SUPPORTED_PROVIDERS.includes(provider as AIProvider)) {
+    throw new Error(
+      `Invalid AI_PROVIDER: "${provider}". Must be one of: ${SUPPORTED_PROVIDERS.join(", ")}`
+    );
+  }
+
+  // Validate that the selected provider's API key is present
+  const config = PROVIDER_CONFIG[provider as AIProvider];
+  if (config && !process.env[config.apiKeyEnv]) {
+    missing.push(`${config.apiKeyEnv} (required for AI_PROVIDER=${provider})`);
   }
 
   if (process.env.NODE_ENV === "production" && !process.env.REDIS_URL) {

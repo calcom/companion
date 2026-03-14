@@ -1997,35 +1997,36 @@ export function isAIToolCallError(err: unknown): boolean {
   const msg = err.message.toLowerCase();
   const cause = err.cause as Error | undefined;
   const causeMsg = cause?.message?.toLowerCase() ?? "";
+  const combined = `${msg} ${causeMsg}`;
   return (
-    msg.includes("failed to call a function") ||
-    msg.includes("failed_generation") ||
-    msg.includes("invalid_request_error") ||
-    msg.includes("tool call validation failed") ||
-    msg.includes("which was not in request.tools") ||
-    msg.includes("tool choice is none") ||
-    causeMsg.includes("failed to call a function") ||
-    causeMsg.includes("failed_generation") ||
-    causeMsg.includes("tool call validation failed") ||
-    causeMsg.includes("tool choice is none")
+    combined.includes("failed to call a function") ||
+    combined.includes("failed_generation") ||
+    combined.includes("invalid_request_error") ||
+    combined.includes("tool call validation failed") ||
+    combined.includes("which was not in request.tools") ||
+    combined.includes("tool choice is none") ||
+    combined.includes("tool_use_failed") ||
+    combined.includes("invalid_tool_call")
   );
 }
 
-/** True if the error is an AI/LLM rate limit (e.g. Groq tokens-per-day). */
+/** True if the error is an AI/LLM rate limit (e.g. tokens-per-day, quota exceeded). */
 export function isAIRateLimitError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const msg = err.message.toLowerCase();
   const cause = err.cause as Error | undefined;
   const causeMsg = cause?.message?.toLowerCase() ?? "";
+  const combined = `${msg} ${causeMsg}`;
   const hasRateLimit =
-    msg.includes("rate limit") ||
-    msg.includes("tokens per day") ||
-    causeMsg.includes("rate limit") ||
-    causeMsg.includes("tokens per day");
+    combined.includes("rate limit") ||
+    combined.includes("tokens per day") ||
+    combined.includes("quota_exceeded") ||
+    combined.includes("resource_exhausted") ||
+    combined.includes("insufficient_quota");
   const status429 =
     (err as { statusCode?: number }).statusCode === 429 ||
     (cause as { statusCode?: number } | undefined)?.statusCode === 429;
-  return hasRateLimit || (status429 && (msg.includes("retry") || causeMsg.includes("retry")));
+  return hasRateLimit || (status429 && (combined.includes("retry") || combined.includes("quota") || combined.includes("limit") || combined.includes("exhausted")));
 }
 
 // ─── Agent stream ─────────────────────────────────────────────────────────────
