@@ -546,14 +546,6 @@ async function withBotErrorHandling(
       botLogger.warn("Feature not supported", err.feature);
       return;
     }
-    // Cal.com API errors — show status-specific messages
-    if (err instanceof CalcomApiError) {
-      botLogger.warn("Cal.com API error", { statusCode: err.statusCode, message: err.message });
-      await options
-        .postError(friendlyCalcomError(err))
-        .catch(() => {});
-      return;
-    }
     // AI/LLM rate limit (e.g. Groq tokens-per-day) — show friendly message
     if (isAIRateLimitError(err)) {
       botLogger.warn("AI rate limit", err);
@@ -573,14 +565,23 @@ async function withBotErrorHandling(
       return;
     }
     // Check for a custom error message from the handler (e.g. captured AI stream error)
-    // before falling through to Slack auth — a Slack not_authed can be a secondary
-    // failure caused by the stream crashing, not a real token issue.
+    // before falling through to generic handlers — callers can provide context-specific
+    // messages (e.g. friendlyCalcomError with "booking" context for 409 conflicts).
     const customMsg = options.getCustomErrorMessage?.(err);
     if (customMsg) {
       botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
       await options.postError(customMsg).catch((postErr) => {
         botLogger.error("Failed to post error message to user", { postErr, originalErr: err });
       });
+      return;
+    }
+    // Cal.com API errors — show status-specific messages (after custom handler so
+    // callers like the booking modal can provide context-aware messages first)
+    if (err instanceof CalcomApiError) {
+      botLogger.warn("Cal.com API error", { statusCode: err.statusCode, message: err.message });
+      await options
+        .postError(friendlyCalcomError(err))
+        .catch(() => {});
       return;
     }
     if (isSlackAuthError(err)) {
@@ -823,7 +824,7 @@ interface AgentHandlerOptions {
 async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
   const log = bot.getLogger(opts.loggerName);
 
-  const linked = await getLinkedUser(opts.ctx.teamId, opts.ctx.userId);
+  let linked = await getLinkedUser(opts.ctx.teamId, opts.ctx.userId);
   log.info("User link check", { userId: opts.ctx.userId, teamId: opts.ctx.teamId, linked: !!linked });
   if (!linked) {
     await opts.promptIfNotLinked();
@@ -836,6 +837,9 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
     await opts.promptIfNotLinked("expired");
     return;
   }
+
+  // Re-read in case token refresh synced org fields from /v2/me
+  linked = await getLinkedUser(opts.ctx.teamId, opts.ctx.userId) ?? linked;
 
   if (!isOrgPlanUser(linked)) {
     log.info("Agentic blocked — not on org plan", { userId: opts.ctx.userId });

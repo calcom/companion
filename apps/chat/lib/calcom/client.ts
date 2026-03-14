@@ -322,7 +322,7 @@ export async function cancelBooking(
       cancellationReason: reason,
       ...(cancelSubsequentBookings ? { cancelSubsequentBookings: true } : {}),
     }),
-  });
+  }, API_VERSION, 0);
 }
 
 export async function rescheduleBooking(
@@ -339,7 +339,7 @@ export async function rescheduleBooking(
       reschedulingReason: reason,
       ...(rescheduledBy ? { rescheduledBy } : {}),
     }),
-  });
+  }, API_VERSION, 0);
 }
 
 export interface CalcomMe {
@@ -360,7 +360,7 @@ export async function updateMe(accessToken: string, input: UpdateMeInput): Promi
   return calcomFetch<CalcomMe>("/v2/me", accessToken, {
     method: "PATCH",
     body: JSON.stringify(input),
-  });
+  }, API_VERSION, 0);
 }
 
 // ─── Schedules ───────────────────────────────────────────────────────────────
@@ -398,7 +398,8 @@ export async function createSchedule(
       method: "POST",
       body: JSON.stringify(input),
     },
-    SCHEDULES_VERSION
+    SCHEDULES_VERSION,
+    0
   );
 }
 
@@ -414,7 +415,8 @@ export async function updateSchedule(
       method: "PATCH",
       body: JSON.stringify(input),
     },
-    SCHEDULES_VERSION
+    SCHEDULES_VERSION,
+    0
   );
 }
 
@@ -425,7 +427,8 @@ export async function deleteSchedule(accessToken: string, scheduleId: number): P
     {
       method: "DELETE",
     },
-    SCHEDULES_VERSION
+    SCHEDULES_VERSION,
+    0
   );
 }
 
@@ -437,7 +440,7 @@ export async function confirmBooking(
 ): Promise<CalcomBooking> {
   return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/confirm`, accessToken, {
     method: "POST",
-  });
+  }, API_VERSION, 0);
 }
 
 export async function declineBooking(
@@ -448,7 +451,7 @@ export async function declineBooking(
   return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/decline`, accessToken, {
     method: "POST",
     body: JSON.stringify({ reason }),
-  });
+  }, API_VERSION, 0);
 }
 
 // ─── Calendar busy times ──────────────────────────────────────────────────────
@@ -479,7 +482,8 @@ export async function createEventType(
       method: "POST",
       body: JSON.stringify(input),
     },
-    "2024-06-14"
+    "2024-06-14",
+    0
   );
 }
 
@@ -495,7 +499,8 @@ export async function updateEventType(
       method: "PATCH",
       body: JSON.stringify(input),
     },
-    "2024-06-14"
+    "2024-06-14",
+    0
   );
 }
 
@@ -506,7 +511,8 @@ export async function deleteEventType(accessToken: string, eventTypeId: number):
     {
       method: "DELETE",
     },
-    "2024-06-14"
+    "2024-06-14",
+    0
   );
 }
 
@@ -567,5 +573,5 @@ export async function markNoShow(
       ...(host !== undefined ? { host } : {}),
       ...(attendees ? { attendees } : {}),
     }),
-  });
+  }, API_VERSION, 0);
 }
