@@ -384,7 +384,7 @@ export function registerSlackHandlers(
             await handleUnlink(event, teamId, userId);
             break;
           case "help":
-            await safeChannelPost(event, helpCard());
+            await event.channel.postEphemeral(event.user, helpCard(), { fallbackToDM: true });
             break;
           case "bookings": {
             const accessToken = await getValidAccessToken(teamId, userId);
@@ -420,7 +420,7 @@ export function registerSlackHandlers(
                 meetingUrl: b.meetingUrl ?? null,
               }))
             );
-            await safeChannelPost(event, card);
+            await event.channel.postEphemeral(event.user, card, { fallbackToDM: true });
             break;
           }
           case "availability": {
@@ -483,15 +483,16 @@ export function registerSlackHandlers(
               const lookupTarget = makeLookupSlackUser(teamId);
               const targetProfile = await lookupTarget(targetSlackId);
               const targetName = targetProfile?.realName ?? targetProfile?.name ?? "Attendee";
-              await safeChannelPost(
-                event,
+              await event.channel.postEphemeral(
+                event.user,
                 availabilityListCard(allSlots, eventType.title, {
                   targetName,
                   hint: `Use \`/cal book ${targetName}\` to book a meeting.`,
-                })
+                }),
+                { fallbackToDM: true }
               );
             } else {
-              await safeChannelPost(event, availabilityListCard(allSlots, eventType.title));
+              await event.channel.postEphemeral(event.user, availabilityListCard(allSlots, eventType.title), { fallbackToDM: true });
             }
             break;
           }
@@ -702,7 +703,7 @@ export function registerSlackHandlers(
                 end: b.end,
               }))
             );
-            await safeChannelPost(event, card);
+            await event.channel.postEphemeral(event.user, card, { fallbackToDM: true });
             break;
           }
           case "reschedule": {
@@ -737,13 +738,13 @@ export function registerSlackHandlers(
                 end: b.end,
               }))
             );
-            await safeChannelPost(event, card);
+            await event.channel.postEphemeral(event.user, card, { fallbackToDM: true });
             break;
           }
           default: {
             const naturalQuery = event.text.trim();
             if (!naturalQuery) {
-              await safeChannelPost(event, helpCard());
+              await event.channel.postEphemeral(event.user, helpCard(), { fallbackToDM: true });
               return;
             }
 
