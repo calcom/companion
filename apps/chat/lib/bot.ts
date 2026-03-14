@@ -32,7 +32,7 @@ import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
 import { formatForTelegram } from "./format-for-telegram";
 import { RETRY_STOP_BLOCKS, registerSlackHandlers } from "./handlers/slack";
-import { registerTelegramHandlers } from "./handlers/telegram";
+import { handleTelegramCommand, registerTelegramHandlers } from "./handlers/telegram";
 import { logger as botLogger } from "./logger";
 import { helpCard, telegramHelpCard } from "./notifications";
 import { getLinkedUser, getValidAccessToken, getToolContext, setToolContext, isOrgPlanUser, type ToolContextEntry } from "./user-linking";
@@ -1035,6 +1035,17 @@ bot.onSubscribedMessage(async (thread, message) => {
   // Telegram's privacy mode and deliver all group messages).
   const isTelegramGroup = ctx.platform === "telegram" && thread.id !== `telegram:${ctx.userId}`;
   if (isTelegramGroup && !message.isMention) return;
+
+  // Telegram slash commands should use the dedicated handler, not the agent.
+  // In DMs the thread becomes subscribed after the first interaction, so commands
+  // like /availability would otherwise fall through to the agent.
+  if (ctx.platform === "telegram") {
+    const handled = await handleTelegramCommand(thread, message, {
+      withBotErrorHandling,
+      extractContext,
+    });
+    if (handled) return;
+  }
 
   // For Slack: reconstruct <@USER_ID> mentions from raw blocks (the SDK resolves
   // them to display names in message.text, losing the user ID lookup_platform_user needs).
