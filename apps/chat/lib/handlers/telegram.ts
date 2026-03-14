@@ -136,18 +136,23 @@ export async function handleTelegramCommand(
         return;
       }
       if (cmd === "availability") {
+        logger.info("Availability: fetching access token", { teamId: ctx.teamId, userId: ctx.userId });
         const accessToken = await getValidAccessToken(ctx.teamId, ctx.userId);
         if (!accessToken) {
+          logger.info("Availability: no access token, prompting OAuth");
           await postOAuthLinkPrivately();
           return;
         }
         const linked = await getLinkedUser(ctx.teamId, ctx.userId);
         if (!linked) {
+          logger.info("Availability: no linked user, prompting OAuth");
           await postOAuthLinkPrivately();
           return;
         }
+        logger.info("Availability: fetching event types", { calcomUserId: linked.calcomUserId });
         const eventTypes = await getEventTypes(accessToken).catch(() => []);
         if (eventTypes.length === 0) {
+          logger.info("Availability: no event types found");
           await thread.post(
             "You have no event types. Create one at https://app.cal.com first."
           );
@@ -156,6 +161,7 @@ export async function handleTelegramCommand(
         const eventType = eventTypes[0];
         const now = new Date();
         const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        logger.info("Availability: fetching slots", { eventTypeId: eventType.id, eventTypeTitle: eventType.title });
         const slotsMap = await getAvailableSlots(accessToken, {
           eventTypeId: eventType.id,
           start: now.toISOString(),
@@ -178,8 +184,10 @@ export async function handleTelegramCommand(
               hour12: true,
             }).format(new Date(s.time)),
           }));
+        logger.info("Availability: posting card", { slotCount: allSlots.length });
         const card = availabilityListCard(allSlots, eventType.title);
         await thread.post(card);
+        logger.info("Availability: card posted successfully");
         return;
       }
     },
