@@ -72,6 +72,7 @@ export interface CalcomBooking {
   meetingUrl: string | null;
   location: string | null;
   absentHost: boolean;
+  recurringBookingUid: string | null;
 }
 
 export interface CreateBookingInput {
@@ -83,9 +84,8 @@ export interface CreateBookingInput {
     timeZone: string;
   };
   guests?: string[];
-  notes?: string;
   metadata?: Record<string, string>;
-  responses?: Record<string, unknown>;
+  bookingFieldsResponses?: Record<string, string>;
 }
 
 export interface CreatePublicBookingInput {
@@ -98,9 +98,8 @@ export interface CreatePublicBookingInput {
     timeZone: string;
   };
   guests?: string[];
-  notes?: string;
   lengthInMinutes?: number;
-  responses?: Record<string, unknown>;
+  bookingFieldsResponses?: Record<string, string>;
   metadata?: Record<string, string>;
 }
 
@@ -225,6 +224,11 @@ export interface CreateEventTypeInput {
   lengthInMinutes: number;
   description?: string;
   hidden?: boolean;
+  minimumBookingNotice?: number;
+  beforeEventBuffer?: number;
+  afterEventBuffer?: number;
+  slotInterval?: number;
+  scheduleId?: number;
 }
 
 export interface UpdateEventTypeInput {
@@ -233,6 +237,11 @@ export interface UpdateEventTypeInput {
   lengthInMinutes?: number;
   description?: string;
   hidden?: boolean;
+  minimumBookingNotice?: number;
+  beforeEventBuffer?: number;
+  afterEventBuffer?: number;
+  slotInterval?: number;
+  scheduleId?: number;
 }
 
 // ─── Calendar Links ───────────────────────────────────────────────────────────

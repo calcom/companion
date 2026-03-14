@@ -18,7 +18,7 @@ import {
 } from "chat";
 import type { LookupPlatformUserFn } from "../agent";
 import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "../agent";
-import { createBooking, getAvailableSlots, getBookings, getEventTypes } from "../calcom/client";
+import { CalcomApiError, createBooking, getAvailableSlots, getBookings, getEventTypes } from "../calcom/client";
 import { generateAuthUrl } from "../calcom/oauth";
 import { formatBookingTime } from "../calcom/webhooks";
 import { getLogger } from "../logger";
@@ -34,12 +34,25 @@ import {
   getBookingFlow,
   getLinkedUser,
   getValidAccessToken,
+  isOrgPlanUser,
   setBookingFlow,
   unlinkUser,
 } from "../user-linking";
 
 const logger = getLogger("slack-handlers");
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
+
+function isSlackAuthError(err: unknown): boolean {
+  if (
+    err instanceof Error &&
+    "code" in err &&
+    (err as Record<string, unknown>).code === "slack_webapi_platform_error"
+  ) {
+    const slackErr = (err as Record<string, unknown>).data as Record<string, unknown> | undefined;
+    return slackErr?.error === "not_authed" || slackErr?.error === "invalid_auth";
+  }
+  return false;
+}
 
 const RETRY_STOP_BLOCKS = cardToBlockKit(
   Card({
@@ -78,6 +91,7 @@ export interface RegisterSlackHandlersDeps {
   extractTeamIdFromRaw: (raw: unknown, adapterName?: string) => string;
   buildHistory: (thread: Thread) => Promise<ModelMessage[]>;
   makeLookupSlackUser: (teamId: string) => LookupPlatformUserFn;
+  friendlyCalcomError: (err: import("../calcom/client").CalcomApiError, context?: string) => string;
 }
 
 function oauthLinkMessage(platform: string, teamId: string, userId: string) {
@@ -107,6 +121,7 @@ export function registerSlackHandlers(
     extractTeamIdFromRaw,
     buildHistory,
     makeLookupSlackUser,
+    friendlyCalcomError,
   } = deps;
 
   async function safeChannelPost(
@@ -242,15 +257,23 @@ export function registerSlackHandlers(
         type: "home",
         blocks: cardToBlockKit(homeCard),
       });
-    } catch {
+    } catch (err) {
+      const isAuthError = err instanceof CalcomApiError && (err.statusCode === 401 || err.statusCode === 403);
       const authUrl = generateAuthUrl("slack", teamId, userId);
-      const errorCard = Card({
-        title: "Could Not Load Bookings",
-        children: [
-          CardText("Your session may have expired — please reconnect."),
-          Actions([LinkButton({ url: authUrl, label: "Reconnect Cal.com" })]),
-        ],
-      });
+      const errorCard = isAuthError
+        ? Card({
+            title: "Could Not Load Bookings",
+            children: [
+              CardText("Your session may have expired — please reconnect."),
+              Actions([LinkButton({ url: authUrl, label: "Reconnect Cal.com" })]),
+            ],
+          })
+        : Card({
+            title: "Could Not Load Bookings",
+            children: [
+              CardText("Could not load bookings. Please try again later."),
+            ],
+          });
       await slack.publishHomeView(userId, {
         type: "home",
         blocks: cardToBlockKit(errorCard),
@@ -499,6 +522,14 @@ export function registerSlackHandlers(
             const openModal = (event as { openModal?: (modal: unknown) => Promise<unknown> })
               .openModal;
             if (!openModal) {
+              if (!isOrgPlanUser(linked)) {
+                await event.channel.postEphemeral(
+                  event.user,
+                  "The AI assistant is available on the Cal.com Organizations plan. Use `/cal help` to see available slash commands, or upgrade at <https://cal.com/pricing|cal.com/pricing>.",
+                  { fallbackToDM: true }
+                );
+                return;
+              }
               const result = runAgentStream({
                 teamId,
                 userId,
@@ -539,6 +570,24 @@ export function registerSlackHandlers(
               return;
             }
 
+            const linked = await getLinkedUser(teamId, userId);
+            if (!linked) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            if (!isOrgPlanUser(linked)) {
+              await event.channel.postEphemeral(
+                event.user,
+                "The AI assistant is available on the Cal.com Organizations plan. Use `/cal help` to see available slash commands, or upgrade at <https://cal.com/pricing|cal.com/pricing>.",
+                { fallbackToDM: true }
+              );
+              return;
+            }
+
             const result = runAgentStream({
               teamId,
               userId,
@@ -556,12 +605,16 @@ export function registerSlackHandlers(
       {
         postError: (msg) => safeChannelPost(event, msg).catch(() => {}),
         logContext: "/cal",
-        getCustomErrorMessage: () => {
+        getCustomErrorMessage: (err) => {
           if (!lastStreamErrorRef.current) return undefined;
           if (isAIRateLimitError(lastStreamErrorRef.current))
             return "I've hit my daily token limit. Please try again later when the limit resets.";
           if (isAIToolCallError(lastStreamErrorRef.current))
             return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+          if (lastStreamErrorRef.current instanceof CalcomApiError)
+            return friendlyCalcomError(lastStreamErrorRef.current);
+          if (isSlackAuthError(err))
+            return "Sorry, something went wrong while processing your request. Please try again.";
           return undefined;
         },
       }
@@ -914,8 +967,12 @@ export function registerSlackHandlers(
       {
         postError: (msg) => thread.post(msg).catch(() => {}),
         logContext: "confirm_booking",
-        getCustomErrorMessage: (err) =>
-          err instanceof Error ? `Failed to create booking: ${err.message}` : undefined,
+        getCustomErrorMessage: (err) => {
+          if (err instanceof CalcomApiError) {
+            return friendlyCalcomError(err, "booking");
+          }
+          return err instanceof Error ? "Failed to create the booking. Please try again." : undefined;
+        },
       }
     );
   });
@@ -968,12 +1025,16 @@ export function registerSlackHandlers(
       {
         postError: (msg) => thread.post(msg).catch(() => {}),
         logContext: "retry_response",
-        getCustomErrorMessage: () => {
+        getCustomErrorMessage: (err) => {
           if (!lastStreamErrorRef.current) return undefined;
           if (isAIRateLimitError(lastStreamErrorRef.current))
             return "I've hit my daily token limit. Please try again later when the limit resets.";
           if (isAIToolCallError(lastStreamErrorRef.current))
             return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+          if (lastStreamErrorRef.current instanceof CalcomApiError)
+            return friendlyCalcomError(lastStreamErrorRef.current);
+          if (isSlackAuthError(err))
+            return "Sorry, something went wrong while processing your request. Please try again.";
           return undefined;
         },
       }

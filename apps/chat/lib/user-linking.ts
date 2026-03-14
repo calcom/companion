@@ -44,6 +44,12 @@ function decryptData(stored: string): string {
   return decipher.update(ciphertext) + decipher.final("utf8");
 }
 
+// ─── Named constants ────────────────────────────────────────────────────────
+const LINKED_USER_TTL_SECONDS = 60 * 60 * 24 * 365;
+const BOOKING_FLOW_TTL_SECONDS = 60 * 30;
+const TOOL_CONTEXT_TTL_SECONDS = 60 * 30;
+const REFRESH_LOCK_WAIT_MS = 2000;
+
 const logger = getLogger("user-linking");
 
 // Atomically deletes an email index key only if its current value matches the expected owner.
@@ -79,6 +85,17 @@ export interface LinkedUser {
   calcomUsername: string;
   calcomTimeZone: string;
   linkedAt: string;
+  calcomOrganizationId: number | null;
+  calcomOrgIsPlatform: boolean | null;
+}
+
+/**
+ * Returns true if the linked user is on the Cal.com Organizations plan.
+ * Platform (API-tier) orgs and free/individual users return false.
+ * Existing Redis entries without org fields are treated as non-org (safe default).
+ */
+export function isOrgPlanUser(linked: LinkedUser): boolean {
+  return linked.calcomOrganizationId != null && linked.calcomOrgIsPlatform === false;
 }
 
 function userKey(teamId: string, userId: string): string {
@@ -103,10 +120,10 @@ export async function linkUser(teamId: string, userId: string, data: LinkedUser)
   }
 
   await client.set(key, encryptData(JSON.stringify(data)), {
-    EX: 60 * 60 * 24 * 365,
+    EX: LINKED_USER_TTL_SECONDS,
   });
   await client.set(emailIndexKey(data.calcomEmail), JSON.stringify({ teamId, userId }), {
-    EX: 60 * 60 * 24 * 365,
+    EX: LINKED_USER_TTL_SECONDS,
   });
   logger.info("User linked", { teamId, userId, calcomEmail: data.calcomEmail });
 }
@@ -155,7 +172,7 @@ export async function isUserLinked(teamId: string, userId: string): Promise<bool
 }
 
 const TOKEN_REFRESH_BUFFER_MS = 2 * 60 * 1000; // refresh 2 min before expiry
-const REFRESH_LOCK_TTL = 10; // seconds
+const REFRESH_LOCK_TTL_SECONDS = 10;
 
 /**
  * Returns a valid access token for the user, auto-refreshing if expired.
@@ -173,13 +190,13 @@ export async function getValidAccessToken(teamId: string, userId: string): Promi
   const lockKey = `calcom:refresh_lock:${teamId}:${userId}`;
   const lockValue = randomUUID();
 
-  const acquired = await client.set(lockKey, lockValue, { NX: true, EX: REFRESH_LOCK_TTL });
+  const acquired = await client.set(lockKey, lockValue, { NX: true, EX: REFRESH_LOCK_TTL_SECONDS });
 
   if (!acquired) {
     // Another process is refreshing — wait briefly and read the updated token.
     // After waiting, validate freshness: if the token is still expired (the other
     // process failed or didn't finish in time) return null rather than a stale token.
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, REFRESH_LOCK_WAIT_MS));
     const updated = await getLinkedUser(teamId, userId);
     if (!updated) return null;
     if (Date.now() < updated.tokenExpiresAt - TOKEN_REFRESH_BUFFER_MS) {
@@ -192,11 +209,27 @@ export async function getValidAccessToken(teamId: string, userId: string): Promi
     const { refreshAccessToken } = await import("./calcom/oauth");
     const tokens = await refreshAccessToken(linked.refreshToken);
 
+    let orgUpdate: Pick<LinkedUser, "calcomOrganizationId" | "calcomOrgIsPlatform"> = {
+      calcomOrganizationId: linked.calcomOrganizationId,
+      calcomOrgIsPlatform: linked.calcomOrgIsPlatform,
+    };
+    try {
+      const { getMe } = await import("./calcom/client");
+      const me = await getMe(tokens.access_token);
+      orgUpdate = {
+        calcomOrganizationId: me.organizationId ?? null,
+        calcomOrgIsPlatform: me.organization?.isPlatform ?? null,
+      };
+    } catch {
+      // Non-fatal: keep existing org data if /v2/me fails during refresh
+    }
+
     const updatedUser: LinkedUser = {
       ...linked,
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       tokenExpiresAt: Date.now() + tokens.expires_in * 1000,
+      ...orgUpdate,
     };
     await linkUser(teamId, userId, updatedUser);
 
@@ -236,7 +269,7 @@ export async function setBookingFlow(
 ): Promise<void> {
   const client = getRedisClient();
   const key = `calcom:booking_flow:${teamId}:${userId}`;
-  await client.set(key, JSON.stringify(state), { EX: 60 * 30 });
+  await client.set(key, JSON.stringify(state), { EX: BOOKING_FLOW_TTL_SECONDS });
 }
 
 export async function getBookingFlow(
@@ -289,7 +322,7 @@ export async function setToolContext(
 ): Promise<void> {
   const client = getRedisClient();
   await client.set(toolContextKey(threadId), encryptData(JSON.stringify(entries)), {
-    EX: 60 * 30, // 30 minutes TTL
+    EX: TOOL_CONTEXT_TTL_SECONDS,
   });
 }
 
