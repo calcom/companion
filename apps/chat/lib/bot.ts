@@ -35,7 +35,7 @@ import { RETRY_STOP_BLOCKS, registerSlackHandlers } from "./handlers/slack";
 import { registerTelegramHandlers } from "./handlers/telegram";
 import { logger as botLogger } from "./logger";
 import { helpCard, telegramHelpCard } from "./notifications";
-import { getLinkedUser, getValidAccessToken, getToolContext, setToolContext, type ToolContextEntry } from "./user-linking";
+import { getLinkedUser, getValidAccessToken, getToolContext, setToolContext, isOrgPlanUser, type ToolContextEntry } from "./user-linking";
 
 validateRequiredEnv();
 
@@ -834,6 +834,19 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
   if (!token) {
     log.warn("Token expired/revoked", { userId: opts.ctx.userId });
     await opts.promptIfNotLinked("expired");
+    return;
+  }
+
+  if (!isOrgPlanUser(linked)) {
+    log.info("Agentic blocked — not on org plan", { userId: opts.ctx.userId });
+    const upgradeMsg = opts.ctx.platform === "slack"
+      ? "The AI assistant is available on the Cal.com Organizations plan. Use `/cal help` to see available slash commands, or upgrade at <https://cal.com/pricing|cal.com/pricing>."
+      : "The AI assistant is available on the Cal.com Organizations plan. Use /help to see available commands, or upgrade at [cal.com/pricing](https://cal.com/pricing).";
+    if (opts.ctx.platform === "slack") {
+      await withSlackToken(opts.ctx.teamId, () => opts.thread.post(upgradeMsg));
+    } else {
+      await opts.thread.post(upgradeMsg);
+    }
     return;
   }
 

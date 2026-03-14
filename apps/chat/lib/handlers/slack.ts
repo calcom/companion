@@ -34,6 +34,7 @@ import {
   getBookingFlow,
   getLinkedUser,
   getValidAccessToken,
+  isOrgPlanUser,
   setBookingFlow,
   unlinkUser,
 } from "../user-linking";
@@ -521,6 +522,14 @@ export function registerSlackHandlers(
             const openModal = (event as { openModal?: (modal: unknown) => Promise<unknown> })
               .openModal;
             if (!openModal) {
+              if (!isOrgPlanUser(linked)) {
+                await event.channel.postEphemeral(
+                  event.user,
+                  "The AI assistant is available on the Cal.com Organizations plan. Use `/cal help` to see available slash commands, or upgrade at <https://cal.com/pricing|cal.com/pricing>.",
+                  { fallbackToDM: true }
+                );
+                return;
+              }
               const result = runAgentStream({
                 teamId,
                 userId,
@@ -558,6 +567,24 @@ export function registerSlackHandlers(
             const naturalQuery = event.text.trim();
             if (!naturalQuery) {
               await safeChannelPost(event, helpCard());
+              return;
+            }
+
+            const linked = await getLinkedUser(teamId, userId);
+            if (!linked) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            if (!isOrgPlanUser(linked)) {
+              await event.channel.postEphemeral(
+                event.user,
+                "The AI assistant is available on the Cal.com Organizations plan. Use `/cal help` to see available slash commands, or upgrade at <https://cal.com/pricing|cal.com/pricing>.",
+                { fallbackToDM: true }
+              );
               return;
             }
 
