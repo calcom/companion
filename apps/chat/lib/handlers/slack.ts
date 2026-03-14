@@ -1218,8 +1218,8 @@ export function registerSlackHandlers(
         await clearCancelFlow(teamId, userId);
 
         const msg = cancelAll
-          ? `Booking **${flow.bookingTitle}** and all future occurrences have been cancelled.`
-          : `Booking **${flow.bookingTitle}** has been cancelled.`;
+          ? `Booking *${flow.bookingTitle}* and all future occurrences have been cancelled.`
+          : `Booking *${flow.bookingTitle}* has been cancelled.`;
         await thread.post(msg);
       },
       {
@@ -1397,7 +1397,7 @@ export function registerSlackHandlers(
         const tz = linked?.calcomTimeZone ?? "UTC";
         const newTime = formatBookingTime(booking.start, booking.end, tz);
         await clearRescheduleFlow(teamId, userId);
-        await thread.post(`Booking **${flow.bookingTitle}** rescheduled to ${newTime}.`);
+        await thread.post(`Booking *${flow.bookingTitle}* rescheduled to ${newTime}.`);
       },
       {
         postError: (msg) => thread.post(msg).catch(() => {}),

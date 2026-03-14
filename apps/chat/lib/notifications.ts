@@ -651,7 +651,7 @@ export function telegramEventTypePickerCard(
     title: `Book with ${targetUsername}`,
     subtitle: "Select an event type",
     children: [
-      ...eventTypes.map((et, i) =>
+      ...eventTypes.slice(0, 20).map((et, i) =>
         Actions([
           Button({
             id: `tg_book_et_${i}`,
@@ -659,6 +659,7 @@ export function telegramEventTypePickerCard(
           }),
         ])
       ),
+      ...(eventTypes.length > 20 ? [CardText("Showing first 20 event types.")] : []),
       Actions([Button({ id: "tg_book_cancel", style: "danger" as const, label: "Cancel" })]),
     ],
   });

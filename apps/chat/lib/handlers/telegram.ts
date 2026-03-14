@@ -424,6 +424,24 @@ export async function handleTelegramCommand(
 }
 
 export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandlersDeps): void {
+  async function requireAuthForAction(
+    thread: { post: (msg: string) => Promise<unknown> },
+    teamId: string,
+    userId: string
+  ): Promise<{ accessToken: string; linked: NonNullable<Awaited<ReturnType<typeof getLinkedUser>>> } | null> {
+    const accessToken = await getValidAccessToken(teamId, userId);
+    if (!accessToken) {
+      await thread.post("Your Cal.com session has expired. Please reconnect with /link and try again.");
+      return null;
+    }
+    const linked = await getLinkedUser(teamId, userId);
+    if (!linked) {
+      await thread.post("Your Cal.com account is not connected. Use /link to connect.");
+      return null;
+    }
+    return { accessToken, linked };
+  }
+
   bot.onNewMessage(TELEGRAM_COMMAND_RE, async (thread, message) => {
     await handleTelegramCommand(thread, message, deps);
   });
@@ -461,10 +479,9 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
             await thread.post("Event type not found. Please try again.");
             return;
           }
-          const accessToken = await getValidAccessToken(ctx.teamId, ctx.userId);
-          if (!accessToken) return;
-          const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-          if (!linked) return;
+          const auth = await requireAuthForAction(thread, ctx.teamId, ctx.userId);
+          if (!auth) return;
+          const { linked } = auth;
           const now = new Date();
           const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
           const slotsMap = await getAvailableSlotsPublic({
@@ -559,7 +576,10 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
           return;
         }
         const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-        if (!linked) return;
+        if (!linked) {
+          await thread.post("Your Cal.com account is not connected. Use /link to connect.");
+          return;
+        }
         if (flow.isPublicBooking && flow.eventTypeSlug && flow.targetUsername) {
           const booking = await createBookingPublic({
             eventTypeSlug: flow.eventTypeSlug,
@@ -583,6 +603,8 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
               ],
             })
           );
+        } else {
+          await thread.post("Booking could not be completed — missing booking details. Please start again with /book.");
         }
         await clearBookingFlow(ctx.teamId, ctx.userId);
       },
@@ -666,7 +688,10 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
           return;
         }
         const accessToken = await getValidAccessToken(ctx.teamId, ctx.userId);
-        if (!accessToken) return;
+        if (!accessToken) {
+          await thread.post("Your Cal.com session has expired. Please reconnect with /link and try again.");
+          return;
+        }
         await cancelBooking(accessToken, flow.bookingUid, "Cancelled via Telegram bot");
         await clearCancelFlow(ctx.teamId, ctx.userId);
         await thread.post(`Booking **${flow.bookingTitle}** has been cancelled.`);
@@ -694,7 +719,10 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
           return;
         }
         const accessToken = await getValidAccessToken(ctx.teamId, ctx.userId);
-        if (!accessToken) return;
+        if (!accessToken) {
+          await thread.post("Your Cal.com session has expired. Please reconnect with /link and try again.");
+          return;
+        }
         await cancelBooking(accessToken, flow.bookingUid, "Cancelled via Telegram bot", true);
         await clearCancelFlow(ctx.teamId, ctx.userId);
         await thread.post(`Booking **${flow.bookingTitle}** and all future occurrences have been cancelled.`);
@@ -746,10 +774,9 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
             await thread.post("Booking not found. Please try again.");
             return;
           }
-          const accessToken = await getValidAccessToken(ctx.teamId, ctx.userId);
-          if (!accessToken) return;
-          const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-          if (!linked) return;
+          const auth = await requireAuthForAction(thread, ctx.teamId, ctx.userId);
+          if (!auth) return;
+          const { accessToken, linked } = auth;
           const now = new Date();
           const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
           const slotsMap = await getAvailableSlots(accessToken, {
@@ -854,7 +881,10 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
           return;
         }
         const accessToken = await getValidAccessToken(ctx.teamId, ctx.userId);
-        if (!accessToken) return;
+        if (!accessToken) {
+          await thread.post("Your Cal.com session has expired. Please reconnect with /link and try again.");
+          return;
+        }
         const booking = await rescheduleBooking(
           accessToken,
           flow.bookingUid,
