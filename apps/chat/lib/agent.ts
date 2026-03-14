@@ -2006,8 +2006,7 @@ export function isAIToolCallError(err: unknown): boolean {
     combined.includes("which was not in request.tools") ||
     combined.includes("tool choice is none") ||
     combined.includes("tool_use_failed") ||
-    combined.includes("invalid_tool_call") ||
-    combined.includes("function_call")
+    combined.includes("invalid_tool_call")
   );
 }
 
@@ -2027,7 +2026,7 @@ export function isAIRateLimitError(err: unknown): boolean {
   const status429 =
     (err as { statusCode?: number }).statusCode === 429 ||
     (cause as { statusCode?: number } | undefined)?.statusCode === 429;
-  return hasRateLimit || status429;
+  return hasRateLimit || (status429 && (combined.includes("retry") || combined.includes("quota") || combined.includes("limit") || combined.includes("exhausted")));
 }
 
 // ─── Agent stream ─────────────────────────────────────────────────────────────
