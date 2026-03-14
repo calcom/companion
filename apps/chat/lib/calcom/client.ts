@@ -150,10 +150,6 @@ export interface GetSlotsParams {
   bookingUidToReschedule?: string;
 }
 
-interface RawSlotEntry {
-  start: string;
-}
-
 export async function getAvailableSlots(
   accessToken: string,
   params: GetSlotsParams
@@ -170,14 +166,14 @@ export async function getAvailableSlots(
   // `{ start }` objects — there is no wrapper `slots` property. Normalize to
   // the `CalcomSlot` shape (time + available) used by the rest of the codebase,
   // matching what `getAvailableSlotsPublic` already does.
-  const raw = await calcomFetch<Record<string, RawSlotEntry[]>>(
+  const raw = await calcomFetch<Record<string, Array<{ start: string }>>>(
     `/v2/slots?${query}`,
     accessToken,
     {},
     "2024-09-04"
   );
   const normalized: Record<string, CalcomSlot[]> = {};
-  for (const [date, slots] of Object.entries(raw)) {
+  for (const [date, slots] of Object.entries(raw ?? {})) {
     normalized[date] = slots.map((s) => ({ time: s.start, available: true }));
   }
   return normalized;
