@@ -431,8 +431,7 @@ export function registerSlackHandlers(
               );
               return;
             }
-            const accessToken = await getValidAccessToken(teamId, userId);
-            const eventTypes = await getEventTypesByUsername(linked.calcomUsername, accessToken ?? undefined);
+            const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
             if (eventTypes.length === 0) {
               await event.channel.postEphemeral(
                 event.user,
@@ -618,8 +617,7 @@ export function registerSlackHandlers(
               );
               return;
             }
-            const accessToken = await getValidAccessToken(teamId, userId);
-            const eventTypes = await getEventTypesByUsername(linked.calcomUsername, accessToken ?? undefined);
+            const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
             const card = eventTypesListCard(
               eventTypes.map((et) => ({
                 title: et.title,
@@ -818,12 +816,11 @@ export function registerSlackHandlers(
       return;
     }
 
-    const accessToken = await getValidAccessToken(teamId, userId);
-    const eventTypes = await getEventTypesByUsername(linked.calcomUsername, accessToken ?? undefined);
+    const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
     if (eventTypes.length === 0) {
       const dm = await bot.openDM(event.user);
       await dm
-        .post(`You have no event types. Create one at ${CALCOM_APP_URL} first.`)
+        .post(`You have no event types. Create one at <${CALCOM_APP_URL}|cal.com> first.`)
         .catch(() => {});
       return;
     }
@@ -944,8 +941,7 @@ export function registerSlackHandlers(
     }
 
     try {
-      const accessToken = await getValidAccessToken(teamId, userId);
-      const eventTypes = await getEventTypesByUsername(linked.calcomUsername, accessToken ?? undefined);
+      const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
       const matchedEventType = eventTypes.find((et) => et.id === eventTypeId);
       const eventTypeSlug = matchedEventType?.slug;
       if (!eventTypeSlug) {
@@ -1472,7 +1468,7 @@ export function registerSlackHandlers(
 
         const bookings = await getBookings(
           accessToken,
-          { status: "upcoming", take: 10 },
+          { status: "upcoming", take: 100 },
           { id: linked.calcomUserId, email: linked.calcomEmail }
         );
         const selected = bookings.find((b) => b.uid === bookingUid);

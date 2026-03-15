@@ -218,7 +218,7 @@ export async function handleTelegramCommand(
         const auth = await requireAuth();
         if (!auth) return;
         const slug = rest || undefined;
-        const eventTypes = await getEventTypesByUsername(auth.linked.calcomUsername, auth.accessToken);
+        const eventTypes = await getEventTypesByUsername(auth.linked.calcomUsername);
         if (eventTypes.length === 0) {
           await thread.post("You have no event types. Create one at [app.cal.com](https://app.cal.com).");
           return;
@@ -265,7 +265,7 @@ export async function handleTelegramCommand(
       if (cmd === "eventtypes") {
         const auth = await requireAuth();
         if (!auth) return;
-        const eventTypes = await getEventTypesByUsername(auth.linked.calcomUsername, auth.accessToken);
+        const eventTypes = await getEventTypesByUsername(auth.linked.calcomUsername);
         const card = eventTypesListCard(
           eventTypes.map((et) => ({
             title: et.title,
@@ -786,17 +786,18 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
 
           const fullBookings = await getBookings(
             auth.accessToken,
-            { status: "upcoming", take: 10 },
+            { status: "upcoming", take: 100 },
             { id: linked.calcomUserId, email: linked.calcomEmail }
           );
           const fullBooking = fullBookings.find((b) => b.uid === selected.uid);
           const emailLower = linked.calcomEmail.toLowerCase();
           const isHost =
-            fullBooking?.hosts?.some(
+            !fullBooking ||
+            fullBooking.hosts?.some(
               (h) => h.id === linked.calcomUserId || h.email?.toLowerCase() === emailLower
             ) ||
-            fullBooking?.organizer?.email?.toLowerCase() === emailLower ||
-            fullBooking?.organizer?.id === linked.calcomUserId;
+            fullBooking.organizer?.email?.toLowerCase() === emailLower ||
+            fullBooking.organizer?.id === linked.calcomUserId;
           if (!isHost) {
             await thread.post(
               "You're an attendee on this booking, not the host. Rescheduling as an attendee isn't supported here — please use the reschedule link in your booking confirmation email or reschedule at [app.cal.com/bookings](https://app.cal.com/bookings)."
@@ -813,6 +814,7 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
             start: now.toISOString(),
             end: weekLater.toISOString(),
             timeZone: linked.calcomTimeZone,
+            bookingUidToReschedule: selected.uid,
           });
           const allSlots = Object.values(slotsMap)
             .flat()

@@ -736,7 +736,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         if (!token) return { error: "Account not connected." };
         if (!linked?.calcomUsername) return { error: "Account not connected." };
         try {
-          const types = await getEventTypesByUsername(linked.calcomUsername, token);
+          const types = await getEventTypesByUsername(linked.calcomUsername);
           return {
             eventTypes: types.map((et) => ({
               id: et.id,
@@ -814,7 +814,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         if (!token) return { error: "Account not connected." };
         if (!linked?.calcomUsername) return { error: "Account not connected." };
         try {
-          const types = await getEventTypesByUsername(linked.calcomUsername, token);
+          const types = await getEventTypesByUsername(linked.calcomUsername);
           const et = types.find((t) => t.id === eventTypeId);
           if (!et) return { error: `Event type ${eventTypeId} not found.` };
           return {
@@ -868,7 +868,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
         const formatSlot = makeFormatSlot(tz);
 
         try {
-          const types = await getEventTypesByUsername(linked.calcomUsername, token);
+          const types = await getEventTypesByUsername(linked.calcomUsername);
           const et = types.find((t) => t.id === eventTypeId);
           if (!et) return { error: `Event type ${eventTypeId} not found.` };
 
