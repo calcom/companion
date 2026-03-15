@@ -272,8 +272,8 @@ export async function handleTelegramCommand(
             slug: et.slug,
             length: et.length,
             hidden: et.hidden,
-          })),
-          auth.linked.calcomUsername
+            bookingUrl: et.bookingUrl,
+          }))
         );
         await postPrivately(thread, message, card, isGroup);
         return;
@@ -790,9 +790,13 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
             { id: linked.calcomUserId, email: linked.calcomEmail }
           );
           const fullBooking = fullBookings.find((b) => b.uid === selected.uid);
-          const isHost = fullBooking?.hosts?.some(
-            (h) => h.email?.toLowerCase() === linked.calcomEmail.toLowerCase()
-          ) ?? false;
+          const emailLower = linked.calcomEmail.toLowerCase();
+          const isHost =
+            fullBooking?.hosts?.some(
+              (h) => h.id === linked.calcomUserId || h.email?.toLowerCase() === emailLower
+            ) ||
+            fullBooking?.organizer?.email?.toLowerCase() === emailLower ||
+            fullBooking?.organizer?.id === linked.calcomUserId;
           if (!isHost) {
             await thread.post(
               "You're an attendee on this booking, not the host. Rescheduling as an attendee isn't supported here — please use the reschedule link in your booking confirmation email or reschedule at [app.cal.com/bookings](https://app.cal.com/bookings)."

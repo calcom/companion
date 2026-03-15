@@ -626,8 +626,8 @@ export function registerSlackHandlers(
                 slug: et.slug,
                 length: et.length,
                 hidden: et.hidden,
-              })),
-              linked.calcomUsername
+                bookingUrl: et.bookingUrl,
+              }))
             );
             await event.channel.postEphemeral(event.user, card, { fallbackToDM: true });
             break;
@@ -1488,9 +1488,13 @@ export function registerSlackHandlers(
           return;
         }
 
-        const isHost = selected.hosts?.some(
-          (h) => h.email?.toLowerCase() === linked.calcomEmail.toLowerCase()
-        ) ?? false;
+        const emailLower = linked.calcomEmail.toLowerCase();
+        const isHost =
+          selected.hosts?.some(
+            (h) => h.id === linked.calcomUserId || h.email?.toLowerCase() === emailLower
+          ) ||
+          selected.organizer?.email?.toLowerCase() === emailLower ||
+          selected.organizer?.id === linked.calcomUserId;
         if (!isHost) {
           await thread.post(
             "You're an attendee on this booking, not the host. Rescheduling as an attendee isn't supported here — please use the reschedule link in your booking confirmation email or reschedule at <https://app.cal.com/bookings|app.cal.com/bookings>."

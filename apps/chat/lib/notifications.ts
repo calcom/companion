@@ -360,8 +360,7 @@ export function profileCard(linked: {
 // ─── Event types list card ──────────────────────────────────────────────────
 
 export function eventTypesListCard(
-  eventTypes: Array<{ title: string; slug: string; length: number; hidden: boolean }>,
-  username: string
+  eventTypes: Array<{ title: string; slug: string; length: number; hidden: boolean; bookingUrl?: string | null }>
 ) {
   if (eventTypes.length === 0) {
     return Card({
@@ -376,7 +375,7 @@ export function eventTypesListCard(
   const fields = eventTypes.map((et) =>
     Field({
       label: `${et.title}${et.hidden ? " (hidden)" : ""}`,
-      value: `${et.length}min · cal.com/${username}/${et.slug}`,
+      value: et.bookingUrl ? `${et.length}min · ${et.bookingUrl}` : `${et.length}min`,
     })
   );
   const chunks: (typeof fields)[] = [];

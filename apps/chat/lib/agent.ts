@@ -13,15 +13,12 @@ import {
   declineBooking,
   deleteEventType,
   deleteSchedule,
-  getAvailableSlots,
   getAvailableSlotsPublic,
   getBooking,
   getBookings,
   getBusyTimes,
   getCalendarLinks,
   getDefaultSchedule,
-  getEventType,
-  getEventTypes,
   getEventTypesByUsername,
   getMe,
   getSchedule,
@@ -532,8 +529,7 @@ ${bold}CREATING AN EVENT TYPE:${bold}
   Example: "Product Discussion" -> "product-discussion", "Quick 15-min Chat" -> "quick-15-min-chat".
 - If the user says "create a 45-minute meeting type", ask for a title. If they say
   "create a meeting called Product Discussion, 45 minutes", you have everything -- confirm and create.
-- Show the result after creation: title, duration, slug, and the booking URL:
-  ${CALCOM_APP_URL}/{username}/{slug}
+- Show the result after creation: title, duration, slug, and the booking URL (use the bookingUrl field from the tool result).
 
 ${bold}UPDATING AN EVENT TYPE:${bold}
 - First, identify which event type to update. If the user says "change my 30-min meeting to 45 min",
@@ -551,7 +547,7 @@ ${bold}DELETING AN EVENT TYPE:${bold}
 ${bold}LISTING EVENT TYPES:${bold}
 - When the user asks "what are my event types?" or "show my meeting types", call list_event_types.
 - Show each as: title, duration, slug, and whether it's hidden.
-- Include the booking URL for each: ${CALCOM_APP_URL}/{username}/{slug}
+- Include the booking URL for each (use the bookingUrl field from the tool result).
 
 ${bold}COMMON REQUESTS:${bold}
 - "Hide my 30-min meeting" -> update_event_type with hidden: true
@@ -738,8 +734,9 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           getLinkedUser(teamId, userId),
         ]);
         if (!token) return { error: "Account not connected." };
+        if (!linked?.calcomUsername) return { error: "Account not connected." };
         try {
-          const types = await getEventTypes(token);
+          const types = await getEventTypesByUsername(linked.calcomUsername, token);
           return {
             eventTypes: types.map((et) => ({
               id: et.id,
@@ -749,9 +746,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               description: et.description,
               hidden: et.hidden,
               bookingFields: et.bookingFields,
-              bookingUrl: linked?.calcomUsername
-                ? `${CALCOM_APP_URL}/${linked.calcomUsername}/${et.slug}`
-                : null,
+              bookingUrl: et.bookingUrl ?? null,
             })),
           };
         } catch (err) {
@@ -817,8 +812,11 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           getLinkedUser(teamId, userId),
         ]);
         if (!token) return { error: "Account not connected." };
+        if (!linked?.calcomUsername) return { error: "Account not connected." };
         try {
-          const et = await getEventType(token, eventTypeId);
+          const types = await getEventTypesByUsername(linked.calcomUsername, token);
+          const et = types.find((t) => t.id === eventTypeId);
+          if (!et) return { error: `Event type ${eventTypeId} not found.` };
           return {
             id: et.id,
             title: et.title,
@@ -827,9 +825,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             description: et.description,
             hidden: et.hidden,
             bookingFields: et.bookingFields,
-            bookingUrl: linked?.calcomUsername
-              ? `${CALCOM_APP_URL}/${linked.calcomUsername}/${et.slug}`
-              : null,
+            bookingUrl: et.bookingUrl ?? null,
           };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to fetch event type" };
@@ -862,17 +858,25 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .describe("When rescheduling, pass the original booking UID so its time slot is not blocked."),
       }),
       execute: async ({ eventTypeId, daysAhead, startDate, bookingUidToReschedule }) => {
-        const token = await getAccessTokenOrNull(teamId, userId);
+        const [token, linked] = await Promise.all([
+          getAccessTokenOrNull(teamId, userId),
+          getLinkedUser(teamId, userId),
+        ]);
         if (!token) return { error: "Account not connected." };
-        const linked = await getLinkedUser(teamId, userId);
-        const tz = linked?.calcomTimeZone ?? "UTC";
+        if (!linked?.calcomUsername) return { error: "Account not connected." };
+        const tz = linked.calcomTimeZone ?? "UTC";
         const formatSlot = makeFormatSlot(tz);
 
         try {
+          const types = await getEventTypesByUsername(linked.calcomUsername, token);
+          const et = types.find((t) => t.id === eventTypeId);
+          if (!et) return { error: `Event type ${eventTypeId} not found.` };
+
           const from = startDate ? new Date(startDate) : new Date();
           const end = new Date(from.getTime() + (daysAhead ?? 7) * MS_PER_DAY);
-          const slotsMap = await getAvailableSlots(token, {
-            eventTypeId,
+          const slotsMap = await getAvailableSlotsPublic({
+            eventTypeSlug: et.slug,
+            username: linked.calcomUsername,
             start: from.toISOString(),
             end: end.toISOString(),
             timeZone: tz,
@@ -893,8 +897,9 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               : `No available slots in the requested date range (${formatSlot(from.toISOString())} – ${formatSlot(end.toISOString())}).`;
 
             const extEnd = new Date(from.getTime() + EXTENDED_SEARCH_DAYS * MS_PER_DAY);
-            const extSlotsMap = await getAvailableSlots(token, {
-              eventTypeId,
+            const extSlotsMap = await getAvailableSlotsPublic({
+              eventTypeSlug: et.slug,
+              username: linked.calcomUsername,
               start: from.toISOString(),
               end: extEnd.toISOString(),
               timeZone: tz,
@@ -1914,7 +1919,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             ...(slotInterval != null ? { slotInterval } : {}),
             ...(scheduleId != null ? { scheduleId } : {}),
           });
-          return { success: true, id: et.id, title: et.title, slug: et.slug, length: et.length };
+          return { success: true, id: et.id, title: et.title, slug: et.slug, length: et.length, bookingUrl: et.bookingUrl ?? null };
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Failed to create event type" };
         }
