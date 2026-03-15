@@ -543,14 +543,16 @@ export async function addBookingAttendee(
 
 // ─── Public event types (no auth) ─────────────────────────────────────────────
 
-export async function getEventTypesByUsername(username: string): Promise<CalcomEventType[]> {
+export async function getEventTypesByUsername(username: string, accessToken?: string): Promise<CalcomEventType[]> {
   const url = `${CALCOM_API_URL}/v2/event-types?username=${encodeURIComponent(username)}`;
-  const res = await fetchWithRetry(url, {
-    headers: {
-      "cal-api-version": "2024-06-14",
-      "Content-Type": "application/json",
-    },
-  });
+  const headers: Record<string, string> = {
+    "cal-api-version": "2024-06-14",
+    "Content-Type": "application/json",
+  };
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+  const res = await fetchWithRetry(url, { headers });
   if (!res.ok) {
     throw new CalcomApiError(`Failed to fetch event types for ${username}`, res.status);
   }

@@ -218,9 +218,9 @@ export async function handleTelegramCommand(
         const auth = await requireAuth();
         if (!auth) return;
         const slug = rest || undefined;
-        const eventTypes = await getEventTypesByUsername(auth.linked.calcomUsername);
+        const eventTypes = await getEventTypesByUsername(auth.linked.calcomUsername, auth.accessToken);
         if (eventTypes.length === 0) {
-          await thread.post("You have no event types. Create one at https://app.cal.com first.");
+          await thread.post("You have no event types. Create one at [app.cal.com](https://app.cal.com).");
           return;
         }
         const eventType = slug
@@ -265,7 +265,7 @@ export async function handleTelegramCommand(
       if (cmd === "eventtypes") {
         const auth = await requireAuth();
         if (!auth) return;
-        const eventTypes = await getEventTypesByUsername(auth.linked.calcomUsername);
+        const eventTypes = await getEventTypesByUsername(auth.linked.calcomUsername, auth.accessToken);
         const card = eventTypesListCard(
           eventTypes.map((et) => ({
             title: et.title,
@@ -783,6 +783,24 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
             await clearRescheduleFlow(ctx.teamId, ctx.userId);
             return;
           }
+
+          const fullBookings = await getBookings(
+            auth.accessToken,
+            { status: "upcoming", take: 10 },
+            { id: linked.calcomUserId, email: linked.calcomEmail }
+          );
+          const fullBooking = fullBookings.find((b) => b.uid === selected.uid);
+          const isHost = fullBooking?.hosts?.some(
+            (h) => h.email?.toLowerCase() === linked.calcomEmail.toLowerCase()
+          ) ?? false;
+          if (!isHost) {
+            await thread.post(
+              "You're an attendee on this booking, not the host. Rescheduling as an attendee isn't supported here — please use the reschedule link in your booking confirmation email or reschedule at [app.cal.com/bookings](https://app.cal.com/bookings)."
+            );
+            await clearRescheduleFlow(ctx.teamId, ctx.userId);
+            return;
+          }
+
           const now = new Date();
           const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
           const slotsMap = await getAvailableSlotsPublic({

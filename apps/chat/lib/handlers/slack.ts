@@ -431,11 +431,12 @@ export function registerSlackHandlers(
               );
               return;
             }
-            const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
+            const accessToken = await getValidAccessToken(teamId, userId);
+            const eventTypes = await getEventTypesByUsername(linked.calcomUsername, accessToken ?? undefined);
             if (eventTypes.length === 0) {
               await event.channel.postEphemeral(
                 event.user,
-                `You have no event types. Create one at ${CALCOM_APP_URL} first.`,
+                `You have no event types. Create one at <${CALCOM_APP_URL}|cal.com>.`,
                 { fallbackToDM: true }
               );
               return;
@@ -617,7 +618,8 @@ export function registerSlackHandlers(
               );
               return;
             }
-            const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
+            const accessToken = await getValidAccessToken(teamId, userId);
+            const eventTypes = await getEventTypesByUsername(linked.calcomUsername, accessToken ?? undefined);
             const card = eventTypesListCard(
               eventTypes.map((et) => ({
                 title: et.title,
@@ -816,7 +818,8 @@ export function registerSlackHandlers(
       return;
     }
 
-    const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
+    const accessToken = await getValidAccessToken(teamId, userId);
+    const eventTypes = await getEventTypesByUsername(linked.calcomUsername, accessToken ?? undefined);
     if (eventTypes.length === 0) {
       const dm = await bot.openDM(event.user);
       await dm
@@ -941,7 +944,8 @@ export function registerSlackHandlers(
     }
 
     try {
-      const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
+      const accessToken = await getValidAccessToken(teamId, userId);
+      const eventTypes = await getEventTypesByUsername(linked.calcomUsername, accessToken ?? undefined);
       const matchedEventType = eventTypes.find((et) => et.id === eventTypeId);
       const eventTypeSlug = matchedEventType?.slug;
       if (!eventTypeSlug) {
@@ -1481,6 +1485,16 @@ export function registerSlackHandlers(
         const eventTypeId = selected.eventType?.id ?? 0;
         if (!eventTypeSlug) {
           await thread.post("Cannot reschedule: event type information is missing for this booking.");
+          return;
+        }
+
+        const isHost = selected.hosts?.some(
+          (h) => h.email?.toLowerCase() === linked.calcomEmail.toLowerCase()
+        ) ?? false;
+        if (!isHost) {
+          await thread.post(
+            "You're an attendee on this booking, not the host. Rescheduling as an attendee isn't supported here — please use the reschedule link in your booking confirmation email or reschedule at <https://app.cal.com/bookings|app.cal.com/bookings>."
+          );
           return;
         }
 
