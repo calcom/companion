@@ -152,6 +152,7 @@ function registerPrivateLinksMutationCommands(privateLinksCmd: Command): void {
               eventTypeId: Number(options.eventTypeId),
               linkId,
             },
+            // @ts-expect-error OpenAPI spec is missing the body param for this endpoint
             body,
             headers: authHeader(),
           });
