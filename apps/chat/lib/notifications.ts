@@ -278,7 +278,7 @@ export function helpCard() {
       Section([
         CardText("Here's what I can do:", { style: "bold" }),
         Fields([
-          Field({ label: "/cal availability [@user]", value: "Check availability" }),
+          Field({ label: "/cal availability", value: "Check your availability" }),
           Field({ label: "/cal book <username>", value: "Book a meeting" }),
           Field({ label: "/cal bookings", value: "View upcoming bookings" }),
           Field({ label: "/cal cancel", value: "Cancel a booking" }),

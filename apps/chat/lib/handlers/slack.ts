@@ -23,10 +23,8 @@ import {
   cancelBooking,
   createBooking,
   createBookingPublic,
-  getAvailableSlots,
   getAvailableSlotsPublic,
   getBookings,
-  getEventTypes,
   getEventTypesByUsername,
   getSchedules,
   rescheduleBooking,
@@ -424,15 +422,6 @@ export function registerSlackHandlers(
             break;
           }
           case "availability": {
-            const accessToken = await getValidAccessToken(teamId, userId);
-            if (!accessToken) {
-              await event.channel.postEphemeral(
-                event.user,
-                oauthLinkMessage("slack", teamId, userId),
-                { fallbackToDM: true }
-              );
-              return;
-            }
             const linked = await getLinkedUser(teamId, userId);
             if (!linked) {
               await event.channel.postEphemeral(
@@ -442,7 +431,7 @@ export function registerSlackHandlers(
               );
               return;
             }
-            const eventTypes = await getEventTypes(accessToken);
+            const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
             if (eventTypes.length === 0) {
               await event.channel.postEphemeral(
                 event.user,
@@ -456,8 +445,9 @@ export function registerSlackHandlers(
             const eventType = eventTypes[0];
             const now = new Date();
             const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-            const slotsMap = await getAvailableSlots(accessToken, {
-              eventTypeId: eventType.id,
+            const slotsMap = await getAvailableSlotsPublic({
+              eventTypeSlug: eventType.slug,
+              username: linked.calcomUsername,
               start: now.toISOString(),
               end: weekLater.toISOString(),
               timeZone: linked.calcomTimeZone,
@@ -618,15 +608,6 @@ export function registerSlackHandlers(
           }
           case "event-types":
           case "eventtypes": {
-            const accessToken = await getValidAccessToken(teamId, userId);
-            if (!accessToken) {
-              await event.channel.postEphemeral(
-                event.user,
-                oauthLinkMessage("slack", teamId, userId),
-                { fallbackToDM: true }
-              );
-              return;
-            }
             const linked = await getLinkedUser(teamId, userId);
             if (!linked) {
               await event.channel.postEphemeral(
@@ -636,7 +617,7 @@ export function registerSlackHandlers(
               );
               return;
             }
-            const eventTypes = await getEventTypes(accessToken);
+            const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
             const card = eventTypesListCard(
               eventTypes.map((et) => ({
                 title: et.title,
@@ -781,7 +762,8 @@ export function registerSlackHandlers(
         }
       },
       {
-        postError: (msg) => safeChannelPost(event, msg).catch(() => {}),
+        postError: (msg) =>
+          event.channel.postEphemeral(event.user, msg, { fallbackToDM: true }).catch(() => {}),
         logContext: "/cal",
         getCustomErrorMessage: (err) => {
           if (!lastStreamErrorRef.current) return undefined;
@@ -827,14 +809,14 @@ export function registerSlackHandlers(
 
     const { teamId } = meta;
     const userId = event.user.userId;
-    const accessToken = await getValidAccessToken(teamId, userId);
-    if (!accessToken) {
+    const linked = await getLinkedUser(teamId, userId);
+    if (!linked) {
       const dm = await bot.openDM(event.user);
       await dm.post(oauthLinkMessage("slack", teamId, userId)).catch(() => {});
       return;
     }
 
-    const eventTypes = await getEventTypes(accessToken);
+    const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
     if (eventTypes.length === 0) {
       const dm = await bot.openDM(event.user);
       await dm
@@ -926,8 +908,8 @@ export function registerSlackHandlers(
     const userId = event.user.userId;
     const eventTypeId = Number(eventTypeRaw);
 
-    const accessToken = await getValidAccessToken(teamId, userId);
-    if (!accessToken) {
+    const linked = await getLinkedUser(teamId, userId);
+    if (!linked) {
       if (event.relatedChannel) {
         await event.relatedChannel.postEphemeral(
           event.user,
@@ -940,9 +922,6 @@ export function registerSlackHandlers(
       }
       return;
     }
-
-    const linked = await getLinkedUser(teamId, userId);
-    if (!linked) return;
 
     const lookupTarget = makeLookupSlackUser(teamId);
     const targetProfile = await lookupTarget(targetSlackId);
@@ -962,10 +941,25 @@ export function registerSlackHandlers(
     }
 
     try {
+      const eventTypes = await getEventTypesByUsername(linked.calcomUsername);
+      const matchedEventType = eventTypes.find((et) => et.id === eventTypeId);
+      const eventTypeSlug = matchedEventType?.slug;
+      if (!eventTypeSlug) {
+        const errMsg = "Event type not found. It may have been deleted. Please try again.";
+        if (event.relatedChannel) {
+          await event.relatedChannel.postEphemeral(event.user, errMsg, { fallbackToDM: true });
+        } else {
+          const dm = await bot.openDM(event.user);
+          await dm.post(errMsg);
+        }
+        return;
+      }
+
       const now = new Date();
       const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      const slotsMap = await getAvailableSlots(accessToken, {
-        eventTypeId,
+      const slotsMap = await getAvailableSlotsPublic({
+        eventTypeSlug,
+        username: linked.calcomUsername,
         start: now.toISOString(),
         end: weekLater.toISOString(),
         timeZone: linked.calcomTimeZone,
@@ -988,9 +982,7 @@ export function registerSlackHandlers(
           }).format(new Date(s.time)),
         }));
 
-      const eventTypeTitle =
-        (await getEventTypes(accessToken)).find((et) => et.id === eventTypeId)
-          ?.title ?? `Meeting`;
+      const eventTypeTitle = matchedEventType?.title ?? "Meeting";
 
       await setBookingFlow(teamId, userId, {
         eventTypeId,
@@ -1485,16 +1477,19 @@ export function registerSlackHandlers(
           return;
         }
 
+        const eventTypeSlug = selected.eventType?.slug;
         const eventTypeId = selected.eventType?.id ?? 0;
-        if (!eventTypeId) {
+        const hostUsername = selected.hosts?.[0]?.name ?? linked.calcomUsername;
+        if (!eventTypeSlug) {
           await thread.post("Cannot reschedule: event type information is missing for this booking.");
           return;
         }
 
         const now = new Date();
         const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const slotsMap = await getAvailableSlots(accessToken, {
-          eventTypeId,
+        const slotsMap = await getAvailableSlotsPublic({
+          eventTypeSlug,
+          username: linked.calcomUsername,
           start: now.toISOString(),
           end: weekLater.toISOString(),
           timeZone: linked.calcomTimeZone,
