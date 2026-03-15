@@ -152,7 +152,6 @@ function registerPrivateLinksMutationCommands(privateLinksCmd: Command): void {
               eventTypeId: Number(options.eventTypeId),
               linkId,
             },
-            body,
             headers: authHeader(),
           });
           renderPrivateLinkUpdated(response?.data, options);

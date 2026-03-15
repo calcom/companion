@@ -7,8 +7,8 @@ import {
   organizationsSchedulesControllerUpdateUserSchedule as updateSchedule,
 } from "../../generated/sdk.gen";
 import type {
-  CreateScheduleInput_2024_06_11,
-  UpdateScheduleInput_2024_06_11,
+  CreateScheduleInput20240611,
+  UpdateScheduleInput20240611,
 } from "../../generated/types.gen";
 import { initializeClient } from "../../shared/client";
 import { ApiVersion } from "../../shared/constants";
@@ -80,7 +80,7 @@ function registerOrgUserScheduleMutationCommands(schedulesCmd: Command): void {
           await initializeClient();
           const orgId = Number(options.orgId);
 
-          const body: CreateScheduleInput_2024_06_11 = {
+          const body: CreateScheduleInput20240611 = {
             name: options.name,
             timeZone: options.timezone,
             isDefault: options.isDefault ?? false,
@@ -115,7 +115,7 @@ function registerOrgUserScheduleMutationCommands(schedulesCmd: Command): void {
           await initializeClient();
           const orgId = Number(options.orgId);
 
-          const body: UpdateScheduleInput_2024_06_11 = {};
+          const body: UpdateScheduleInput20240611 = {};
 
           if (options.name) body.name = options.name;
           if (options.timezone) body.timeZone = options.timezone;

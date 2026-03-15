@@ -216,7 +216,6 @@ function registerIcsFeedCommands(calendarsCmd: Command): void {
         await initializeClient();
 
         const { data: response } = await checkIcsFeed({
-          query: { url: options.url },
           headers: authHeader(),
         });
 

@@ -1,4 +1,4 @@
-import { client } from "../generated/sdk.gen";
+import { client } from "../generated/client.gen";
 import { getApiUrl, getAuthToken } from "./config";
 
 let initialized = false;

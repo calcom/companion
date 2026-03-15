@@ -1,6 +1,6 @@
 import type {
-  GetSchedulesOutput_2024_06_11,
-  ScheduleOutput_2024_06_11,
+  GetSchedulesOutput20240611,
+  ScheduleOutput20240611,
   UserOooOutputDto,
   UserOoosOutputResponseDto,
 } from "../../generated/types.gen";
@@ -8,5 +8,5 @@ import type {
 export type OrgOooEntry = UserOooOutputDto;
 export type OrgOooListResponse = UserOoosOutputResponseDto;
 
-export type OrgSchedule = ScheduleOutput_2024_06_11;
-export type OrgSchedulesResponse = GetSchedulesOutput_2024_06_11;
+export type OrgSchedule = ScheduleOutput20240611;
+export type OrgSchedulesResponse = GetSchedulesOutput20240611;
