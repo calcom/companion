@@ -216,6 +216,8 @@ function registerIcsFeedCommands(calendarsCmd: Command): void {
         await initializeClient();
 
         const { data: response } = await checkIcsFeed({
+          // @ts-expect-error OpenAPI spec is missing the url query param for this endpoint
+          query: { url: options.url },
           headers: authHeader(),
         });
 

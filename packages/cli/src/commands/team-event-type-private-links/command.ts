@@ -137,6 +137,14 @@ function registerPrivateLinksMutationCommands(privateLinksCmd: Command): void {
         await withErrorHandling(async () => {
           await initializeClient();
 
+          const body: { expiresAt?: string; maxUsageCount?: number } = {};
+          if (options.expiresAt) {
+            body.expiresAt = options.expiresAt;
+          }
+          if (options.maxUsageCount) {
+            body.maxUsageCount = Number(options.maxUsageCount);
+          }
+
           const { data: response } = await updatePrivateLink({
             path: {
               orgId: Number(options.orgId),
@@ -144,6 +152,8 @@ function registerPrivateLinksMutationCommands(privateLinksCmd: Command): void {
               eventTypeId: Number(options.eventTypeId),
               linkId,
             },
+            // @ts-expect-error OpenAPI spec is missing the body param for this endpoint
+            body,
             headers: authHeader(),
           });
           renderPrivateLinkUpdated(response?.data, options);
