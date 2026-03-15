@@ -1479,7 +1479,6 @@ export function registerSlackHandlers(
 
         const eventTypeSlug = selected.eventType?.slug;
         const eventTypeId = selected.eventType?.id ?? 0;
-        const hostUsername = selected.hosts?.[0]?.name ?? linked.calcomUsername;
         if (!eventTypeSlug) {
           await thread.post("Cannot reschedule: event type information is missing for this booking.");
           return;
