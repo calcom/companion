@@ -137,14 +137,6 @@ function registerPrivateLinksMutationCommands(privateLinksCmd: Command): void {
         await withErrorHandling(async () => {
           await initializeClient();
 
-          const body: { expiresAt?: string; maxUsageCount?: number } = {};
-          if (options.expiresAt) {
-            body.expiresAt = options.expiresAt;
-          }
-          if (options.maxUsageCount) {
-            body.maxUsageCount = Number(options.maxUsageCount);
-          }
-
           const { data: response } = await updatePrivateLink({
             path: {
               orgId: Number(options.orgId),
