@@ -208,16 +208,13 @@ function registerIcsFeedCommands(calendarsCmd: Command): void {
 
   icsFeedCmd
     .command("check")
-    .description("Check if an ICS feed URL is valid")
-    .requiredOption("--url <url>", "ICS feed URL to check")
+    .description("Check if the connected ICS feed credentials are valid")
     .option("--json", "Output as JSON")
-    .action(async (options: { url: string; json?: boolean }) => {
+    .action(async (options: { json?: boolean }) => {
       await withErrorHandling(async () => {
         await initializeClient();
 
         const { data: response } = await checkIcsFeed({
-          // @ts-expect-error OpenAPI spec is missing the url query param for this endpoint
-          query: { url: options.url },
           headers: authHeader(),
         });
 
