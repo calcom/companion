@@ -245,11 +245,24 @@ export interface BookingCurrentUser {
   email: string;
 }
 
-export async function getBookings(
-  accessToken: string,
-  params: GetBookingsParams = {},
-  currentUser?: BookingCurrentUser
-): Promise<CalcomBooking[]> {
+export interface OrgContext {
+  orgId: number;
+  userId: number;
+}
+
+/** Build OrgContext from a linked user if they are on the org plan. */
+export function getOrgContext(linked: {
+  calcomOrganizationId: number | null;
+  calcomOrgIsPlatform: boolean | null;
+  calcomUserId: number;
+}): OrgContext | undefined {
+  if (linked.calcomOrganizationId != null && linked.calcomOrgIsPlatform === false) {
+    return { orgId: linked.calcomOrganizationId, userId: linked.calcomUserId };
+  }
+  return undefined;
+}
+
+function buildBookingsQuery(params: GetBookingsParams): string {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
   if (params.attendeeEmail) query.set("attendeeEmail", params.attendeeEmail);
@@ -259,7 +272,26 @@ export async function getBookings(
   if (params.sortStart) query.set("sortStart", params.sortStart);
   if (params.take) query.set("take", String(params.take));
   if (params.skip) query.set("skip", String(params.skip));
-  const qs = query.toString() ? `?${query}` : "";
+  return query.toString() ? `?${query}` : "";
+}
+
+export async function getBookings(
+  accessToken: string,
+  params: GetBookingsParams = {},
+  currentUser?: BookingCurrentUser,
+  orgContext?: OrgContext
+): Promise<CalcomBooking[]> {
+  const qs = buildBookingsQuery(params);
+
+  // Org-plan users get their bookings via the org-scoped endpoint which
+  // returns only the target user's bookings — no client-side filter needed.
+  if (orgContext) {
+    return calcomFetch<CalcomBooking[]>(
+      `/v2/organizations/${orgContext.orgId}/users/${orgContext.userId}/bookings${qs}`,
+      accessToken,
+    );
+  }
+
   const bookings = await calcomFetch<CalcomBooking[]>(`/v2/bookings${qs}`, accessToken);
 
   // Team admins see all team bookings from the API. Filter to only bookings
@@ -273,10 +305,7 @@ export async function getBookings(
       (h) => h.id === currentUser.id || h.email?.toLowerCase() === emailLower
     );
     const isAttendee = booking.attendees?.some((a) => a.email?.toLowerCase() === emailLower);
-    const isOrganizer =
-      booking.organizer?.id === currentUser.id ||
-      booking.organizer?.email?.toLowerCase() === emailLower;
-    return isHost || isAttendee || isOrganizer;
+    return isHost || isAttendee;
   });
 }
 

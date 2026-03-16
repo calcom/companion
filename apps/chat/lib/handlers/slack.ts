@@ -26,6 +26,7 @@ import {
   getAvailableSlotsPublic,
   getBookings,
   getEventTypesByUsername,
+  getOrgContext,
   getSchedules,
   rescheduleBooking,
 } from "../calcom/client";
@@ -248,7 +249,8 @@ export function registerSlackHandlers(
       const bookings = await getBookings(
         accessToken,
         { status: "upcoming", take: 5 },
-        { id: linked.calcomUserId, email: linked.calcomEmail }
+        { id: linked.calcomUserId, email: linked.calcomEmail },
+        getOrgContext(linked)
       );
 
       const homeCard = Card({
@@ -406,7 +408,8 @@ export function registerSlackHandlers(
             const bookings = await getBookings(
               accessToken,
               { status: "upcoming", take: 5 },
-              { id: linked.calcomUserId, email: linked.calcomEmail }
+              { id: linked.calcomUserId, email: linked.calcomEmail },
+              getOrgContext(linked)
             );
             const card = upcomingBookingsCard(
               bookings.map((b) => ({
@@ -674,7 +677,8 @@ export function registerSlackHandlers(
             const bookings = await getBookings(
               accessToken,
               { status: "upcoming", take: 10 },
-              { id: linked.calcomUserId, email: linked.calcomEmail }
+              { id: linked.calcomUserId, email: linked.calcomEmail },
+              getOrgContext(linked)
             );
             const card = cancelBookingPickerCard(
               bookings.map((b) => ({
@@ -709,7 +713,8 @@ export function registerSlackHandlers(
             const bookings = await getBookings(
               accessToken,
               { status: "upcoming", take: 10 },
-              { id: linked.calcomUserId, email: linked.calcomEmail }
+              { id: linked.calcomUserId, email: linked.calcomEmail },
+              getOrgContext(linked)
             );
             const card = rescheduleBookingPickerCard(
               bookings.map((b) => ({
@@ -1379,7 +1384,8 @@ export function registerSlackHandlers(
         const bookings = await getBookings(
           accessToken,
           { status: "upcoming", take: 10 },
-          { id: linked.calcomUserId, email: linked.calcomEmail }
+          { id: linked.calcomUserId, email: linked.calcomEmail },
+          getOrgContext(linked)
         );
         const selected = bookings.find((b) => b.uid === bookingUid);
         if (!selected) {
@@ -1469,7 +1475,8 @@ export function registerSlackHandlers(
         const bookings = await getBookings(
           accessToken,
           { status: "upcoming", take: 100 },
-          { id: linked.calcomUserId, email: linked.calcomEmail }
+          { id: linked.calcomUserId, email: linked.calcomEmail },
+          getOrgContext(linked)
         );
         const selected = bookings.find((b) => b.uid === bookingUid);
         if (!selected) {
@@ -1488,9 +1495,7 @@ export function registerSlackHandlers(
         const isHost =
           selected.hosts?.some(
             (h) => h.id === linked.calcomUserId || h.email?.toLowerCase() === emailLower
-          ) ||
-          selected.organizer?.email?.toLowerCase() === emailLower ||
-          selected.organizer?.id === linked.calcomUserId;
+          );
         if (!isHost) {
           await thread.post(
             "You're an attendee on this booking, not the host. Rescheduling as an attendee isn't supported here — please use the reschedule link in your booking confirmation email or reschedule at <https://app.cal.com/bookings|app.cal.com/bookings>."
