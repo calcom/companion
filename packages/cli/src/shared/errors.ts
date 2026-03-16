@@ -156,6 +156,9 @@ export async function withErrorHandling<T>(fn: () => Promise<T>): Promise<T | un
   try {
     return await fn();
   } catch (error) {
+    if (error instanceof DryRunAbort) {
+      process.exit(0);
+    }
     handleSdkError(error);
     process.exit(1);
   }

@@ -27,15 +27,14 @@ export async function initializeClient(): Promise<void> {
   });
 
   client.interceptors.request.use(async (request) => {
-    const token = await getAuthToken();
-    request.headers.set("Authorization", `Bearer ${token}`);
-    request.headers.set("Content-Type", "application/json");
-
+    // Check dry-run BEFORE auth to avoid token refresh/validation
     if (isDryRunMode()) {
       let body: unknown;
       try {
         body = await request.clone().json();
-      } catch {}
+      } catch {
+        // GET requests may not have a JSON body
+      }
       outputJson({
         dryRun: true,
         method: request.method,
@@ -44,6 +43,10 @@ export async function initializeClient(): Promise<void> {
       });
       throw new DryRunAbort();
     }
+
+    const token = await getAuthToken();
+    request.headers.set("Authorization", `Bearer ${token}`);
+    request.headers.set("Content-Type", "application/json");
 
     return request;
   });
@@ -62,13 +65,14 @@ export async function initializeClientWithoutAuth(): Promise<void> {
   });
 
   client.interceptors.request.use(async (request) => {
-    request.headers.set("Content-Type", "application/json");
-
+    // Check dry-run first
     if (isDryRunMode()) {
       let body: unknown;
       try {
         body = await request.clone().json();
-      } catch {}
+      } catch {
+        // GET requests may not have a JSON body
+      }
       outputJson({
         dryRun: true,
         method: request.method,
@@ -77,6 +81,8 @@ export async function initializeClientWithoutAuth(): Promise<void> {
       });
       throw new DryRunAbort();
     }
+
+    request.headers.set("Content-Type", "application/json");
 
     return request;
   });
