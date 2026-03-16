@@ -1,5 +1,6 @@
 import process from "node:process";
-import { renderError } from "./output";
+import { isGlobalJsonMode, renderError } from "./output";
+import { DryRunAbort } from "./client";
 
 interface ValidationConstraints {
   [key: string]: string;
@@ -93,34 +94,28 @@ function formatApiErrorBody(body: ApiErrorBody): string {
   return JSON.stringify(body);
 }
 
-export function handleSdkError(error: unknown): void {
+function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     const message = error.message;
 
     try {
       const parsed = JSON.parse(message) as ApiErrorBody;
-      renderError(formatApiErrorBody(parsed));
-      return;
+      return formatApiErrorBody(parsed);
     } catch {}
 
     const sdkError = error as { body?: unknown; status?: number };
     if (sdkError.body && typeof sdkError.body === "object") {
       const status = sdkError.status ?? "unknown";
-      const formattedMessage = formatApiErrorBody(sdkError.body as ApiErrorBody);
-      renderError(`API Error (${status}): ${formattedMessage}`);
-      return;
+      return `API Error (${status}): ${formatApiErrorBody(sdkError.body as ApiErrorBody)}`;
     }
 
     if (sdkError.status) {
-      renderError(`API Error (${sdkError.status}): ${message}`);
-      return;
+      return `API Error (${sdkError.status}): ${message}`;
     }
 
-    renderError(message);
-    return;
+    return message;
   }
 
-  // Handle SDK error objects (thrown when throwOnError: true)
   if (error && typeof error === "object") {
     const sdkErr = error as {
       status?: string;
@@ -129,20 +124,32 @@ export function handleSdkError(error: unknown): void {
     };
 
     if (sdkErr.error?.message) {
-      renderError(sdkErr.error.message);
-      return;
+      return sdkErr.error.message;
     }
     if (sdkErr.error?.details?.message) {
-      renderError(sdkErr.error.details.message);
-      return;
+      return sdkErr.error.details.message;
     }
     if (sdkErr.message) {
-      renderError(sdkErr.message);
-      return;
+      return sdkErr.message;
     }
   }
 
-  renderError(String(error));
+  return String(error);
+}
+
+export function handleSdkError(error: unknown): void {
+  if (error instanceof DryRunAbort) {
+    return;
+  }
+
+  const message = extractErrorMessage(error);
+
+  if (isGlobalJsonMode()) {
+    console.error(JSON.stringify({ status: "error", error: { message } }));
+    return;
+  }
+
+  renderError(message);
 }
 
 export async function withErrorHandling<T>(fn: () => Promise<T>): Promise<T | undefined> {
