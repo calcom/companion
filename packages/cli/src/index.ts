@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import process from "node:process";
 import { Command } from "commander";
+import { setGlobalJsonMode, setCompactMode, stdoutIsTTY } from "./shared/output";
 import { registerAgendaCommand } from "./commands/agenda";
 import { registerApiKeysCommand } from "./commands/api-keys";
 import { registerBookingsCommand } from "./commands/bookings";
@@ -53,7 +54,21 @@ program
   .name("calcom")
   .description("Cal.com CLI - Manage your Cal.com account from the command line")
   .version("0.0.1")
-  .enablePositionalOptions();
+  .option("--json", "Output as JSON (applies to all commands)")
+  .option("--compact", "Single-line JSON output (NDJSON-friendly)")
+  .enablePositionalOptions()
+  .hook("preAction", (_thisCommand, actionCommand) => {
+    const opts = program.opts();
+    const compact = opts.compact === true;
+    const globalJson = opts.json === true || process.env.CAL_OUTPUT === "json" || !stdoutIsTTY() || compact;
+    if (globalJson) {
+      setGlobalJsonMode(true);
+      actionCommand.setOptionValue("json", true);
+    }
+    if (compact || !stdoutIsTTY()) {
+      setCompactMode(true);
+    }
+  });
 
 registerLoginCommand(program);
 registerLogoutCommand(program);
@@ -103,6 +118,12 @@ registerTeamVerifiedResourcesCommand(program);
 registerOrgTeamVerifiedResourcesCommand(program);
 
 program.parseAsync(process.argv).catch((err: Error) => {
-  console.error(`Error: ${err.message}`);
+  const opts = program.opts();
+  const globalJson = opts.json === true || opts.compact === true || process.env.CAL_OUTPUT === "json" || !stdoutIsTTY();
+  if (globalJson) {
+    console.error(JSON.stringify({ status: "error", error: { message: err.message } }));
+  } else {
+    console.error(`Error: ${err.message}`);
+  }
   process.exit(1);
 });
