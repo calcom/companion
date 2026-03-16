@@ -1,7 +1,26 @@
+import process from "node:process";
 import chalk from "chalk";
 
 export interface OutputOptions {
   json?: boolean;
+}
+
+let _globalJsonMode = false;
+
+export function setGlobalJsonMode(value: boolean): void {
+  _globalJsonMode = value;
+}
+
+export function isGlobalJsonMode(): boolean {
+  return _globalJsonMode;
+}
+
+/**
+ * Detect whether stdout is a TTY (interactive terminal).
+ * When piped, agents get JSON by default.
+ */
+export function stdoutIsTTY(): boolean {
+  return process.stdout.isTTY === true;
 }
 
 export function formatDate(dateStr: string | Date): string {
