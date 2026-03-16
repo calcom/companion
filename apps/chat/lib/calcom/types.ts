@@ -14,10 +14,11 @@ export interface CalcomEventType {
 }
 
 export interface BookingField {
-  name: string;
-  type: string;
+  name: string;       // slug used as key in bookingFieldsResponses
+  type: string;       // "text" | "phone" | "select" | "multiselect" | "radio" | "checkbox" | "boolean" | "number" | "address" | "url" | "textarea" | "multiemail" | ...
   label?: string;
   required?: boolean;
+  options?: string[]; // present for select, multiselect, radio, checkbox field types
 }
 
 export interface CalcomSlot {
@@ -72,6 +73,7 @@ export interface CalcomBooking {
   meetingUrl: string | null;
   location: string | null;
   absentHost: boolean;
+  recurringBookingUid: string | null;
 }
 
 export interface CreateBookingInput {
@@ -81,8 +83,26 @@ export interface CreateBookingInput {
     name: string;
     email: string;
     timeZone: string;
+    phoneNumber?: string; // international format, e.g. "+919876543210"; required for phone-only event types
   };
-  notes?: string;
+  guests?: string[];
+  metadata?: Record<string, string>;
+  bookingFieldsResponses?: Record<string, string | string[] | boolean>;
+}
+
+export interface CreatePublicBookingInput {
+  eventTypeSlug: string;
+  username: string;
+  start: string; // ISO 8601 UTC
+  attendee: {
+    name: string;
+    email: string;
+    timeZone: string;
+    phoneNumber?: string; // international format, e.g. "+919876543210"; required for phone-only event types
+  };
+  guests?: string[];
+  lengthInMinutes?: number;
+  bookingFieldsResponses?: Record<string, string | string[] | boolean>;
   metadata?: Record<string, string>;
 }
 
@@ -207,6 +227,11 @@ export interface CreateEventTypeInput {
   lengthInMinutes: number;
   description?: string;
   hidden?: boolean;
+  minimumBookingNotice?: number;
+  beforeEventBuffer?: number;
+  afterEventBuffer?: number;
+  slotInterval?: number;
+  scheduleId?: number;
 }
 
 export interface UpdateEventTypeInput {
@@ -215,6 +240,11 @@ export interface UpdateEventTypeInput {
   lengthInMinutes?: number;
   description?: string;
   hidden?: boolean;
+  minimumBookingNotice?: number;
+  beforeEventBuffer?: number;
+  afterEventBuffer?: number;
+  slotInterval?: number;
+  scheduleId?: number;
 }
 
 // ─── Calendar Links ───────────────────────────────────────────────────────────
@@ -224,6 +254,14 @@ export interface CalendarLink {
   outlook?: string;
   yahoo?: string;
   ics?: string;
+}
+
+// ─── Add Attendee ─────────────────────────────────────────────────────────────
+
+export interface AddAttendeeInput {
+  name: string;
+  email: string;
+  timeZone: string;
 }
 
 // ─── Busy Times ───────────────────────────────────────────────────────────────
