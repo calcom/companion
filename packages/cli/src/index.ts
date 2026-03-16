@@ -3,16 +3,6 @@ import process from "node:process";
 import { Command } from "commander";
 import { setGlobalJsonMode, setCompactMode, setDryRunMode, stdoutIsTTY } from "./shared/output";
 
-// Parse global flags from argv regardless of position (before Commander processes them)
-// This allows flags like `calcom bookings list --dry-run` to work
-const globalFlags = ["--json", "--compact", "--dry-run"] as const;
-const argvHas = (flag: string): boolean => process.argv.includes(flag);
-const hasJsonFlag = argvHas("--json");
-const hasCompactFlag = argvHas("--compact");
-const hasDryRunFlag = argvHas("--dry-run");
-
-// Remove global flags from argv so Commander doesn't error on them in subcommands
-const filteredArgv = process.argv.filter((arg) => !globalFlags.includes(arg as typeof globalFlags[number]));
 import { registerAgendaCommand } from "./commands/agenda";
 import { registerApiKeysCommand } from "./commands/api-keys";
 import { registerBookingsCommand } from "./commands/bookings";
@@ -71,16 +61,18 @@ program
   .option("--dry-run", "Show what API request would be sent without executing")
   .enablePositionalOptions()
   .hook("preAction", (_thisCommand, actionCommand) => {
-    // Use pre-parsed flags to support flags anywhere in argv
-    const globalJson = hasJsonFlag || process.env.CAL_OUTPUT === "json" || !stdoutIsTTY() || hasCompactFlag || hasDryRunFlag;
+    const opts = program.opts();
+    const compact = opts.compact === true;
+    const dryRun = opts.dryRun === true;
+    const globalJson = opts.json === true || process.env.CAL_OUTPUT === "json" || !stdoutIsTTY() || compact || dryRun;
     if (globalJson) {
       setGlobalJsonMode(true);
       actionCommand.setOptionValue("json", true);
     }
-    if (hasCompactFlag || !stdoutIsTTY()) {
+    if (compact || !stdoutIsTTY()) {
       setCompactMode(true);
     }
-    if (hasDryRunFlag) {
+    if (dryRun) {
       setDryRunMode(true);
     }
   });
@@ -133,8 +125,9 @@ registerTeamVerifiedResourcesCommand(program);
 registerOrgTeamVerifiedResourcesCommand(program);
 registerSchemaCommand(program);
 
-program.parseAsync(filteredArgv).catch((err: Error) => {
-  const globalJson = hasJsonFlag || hasCompactFlag || hasDryRunFlag || process.env.CAL_OUTPUT === "json" || !stdoutIsTTY();
+program.parseAsync(process.argv).catch((err: Error) => {
+  const opts = program.opts();
+  const globalJson = opts.json === true || opts.compact === true || opts.dryRun === true || process.env.CAL_OUTPUT === "json" || !stdoutIsTTY();
   if (globalJson) {
     console.error(JSON.stringify({ status: "error", error: { message: err.message } }));
   } else {
