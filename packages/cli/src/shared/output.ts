@@ -4,6 +4,16 @@ export interface OutputOptions {
   json?: boolean;
 }
 
+let _globalJsonMode = false;
+
+export function setGlobalJsonMode(value: boolean): void {
+  _globalJsonMode = value;
+}
+
+export function isGlobalJsonMode(): boolean {
+  return _globalJsonMode;
+}
+
 export function formatDate(dateStr: string | Date): string {
   const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
   return date.toLocaleDateString("en-US", {
