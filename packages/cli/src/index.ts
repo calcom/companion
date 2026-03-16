@@ -46,6 +46,7 @@ import { registerTeamsCommand } from "./commands/teams";
 import { registerTimezonesCommand } from "./commands/timezones";
 import { registerVerifiedResourcesCommand } from "./commands/verified-resources";
 import { registerWebhooksCommand } from "./commands/webhooks";
+import { registerSchemaCommand } from "./commands/schema/command";
 
 const program: Command = new Command();
 
@@ -101,6 +102,7 @@ registerOAuthCommand(program);
 registerVerifiedResourcesCommand(program);
 registerTeamVerifiedResourcesCommand(program);
 registerOrgTeamVerifiedResourcesCommand(program);
+registerSchemaCommand(program);
 
 program.parseAsync(process.argv).catch((err: Error) => {
   console.error(`Error: ${err.message}`);
