@@ -1,7 +1,48 @@
+import process from "node:process";
 import chalk from "chalk";
 
 export interface OutputOptions {
   json?: boolean;
+}
+
+let _globalJsonMode = false;
+let _compactMode = false;
+let _dryRunMode = false;
+
+export function setGlobalJsonMode(value: boolean): void {
+  _globalJsonMode = value;
+}
+
+export function isGlobalJsonMode(): boolean {
+  return _globalJsonMode;
+}
+
+export function setCompactMode(value: boolean): void {
+  _compactMode = value;
+}
+
+export function isCompactMode(): boolean {
+  return _compactMode;
+}
+
+export function setDryRunMode(value: boolean): void {
+  _dryRunMode = value;
+}
+
+export function isDryRunMode(): boolean {
+  return _dryRunMode;
+}
+
+export function stdoutIsTTY(): boolean {
+  return process.stdout.isTTY === true;
+}
+
+export function outputJson(data: unknown): void {
+  if (_compactMode) {
+    console.log(JSON.stringify(data));
+  } else {
+    console.log(JSON.stringify(data, null, 2));
+  }
 }
 
 export function formatDate(dateStr: string | Date): string {
