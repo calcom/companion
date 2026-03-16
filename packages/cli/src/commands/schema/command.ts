@@ -1,4 +1,4 @@
-import type { Command } from "commander";
+import type { Argument, Command } from "commander";
 
 interface SerializedOption {
   flags: string;
@@ -6,9 +6,19 @@ interface SerializedOption {
   defaultValue?: unknown;
 }
 
+interface SerializedArgument {
+  name: string;
+  description: string;
+  required: boolean;
+  variadic: boolean;
+  defaultValue?: unknown;
+  choices?: string[];
+}
+
 interface SerializedCommand {
   name: string;
   description: string;
+  arguments: SerializedArgument[];
   options: SerializedOption[];
   subcommands: SerializedCommand[];
 }
@@ -21,6 +31,21 @@ export function serializeCommand(cmd: Command): SerializedCommand {
   return {
     name: cmd.name(),
     description: cmd.description(),
+    arguments: cmd.registeredArguments.map((arg: Argument) => {
+      const entry: SerializedArgument = {
+        name: arg.name(),
+        description: arg.description,
+        required: arg.required,
+        variadic: arg.variadic,
+      };
+      if (arg.defaultValue !== undefined) {
+        entry.defaultValue = arg.defaultValue;
+      }
+      if (arg.argChoices !== undefined) {
+        entry.choices = arg.argChoices;
+      }
+      return entry;
+    }),
     options: cmd.options.map((opt) => {
       const entry: SerializedOption = {
         flags: opt.flags,
