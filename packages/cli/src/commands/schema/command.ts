@@ -67,7 +67,9 @@ export function serializeCommand(cmd: Command): SerializedCommand {
 export function resolveCommandPath(root: Command, path: string[]): Command | undefined {
   let current: Command = root;
   for (const segment of path) {
-    const child = current.commands.find((c: Command) => c.name() === segment);
+    const child = current.commands.find(
+      (c: Command) => c.name() === segment || c.aliases().includes(segment),
+    );
     if (!child) return undefined;
     current = child;
   }
