@@ -267,10 +267,12 @@ export async function getBookings(
   const bookings = await calcomFetch<CalcomBooking[]>(`/v2/bookings${qs}`, accessToken);
 
   // Org/team admins see all team bookings from the API. Filter to only
-  // bookings where the current user is the organizer, a host, or an attendee
-  // to prevent leaking other members' appointments.
-  // Uses the same matching logic as the mobile companion app's
-  // `getBookingParticipation` (booking.user for organizer, loose id comparison).
+  // bookings where the current user is a host or an attendee to prevent
+  // leaking other members' appointments.
+  // NOTE: For org admins the API returns a superset (personal + all team
+  // bookings) with server-side `take` applied *before* this filter, so
+  // pagination signals (`hasMore`) may be inaccurate — a known limitation
+  // until the org-scoped endpoint supports OAuth tokens.
   if (!currentUser) return bookings;
 
   const emailLower = currentUser.email.toLowerCase();
@@ -279,16 +281,13 @@ export async function getBookings(
   const emailEq = (a?: string, b?: string) => a?.toLowerCase() === b?.toLowerCase();
 
   return bookings.filter((booking) => {
-    const isOrganizer =
-      !!booking.user &&
-      (idEq(booking.user.id, currentUser.id) || emailEq(booking.user.email, emailLower));
     const isHost = booking.hosts?.some(
       (h) => idEq(h.id, currentUser.id) || emailEq(h.email, emailLower)
     );
     const isAttendee = booking.attendees?.some(
       (a) => emailEq(a.email, emailLower)
     );
-    return isOrganizer || isHost || isAttendee;
+    return isHost || isAttendee;
   });
 }
 

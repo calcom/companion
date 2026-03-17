@@ -791,11 +791,6 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
           );
           const fullBooking = fullBookings.find((b) => b.uid === selected.uid);
           const emailLower = linked.calcomEmail.toLowerCase();
-          const isOrganizer =
-            !fullBooking ||
-            (!!fullBooking.user &&
-              (String(fullBooking.user.id) === String(linked.calcomUserId) ||
-                fullBooking.user.email?.toLowerCase() === emailLower));
           const isHost =
             !fullBooking ||
             fullBooking.hosts?.some(
@@ -803,7 +798,7 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
                 String(h.id) === String(linked.calcomUserId) ||
                 h.email?.toLowerCase() === emailLower
             );
-          if (!isOrganizer && !isHost) {
+          if (!isHost) {
             await thread.post(
               "You're an attendee on this booking, not the host. Rescheduling as an attendee isn't supported here — please use the reschedule link in your booking confirmation email or reschedule at [app.cal.com/bookings](https://app.cal.com/bookings)."
             );

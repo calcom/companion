@@ -1485,17 +1485,13 @@ export function registerSlackHandlers(
         }
 
         const emailLower = linked.calcomEmail.toLowerCase();
-        const isOrganizer =
-          !!selected.user &&
-          (String(selected.user.id) === String(linked.calcomUserId) ||
-            selected.user.email?.toLowerCase() === emailLower);
         const isHost =
           selected.hosts?.some(
             (h) =>
               String(h.id) === String(linked.calcomUserId) ||
               h.email?.toLowerCase() === emailLower
           );
-        if (!isOrganizer && !isHost) {
+        if (!isHost) {
           await thread.post(
             "You're an attendee on this booking, not the host. Rescheduling as an attendee isn't supported here — please use the reschedule link in your booking confirmation email or reschedule at <https://app.cal.com/bookings|app.cal.com/bookings>."
           );

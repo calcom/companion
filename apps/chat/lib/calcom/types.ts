@@ -61,13 +61,6 @@ export interface CalcomBooking {
     title: string;
     slug: string;
   } | null;
-  // The booking creator/organizer. Present in v2 2024-08-13 as `user`.
-  user?: {
-    id: number;
-    email: string;
-    name: string;
-    timeZone: string;
-  };
   hosts: CalcomBookingHost[];
   attendees: CalcomAttendee[];
   meetingUrl: string | null;
