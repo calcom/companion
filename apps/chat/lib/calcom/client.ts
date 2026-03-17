@@ -245,23 +245,6 @@ export interface BookingCurrentUser {
   email: string;
 }
 
-export interface OrgContext {
-  orgId: number;
-  userId: number;
-}
-
-/** Build OrgContext from a linked user if they are on the org plan. */
-export function getOrgContext(linked: {
-  calcomOrganizationId: number | null;
-  calcomOrgIsPlatform: boolean | null;
-  calcomUserId: number;
-}): OrgContext | undefined {
-  if (linked.calcomOrganizationId != null && linked.calcomOrgIsPlatform === false) {
-    return { orgId: linked.calcomOrganizationId, userId: linked.calcomUserId };
-  }
-  return undefined;
-}
-
 function buildBookingsQuery(params: GetBookingsParams): string {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
@@ -278,34 +261,34 @@ function buildBookingsQuery(params: GetBookingsParams): string {
 export async function getBookings(
   accessToken: string,
   params: GetBookingsParams = {},
-  currentUser?: BookingCurrentUser,
-  orgContext?: OrgContext
+  currentUser?: BookingCurrentUser
 ): Promise<CalcomBooking[]> {
   const qs = buildBookingsQuery(params);
-
-  // Org-plan users get their bookings via the org-scoped endpoint which
-  // returns only the target user's bookings — no client-side filter needed.
-  if (orgContext) {
-    return calcomFetch<CalcomBooking[]>(
-      `/v2/organizations/${orgContext.orgId}/users/${orgContext.userId}/bookings${qs}`,
-      accessToken,
-    );
-  }
-
   const bookings = await calcomFetch<CalcomBooking[]>(`/v2/bookings${qs}`, accessToken);
 
-  // Team admins see all team bookings from the API. Filter to only bookings
-  // where the current user is a host or attendee to prevent leaking other
-  // members' appointments. Matches the mobile companion app's approach.
+  // Org/team admins see all team bookings from the API. Filter to only
+  // bookings where the current user is the organizer, a host, or an attendee
+  // to prevent leaking other members' appointments.
+  // Uses the same matching logic as the mobile companion app's
+  // `getBookingParticipation` (booking.user for organizer, loose id comparison).
   if (!currentUser) return bookings;
 
   const emailLower = currentUser.email.toLowerCase();
+  const idEq = (a?: string | number, b?: string | number) =>
+    a !== undefined && b !== undefined && String(a) === String(b);
+  const emailEq = (a?: string, b?: string) => a?.toLowerCase() === b?.toLowerCase();
+
   return bookings.filter((booking) => {
+    const isOrganizer =
+      !!booking.user &&
+      (idEq(booking.user.id, currentUser.id) || emailEq(booking.user.email, emailLower));
     const isHost = booking.hosts?.some(
-      (h) => h.id === currentUser.id || h.email?.toLowerCase() === emailLower
+      (h) => idEq(h.id, currentUser.id) || emailEq(h.email, emailLower)
     );
-    const isAttendee = booking.attendees?.some((a) => a.email?.toLowerCase() === emailLower);
-    return isHost || isAttendee;
+    const isAttendee = booking.attendees?.some(
+      (a) => emailEq(a.email, emailLower)
+    );
+    return isOrganizer || isHost || isAttendee;
   });
 }
 

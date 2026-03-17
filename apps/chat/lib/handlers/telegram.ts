@@ -6,7 +6,6 @@ import {
   getAvailableSlotsPublic,
   getBookings,
   getEventTypesByUsername,
-  getOrgContext,
   getSchedules,
   rescheduleBooking,
 } from "../calcom/client";
@@ -199,8 +198,7 @@ export async function handleTelegramCommand(
         const bookings = await getBookings(
           auth.accessToken,
           { status: "upcoming", take: 5 },
-          { id: auth.linked.calcomUserId, email: auth.linked.calcomEmail },
-          getOrgContext(auth.linked)
+          { id: auth.linked.calcomUserId, email: auth.linked.calcomEmail }
         );
         const card = upcomingBookingsCard(
           bookings.map((b) => ({
@@ -332,8 +330,7 @@ export async function handleTelegramCommand(
         const bookings = await getBookings(
           auth.accessToken,
           { status: "upcoming", take: 10 },
-          { id: auth.linked.calcomUserId, email: auth.linked.calcomEmail },
-          getOrgContext(auth.linked)
+          { id: auth.linked.calcomUserId, email: auth.linked.calcomEmail }
         );
         if (bookings.length === 0) {
           await thread.post(
@@ -377,8 +374,7 @@ export async function handleTelegramCommand(
         const bookings = await getBookings(
           auth.accessToken,
           { status: "upcoming", take: 10 },
-          { id: auth.linked.calcomUserId, email: auth.linked.calcomEmail },
-          getOrgContext(auth.linked)
+          { id: auth.linked.calcomUserId, email: auth.linked.calcomEmail }
         );
         if (bookings.length === 0) {
           await thread.post(
@@ -791,17 +787,23 @@ export function registerTelegramHandlers(bot: Chat, deps: RegisterTelegramHandle
           const fullBookings = await getBookings(
             auth.accessToken,
             { status: "upcoming", take: 100 },
-            { id: linked.calcomUserId, email: linked.calcomEmail },
-            getOrgContext(linked)
+            { id: linked.calcomUserId, email: linked.calcomEmail }
           );
           const fullBooking = fullBookings.find((b) => b.uid === selected.uid);
           const emailLower = linked.calcomEmail.toLowerCase();
+          const isOrganizer =
+            !fullBooking ||
+            (!!fullBooking.user &&
+              (String(fullBooking.user.id) === String(linked.calcomUserId) ||
+                fullBooking.user.email?.toLowerCase() === emailLower));
           const isHost =
             !fullBooking ||
             fullBooking.hosts?.some(
-              (h) => h.id === linked.calcomUserId || h.email?.toLowerCase() === emailLower
+              (h) =>
+                String(h.id) === String(linked.calcomUserId) ||
+                h.email?.toLowerCase() === emailLower
             );
-          if (!isHost) {
+          if (!isOrganizer && !isHost) {
             await thread.post(
               "You're an attendee on this booking, not the host. Rescheduling as an attendee isn't supported here — please use the reschedule link in your booking confirmation email or reschedule at [app.cal.com/bookings](https://app.cal.com/bookings)."
             );

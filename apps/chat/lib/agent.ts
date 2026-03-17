@@ -21,7 +21,6 @@ import {
   getDefaultSchedule,
   getEventTypesByUsername,
   getMe,
-  getOrgContext,
   getSchedule,
   getSchedules,
   markNoShow,
@@ -1367,7 +1366,6 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           const currentUser = linked
             ? { id: linked.calcomUserId, email: linked.calcomEmail }
             : undefined;
-          const orgContext = linked ? getOrgContext(linked) : undefined;
           const requestedTake = take ?? 5;
           const bookings = await getBookings(
             token,
@@ -1381,8 +1379,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               ...(beforeEnd ? { beforeEnd } : {}),
               ...(sortStart ? { sortStart } : {}),
             },
-            currentUser,
-            orgContext
+            currentUser
           );
           const hasMore = bookings.length > requestedTake;
           const trimmed = hasMore ? bookings.slice(0, requestedTake) : bookings;
