@@ -1,21 +1,22 @@
 import { defineConfig } from "@hey-api/openapi-ts";
 
 export default defineConfig({
-  client: "@hey-api/client-fetch",
   input: "../../docs/api-reference/v2/openapi.json",
   output: {
     path: "src/generated",
-    lint: "biome",
+    postProcess: ["biome:lint"],
   },
   plugins: [
+    {
+      name: "@hey-api/client-fetch",
+    },
     {
       name: "@hey-api/typescript",
       enums: "javascript",
     },
     {
       name: "@hey-api/sdk",
-      asClass: false,
-      operationId: true,
+      operations: { nesting: "operationId" },
       include: [
         // User-level endpoints
         "^tag:Me$",

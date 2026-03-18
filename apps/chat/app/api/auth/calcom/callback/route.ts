@@ -23,6 +23,8 @@ interface CalcomMe {
   email: string;
   name: string;
   timeZone: string;
+  organizationId: number | null;
+  organization?: { isPlatform: boolean; id: number };
 }
 
 export async function GET(request: Request) {
@@ -74,6 +76,8 @@ export async function GET(request: Request) {
       calcomUsername: me.username,
       calcomTimeZone: me.timeZone,
       linkedAt: new Date().toISOString(),
+      calcomOrganizationId: me.organizationId ?? null,
+      calcomOrgIsPlatform: me.organization?.isPlatform ?? null,
     };
 
     await linkUser(payload.teamId, payload.userId, linkedUser);

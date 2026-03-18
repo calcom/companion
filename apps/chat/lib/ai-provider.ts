@@ -1,38 +1,35 @@
 /**
- * AI model provider configuration.
+ * AI model provider configuration for Vercel AI Gateway.
  *
- * To switch providers, change the import and the `getModel()` call below.
- * The rest of the codebase only imports `getModel()` from this file.
+ * AI SDK v6 accepts a plain "provider/model" string when AI_GATEWAY_API_KEY
+ * is set — the gateway resolves the provider and routes the request automatically.
+ *
+ * Set AI_GATEWAY_API_KEY in your environment (from vercel.com/ai-gateway).
+ * Optionally set AI_MODEL and AI_FALLBACK_MODELS to control routing.
  *
  * Examples:
+ *   AI_MODEL=groq/gpt-oss-120b          (default — fast)
+ *   AI_MODEL=anthropic/claude-sonnet-4.6
+ *   AI_MODEL=openai/gpt-4o
+ *   AI_MODEL=google/gemini-2.0-flash
  *
- *   Groq (default — fast + cheap):
- *     import { createGroq } from "@ai-sdk/groq";
- *     const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
- *     return groq("llama-3.3-70b-versatile");
+ *   AI_FALLBACK_MODELS=anthropic/claude-sonnet-4.6,google/gemini-2.0-flash
  *
- *   Anthropic:
- *     import { anthropic } from "@ai-sdk/anthropic";
- *     return anthropic("claude-sonnet-4-20250514");
- *
- *   OpenAI:
- *     import { openai } from "@ai-sdk/openai";
- *     return openai("gpt-4o");
- *
- *   Any OpenAI-compatible provider (Together, Fireworks, etc.):
- *     import { createOpenAI } from "@ai-sdk/openai";
- *     const provider = createOpenAI({ baseURL: "https://api.together.xyz/v1", apiKey: "..." });
- *     return provider("meta-llama/Llama-3.3-70B-Instruct-Turbo");
+ * Browse all available models at: https://vercel.com/ai-gateway/models
  */
 
-import { createGroq } from "@ai-sdk/groq";
-import type { LanguageModel } from "ai";
+const DEFAULT_MODEL = "groq/gpt-oss-120b";
 
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+export function getModel(): string {
+  return process.env.AI_MODEL ?? DEFAULT_MODEL;
+}
 
-export function getModel(): LanguageModel {
-  // Model is configurable via AI_MODEL env var. See .env.example for alternatives.
-  return groq(process.env.AI_MODEL ?? "openai/gpt-oss-120b");
+export function getFallbackModels(): string[] | undefined {
+  const raw = process.env.AI_FALLBACK_MODELS;
+  if (!raw) return undefined;
+  const models = raw
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+  return models.length > 0 ? models : undefined;
 }

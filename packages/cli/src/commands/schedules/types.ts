@@ -1,4 +1,4 @@
-import type { GetScheduleOutput_2024_06_11, GetSchedulesOutput_2024_06_11 } from "../../generated/types.gen";
+import type { GetScheduleOutput20240611, GetSchedulesOutput20240611 } from "../../generated/types.gen";
 
-export type Schedule = GetSchedulesOutput_2024_06_11["data"][number];
-export type ScheduleDetail = GetScheduleOutput_2024_06_11["data"];
+export type Schedule = GetSchedulesOutput20240611["data"][number];
+export type ScheduleDetail = GetScheduleOutput20240611["data"];

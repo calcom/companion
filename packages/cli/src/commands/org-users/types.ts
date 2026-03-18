@@ -1,13 +1,13 @@
 import type {
   CreateOrganizationUserInput,
   GetOrganizationUserOutput,
-  GetOrganizationUsersResponseDTO,
+  GetOrganizationUsersResponseDto,
   GetOrgUsersWithProfileOutput,
   UpdateOrganizationUserInput,
 } from "../../generated/types.gen";
 
 export type OrgUser = GetOrgUsersWithProfileOutput;
-export type OrgUserList = GetOrganizationUsersResponseDTO["data"];
+export type OrgUserList = GetOrganizationUsersResponseDto["data"];
 export type OrgUserResponse = GetOrganizationUserOutput["data"];
 
 export type { CreateOrganizationUserInput, UpdateOrganizationUserInput };
