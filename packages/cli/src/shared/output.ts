@@ -7,6 +7,7 @@ export interface OutputOptions {
 
 let _globalJsonMode = false;
 let _compactMode = false;
+let _dryRunMode = false;
 
 export function setGlobalJsonMode(value: boolean): void {
   _globalJsonMode = value;
@@ -24,14 +25,18 @@ export function isCompactMode(): boolean {
   return _compactMode;
 }
 
+export function setDryRunMode(value: boolean): void {
+  _dryRunMode = value;
+}
+
+export function isDryRunMode(): boolean {
+  return _dryRunMode;
+}
+
 export function stdoutIsTTY(): boolean {
   return process.stdout.isTTY === true;
 }
 
-/**
- * Output a value as JSON. Uses single-line format when compact mode is enabled,
- * pretty-printed otherwise. Suitable for NDJSON when compact.
- */
 export function outputJson(data: unknown): void {
   if (_compactMode) {
     console.log(JSON.stringify(data));

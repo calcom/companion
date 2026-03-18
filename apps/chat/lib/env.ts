@@ -5,6 +5,8 @@
 export function validateRequiredEnv(): void {
   const missing: string[] = [];
 
+  if (!process.env.AI_GATEWAY_API_KEY) missing.push("AI_GATEWAY_API_KEY");
+
   if (!process.env.SLACK_CLIENT_ID) missing.push("SLACK_CLIENT_ID");
   if (!process.env.SLACK_CLIENT_SECRET) missing.push("SLACK_CLIENT_SECRET");
   if (!process.env.SLACK_SIGNING_SECRET) missing.push("SLACK_SIGNING_SECRET");
