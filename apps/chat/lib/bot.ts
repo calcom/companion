@@ -25,18 +25,25 @@ import {
   NotImplementedError,
   RateLimitError,
 } from "chat";
-import type { LookupPlatformUserFn } from "./agent";
+import type { LookupPlatformUserFn, UserContext } from "./agent";
 import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
+import { CalcomApiError } from "./calcom/client";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
 import { formatForTelegram } from "./format-for-telegram";
 import { RETRY_STOP_BLOCKS, registerSlackHandlers } from "./handlers/slack";
-import { registerTelegramHandlers } from "./handlers/telegram";
+import { handleTelegramCommand, registerTelegramHandlers, TELEGRAM_COMMAND_RE } from "./handlers/telegram";
 import { logger as botLogger } from "./logger";
 import { helpCard, telegramHelpCard } from "./notifications";
-import { getLinkedUser } from "./user-linking";
+import { getLinkedUser, getValidAccessToken, getToolContext, setToolContext, isOrgPlanUser, type ToolContextEntry } from "./user-linking";
 
 validateRequiredEnv();
+
+// ─── Named constants ────────────────────────────────────────────────────────
+const MAX_THREAD_MESSAGES = 20;
+const MAX_TOOL_CONTEXT_ENTRIES = 10;
+const STREAMING_UPDATE_INTERVAL_MS = 400;
+const TELEGRAM_TYPING_REFRESH_MS = 4000;
 
 // ─── Slack user lookup via users.info API ────────────────────────────────────
 
@@ -132,7 +139,7 @@ if (!globalForBot._chatBot) {
     userName: "calcom",
     adapters,
     state,
-    streamingUpdateIntervalMs: 400, // Tuned for both Slack and Telegram fallback post+edit
+    streamingUpdateIntervalMs: STREAMING_UPDATE_INTERVAL_MS, // Tuned for both Slack and Telegram fallback post+edit
     logger,
   });
 
@@ -215,7 +222,7 @@ async function buildHistory(thread: Thread): Promise<ModelMessage[]> {
   try {
     const collected: ModelMessage[] = [];
     for await (const msg of thread.messages) {
-      if (collected.length >= 20) break;
+      if (collected.length >= MAX_THREAD_MESSAGES) break;
       if (msg.text.trim()) {
         collected.push({
           role: (msg.author.isMe ? "assistant" : "user") as "assistant" | "user",
@@ -235,19 +242,242 @@ function isAsideMessage(text: string): boolean {
   return /^\s*aside\b/i.test(text);
 }
 
-function handleSlackAuthError(err: unknown): boolean {
+// ─── Helper: normalize Slack-mangled links in message text ──────────────────
+// Slack auto-converts emails to <mailto:email@x.com|email@x.com> and URLs to
+// <https://...|label>. The Chat SDK strips the angle brackets but leaves the
+// raw content, so we get "mailto:email@x.com|email@x.com" in message.text.
+// This normalizes those back to plain email addresses and URLs.
+function normalizeSlackText(text: string): string {
+  // mailto:email@x.com|email@x.com → email@x.com
+  return text.replace(/mailto:[^\s|]+\|([^\s]+)/g, "$1");
+}
+
+// ─── Helper: reconstruct <@USER_ID> mentions from Slack raw blocks ───────────
+// The Chat SDK resolves <@U0AC2LAL3PF> to "@displayname" in message.text.
+// This loses the user ID, which is the only thing lookup_platform_user can use.
+// We rebuild the original <@USER_ID> format by walking the Slack rich_text blocks.
+type SlackRichTextElement =
+  | { type: "text"; text: string }
+  | { type: "user"; user_id: string }
+  | { type: "link"; url: string; text?: string }
+  | { type: string; [key: string]: unknown };
+
+type SlackBlock =
+  | { type: "rich_text"; elements: Array<{ type: string; elements?: SlackRichTextElement[] }> }
+  | { type: string; [key: string]: unknown };
+
+function reconstructSlackMentions(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const blocks = r.blocks as SlackBlock[] | undefined;
+  if (!Array.isArray(blocks)) return null;
+
+  const parts: string[] = [];
+  for (const block of blocks) {
+    if (block.type !== "rich_text") continue;
+    const richBlock = block as { type: "rich_text"; elements: Array<{ type: string; elements?: SlackRichTextElement[] }> };
+    for (const section of richBlock.elements) {
+      if (!Array.isArray(section.elements)) continue;
+      for (const el of section.elements) {
+        if (el.type === "text") {
+          parts.push((el as { type: "text"; text: string }).text);
+        } else if (el.type === "user") {
+          parts.push(`<@${(el as { type: "user"; user_id: string }).user_id}>`);
+        } else if (el.type === "link") {
+          const linkEl = el as { type: "link"; url: string; text?: string };
+          // mailto: links → plain email
+          if (linkEl.url.startsWith("mailto:")) {
+            parts.push(linkEl.url.slice("mailto:".length));
+          } else {
+            parts.push(linkEl.text ?? linkEl.url);
+          }
+        }
+      }
+    }
+  }
+
+  const result = parts.join("").trim();
+  return result.length > 0 ? result : null;
+}
+
+// ─── Helper: pre-resolve Slack @mentions to name + email ─────────────────────
+// Extracts <@USER_ID> patterns from the message, resolves each via Slack API,
+// and prepends a [Context: @mentions resolved] block to the user message.
+async function preResolveMentions(
+  userMessage: string,
+  teamId: string,
+  logger: ReturnType<typeof bot.getLogger>
+): Promise<{ text: string; attendees: Array<{ uid: string; name: string; email: string | null }> }> {
+  const mentionPattern = /<@([A-Z0-9]+)>/g;
+  const matches = [...userMessage.matchAll(mentionPattern)];
+  if (matches.length === 0) return { text: userMessage, attendees: [] };
+
+  const uniqueIds = [...new Set(matches.map((m) => m[1]))];
+  const lookup = makeLookupSlackUser(teamId);
+
+  const results = await Promise.all(
+    uniqueIds.map(async (uid) => {
+      try {
+        const profile = await lookup(uid);
+        if (!profile) return null;
+        return { uid, name: profile.realName ?? profile.name, email: profile.email ?? null };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const resolved = results.filter(
+    (r): r is { uid: string; name: string; email: string | null } => r !== null
+  );
+  if (resolved.length === 0) return { text: userMessage, attendees: [] };
+
+  const contextLines = resolved.map((r) =>
+    r.email
+      ? `- <@${r.uid}> = "${r.name}" <${r.email}>`
+      : `- <@${r.uid}> = "${r.name}" (email not visible)`
+  );
+
+  logger.info("Pre-resolved mentions", { resolved: resolved.map((r) => r.uid) });
+
+  return {
+    text: `[Context: @mentions resolved]\n${contextLines.join("\n")}\n[End context]\n\n${userMessage}`,
+    attendees: resolved,
+  };
+}
+
+// ─── Helper: build UserContext from linked user data ─────────────────────────
+function buildUserContext(linked: {
+  calcomEmail: string;
+  calcomUsername: string;
+  calcomTimeZone: string;
+}): UserContext {
+  return {
+    calcomEmail: linked.calcomEmail,
+    calcomUsername: linked.calcomUsername,
+    calcomTimeZone: linked.calcomTimeZone,
+  };
+}
+
+// ─── Helper: persist booking context (ASAP intent + resolved attendees) ──────
+const ASAP_PATTERN = /\b(asap|as soon as possible|earliest|next available|soonest)\b/i;
+
+async function persistBookingContext(
+  threadId: string,
+  userMessage: string,
+  attendees: Array<{ uid: string; name: string; email: string | null }>
+): Promise<void> {
+  const entries: ToolContextEntry[] = [];
+
+  if (ASAP_PATTERN.test(userMessage)) {
+    entries.push({
+      toolName: "_booking_intent",
+      args: {},
+      result: { urgency: "asap" },
+      timestamp: Date.now(),
+    });
+  }
+
+  if (attendees.length > 0) {
+    entries.push({
+      toolName: "_resolved_attendees",
+      args: {},
+      result: {
+        attendees: attendees.map((a) => ({
+          name: a.name,
+          email: a.email,
+          slackUserId: a.uid,
+        })),
+      },
+      timestamp: Date.now(),
+    });
+  }
+
+  if (entries.length === 0) return;
+
+  const existing = await getToolContext(threadId);
+  const merged = [...existing, ...entries].slice(-MAX_TOOL_CONTEXT_ENTRIES);
+  await setToolContext(threadId, merged);
+}
+
+// ─── Helper: build enriched user message with cached tool data ───────────────
+async function buildEnrichedMessage(
+  userMessage: string,
+  threadId: string
+): Promise<string> {
+  const entries = await getToolContext(threadId);
+  if (entries.length === 0) return userMessage;
+
+  const latestByTool = new Map<string, ToolContextEntry>();
+  for (const e of entries) {
+    latestByTool.set(e.toolName, e);
+  }
+
+  const summary = [...latestByTool.values()]
+    .map((e) => `${e.toolName}: ${JSON.stringify(e.result)}`)
+    .join("\n");
+
+  return `[CACHED TOOL DATA - DO NOT re-call these tools]\n${summary}\n[END CACHED DATA]\n\n${userMessage}`;
+}
+
+function isSlackAuthError(err: unknown): boolean {
   if (
     err instanceof Error &&
     "code" in err &&
     (err as Record<string, unknown>).code === "slack_webapi_platform_error"
   ) {
     const slackErr = (err as Record<string, unknown>).data as Record<string, unknown> | undefined;
-    if (slackErr?.error === "not_authed" || slackErr?.error === "invalid_auth") {
-      botLogger.error("Slack auth error — workspace may need reinstall", err);
-      return true;
-    }
+    return slackErr?.error === "not_authed" || slackErr?.error === "invalid_auth";
   }
   return false;
+}
+
+function friendlyCalcomError(err: CalcomApiError, context?: string): string {
+  const apiDetail = err.message && !err.message.startsWith("Cal.com API error:")
+    ? ` (${err.message})`
+    : "";
+
+  switch (err.statusCode) {
+    case 400:
+      return `The request had invalid data${apiDetail}. Please check the details and try again.`;
+    case 401:
+    case 403:
+      return "Your Cal.com session has expired. Please reconnect your account to continue.";
+    case 404:
+      return `The requested resource was not found${apiDetail}. It may have been deleted or the ID is incorrect.`;
+    case 409:
+      return context === "booking"
+        ? "This time slot is no longer available \u2014 someone else may have just booked it. Would you like me to check for other available times?"
+        : `There was a conflict${apiDetail}. The resource may have been modified. Please try again.`;
+    case 422:
+      return `The request was missing required information${apiDetail}. Please provide all required fields and try again.`;
+    case 429:
+      return "Cal.com's rate limit has been reached. Please wait about 30 seconds and try again.";
+    default:
+      if (err.statusCode && err.statusCode >= 500) {
+        return err.code === "FETCH_RETRY_EXHAUSTED"
+          ? "Cal.com is not responding after multiple attempts. The service may be temporarily down \u2014 please try again in a few minutes."
+          : "Cal.com is experiencing issues right now. Please try again in a moment.";
+      }
+      return `Something went wrong with the Cal.com API${apiDetail}. Please try again.`;
+  }
+}
+
+function agentStreamErrorMessage(
+  lastStreamErrorRef: { current: Error | null }
+): (err: unknown) => string | undefined {
+  return (err) => {
+    if (!lastStreamErrorRef.current) return undefined;
+    if (isAIRateLimitError(lastStreamErrorRef.current))
+      return "I've hit my daily token limit. Please try again later when the limit resets.";
+    if (isAIToolCallError(lastStreamErrorRef.current))
+      return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
+    if (lastStreamErrorRef.current instanceof CalcomApiError)
+      return friendlyCalcomError(lastStreamErrorRef.current);
+    if (isSlackAuthError(err))
+      return "Sorry, something went wrong while processing your request. Please try again.";
+    return undefined;
+  };
 }
 
 /** Wraps async handlers with consistent LockError, RateLimitError, adapter errors, and Slack auth error handling. */
@@ -316,7 +546,6 @@ async function withBotErrorHandling(
       botLogger.warn("Feature not supported", err.feature);
       return;
     }
-    if (handleSlackAuthError(err)) return;
     // AI/LLM rate limit (e.g. Groq tokens-per-day) — show friendly message
     if (isAIRateLimitError(err)) {
       botLogger.warn("AI rate limit", err);
@@ -335,10 +564,38 @@ async function withBotErrorHandling(
         .catch(() => {});
       return;
     }
-    botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
+    // Check for a custom error message from the handler (e.g. captured AI stream error)
+    // before falling through to generic handlers — callers can provide context-specific
+    // messages (e.g. friendlyCalcomError with "booking" context for 409 conflicts).
     const customMsg = options.getCustomErrorMessage?.(err);
+    if (customMsg) {
+      botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
+      await options.postError(customMsg).catch((postErr) => {
+        botLogger.error("Failed to post error message to user", { postErr, originalErr: err });
+      });
+      return;
+    }
+    // Cal.com API errors — show status-specific messages (after custom handler so
+    // callers like the booking modal can provide context-aware messages first)
+    if (err instanceof CalcomApiError) {
+      botLogger.warn("Cal.com API error", { statusCode: err.statusCode, message: err.message });
+      await options
+        .postError(friendlyCalcomError(err))
+        .catch(() => {});
+      return;
+    }
+    if (isSlackAuthError(err)) {
+      botLogger.error("Slack auth error — workspace may need reinstall", err);
+      await options
+        .postError(
+          "Sorry, I'm having trouble connecting to Slack right now. If this persists, please ask your workspace admin to reinstall the Cal.com app."
+        )
+        .catch(() => {});
+      return;
+    }
+    botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
     await options
-      .postError(customMsg ?? "Sorry, something went wrong. Please try again.")
+      .postError("Sorry, something went wrong. Please try again.")
       .catch((postErr) => {
         botLogger.error("Failed to post error message to user", { postErr, originalErr: err });
       });
@@ -347,10 +604,13 @@ async function withBotErrorHandling(
 
 // ─── Helper: post OAuth link prompt ─────────────────────────────────────────
 
-function oauthLinkMessage(platform: string, teamId: string, userId: string) {
+function oauthLinkMessage(platform: string, teamId: string, userId: string, reason?: "expired" | "not_linked") {
   const authUrl = generateAuthUrl(platform, teamId, userId);
+  const title = reason === "expired"
+    ? "Your Cal.com Session Has Expired"
+    : "Connect Your Cal.com Account";
   return Card({
-    title: "Connect Your Cal.com Account",
+    title,
     children: [
       Actions([
         LinkButton({
@@ -360,6 +620,29 @@ function oauthLinkMessage(platform: string, teamId: string, userId: string) {
       ]),
     ],
   });
+}
+
+async function promptUserToLink(
+  thread: Thread,
+  author: Parameters<Thread["postEphemeral"]>[0],
+  ctx: PlatformContext,
+  reason: "expired" | "not_linked" = "not_linked"
+): Promise<void> {
+  const card = oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId, reason);
+  if (ctx.platform === "telegram") {
+    const isGroup = thread.id !== `telegram:${ctx.userId}`;
+    if (isGroup) {
+      await thread.post("Please check your DMs to connect your Cal.com account.");
+      await thread.postEphemeral(author, card, { fallbackToDM: true });
+    } else {
+      await thread.post(card);
+    }
+  } else {
+    // Ephemeral messages are unreliable in Slack assistant threads, so post as a
+    // regular thread message. The OAuth URL is user-specific and safe to show.
+    // Wrap with withSlackToken to ensure the bot token is in context.
+    await withSlackToken(ctx.teamId, () => thread.post(card));
+  }
 }
 
 function getSlackAdapter(): SlackAdapter {
@@ -381,13 +664,27 @@ async function withTelegramTypingRefresh(
   await thread.startTyping();
   if (platform !== "telegram") return fn();
   return (async () => {
-    const interval = setInterval(() => thread.startTyping().catch(() => {}), 4000);
+    const interval = setInterval(() => thread.startTyping().catch(() => {}), TELEGRAM_TYPING_REFRESH_MS);
     try {
       await fn();
     } finally {
       clearInterval(interval);
     }
   })();
+}
+
+/**
+ * Run an async function with the Slack bot token explicitly set in context.
+ * Prevents `not_authed` errors when AsyncLocalStorage context is lost across
+ * async boundaries (e.g. Vercel waitUntil, long-running agent streams).
+ */
+async function withSlackToken<T>(teamId: string, fn: () => Promise<T>): Promise<T> {
+  const slack = getSlackAdapter();
+  const installation = await slack.getInstallation(teamId);
+  if (installation?.botToken) {
+    return slack.withBotToken(installation.botToken, fn);
+  }
+  return fn();
 }
 
 // Streaming flow (see chat/docs/streaming.mdx): Slack uses the native chatStream API via
@@ -397,7 +694,11 @@ async function withTelegramTypingRefresh(
 // textStream can yield empty when used with multi-step tool calls; result.text resolves to the full text.
 async function postAgentStream(
   thread: Thread,
-  agentResult: { textStream: AsyncIterable<string>; text: PromiseLike<string> },
+  agentResult: {
+    textStream: AsyncIterable<string>;
+    text: PromiseLike<string>;
+    steps?: PromiseLike<unknown[]>;
+  },
   ctx: PlatformContext,
   options?: { onErrorRef?: { current: Error | null } }
 ): Promise<void> {
@@ -411,12 +712,14 @@ async function postAgentStream(
   try {
     if (ctx.platform === "slack") {
       const slack = getSlackAdapter();
-      await slack.stream(thread.id, agentResult.textStream, {
-        recipientUserId: ctx.userId,
-        recipientTeamId: ctx.teamId,
-        stopBlocks: RETRY_STOP_BLOCKS,
+      await withSlackToken(ctx.teamId, async () => {
+        await slack.stream(thread.id, agentResult.textStream, {
+          recipientUserId: ctx.userId,
+          recipientTeamId: ctx.teamId,
+          stopBlocks: RETRY_STOP_BLOCKS,
+        });
+        log.info("Slack stream completed", { userId: ctx.userId });
       });
-      log.info("Slack stream completed", { userId: ctx.userId });
     } else {
       if (ctx.platform === "telegram") {
         const fullText = await agentResult.text;
@@ -444,6 +747,43 @@ async function postAgentStream(
       }
       log.info("Stream posted", { platform: ctx.platform, userId: ctx.userId });
     }
+
+    // Persist tool results to Redis for subsequent turns in this thread
+    try {
+      if (!agentResult.steps) return;
+      const steps = await agentResult.steps;
+      const toolEntries: ToolContextEntry[] = [];
+      for (const step of steps) {
+        const s = step as Record<string, unknown>;
+        const toolResults = s.toolResults;
+        if (!Array.isArray(toolResults)) continue;
+        for (const tr of toolResults) {
+          const r = tr as Record<string, unknown>;
+          if (typeof r.toolName === "string" && r.args && r.result !== undefined) {
+            toolEntries.push({
+              toolName: r.toolName,
+              args: r.args as Record<string, unknown>,
+              result: r.result,
+              timestamp: Date.now(),
+            });
+          }
+        }
+      }
+      if (toolEntries.length > 0) {
+        // Merge with existing context (keep last 10 entries to avoid unbounded growth)
+        const existing = await getToolContext(thread.id);
+        const merged = [...existing, ...toolEntries].slice(-MAX_TOOL_CONTEXT_ENTRIES);
+        await setToolContext(thread.id, merged);
+        log.info("Tool context persisted", {
+          threadId: thread.id,
+          newEntries: toolEntries.length,
+          totalEntries: merged.length,
+        });
+      }
+    } catch (persistErr) {
+      // Non-fatal: tool context persistence failure should not break the response
+      log.warn("Failed to persist tool context", { err: persistErr, threadId: thread.id });
+    }
   } catch (err) {
     log.error("Stream failed", {
       err,
@@ -451,8 +791,111 @@ async function postAgentStream(
       userId: ctx.userId,
       threadId: thread.id,
     });
+    // If the thrown error is a Slack auth error but the agent stream itself had
+    // issues (captured via onErrorRef), the Slack error is a secondary failure
+    // caused by AsyncLocalStorage context loss — not a real token problem.
+    // Re-throw as a generic error so withBotErrorHandling doesn't misclassify it.
+    if (isSlackAuthError(err) && options?.onErrorRef?.current) {
+      log.warn("Slack auth error is secondary to stream error, re-throwing as generic", {
+        streamError: options.onErrorRef.current.message,
+      });
+      throw new Error(
+        `Agent stream failed: ${options.onErrorRef.current.message}`
+      );
+    }
     throw err;
   }
+}
+
+// ─── Shared agent handler ────────────────────────────────────────────────────
+
+interface AgentHandlerOptions {
+  thread: Thread;
+  ctx: PlatformContext;
+  userMessage: string;
+  loggerName: string;
+  lastStreamErrorRef: { current: Error | null };
+  promptIfNotLinked: (reason?: "expired") => Promise<void>;
+  shouldSubscribe: () => boolean | Promise<boolean>;
+  resolveMentions: boolean;
+  persistContext: boolean;
+}
+
+async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
+  const log = bot.getLogger(opts.loggerName);
+
+  let linked = await getLinkedUser(opts.ctx.teamId, opts.ctx.userId);
+  log.info("User link check", { userId: opts.ctx.userId, teamId: opts.ctx.teamId, linked: !!linked });
+  if (!linked) {
+    await opts.promptIfNotLinked();
+    return;
+  }
+
+  const token = await getValidAccessToken(opts.ctx.teamId, opts.ctx.userId);
+  if (!token) {
+    log.warn("Token expired/revoked", { userId: opts.ctx.userId });
+    await opts.promptIfNotLinked("expired");
+    return;
+  }
+
+  // Re-read in case token refresh synced org fields from /v2/me
+  linked = await getLinkedUser(opts.ctx.teamId, opts.ctx.userId) ?? linked;
+
+  if (!isOrgPlanUser(linked)) {
+    log.info("Agentic blocked — not on org plan", { userId: opts.ctx.userId });
+    const upgradeMsg = opts.ctx.platform === "slack"
+      ? "The AI assistant is available on the Cal.com Organizations plan. Use `/cal help` to see available slash commands, or upgrade at <https://cal.com/pricing|cal.com/pricing>."
+      : "The AI assistant is available on the Cal.com Organizations plan. Use /help to see available commands, or upgrade at [cal.com/pricing](https://cal.com/pricing).";
+    if (opts.ctx.platform === "slack") {
+      await withSlackToken(opts.ctx.teamId, () => opts.thread.post(upgradeMsg));
+    } else {
+      await opts.thread.post(upgradeMsg);
+    }
+    return;
+  }
+
+  if (await opts.shouldSubscribe()) {
+    if (!(await opts.thread.isSubscribed())) {
+      await opts.thread.subscribe();
+    }
+  }
+
+  const userContext = buildUserContext(linked);
+
+  let resolvedMessage = opts.userMessage;
+  if (opts.resolveMentions && opts.ctx.platform === "slack") {
+    const { text, attendees } = await preResolveMentions(
+      opts.userMessage, opts.ctx.teamId, log
+    );
+    resolvedMessage = text;
+    if (opts.persistContext) {
+      await persistBookingContext(opts.thread.id, opts.userMessage, attendees);
+    }
+  } else if (opts.persistContext && ASAP_PATTERN.test(opts.userMessage)) {
+    await persistBookingContext(opts.thread.id, opts.userMessage, []);
+  }
+
+  const enrichedMessage = await buildEnrichedMessage(resolvedMessage, opts.thread.id);
+  const rawHistory = await buildHistory(opts.thread);
+
+  await withTelegramTypingRefresh(opts.thread, opts.ctx.platform, async () => {
+    log.info("Running agent", { userId: opts.ctx.userId, textLength: enrichedMessage.length });
+    const result = runAgentStream({
+      teamId: opts.ctx.teamId,
+      userId: opts.ctx.userId,
+      userMessage: enrichedMessage,
+      conversationHistory: rawHistory.slice(0, -1),
+      lookupPlatformUser:
+        opts.ctx.platform === "slack" ? makeLookupSlackUser(opts.ctx.teamId) : undefined,
+      platform: opts.ctx.platform,
+      logger: bot.getLogger("agent"),
+      onErrorRef: opts.lastStreamErrorRef,
+      userContext,
+    });
+    await postAgentStream(opts.thread, result, opts.ctx, {
+      onErrorRef: opts.lastStreamErrorRef,
+    });
+  });
 }
 
 // ─── Telegram commands (/start, /help, /link, /unlink; /cal as Slack alias) ───
@@ -469,7 +912,7 @@ registerTelegramHandlers(bot, {
 bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
   if (thread.adapter.name !== "telegram") return;
   if (message.author.isBot || message.author.isMe) return;
-  if (/^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(message.text.trim()))
+  if (TELEGRAM_COMMAND_RE.test(message.text.trim()))
     return;
   if (isAsideMessage(message.text)) return;
 
@@ -491,49 +934,21 @@ bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
 
   const lastStreamErrorRef = { current: null as Error | null };
   await withBotErrorHandling(
-    async () => {
-      const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-      bot
-        .getLogger("telegram-freeform")
-        .info("User link check", { userId: ctx.userId, linked: !!linked });
-      if (!linked) {
-        await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
-        return;
-      }
-
-      if (!(await thread.isSubscribed())) {
-        await thread.subscribe();
-      }
-
-      const history = await buildHistory(thread);
-      await withTelegramTypingRefresh(thread, ctx.platform, async () => {
-        bot
-          .getLogger("telegram-freeform")
-          .info("Running agent", { userId: ctx.userId, textLength: message.text.length });
-        const result = runAgentStream({
-          teamId: ctx.teamId,
-          userId: ctx.userId,
-          userMessage: message.text,
-          conversationHistory: history.slice(0, -1),
-          lookupPlatformUser: undefined,
-          platform: ctx.platform,
-          logger: bot.getLogger("agent"),
-          onErrorRef: lastStreamErrorRef,
-        });
-        await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
-      });
-    },
+    () => runAgentHandler({
+      thread,
+      ctx,
+      userMessage: message.text,
+      loggerName: "telegram-freeform",
+      lastStreamErrorRef,
+      promptIfNotLinked: async (reason) => { await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId, reason)); },
+      shouldSubscribe: () => true,
+      resolveMentions: false,
+      persistContext: true,
+    }),
     {
       postError: (msg) => thread.post(msg).catch(() => {}),
       logContext: "telegram freeform",
-      getCustomErrorMessage: () => {
-        if (!lastStreamErrorRef.current) return undefined;
-        if (isAIRateLimitError(lastStreamErrorRef.current))
-          return "I've hit my daily token limit. Please try again later when the limit resets.";
-        if (isAIToolCallError(lastStreamErrorRef.current))
-          return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
-        return undefined;
-      },
+      getCustomErrorMessage: agentStreamErrorMessage(lastStreamErrorRef),
     }
   );
 });
@@ -550,10 +965,14 @@ bot.onNewMention(async (thread, message) => {
 
   const ctx = extractContext(thread, message);
 
-  // Strip leading @botname that Telegram includes in message.text for group @mentions.
-  // Other platforms (Slack) strip mentions automatically, so this only affects Telegram.
+  // For Slack: reconstruct <@USER_ID> mentions from raw blocks (the SDK resolves
+  // them to display names in message.text, losing the user ID lookup_platform_user needs).
+  // Also handles mailto: email links. Falls back to normalizeSlackText if no blocks.
+  // For Telegram: strip the leading @botname the adapter doesn't strip automatically.
   const userMessage =
-    ctx.platform === "telegram" ? message.text.replace(/^@\S+\s*/, "").trim() : message.text;
+    ctx.platform === "telegram"
+      ? message.text.replace(/^@\S+\s*/, "").trim()
+      : (reconstructSlackMentions(message.raw) ?? normalizeSlackText(message.text));
 
   bot.getLogger("mention").info("New mention", {
     platform: ctx.platform,
@@ -563,51 +982,19 @@ bot.onNewMention(async (thread, message) => {
   });
 
   const lastStreamErrorRef = { current: null as Error | null };
+  const safePost = (msg: string) =>
+    ctx.platform === "slack"
+      ? withSlackToken(ctx.teamId, () => thread.post(msg)).catch(() => {})
+      : thread.post(msg).catch(() => {});
+
   await withBotErrorHandling(
     async () => {
       // Telegram commands handled by onNewMessage (slash command handler)
       if (
         ctx.platform === "telegram" &&
-        /^\/(cal\s+)?(start|help|link|unlink|bookings|availability)/i.test(userMessage)
+        TELEGRAM_COMMAND_RE.test(userMessage)
       )
         return;
-
-      const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-      bot
-        .getLogger("mention")
-        .info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
-      if (!linked) {
-        bot.getLogger("mention").warn("User not linked", { userId: ctx.userId });
-        if (ctx.platform === "telegram") {
-          // Never expose the signed OAuth URL in a group — any member could click it and
-          // link their Cal.com account to the requester's Telegram ID.
-          const isGroup = thread.id !== `telegram:${ctx.userId}`;
-          if (isGroup) {
-            await thread.post("Please check your DMs to connect your Cal.com account.");
-            await thread.postEphemeral(
-              message.author,
-              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
-              { fallbackToDM: true }
-            );
-          } else {
-            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
-          }
-        } else {
-          try {
-            await thread.postEphemeral(
-              message.author,
-              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
-              { fallbackToDM: true }
-            );
-          } catch (ephemeralErr) {
-            bot
-              .getLogger("mention")
-              .error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
-            throw ephemeralErr;
-          }
-        }
-        return;
-      }
 
       // Empty text means user only sent "@botname" with no additional message — show help.
       if (!userMessage) {
@@ -615,41 +1002,22 @@ bot.onNewMention(async (thread, message) => {
         return;
       }
 
-      if (!(await thread.isSubscribed())) {
-        await thread.subscribe();
-      }
-
-      const history = await buildHistory(thread);
-
-      await withTelegramTypingRefresh(thread, ctx.platform, async () => {
-        bot
-          .getLogger("mention")
-          .info("Running agent", { userId: ctx.userId, textLength: userMessage.length });
-        const result = runAgentStream({
-          teamId: ctx.teamId,
-          userId: ctx.userId,
-          userMessage,
-          conversationHistory: history.slice(0, -1),
-          lookupPlatformUser:
-            ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
-          platform: ctx.platform,
-          logger: bot.getLogger("agent"),
-          onErrorRef: lastStreamErrorRef,
-        });
-        await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
+      await runAgentHandler({
+        thread,
+        ctx,
+        userMessage,
+        loggerName: "mention",
+        lastStreamErrorRef,
+        promptIfNotLinked: (reason) => promptUserToLink(thread, message.author, ctx, reason),
+        shouldSubscribe: () => true,
+        resolveMentions: true,
+        persistContext: true,
       });
     },
     {
-      postError: (msg) => thread.post(msg).catch(() => {}),
+      postError: safePost,
       logContext: "handling mention",
-      getCustomErrorMessage: () => {
-        if (!lastStreamErrorRef.current) return undefined;
-        if (isAIRateLimitError(lastStreamErrorRef.current))
-          return "I've hit my daily token limit. Please try again later when the limit resets.";
-        if (isAIToolCallError(lastStreamErrorRef.current))
-          return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
-        return undefined;
-      },
+      getCustomErrorMessage: agentStreamErrorMessage(lastStreamErrorRef),
     }
   );
 });
@@ -668,9 +1036,25 @@ bot.onSubscribedMessage(async (thread, message) => {
   const isTelegramGroup = ctx.platform === "telegram" && thread.id !== `telegram:${ctx.userId}`;
   if (isTelegramGroup && !message.isMention) return;
 
-  // Strip leading @botname for Telegram group @mentions (adapter doesn't strip automatically).
+  // Telegram slash commands should use the dedicated handler, not the agent.
+  // In DMs the thread becomes subscribed after the first interaction, so commands
+  // like /availability would otherwise fall through to the agent.
+  if (ctx.platform === "telegram") {
+    const handled = await handleTelegramCommand(thread, message, {
+      withBotErrorHandling,
+      extractContext,
+    });
+    if (handled) return;
+  }
+
+  // For Slack: reconstruct <@USER_ID> mentions from raw blocks (the SDK resolves
+  // them to display names in message.text, losing the user ID lookup_platform_user needs).
+  // Also handles mailto: email links. Falls back to normalizeSlackText if no blocks.
+  // For Telegram: strip the leading @botname the adapter doesn't strip automatically.
   const userMessage =
-    ctx.platform === "telegram" ? message.text.replace(/^@\S+\s*/, "").trim() : message.text;
+    ctx.platform === "telegram"
+      ? message.text.replace(/^@\S+\s*/, "").trim()
+      : (reconstructSlackMentions(message.raw) ?? normalizeSlackText(message.text));
 
   bot.getLogger("thread-follow-up").info("Thread follow-up", {
     platform: ctx.platform,
@@ -681,83 +1065,27 @@ bot.onSubscribedMessage(async (thread, message) => {
   });
 
   const lastStreamErrorRef = { current: null as Error | null };
+  const safePost = (msg: string) =>
+    ctx.platform === "slack"
+      ? withSlackToken(ctx.teamId, () => thread.post(msg)).catch(() => {})
+      : thread.post(msg).catch(() => {});
+
   await withBotErrorHandling(
-    async () => {
-      const linked = await getLinkedUser(ctx.teamId, ctx.userId);
-      bot
-        .getLogger("thread-follow-up")
-        .info("User link check", { userId: ctx.userId, teamId: ctx.teamId, linked: !!linked });
-      if (!linked) {
-        bot.getLogger("thread-follow-up").warn("User not linked", { userId: ctx.userId });
-        if (ctx.platform === "telegram") {
-          // Never expose the signed OAuth URL in a group — any member could click it and
-          // link their Cal.com account to the requester's Telegram ID.
-          const isGroup = thread.id !== `telegram:${ctx.userId}`;
-          if (isGroup) {
-            await thread.post("Please check your DMs to connect your Cal.com account.");
-            await thread.postEphemeral(
-              message.author,
-              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
-              { fallbackToDM: true }
-            );
-          } else {
-            await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId));
-          }
-        } else {
-          try {
-            await thread.postEphemeral(
-              message.author,
-              oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId),
-              { fallbackToDM: true }
-            );
-            bot
-              .getLogger("thread-follow-up")
-              .info("Ephemeral OAuth link posted", { userId: ctx.userId });
-          } catch (ephemeralErr) {
-            bot
-              .getLogger("thread-follow-up")
-              .error("Ephemeral post failed", { err: ephemeralErr, userId: ctx.userId });
-            throw ephemeralErr;
-          }
-        }
-        return;
-      }
-
-      if (message.isMention && !(await thread.isSubscribed())) {
-        await thread.subscribe();
-      }
-
-      const history = await buildHistory(thread);
-
-      await withTelegramTypingRefresh(thread, ctx.platform, async () => {
-        bot
-          .getLogger("thread-follow-up")
-          .info("Running agent", { userId: ctx.userId, textLength: userMessage.length });
-        const result = runAgentStream({
-          teamId: ctx.teamId,
-          userId: ctx.userId,
-          userMessage,
-          conversationHistory: history.slice(0, -1),
-          lookupPlatformUser:
-            ctx.platform === "slack" ? makeLookupSlackUser(ctx.teamId) : undefined,
-          platform: ctx.platform,
-          logger: bot.getLogger("agent"),
-          onErrorRef: lastStreamErrorRef,
-        });
-        await postAgentStream(thread, result, ctx, { onErrorRef: lastStreamErrorRef });
-      });
-    },
+    () => runAgentHandler({
+      thread,
+      ctx,
+      userMessage,
+      loggerName: "thread-follow-up",
+      lastStreamErrorRef,
+      promptIfNotLinked: (reason) => promptUserToLink(thread, message.author, ctx, reason),
+      shouldSubscribe: () => !!(message.isMention),
+      resolveMentions: true,
+      persistContext: false,
+    }),
     {
-      postError: (msg) => thread.post(msg).catch(() => {}),
+      postError: safePost,
       logContext: "thread follow-up",
-      getCustomErrorMessage: () => {
-        if (!lastStreamErrorRef.current) return undefined;
-        if (isAIRateLimitError(lastStreamErrorRef.current))
-          return "I've hit my daily token limit. Please try again later when the limit resets.";
-        if (isAIToolCallError(lastStreamErrorRef.current))
-          return "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID).";
-        return undefined;
-      },
+      getCustomErrorMessage: agentStreamErrorMessage(lastStreamErrorRef),
     }
   );
 });
@@ -782,4 +1110,5 @@ registerSlackHandlers(bot, getSlackAdapter, {
   extractTeamIdFromRaw,
   buildHistory,
   makeLookupSlackUser,
+  friendlyCalcomError,
 });

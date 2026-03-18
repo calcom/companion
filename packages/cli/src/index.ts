@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import process from "node:process";
 import { Command } from "commander";
-import { setGlobalJsonMode, stdoutIsTTY } from "./shared/output";
+import { setGlobalJsonMode, setCompactMode, setDryRunMode, stdoutIsTTY } from "./shared/output";
+
 import { registerAgendaCommand } from "./commands/agenda";
 import { registerApiKeysCommand } from "./commands/api-keys";
 import { registerBookingsCommand } from "./commands/bookings";
@@ -47,6 +48,7 @@ import { registerTeamsCommand } from "./commands/teams";
 import { registerTimezonesCommand } from "./commands/timezones";
 import { registerVerifiedResourcesCommand } from "./commands/verified-resources";
 import { registerWebhooksCommand } from "./commands/webhooks";
+import { registerSchemaCommand } from "./commands/schema/command";
 
 const program: Command = new Command();
 
@@ -55,13 +57,23 @@ program
   .description("Cal.com CLI - Manage your Cal.com account from the command line")
   .version("0.0.1")
   .option("--json", "Output as JSON (applies to all commands)")
+  .option("--compact", "Single-line JSON output (NDJSON-friendly)")
+  .option("--dry-run", "Show what API request would be sent without executing")
   .enablePositionalOptions()
   .hook("preAction", (_thisCommand, actionCommand) => {
     const opts = program.opts();
-    const globalJson = opts.json === true || process.env.CAL_OUTPUT === "json" || !stdoutIsTTY();
+    const compact = opts.compact === true;
+    const dryRun = opts.dryRun === true;
+    const globalJson = opts.json === true || process.env.CAL_OUTPUT === "json" || !stdoutIsTTY() || compact || dryRun;
     if (globalJson) {
       setGlobalJsonMode(true);
       actionCommand.setOptionValue("json", true);
+    }
+    if (compact || !stdoutIsTTY()) {
+      setCompactMode(true);
+    }
+    if (dryRun) {
+      setDryRunMode(true);
     }
   });
 
@@ -111,10 +123,11 @@ registerOAuthCommand(program);
 registerVerifiedResourcesCommand(program);
 registerTeamVerifiedResourcesCommand(program);
 registerOrgTeamVerifiedResourcesCommand(program);
+registerSchemaCommand(program);
 
 program.parseAsync(process.argv).catch((err: Error) => {
   const opts = program.opts();
-  const globalJson = opts.json === true || process.env.CAL_OUTPUT === "json" || !stdoutIsTTY();
+  const globalJson = opts.json === true || opts.compact === true || opts.dryRun === true || process.env.CAL_OUTPUT === "json" || !stdoutIsTTY();
   if (globalJson) {
     console.error(JSON.stringify({ status: "error", error: { message: err.message } }));
   } else {

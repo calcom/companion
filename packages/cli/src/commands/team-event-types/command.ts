@@ -6,7 +6,7 @@ import {
   teamsEventTypesControllerGetTeamEventTypes as getTeamEventTypes,
   teamsEventTypesControllerUpdateTeamEventType as updateTeamEventType,
 } from "../../generated/sdk.gen";
-import type { CreateTeamEventTypeInput_2024_06_14 } from "../../generated/types.gen";
+import type { CreateTeamEventTypeInput20240614 } from "../../generated/types.gen";
 import { initializeClient } from "../../shared/client";
 import { withErrorHandling } from "../../shared/errors";
 import { authHeader } from "../../shared/headers";
@@ -88,11 +88,11 @@ function registerTeamEventTypeMutationCommands(teamEventTypesCmd: Command): void
         await withErrorHandling(async () => {
           await initializeClient();
 
-          const body: CreateTeamEventTypeInput_2024_06_14 = {
+          const body: CreateTeamEventTypeInput20240614 = {
             title: options.title,
             slug: options.slug,
             lengthInMinutes: Number(options.length),
-            schedulingType: options.schedulingType as CreateTeamEventTypeInput_2024_06_14["schedulingType"],
+            schedulingType: options.schedulingType as CreateTeamEventTypeInput20240614["schedulingType"],
           };
 
           if (options.description) body.description = options.description;

@@ -1,4 +1,5 @@
 import type {
+  AddAttendeeInput,
   BusyTime,
   CalcomApiResponse,
   CalcomBooking,
@@ -7,9 +8,9 @@ import type {
   CalcomSlot,
   CalendarLink,
   CreateBookingInput,
+  CreatePublicBookingInput,
   CreateEventTypeInput,
   CreateScheduleInput,
-  SlotsResponse,
   UpdateEventTypeInput,
   UpdateMeInput,
   UpdateScheduleInput,
@@ -17,6 +18,12 @@ import type {
 
 const CALCOM_API_URL = process.env.CALCOM_API_URL ?? "https://api.cal.com";
 const API_VERSION = "2024-08-13";
+
+const FETCH_TIMEOUT_MS = 10_000;
+const MAX_RETRIES = 2;
+const RETRY_BASE_MS = 500;
+const RETRY_MULTIPLIER = 3;
+const RETRYABLE_STATUS_CODES = new Set([500, 502, 503, 504]);
 
 export class CalcomApiError extends Error {
   constructor(
@@ -29,14 +36,54 @@ export class CalcomApiError extends Error {
   }
 }
 
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit = {},
+  maxRetries: number = MAX_RETRIES
+): Promise<Response> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+
+      if (RETRYABLE_STATUS_CODES.has(res.status) && attempt < maxRetries) {
+        await sleep(RETRY_BASE_MS * RETRY_MULTIPLIER ** attempt);
+        continue;
+      }
+
+      return res;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < maxRetries) {
+        await sleep(RETRY_BASE_MS * RETRY_MULTIPLIER ** attempt);
+      }
+    }
+  }
+
+  throw new CalcomApiError(
+    `Cal.com API request failed after ${maxRetries + 1} attempts: ${lastError?.message ?? "unknown error"}`,
+    undefined,
+    "FETCH_RETRY_EXHAUSTED"
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function calcomFetch<T>(
   path: string,
   accessToken: string,
   options: RequestInit = {},
-  apiVersion: string = API_VERSION
+  apiVersion: string = API_VERSION,
+  retries: number = MAX_RETRIES
 ): Promise<T> {
   const url = `${CALCOM_API_URL}${path}`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     ...options,
     headers: {
       "cal-api-version": apiVersion,
@@ -44,7 +91,7 @@ async function calcomFetch<T>(
       "Content-Type": "application/json",
       ...options.headers,
     },
-  });
+  }, retries);
 
   if (!res.ok) {
     let errorMessage = `Cal.com API error: ${res.status} ${res.statusText}`;
@@ -85,12 +132,13 @@ export async function getEventType(
   accessToken: string,
   eventTypeId: number
 ): Promise<CalcomEventType> {
-  return calcomFetch<CalcomEventType>(
+  const raw = await calcomFetch<CalcomEventType>(
     `/v2/event-types/${eventTypeId}`,
     accessToken,
     {},
     "2024-06-14"
   );
+  return { ...raw, length: raw.length ?? raw.lengthInMinutes ?? 0 };
 }
 
 export interface GetSlotsParams {
@@ -99,6 +147,7 @@ export interface GetSlotsParams {
   end: string;
   timeZone?: string;
   duration?: number;
+  bookingUidToReschedule?: string;
 }
 
 export async function getAvailableSlots(
@@ -111,13 +160,82 @@ export async function getAvailableSlots(
     end: params.end,
     ...(params.timeZone ? { timeZone: params.timeZone } : {}),
     ...(params.duration ? { duration: String(params.duration) } : {}),
+    ...(params.bookingUidToReschedule ? { bookingUidToReschedule: params.bookingUidToReschedule } : {}),
   });
-  const data = await calcomFetch<SlotsResponse>(`/v2/slots?${query}`, accessToken);
-  return data.slots;
+  // The v2/slots API (2024-09-04) returns `data` as a date-keyed map of
+  // `{ start }` objects — there is no wrapper `slots` property. Normalize to
+  // the `CalcomSlot` shape (time + available) used by the rest of the codebase,
+  // matching what `getAvailableSlotsPublic` already does.
+  const raw = await calcomFetch<Record<string, Array<{ start: string }>>>(
+    `/v2/slots?${query}`,
+    accessToken,
+    {},
+    "2024-09-04"
+  );
+  const normalized: Record<string, CalcomSlot[]> = {};
+  for (const [date, slots] of Object.entries(raw ?? {})) {
+    normalized[date] = slots.map((s) => ({ time: s.start, available: true }));
+  }
+  return normalized;
+}
+
+export interface GetPublicSlotsParams {
+  eventTypeSlug: string;
+  username: string;
+  start: string;
+  end: string;
+  timeZone?: string;
+  duration?: number;
+  bookingUidToReschedule?: string;
+}
+
+interface PublicSlotEntry {
+  start: string;
+}
+
+export async function getAvailableSlotsPublic(
+  params: GetPublicSlotsParams
+): Promise<Record<string, CalcomSlot[]>> {
+  const query = new URLSearchParams({
+    eventTypeSlug: params.eventTypeSlug,
+    username: params.username,
+    start: params.start,
+    end: params.end,
+    ...(params.timeZone ? { timeZone: params.timeZone } : {}),
+    ...(params.duration ? { duration: String(params.duration) } : {}),
+    ...(params.bookingUidToReschedule ? { bookingUidToReschedule: params.bookingUidToReschedule } : {}),
+  });
+  const url = `${CALCOM_API_URL}/v2/slots?${query}`;
+  const res = await fetchWithRetry(url, {
+    headers: {
+      "cal-api-version": "2024-09-04",
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) {
+    throw new CalcomApiError(`Failed to fetch public slots: ${res.status}`, res.status);
+  }
+  const json = (await res.json()) as { status: string; data: Record<string, PublicSlotEntry[]> };
+  if (json.status === "error") {
+    throw new CalcomApiError("Failed to fetch slots for this user", res.status);
+  }
+  const normalized: Record<string, CalcomSlot[]> = {};
+  for (const [date, slots] of Object.entries(json.data)) {
+    normalized[date] = slots.map((s) => ({
+      time: s.start,
+      available: true,
+    }));
+  }
+  return normalized;
 }
 
 export interface GetBookingsParams {
   status?: "upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed";
+  attendeeEmail?: string;
+  attendeeName?: string;
+  afterStart?: string;
+  beforeEnd?: string;
+  sortStart?: "asc" | "desc";
   take?: number;
   skip?: number;
 }
@@ -134,6 +252,11 @@ export async function getBookings(
 ): Promise<CalcomBooking[]> {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
+  if (params.attendeeEmail) query.set("attendeeEmail", params.attendeeEmail);
+  if (params.attendeeName) query.set("attendeeName", params.attendeeName);
+  if (params.afterStart) query.set("afterStart", params.afterStart);
+  if (params.beforeEnd) query.set("beforeEnd", params.beforeEnd);
+  if (params.sortStart) query.set("sortStart", params.sortStart);
   if (params.take) query.set("take", String(params.take));
   if (params.skip) query.set("skip", String(params.skip));
   const qs = query.toString() ? `?${query}` : "";
@@ -168,30 +291,67 @@ export async function createBooking(
   return calcomFetch<CalcomBooking>("/v2/bookings", accessToken, {
     method: "POST",
     body: JSON.stringify(input),
-  });
+  }, API_VERSION, 0);
+}
+
+export async function createBookingPublic(
+  input: CreatePublicBookingInput
+): Promise<CalcomBooking> {
+  const url = `${CALCOM_API_URL}/v2/bookings`;
+  const res = await fetchWithRetry(url, {
+    method: "POST",
+    headers: {
+      "cal-api-version": "2024-08-13",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  }, 0);
+  if (!res.ok) {
+    const body = await res.text();
+    let message = `Booking failed (${res.status})`;
+    try {
+      const parsed = JSON.parse(body);
+      message = parsed.error?.message ?? parsed.message ?? message;
+    } catch { /* use default */ }
+    throw new CalcomApiError(message, res.status);
+  }
+  const json = (await res.json()) as CalcomApiResponse<CalcomBooking>;
+  if (json.status === "error") {
+    throw new CalcomApiError(json.error?.message ?? "Booking failed", undefined, json.error?.code);
+  }
+  return json.data;
 }
 
 export async function cancelBooking(
   accessToken: string,
   bookingUid: string,
-  reason?: string
+  reason?: string,
+  cancelSubsequentBookings?: boolean
 ): Promise<void> {
   await calcomFetch<void>(`/v2/bookings/${bookingUid}/cancel`, accessToken, {
     method: "POST",
-    body: JSON.stringify({ cancellationReason: reason }),
-  });
+    body: JSON.stringify({
+      cancellationReason: reason,
+      ...(cancelSubsequentBookings ? { cancelSubsequentBookings: true } : {}),
+    }),
+  }, API_VERSION, 0);
 }
 
 export async function rescheduleBooking(
   accessToken: string,
   bookingUid: string,
   newStart: string,
-  reason?: string
+  reason?: string,
+  rescheduledBy?: string
 ): Promise<CalcomBooking> {
   return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/reschedule`, accessToken, {
     method: "POST",
-    body: JSON.stringify({ start: newStart, reschedulingReason: reason }),
-  });
+    body: JSON.stringify({
+      start: newStart,
+      reschedulingReason: reason,
+      ...(rescheduledBy ? { rescheduledBy } : {}),
+    }),
+  }, API_VERSION, 0);
 }
 
 export interface CalcomMe {
@@ -200,6 +360,8 @@ export interface CalcomMe {
   email: string;
   name: string;
   timeZone: string;
+  organizationId: number | null;
+  organization?: { isPlatform: boolean; id: number };
 }
 
 export async function getMe(accessToken: string): Promise<CalcomMe> {
@@ -210,7 +372,7 @@ export async function updateMe(accessToken: string, input: UpdateMeInput): Promi
   return calcomFetch<CalcomMe>("/v2/me", accessToken, {
     method: "PATCH",
     body: JSON.stringify(input),
-  });
+  }, API_VERSION, 0);
 }
 
 // ─── Schedules ───────────────────────────────────────────────────────────────
@@ -248,7 +410,8 @@ export async function createSchedule(
       method: "POST",
       body: JSON.stringify(input),
     },
-    SCHEDULES_VERSION
+    SCHEDULES_VERSION,
+    0
   );
 }
 
@@ -264,7 +427,8 @@ export async function updateSchedule(
       method: "PATCH",
       body: JSON.stringify(input),
     },
-    SCHEDULES_VERSION
+    SCHEDULES_VERSION,
+    0
   );
 }
 
@@ -275,7 +439,8 @@ export async function deleteSchedule(accessToken: string, scheduleId: number): P
     {
       method: "DELETE",
     },
-    SCHEDULES_VERSION
+    SCHEDULES_VERSION,
+    0
   );
 }
 
@@ -287,7 +452,7 @@ export async function confirmBooking(
 ): Promise<CalcomBooking> {
   return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/confirm`, accessToken, {
     method: "POST",
-  });
+  }, API_VERSION, 0);
 }
 
 export async function declineBooking(
@@ -298,7 +463,7 @@ export async function declineBooking(
   return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/decline`, accessToken, {
     method: "POST",
     body: JSON.stringify({ reason }),
-  });
+  }, API_VERSION, 0);
 }
 
 // ─── Calendar busy times ──────────────────────────────────────────────────────
@@ -329,7 +494,8 @@ export async function createEventType(
       method: "POST",
       body: JSON.stringify(input),
     },
-    "2024-06-14"
+    "2024-06-14",
+    0
   );
 }
 
@@ -345,7 +511,8 @@ export async function updateEventType(
       method: "PATCH",
       body: JSON.stringify(input),
     },
-    "2024-06-14"
+    "2024-06-14",
+    0
   );
 }
 
@@ -356,8 +523,45 @@ export async function deleteEventType(accessToken: string, eventTypeId: number):
     {
       method: "DELETE",
     },
-    "2024-06-14"
+    "2024-06-14",
+    0
   );
+}
+
+// ─── Booking attendees ───────────────────────────────────────────────────────
+
+export async function addBookingAttendee(
+  accessToken: string,
+  bookingUid: string,
+  input: AddAttendeeInput
+): Promise<void> {
+  await calcomFetch<unknown>(`/v2/bookings/${bookingUid}/attendees`, accessToken, {
+    method: "POST",
+    body: JSON.stringify(input),
+  }, API_VERSION, 0);
+}
+
+// ─── Public event types (no auth) ─────────────────────────────────────────────
+
+export async function getEventTypesByUsername(username: string): Promise<CalcomEventType[]> {
+  const url = `${CALCOM_API_URL}/v2/event-types?username=${encodeURIComponent(username)}`;
+  const res = await fetchWithRetry(url, {
+    headers: {
+      "cal-api-version": "2024-06-14",
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) {
+    throw new CalcomApiError(`Failed to fetch event types for ${username}`, res.status);
+  }
+  const json = (await res.json()) as CalcomApiResponse<CalcomEventType[]>;
+  if (json.status === "error") {
+    throw new CalcomApiError(json.error?.message ?? "User not found", undefined, json.error?.code);
+  }
+  return (json.data ?? []).map((et) => ({
+    ...et,
+    length: et.length ?? et.lengthInMinutes ?? 0,
+  }));
 }
 
 // ─── Booking extras ───────────────────────────────────────────────────────────
@@ -369,8 +573,17 @@ export async function getCalendarLinks(
   return calcomFetch<CalendarLink>(`/v2/bookings/${bookingUid}/calendar-links`, accessToken);
 }
 
-export async function markNoShow(accessToken: string, bookingUid: string): Promise<void> {
+export async function markNoShow(
+  accessToken: string,
+  bookingUid: string,
+  host?: boolean,
+  attendees?: Array<{ email: string; absent: boolean }>
+): Promise<void> {
   await calcomFetch<void>(`/v2/bookings/${bookingUid}/mark-absent`, accessToken, {
     method: "POST",
-  });
+    body: JSON.stringify({
+      ...(host !== undefined ? { host } : {}),
+      ...(attendees ? { attendees } : {}),
+    }),
+  }, API_VERSION, 0);
 }

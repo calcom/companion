@@ -1,12 +1,12 @@
 import type {
-  GetBookingsOutput_2024_08_13,
+  GetBookingsOutput20240813,
   OrganizationsBookingsControllerGetAllOrgTeamBookingsResponse,
-  OrganizationsUsersBookingsControllerGetOrganizationUserBookingsResponse,
+  OrganizationsUsersBookingsControllerGetOrganizationUserBookingsResponses,
 } from "../../generated/types.gen";
 
-export type OrgBooking = GetBookingsOutput_2024_08_13["data"][number];
-export type OrgBookingList = GetBookingsOutput_2024_08_13["data"];
+export type OrgBooking = GetBookingsOutput20240813["data"][number];
+export type OrgBookingList = GetBookingsOutput20240813["data"];
 export type OrgBookingsResponse = OrganizationsBookingsControllerGetAllOrgTeamBookingsResponse;
-export type OrgUserBookingsResponse = OrganizationsUsersBookingsControllerGetOrganizationUserBookingsResponse;
+export type OrgUserBookingsResponse = OrganizationsUsersBookingsControllerGetOrganizationUserBookingsResponses;
 export type BookingStatus = "upcoming" | "past" | "cancelled" | "recurring" | "unconfirmed";
 export type SortOrder = "asc" | "desc";

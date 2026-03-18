@@ -22,16 +22,15 @@ import {
   bookingsController20240813RescheduleBooking as rescheduleBooking,
   bookingLocationController20240813UpdateBookingLocation as updateBookingLocation,
 } from "../../generated/sdk.gen";
-import {
-  type BookingInputAddressLocation_2024_08_13,
-  type BookingInputAttendeeAddressLocation_2024_08_13,
-  type BookingInputAttendeeDefinedLocation_2024_08_13,
-  type BookingInputAttendeePhoneLocation_2024_08_13,
-  type BookingInputIntegrationLocation_2024_08_13,
-  type BookingInputLinkLocation_2024_08_13,
-  type BookingInputOrganizersDefaultAppLocation_2024_08_13,
-  type BookingInputPhoneLocation_2024_08_13,
-  integration as integrationEnum,
+import type {
+  BookingInputAddressLocation20240813,
+  BookingInputAttendeeAddressLocation20240813,
+  BookingInputAttendeeDefinedLocation20240813,
+  BookingInputAttendeePhoneLocation20240813,
+  BookingInputIntegrationLocation20240813,
+  BookingInputLinkLocation20240813,
+  BookingInputOrganizersDefaultAppLocation20240813,
+  BookingInputPhoneLocation20240813,
 } from "../../generated/types.gen";
 import { initializeClient } from "../../shared/client";
 import { ApiVersion } from "../../shared/constants";
@@ -235,14 +234,14 @@ function registerBookingQueryCommands(bookingsCmd: Command): void {
 }
 
 type BookingLocationInput =
-  | BookingInputAddressLocation_2024_08_13
-  | BookingInputAttendeeAddressLocation_2024_08_13
-  | BookingInputAttendeeDefinedLocation_2024_08_13
-  | BookingInputAttendeePhoneLocation_2024_08_13
-  | BookingInputIntegrationLocation_2024_08_13
-  | BookingInputLinkLocation_2024_08_13
-  | BookingInputOrganizersDefaultAppLocation_2024_08_13
-  | BookingInputPhoneLocation_2024_08_13;
+  | BookingInputAddressLocation20240813
+  | BookingInputAttendeeAddressLocation20240813
+  | BookingInputAttendeeDefinedLocation20240813
+  | BookingInputAttendeePhoneLocation20240813
+  | BookingInputIntegrationLocation20240813
+  | BookingInputLinkLocation20240813
+  | BookingInputOrganizersDefaultAppLocation20240813
+  | BookingInputPhoneLocation20240813;
 
 type LocationType =
   | "address"
@@ -289,15 +288,9 @@ function buildLocationObject(options: CreateBookingOptions): BookingLocationInpu
       if (!options.locationIntegration) {
         throw new Error("--location-integration is required when --location-type is 'integration'");
       }
-      const validIntegrations = Object.values(integrationEnum);
-      if (!validIntegrations.includes(options.locationIntegration as (typeof validIntegrations)[number])) {
-        throw new Error(
-          `Invalid integration: ${options.locationIntegration}. Valid options: ${validIntegrations.join(", ")}`
-        );
-      }
       return {
         type: "integration",
-        integration: options.locationIntegration as BookingInputIntegrationLocation_2024_08_13["integration"],
+        integration: options.locationIntegration as BookingInputIntegrationLocation20240813["integration"],
       };
     }
     case "attendeeAddress":
