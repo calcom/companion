@@ -15,9 +15,6 @@ import type {
   UpdateMeInput,
   UpdateScheduleInput,
 } from "./types";
-import { getLogger } from "../logger";
-
-const log = getLogger("calcom-client");
 
 const CALCOM_API_URL = process.env.CALCOM_API_URL ?? "https://api.cal.com";
 const API_VERSION = "2024-08-13";
@@ -283,28 +280,15 @@ export async function getBookings(
     a !== undefined && b !== undefined && String(a) === String(b);
   const emailEq = (a?: string, b?: string) => a?.toLowerCase() === b?.toLowerCase();
 
-  log.debug("[getBookings] filtering %d bookings for user id=%s email=%s", bookings.length, currentUser.id, emailLower);
-
-  const filtered = bookings.filter((booking) => {
+  return bookings.filter((booking) => {
     const isHost = booking.hosts?.some(
       (h) => idEq(h.id, currentUser.id) || emailEq(h.email, emailLower)
     );
     const isAttendee = booking.attendees?.some(
       (a) => emailEq(a.email, emailLower)
     );
-    if (!isHost && !isAttendee) {
-      log.debug(
-        "[getBookings] DROPPED uid=%s hosts=%j attendees=%j",
-        booking.uid,
-        booking.hosts?.map((h) => ({ id: h.id, email: h.email })),
-        booking.attendees?.map((a) => ({ email: a.email }))
-      );
-    }
     return isHost || isAttendee;
   });
-
-  log.debug("[getBookings] kept %d / %d bookings", filtered.length, bookings.length);
-  return filtered;
 }
 
 export async function getBooking(accessToken: string, bookingUid: string): Promise<CalcomBooking> {
