@@ -693,7 +693,7 @@ export function AvailabilityListScreen({
                 onPress={confirmDelete}
                 disabled={deleting}
               >
-                <Text className="text-center text-base font-medium text-white">Delete</Text>
+                <Text className="text-center text-base font-medium text-white dark:text-black">Delete</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
