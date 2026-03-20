@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getColors } from "@/constants/colors";
 import { TIMEZONES as ALL_TIMEZONES } from "@/constants/timezones";
 import { type Schedule, useUpdateSchedule } from "@/hooks/useSchedules";
-import { showErrorAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 
 // Format timezones for display
 const TIMEZONES = ALL_TIMEZONES.map((tz) => ({
@@ -94,9 +94,8 @@ export const EditAvailabilityNameScreen = forwardRef<
       },
       {
         onSuccess: () => {
-          Alert.alert("Success", "Schedule updated successfully", [
-            { text: "OK", onPress: onSuccess },
-          ]);
+          showSilentSuccessAlert("Success", "Schedule updated successfully");
+          onSuccess();
         },
         onError: () => {
           showErrorAlert("Error", "Failed to update schedule. Please try again.");
