@@ -96,11 +96,11 @@ export const EditAvailabilityOverrideScreen = forwardRef<
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
-  const backgroundStyle = transparentBackground
-    ? "bg-transparent"
+  const backgroundColor = transparentBackground
+    ? "transparent"
     : isDark
-      ? "bg-black"
-      : `bg-[${theme.backgroundMuted}]`;
+      ? theme.background
+      : theme.backgroundMuted;
 
   // Use mutation hook for cache-synchronized updates
   const { mutate: updateSchedule, isPending: isMutating } = useUpdateSchedule();
@@ -344,7 +344,7 @@ export const EditAvailabilityOverrideScreen = forwardRef<
 
   if (!schedule) {
     return (
-      <View className={`flex-1 items-center justify-center ${backgroundStyle}`}>
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor }}>
         <Text className="text-[#A3A3A3]">No schedule data</Text>
       </View>
     );
@@ -352,7 +352,8 @@ export const EditAvailabilityOverrideScreen = forwardRef<
 
   return (
     <ScrollView
-      className={`flex-1 ${backgroundStyle}`}
+      className="flex-1"
+      style={{ backgroundColor }}
       contentContainerStyle={{
         padding: 16,
         paddingBottom: insets.bottom + 16,

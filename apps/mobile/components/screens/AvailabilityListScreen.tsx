@@ -444,11 +444,11 @@ export function AvailabilityListScreen({
             <View>
               <AlertDialogText className="mb-2 text-sm font-medium">Name</AlertDialogText>
               <TextInput
-                className={`rounded-md border bg-white px-3 py-2.5 text-base text-gray-900 ${
-                  nameError ? "border-red-500" : "border-gray-300"
+                className={`rounded-md border bg-white px-3 py-2.5 text-base text-gray-900 dark:bg-[#262626] dark:text-white ${
+                  nameError ? "border-red-500" : "border-gray-300 dark:border-[#4D4D4D]"
                 }`}
                 placeholder="Working Hours"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={isDark ? "#636366" : "#9CA3AF"}
                 value={newScheduleName}
                 onChangeText={(text) => {
                   setNewScheduleName(text);
@@ -512,7 +512,7 @@ export function AvailabilityListScreen({
                   <TextInput
                     className="rounded-md border border-gray-300 bg-white px-3 py-2.5 text-base text-gray-900 dark:border-[#4D4D4D] dark:bg-[#262626] dark:text-white"
                     placeholder="Working Hours"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={isDark ? "#636366" : "#9CA3AF"}
                     value={newScheduleName}
                     onChangeText={setNewScheduleName}
                     autoFocus
@@ -530,11 +530,11 @@ export function AvailabilityListScreen({
               <View className="flex-row-reverse gap-2 px-6 pb-6 pt-2">
                 <TouchableOpacity
                   className={`rounded-lg px-4 py-2.5 ${creating ? "opacity-50" : ""}`}
-                  style={{ backgroundColor: "#111827" }}
+                  style={{ backgroundColor: isDark ? "#FFFFFF" : "#111827" }}
                   onPress={handleCreateSchedule}
                   disabled={creating}
                 >
-                  <Text className="text-center text-base font-medium text-white">Continue</Text>
+                  <Text className="text-center text-base font-medium text-white dark:text-black">Continue</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -689,7 +689,7 @@ export function AvailabilityListScreen({
             <View className="flex-row-reverse gap-2 px-6 pb-6 pt-2">
               <TouchableOpacity
                 className={`rounded-lg px-4 py-2.5 ${deleting ? "opacity-50" : ""}`}
-                style={{ backgroundColor: deleting ? "#6B7280" : "#111827" }}
+                style={{ backgroundColor: deleting ? "#6B7280" : isDark ? "#FFFFFF" : "#111827" }}
                 onPress={confirmDelete}
                 disabled={deleting}
               >

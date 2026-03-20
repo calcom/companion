@@ -1111,7 +1111,7 @@ export function BookingDetailScreen({
           onRequestClose={handleCloseCancelDialog}
         >
           <View className="flex-1 items-center justify-center bg-black/50 p-4">
-            <View className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+            <View className="w-full max-w-md rounded-2xl bg-white shadow-2xl dark:bg-[#171717]">
               <View className="p-6">
                 <View className="flex-row">
                   {/* Danger icon */}
@@ -1121,21 +1121,21 @@ export function BookingDetailScreen({
 
                   {/* Title and description */}
                   <View className="flex-1">
-                    <Text className="mb-2 text-xl font-semibold text-gray-900">Cancel Event</Text>
-                    <Text className="text-sm leading-5 text-gray-600">
+                    <Text className="mb-2 text-xl font-semibold text-gray-900 dark:text-white">Cancel Event</Text>
+                    <Text className="text-sm leading-5 text-gray-600 dark:text-[#A3A3A3]">
                       Are you sure you want to cancel "{booking?.title}"? Cancellation reason will
                       be shared with guests.
                     </Text>
 
                     {/* Reason Input */}
                     <View className="mt-4">
-                      <Text className="mb-2 text-sm font-medium text-gray-700">
+                      <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-[#A3A3A3]">
                         Reason for cancellation
                       </Text>
                       <TextInput
-                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 dark:border-[#4D4D4D] dark:bg-[#262626] dark:text-white"
                         placeholder="Why are you cancelling?"
-                        placeholderTextColor="#9CA3AF"
+                        placeholderTextColor={isDark ? "#636366" : "#9CA3AF"}
                         value={cancellationReason}
                         onChangeText={setCancellationReason}
                         multiline
@@ -1152,17 +1152,17 @@ export function BookingDetailScreen({
               <View className="flex-row-reverse gap-2 px-6 pb-6 pt-2">
                 <TouchableOpacity
                   className="rounded-lg px-4 py-2.5"
-                  style={{ backgroundColor: "#111827" }}
+                  style={{ backgroundColor: isDark ? "#FFFFFF" : "#111827" }}
                   onPress={handleConfirmCancel}
                 >
-                  <Text className="text-center text-base font-medium text-white">Cancel Event</Text>
+                  <Text className="text-center text-base font-medium text-white dark:text-black">Cancel Event</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5"
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 dark:border-[#4D4D4D] dark:bg-[#262626]"
                   onPress={handleCloseCancelDialog}
                 >
-                  <Text className="text-center text-base font-medium text-gray-700">Nevermind</Text>
+                  <Text className="text-center text-base font-medium text-gray-700 dark:text-white">Nevermind</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1188,9 +1188,9 @@ export function BookingDetailScreen({
             <View>
               <UIText className="mb-2 text-sm font-medium">Reason for cancellation</UIText>
               <TextInput
-                className="rounded-md border border-[#D1D5DB] bg-white px-3 py-2.5 text-base text-[#111827]"
+                className="rounded-md border border-[#D1D5DB] bg-white px-3 py-2.5 text-base text-[#111827] dark:border-[#4D4D4D] dark:bg-[#262626] dark:text-white"
                 placeholder="Why are you cancelling?"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={isDark ? "#636366" : "#9CA3AF"}
                 value={cancellationReason}
                 onChangeText={setCancellationReason}
                 autoFocus
