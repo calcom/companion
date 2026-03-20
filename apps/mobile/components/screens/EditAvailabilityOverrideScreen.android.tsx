@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getColors } from "@/constants/colors";
 import { useUpdateSchedule } from "@/hooks/useSchedules";
 import type { Schedule } from "@/services/calcom";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 
 // Convert 24-hour time to 12-hour format with AM/PM
 const formatTime12Hour = (time24: string): string => {
@@ -185,7 +185,7 @@ export const EditAvailabilityOverrideScreen = forwardRef<
         { id: schedule.id, updates: { overrides: newOverrides } },
         {
           onSuccess: () => {
-            showSuccessAlert("Success", successMessage);
+            showSilentSuccessAlert("Success", successMessage);
             onSuccess();
           },
           onError: () => {

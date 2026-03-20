@@ -8,7 +8,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -22,7 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getColors } from "@/constants/colors";
 import { useAddGuests } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { safeLogError } from "@/utils/safeLogger";
 
 export interface AddGuestsScreenProps {
@@ -132,14 +131,8 @@ export const AddGuestsScreen = forwardRef<AddGuestsScreenHandle, AddGuestsScreen
         },
         {
           onSuccess: () => {
-            if (Platform.OS === "web") {
-              showSuccessAlert("Success", "Guests added successfully");
-              onSuccess();
-            } else {
-              Alert.alert("Success", "Guests added successfully", [
-                { text: "OK", onPress: onSuccess },
-              ]);
-            }
+            showSilentSuccessAlert("Success", "Guests added successfully");
+            onSuccess();
           },
           onError: (error) => {
             safeLogError("[AddGuestsScreen] Failed to add guests:", error);

@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppPressable } from "@/components/AppPressable";
 import { useDeleteSchedule, useScheduleById, useSetScheduleAsDefault } from "@/hooks/useSchedules";
 import type { ScheduleAvailability } from "@/services/types";
-import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showInfoAlert, showSilentSuccessAlert } from "@/utils/alerts";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -172,7 +172,7 @@ export const AvailabilityDetailScreen = forwardRef<
 
     setAsDefaultMutation(Number(id), {
       onSuccess: () => {
-        showSuccessAlert("Success", "Availability set as default successfully");
+        showSilentSuccessAlert("Success", "Availability set as default successfully");
       },
       onError: () => {
         showErrorAlert("Error", "Failed to set availability as default. Please try again.");

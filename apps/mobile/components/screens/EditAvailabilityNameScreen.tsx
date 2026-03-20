@@ -16,7 +16,7 @@ import { AppPressable } from "@/components/AppPressable";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import { TIMEZONES as ALL_TIMEZONES } from "@/constants/timezones";
 import { type Schedule, useUpdateSchedule } from "@/hooks/useSchedules";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { shadows } from "@/utils/shadows";
 
 // Format timezones for display
@@ -83,7 +83,7 @@ export const EditAvailabilityNameScreen = forwardRef<
       },
       {
         onSuccess: () => {
-          showSuccessAlert("Success", "Schedule updated successfully");
+          showSilentSuccessAlert("Success", "Schedule updated successfully");
           onSuccess();
         },
         onError: () => {

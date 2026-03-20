@@ -31,7 +31,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUpdateLocation } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { safeLogError } from "@/utils/safeLogger";
 
 export const LOCATION_TYPES = {
@@ -191,7 +191,7 @@ export const EditLocationScreen = forwardRef<EditLocationScreenHandle, EditLocat
         },
         {
           onSuccess: () => {
-            showSuccessAlert("Success", "Location updated successfully");
+            showSilentSuccessAlert("Success", "Location updated successfully");
             onSuccess();
           },
           onError: (error) => {

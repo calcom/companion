@@ -43,6 +43,7 @@ import {
   showErrorAlert,
   showInfoAlert,
   showNotAvailableAlert,
+  showSilentSuccessAlert,
   showSuccessAlert,
 } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
@@ -1248,7 +1249,7 @@ export default function EventTypeDetail() {
         showErrorAlert("Error", "Failed to create event type. Please try again.");
         return;
       }
-      showSuccessAlert("Success", "Event type created successfully");
+      showSilentSuccessAlert("Success", "Event type created successfully");
       router.back();
     } else {
       // For UPDATE mode, use partial update - only send changed fields
@@ -1269,7 +1270,7 @@ export default function EventTypeDetail() {
         showErrorAlert("Error", "Failed to update event type. Please try again.");
         return;
       }
-      showSuccessAlert("Success", "Event type updated successfully");
+      showSilentSuccessAlert("Success", "Event type updated successfully");
       // No need to manually refresh - cache is updated by the mutation hook
     }
   }, [
