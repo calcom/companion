@@ -42,7 +42,7 @@ import {
   useRescheduleBooking,
 } from "@/hooks";
 import type { Booking, EventType } from "@/services/calcom";
-import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showInfoAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 import type { ListItem, RecurringBookingGroup } from "@/utils/bookings-utils";
 import {
   filterByEventType,
@@ -465,7 +465,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
                   `Confirmed ${successCount} bookings. Failed to confirm ${errorCount}.`
                 );
               } else {
-                showSuccessAlert("Success", `All ${successCount} bookings have been confirmed.`);
+                showSilentSuccessAlert("Success", `All ${successCount} bookings have been confirmed.`);
               }
             },
           },
@@ -556,7 +556,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
                           `Rejected ${successCount} bookings. Failed to reject ${errorCount}.`
                         );
                       } else {
-                        showSuccessAlert(
+                        showSilentSuccessAlert(
                           "Success",
                           `All ${successCount} bookings have been rejected.`
                         );
@@ -1062,7 +1062,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
                       `Rejected ${successCount} bookings. Failed to reject ${errorCount}.`
                     );
                   } else {
-                    showSuccessAlert("Success", `All ${successCount} bookings have been rejected.`);
+                    showSilentSuccessAlert("Success", `All ${successCount} bookings have been rejected.`);
                   }
                 }}
               >

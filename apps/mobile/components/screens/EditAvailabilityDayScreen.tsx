@@ -16,7 +16,7 @@ import { FullScreenModal } from "@/components/FullScreenModal";
 import { useUpdateSchedule } from "@/hooks/useSchedules";
 import type { Schedule } from "@/services/calcom";
 import type { ScheduleAvailability } from "@/services/types";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { shadows } from "@/utils/shadows";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -349,7 +349,7 @@ export const EditAvailabilityDayScreen = forwardRef<
       { id: schedule.id, updates: { availability: fullAvailability } },
       {
         onSuccess: () => {
-          showSuccessAlert("Success", `${dayName} updated successfully`);
+          showSilentSuccessAlert("Success", `${dayName} updated successfully`);
           onSuccess();
         },
         onError: () => {

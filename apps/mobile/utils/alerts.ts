@@ -74,6 +74,22 @@ export const showSuccessAlert = (title: string, message: string) => {
 };
 
 /**
+ * Show a success alert only on web (browser extension).
+ * On native (iOS/Android), this is a no-op — the UI state change
+ * (navigation, list refresh, etc.) provides sufficient feedback.
+ *
+ * On web, this only shows feedback when globalShowToast is registered
+ * (i.e., when the ToastProvider is mounted). If globalShowToast is null,
+ * this is a complete no-op on all platforms.
+ */
+export const showSilentSuccessAlert = (title: string, message: string) => {
+  if (Platform.OS === "web" && globalShowToast) {
+    globalShowToast(title, message, "success");
+    return;
+  }
+};
+
+/**
  * Show an info alert (always shown - informational feedback)
  * On web, shows a centered toast notification.
  *

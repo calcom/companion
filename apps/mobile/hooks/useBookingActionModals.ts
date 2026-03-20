@@ -15,7 +15,7 @@ import type {
   BookingRecording,
   ConferencingSession,
 } from "@/services/types/bookings.types";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 
 interface UseBookingActionModalsReturn {
   // Selected booking for actions
@@ -121,7 +121,7 @@ export function useBookingActionModals(): UseBookingActionModalsReturn {
       setIsAddingGuests(true);
       try {
         await CalComAPIService.addGuests(selectedBooking.uid, guests);
-        showSuccessAlert(
+        showSilentSuccessAlert(
           "Success",
           "Guests added successfully. They will receive an email notification."
         );
@@ -160,7 +160,7 @@ export function useBookingActionModals(): UseBookingActionModalsReturn {
       setIsUpdatingLocation(true);
       try {
         await CalComAPIService.updateLocation(selectedBooking.uid, location);
-        showSuccessAlert(
+        showSilentSuccessAlert(
           "Success",
           "Location updated successfully. Note: The calendar event may not be automatically updated."
         );

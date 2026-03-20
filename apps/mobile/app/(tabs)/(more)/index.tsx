@@ -16,7 +16,7 @@ import { getColors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryContext } from "@/contexts/QueryContext";
 import { type LandingPage, useUserPreferences } from "@/hooks/useUserPreferences";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 
 interface MoreMenuItem {
@@ -40,7 +40,7 @@ export default function More() {
   const handleLandingPageSelect = async (value: LandingPage) => {
     try {
       await setLandingPage(value);
-      showSuccessAlert("Saved", "First page updated");
+      showSilentSuccessAlert("Saved", "First page updated");
     } catch {
       showErrorAlert("Error", "Failed to save preference. Please try again.");
     }

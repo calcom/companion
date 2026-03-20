@@ -39,7 +39,7 @@ import {
   useSetScheduleAsDefault,
 } from "@/hooks";
 import { CalComAPIService, type Schedule } from "@/services/calcom";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 import { offlineAwareRefresh } from "@/utils/network";
 
 export interface AvailabilityListScreenProps {
@@ -119,7 +119,7 @@ export function AvailabilityListScreen({
   const handleSetAsDefault = (schedule: Schedule) => {
     setAsDefaultMutation(schedule.id, {
       onSuccess: () => {
-        showSuccessAlert("Success", "Schedule set as default");
+        showSilentSuccessAlert("Success", "Schedule set as default");
       },
       onError: () => {
         showErrorAlert("Error", "Failed to set schedule as default. Please try again.");
@@ -130,7 +130,7 @@ export function AvailabilityListScreen({
   const handleDuplicate = (schedule: Schedule) => {
     duplicateScheduleMutation(schedule.id, {
       onSuccess: () => {
-        showSuccessAlert("Success", "Schedule duplicated successfully");
+        showSilentSuccessAlert("Success", "Schedule duplicated successfully");
       },
       onError: () => {
         showErrorAlert("Error", "Failed to duplicate schedule. Please try again.");

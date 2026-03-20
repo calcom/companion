@@ -16,7 +16,7 @@ import { AppPressable } from "@/components/AppPressable";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import { useUpdateSchedule } from "@/hooks/useSchedules";
 import type { Schedule } from "@/services/calcom";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { shadows } from "@/utils/shadows";
 
 // Generate time options (15-minute intervals)
@@ -187,12 +187,8 @@ export const EditAvailabilityOverrideScreen = forwardRef<
         { id: schedule.id, updates: { overrides: newOverrides } },
         {
           onSuccess: () => {
-            if (Platform.OS === "web") {
-              showSuccessAlert("Success", successMessage);
-              onSuccess();
-            } else {
-              Alert.alert("Success", successMessage, [{ text: "OK", onPress: onSuccess }]);
-            }
+            showSilentSuccessAlert("Success", successMessage);
+            onSuccess();
           },
           onError: () => {
             showErrorAlert("Error", "Failed to save override. Please try again.");
