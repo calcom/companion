@@ -156,10 +156,15 @@ export function upcomingBookingsCard(
     });
   }
 
+  const shownCount = Math.min(bookings.length, 20);
+
   return Card({
-    title: `Upcoming Bookings (${bookings.length})`,
+    title:
+      shownCount === bookings.length
+        ? `Upcoming Bookings (${shownCount})`
+        : `Upcoming Bookings (showing ${shownCount} of ${bookings.length})`,
     children: [
-      ...bookings.slice(0, 5).flatMap((b) => {
+      ...bookings.slice(0, shownCount).flatMap((b) => {
         const time = formatBookingTime(b.start, b.end);
         const names = b.attendees.map((a) => a.name).join(", ");
         return [
@@ -196,9 +201,10 @@ export function availabilityListCard(
     : `For: ${eventTypeTitle}`;
 
   return Card({
-    title: "Your Available Slots",
+    title: "Available Slots",
     subtitle,
     children: [
+      CardText("Showing up to the first 5 soonest available times."),
       Fields(slots.slice(0, 5).map((s) => Field({ label: s.label, value: s.time }))),
       ...(options?.hint ? [CardText(options.hint)] : []),
       Divider(),
@@ -229,7 +235,7 @@ export function availabilityCard(
     subtitle: `For: ${eventTypeTitle}`,
     children: [
       Section([
-        CardText("Select a time to book:"),
+        CardText("Select from the first 5 available times:"),
         Actions([
           Select({
             id: "select_slot",
@@ -600,7 +606,7 @@ export function rescheduleSlotPickerCard(
     children: [
       CardText(`Currently: ${originalTime}`),
       Section([
-        CardText("Select a new time:"),
+        CardText("Select from the first 5 available times:"),
         Actions([
           Select({
             id: "reschedule_select_slot",
@@ -672,6 +678,7 @@ export function telegramSlotPickerCard(
     title: "Pick a Time",
     subtitle: eventTypeTitle,
     children: [
+      CardText("Showing up to the first 5 soonest options."),
       ...slots.slice(0, 5).map((s, i) =>
         Actions([
           Button({ id: `tg_book_slot_${i}`, label: s.label }),
@@ -777,6 +784,7 @@ export function bookSlotPickerCard(
     subtitle: eventTypeTitle,
     children: [
       Section([
+        CardText("Select from the first 5 available times:"),
         Actions([
           Select({
             id: "select_book_slot",

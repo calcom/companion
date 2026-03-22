@@ -49,6 +49,12 @@ const MAX_SLOTS_RETURNED = 15;
 const MAX_NEXT_AVAILABLE_SLOTS = 5;
 const EXTENDED_SEARCH_DAYS = 14;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+/** Default list_bookings take when afterStart + beforeEnd bound the query (day/week windows). */
+const LIST_BOOKINGS_DEFAULT_TAKE_BOUNDED = 100;
+/** Default list_bookings take for open-ended upcoming/past lists (no date range). */
+const LIST_BOOKINGS_DEFAULT_TAKE_UNBOUNDED = 25;
+/** Over-fetch for org-linked users because the API paginates before client-side filtering. */
+const LIST_BOOKINGS_ORG_PREFETCH_MULTIPLIER = 2;
 
 // ─── User context injected from bot layer ────────────────────────────────────
 
@@ -170,7 +176,7 @@ URGENCY ("ASAP", "as soon as possible", "earliest", "next available", "soonest")
   4. Call check_availability (Option A) or check_availability_public (Option B) with startDate = today, daysAhead = 3.
   5. ${bold}If slots are returned:${bold} auto-select \`slots[0]\` (the earliest). Do NOT show a list. Present a single confirmation: "Booking [Title] with [Person] on [Date] at [Time]. Confirm?"
   6. ${bold}If 0 slots in 3 days:${bold} the tool response includes \`nextAvailableSlots\` (extended ${EXTENDED_SEARCH_DAYS}-day search). Use \`nextAvailableSlots[0]\` instead. Do NOT re-call the tool. Say: "No slots in the next 3 days. The earliest available is [date/time]. Book that? Or I can show more options."
-  7. On "yes" → book. On "no" / "different time" → show the next 3-5 slots from the same response.
+  7. On "yes" → book. On "no" / "different time" → show the next 3-5 slots from the same response and make it clear they are only the first options you have right now, not necessarily every possible slot.
   8. Do NOT ask "what date/time?" — the user already said they want the soonest.
 - IMPORTANT: When the user picks an event type in a follow-up message (e.g. "15 min meeting"), check [CACHED TOOL DATA] for \`_booking_intent\`. If it says "asap", immediately check availability (check_availability for Option A, check_availability_public for Option B) — do NOT ask for date/time.
 
@@ -221,10 +227,12 @@ ${bold}STEP 1 — IDENTIFY THE BOOKING:${bold}
 - If the user describes the booking by name, time, or attendee (e.g. "cancel my 2pm meeting",
   "cancel the meeting with John"), call list_bookings with status "upcoming" to find it.
 - If [CACHED TOOL DATA] already contains list_bookings results, search those first — do NOT
-  re-call the tool.
+  re-call the tool unless that cached page has \`hasMore: true\` and you still need a complete answer or exact match.
 - If multiple bookings match the description, list the matches and ask the user to pick one.
   Show: title, date/time (in user's timezone), and attendees for each.
-- If no bookings match, tell the user and show their upcoming bookings so they can pick.
+- If no bookings match, do NOT assume the booking does not exist if the cached/result page was partial.
+  Re-call list_bookings with a better date range, higher take, or pagination before concluding there is no match.
+- Once you are confident the search is complete, if no bookings match, tell the user and show their upcoming bookings so they can pick.
 
 ${bold}STEP 2 — CONFIRM + REASON (combined):${bold}
 - Show the booking details and ask in ONE message:
@@ -265,10 +273,12 @@ ${bold}STEP 1 -- IDENTIFY THE BOOKING:${bold}
 - If the user describes the booking by name, time, or attendee (e.g. "move my 2pm",
   "reschedule the meeting with John"), call list_bookings with status "upcoming" to find it.
 - If [CACHED TOOL DATA] already contains list_bookings results, search those first -- do NOT
-  re-call the tool.
+  re-call the tool unless that cached page has \`hasMore: true\` and you still need a complete answer or exact match.
 - If multiple bookings match, list the matches and ask the user to pick one.
   Show: title, date/time (in user's timezone), and attendees for each.
-- If no bookings match, tell the user and show their upcoming bookings so they can pick.
+- If no bookings match, do NOT assume the booking does not exist if the cached/result page was partial.
+  Re-call list_bookings with a better date range, higher take, or pagination before concluding there is no match.
+- Once you are confident the search is complete, if no bookings match, tell the user and show their upcoming bookings so they can pick.
 - Once identified, note the booking's eventType.id (or eventType.slug + host username for
   public bookings) -- you will need this for the availability check.
 
@@ -293,8 +303,8 @@ ${bold}STEP 3 -- CHECK AVAILABILITY (MANDATORY before rescheduling):${bold}
   - If available: proceed to Step 4.
   - If NOT available: tell the user that time is not available and present
     alternatives from the slot results.
-- If the user did not specify a time, present the first 5 available slots and ask
-  them to pick one.
+- If the user did not specify a time, present up to the first 5 available slots and ask
+  them to pick one. If the tool result indicates more slots exist, say you are showing the first set of options.
 
 ${bold}STEP 4 -- CONFIRM AND RESCHEDULE:${bold}
 - Show the change summary and ask for confirmation in ONE message:
@@ -333,15 +343,15 @@ ${bold}AFTER RESCHEDULING:${bold}
 When the user wants to confirm or decline a pending booking, follow these steps:
 
 ${bold}STEP 1 — IDENTIFY PENDING BOOKINGS:${bold}
-- Call list_bookings with status "unconfirmed" to fetch pending bookings.
+- Call list_bookings with status "unconfirmed" and take 100 to fetch pending bookings.
 - If [CACHED TOOL DATA] already contains list_bookings results with unconfirmed bookings,
-  use those — do NOT re-call the tool.
+  use those unless the cached result has \`hasMore: true\` and the user expects the full list.
 - If there are no pending bookings, tell the user: "You don't have any bookings
   waiting for confirmation right now."
 - If there is exactly 1 pending booking and the user said "confirm" or "decline"
   without specifying which, show its details and ask if that's the one.
 - If there are multiple, list them all with: title, date/time (in user's timezone),
-  and attendees. Ask the user which one(s) to confirm or decline.
+  and attendees. If the result is still partial (\`hasMore: true\`), say you are showing the first page and continue paginating before claiming you have listed everything.
 
 ${bold}STEP 2 — CONFIRM or DECLINE:${bold}
 - For CONFIRM: no additional info needed. Show the booking details and ask:
@@ -395,8 +405,9 @@ ${bold}STEP 1 -- DETERMINE THE TIME RANGE:${bold}
 - Always convert to UTC using the user's timezone.
 
 ${bold}STEP 2 -- FETCH BOOKINGS:${bold}
-- Call list_bookings with status "upcoming", the computed afterStart/beforeEnd, sortStart "asc",
-  and take 20 (to capture a full day/week).
+- Call list_bookings with status "upcoming", the computed afterStart/beforeEnd, sortStart "asc".
+  Omit take for date-bounded queries (the tool uses a high default for bounded ranges). If hasMore
+  is true, call again with skip to fetch the rest — never assume a day is free from a truncated list.
 - Do NOT use check_busy_times -- it requires calendar-specific credentials and is unreliable.
 
 ${bold}STEP 3 -- ANSWER THE QUESTION:${bold}
@@ -565,13 +576,15 @@ ${bold}COMMON REQUESTS:${bold}
 3. NEVER call the same tool more than once in a single step.
 4. NEVER call check_availability more than once per step. Pick ONE eventTypeId and ONE date range.
 5. If check_availability returns \`totalSlots: 0\`, read the \`noSlotsReason\` and present the \`nextAvailableSlots\` as alternatives. NEVER say "I wasn't able to check" or "I couldn't check" — the check succeeded, there are just no slots for that date.
-6. If check_availability returns slots, USE them in your response. Do not discard results.
+6. If check_availability returns slots, USE them in your response. Do not discard results. If \`hasMore: true\`, make it clear you are showing only the first set of slots currently returned.
 7. NEVER call \`check_availability\` for another user's event type — it requires the host's auth token. Use \`check_availability_public\` instead (pass eventTypeSlug + username).
 8. Never call a tool with empty or placeholder arguments.
 9. During a booking flow, sequential tool calls across steps are expected (list_event_types → check_availability → book_meeting). Chain them in the same turn when possible. After completing the task, respond with text.
 10. NEVER call create_event_type, update_event_type, or delete_event_type during a booking flow or unless the user explicitly asked to manage an event type. For delete, ALWAYS confirm first.
 11. For "am I free?" questions, use list_bookings with afterStart/beforeEnd date filters -- do NOT use check_busy_times.
 12. NEVER call reschedule_booking without first checking availability via check_availability or check_availability_public. Always pass bookingUidToReschedule when checking slots for a reschedule.
+13. If any booking result includes \`hasMore: true\`, treat it as partial. Paginate with \`skip\` before claiming a list is complete, a user is free all day/week, or a booking does not exist.
+14. Cached \`list_bookings\` data may only be the first page. If cached results have \`hasMore: true\` or do not fully answer the user's question, call \`list_bookings\` again with better filters or pagination instead of assuming the cache is complete.
 
 ## Formatting Rules
 ${
@@ -605,11 +618,11 @@ FINDING PAST MEETINGS WITH SOMEONE:
   2. If only a name is given, use attendeeName to filter.
   3. If the user provides an email directly (e.g. "check david@cal.com"), use attendeeEmail.
   4. Always pass status: "past" and sortStart: "desc" to get the most recent meeting first.
-  5. Use take: 10 to get enough history.
+  5. Start with take: 25. If there is no match and \`hasMore: true\`, paginate with \`skip\` or narrow the date range before concluding there is no match.
 - IMPORTANT: The attendeeEmail/attendeeName API filters only match the ATTENDEES list, not the host.
   If the person is the HOST of the meeting (e.g. the user booked onto their calendar), the attendee filter will miss it.
-  When attendee filters return no results, do a second call: list_bookings with status "past", sortStart "desc", take 10 (no attendee filter),
-  then scan the returned \`hosts\` field for the person's name or email. Each booking now includes a \`hosts\` array alongside \`attendees\`.
+  When attendee filters return no results, do a second call: list_bookings with status "past", sortStart "desc", take 25 (no attendee filter),
+  then scan the returned \`hosts\` field for the person's name or email. If that second page has \`hasMore: true\` and you still have no match, paginate before saying no meetings were found. Each booking now includes a \`hosts\` array alongside \`attendees\`.
 - Show results as a list with title, date/time, host, and attendees.
 
 MARKING NO-SHOWS:
@@ -1310,7 +1323,7 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
 
     list_bookings: tool({
       description:
-        "List the user's bookings with pagination. Can filter by status, attendee name/email, and date range. Supports sorting by start time. Returns hosts and attendees for each booking. Use skip/take for pagination. Note: attendeeEmail/attendeeName filters only match attendees, not hosts.",
+        "List the user's bookings with pagination. Can filter by status, attendee name/email, and date range. Supports sorting by start time. Returns hosts and attendees for each booking. When both afterStart and beforeEnd are set, omitted take uses a high default so week/day summaries are complete; without a date range, omitted take is moderate for open-ended lists. Pass an explicit take to override. If hasMore is true, paginate with skip. Org-linked accounts may still need a higher take or narrower date filters because the API paginates before client-side filtering to only your bookings. Note: attendeeEmail/attendeeName filters only match attendees, not hosts.",
       inputSchema: z.object({
         status: z
           .enum(["upcoming", "past", "cancelled", "recurring", "unconfirmed"])
@@ -1347,8 +1360,9 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           .number()
           .nullable()
           .optional()
-          .default(5)
-          .describe("Max bookings to return. Default: 5."),
+          .describe(
+            "Max bookings to return. Omit for defaults: high when afterStart and beforeEnd are both set (full day/week), moderate for open-ended lists. Override when you need a specific cap or pagination page size."
+          ),
         skip: z
           .number()
           .nullable()
@@ -1366,12 +1380,24 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
           const currentUser = linked
             ? { id: linked.calcomUserId, email: linked.calcomEmail }
             : undefined;
-          const requestedTake = take ?? 5;
+          const isOrgLinkedUser =
+            linked?.calcomOrganizationId != null && linked.calcomOrgIsPlatform === false;
+          const hasDateBounds =
+            afterStart != null &&
+            String(afterStart).trim() !== "" &&
+            beforeEnd != null &&
+            String(beforeEnd).trim() !== "";
+          const defaultTake = hasDateBounds
+            ? LIST_BOOKINGS_DEFAULT_TAKE_BOUNDED
+            : LIST_BOOKINGS_DEFAULT_TAKE_UNBOUNDED;
+          const requestedTake = take != null ? take : defaultTake;
+          const apiTake =
+            requestedTake * (isOrgLinkedUser ? LIST_BOOKINGS_ORG_PREFETCH_MULTIPLIER : 1) + 1;
           const bookings = await getBookings(
             token,
             {
               status: status ?? "upcoming",
-              take: requestedTake + 1,
+              take: apiTake,
               skip: skip ?? 0,
               ...(attendeeEmail ? { attendeeEmail } : {}),
               ...(attendeeName ? { attendeeName } : {}),
@@ -1401,6 +1427,12 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
               recurringBookingUid: b.recurringBookingUid ?? null,
             })),
             hasMore,
+            ...(isOrgLinkedUser
+              ? {
+                  warning:
+                    "This account is linked to an organization, and the upstream API paginates before filtering to only your bookings. If something looks missing, use a higher take, narrower date filters, or paginate with skip."
+                }
+              : {}),
             manageUrl: `${CALCOM_APP_URL}/bookings`,
           };
         } catch (err) {
