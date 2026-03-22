@@ -30,6 +30,17 @@ A native companion app built with [Expo](https://expo.dev) and React Native.
 - **Dark mode** — Full light/dark theme support that follows your system preference
 - **OAuth** — Secure sign-in via Cal.com OAuth with PKCE
 
+## CLI
+
+A command-line interface for Cal.com API v2 — manage your account directly from the terminal.
+
+```sh
+npm install -g @calcom/cli
+
+calcom login    # Authenticate with Cal.com
+calcom --help   # View all available commands
+```
+
 ## Browser Extensions
 
 A cross-browser extension built with [WXT](https://wxt.dev) that brings Cal.com into the pages you already use.
@@ -47,6 +58,7 @@ A cross-browser extension built with [WXT](https://wxt.dev) that brings Cal.com 
 | Mobile app | [Expo](https://expo.dev) (React Native) with [Expo Router](https://docs.expo.dev/router/introduction/) |
 | Styling | [NativeWind](https://www.nativewind.dev/) (Tailwind CSS for React Native) |
 | Browser extension | [WXT](https://wxt.dev) (next-gen web extension framework) |
+| CLI | [Commander.js](https://github.com/tj/commander.js) with auto-generated API client |
 | Data fetching | [TanStack Query](https://tanstack.com/query) with persistent cache |
 | iOS widget | SwiftUI + WidgetKit |
 | Android widget | [react-native-android-widget](https://github.com/nickkraakman/react-native-android-widget) |
@@ -113,12 +125,13 @@ bun run ext:zip-chrome-prod
 ## Project Structure
 
 ```
-├── app/                  # Expo Router screens (tabs, modals, sheets)
+├── apps/
+│   ├── mobile/           # Expo Router screens (tabs, modals, sheets)
+│   └── extension/        # Browser extension source (WXT)
+├── packages/
+│   └── cli/              # Cal.com CLI (@calcom/cli)
+│       └── src/commands/ # CLI commands (bookings, event-types, etc.)
 ├── components/           # Shared React Native components
-├── extension/            # Browser extension source (WXT)
-│   ├── entrypoints/      # Background script & content script
-│   ├── lib/              # Gmail, LinkedIn, Google Calendar integrations
-│   └── public/           # Extension icons & static assets
 ├── hooks/                # Custom React hooks
 ├── services/             # Cal.com API client & OAuth service
 ├── contexts/             # React context providers (Auth, Query, Toast)
@@ -198,4 +211,5 @@ Any other message mentioning the bot triggers the AI scheduling assistant.
 - [Cal.com](https://cal.com)
 - [Cal.com Companion landing page](https://cal.com/app)
 - [Chrome Web Store](https://chromewebstore.google.com/detail/cal-companion/cbhlgojmamgmdijlkkokcmmjghgckahc)
+- [@calcom/cli on npm](https://www.npmjs.com/package/@calcom/cli)
 - [Documentation](https://cal.com/docs)

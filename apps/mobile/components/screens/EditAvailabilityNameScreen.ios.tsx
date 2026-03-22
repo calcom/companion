@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getColors } from "@/constants/colors";
 import { TIMEZONES as ALL_TIMEZONES } from "@/constants/timezones";
 import { type Schedule, useUpdateSchedule } from "@/hooks/useSchedules";
-import { showErrorAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 
 // Format timezones for display
 const TIMEZONES = ALL_TIMEZONES.map((tz) => ({
@@ -46,11 +46,11 @@ export const EditAvailabilityNameScreen = forwardRef<
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
-  const backgroundStyle = transparentBackground
-    ? "bg-transparent"
+  const backgroundColor = transparentBackground
+    ? "transparent"
     : isDark
-      ? "bg-black"
-      : `bg-[${theme.backgroundMuted}]`;
+      ? theme.background
+      : theme.backgroundMuted;
 
   const [name, setName] = useState("");
   const [timezone, setTimezone] = useState("UTC");
@@ -94,9 +94,8 @@ export const EditAvailabilityNameScreen = forwardRef<
       },
       {
         onSuccess: () => {
-          Alert.alert("Success", "Schedule updated successfully", [
-            { text: "OK", onPress: onSuccess },
-          ]);
+          showSilentSuccessAlert("Success", "Schedule updated successfully");
+          onSuccess();
         },
         onError: () => {
           showErrorAlert("Error", "Failed to update schedule. Please try again.");
@@ -118,14 +117,14 @@ export const EditAvailabilityNameScreen = forwardRef<
 
   if (!schedule) {
     return (
-      <View className={`flex-1 items-center justify-center ${backgroundStyle}`}>
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor }}>
         <Text className="text-[#A3A3A3]">No schedule data</Text>
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView behavior="padding" className={`flex-1 ${backgroundStyle}`}>
+    <KeyboardAvoidingView behavior="padding" className="flex-1" style={{ backgroundColor }}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{

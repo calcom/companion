@@ -68,24 +68,30 @@
           "android": {
             "datePicker": {
               "colorAccent": {
-                "light": "#000000"
+                "light": "#000000",
+                "dark": "#FFFFFF"
               },
               "textColorPrimary": {
-                "light": "#000000"
+                "light": "#000000",
+                "dark": "#FFFFFF"
               }
             },
             "timePicker": {
               "background": {
-                "light": "#ffffff"
+                "light": "#ffffff",
+                "dark": "#000000"
               },
               "numbersBackgroundColor": {
-                "light": "#ffffff"
+                "light": "#ffffff",
+                "dark": "#000000"
               },
               "headerBackground": {
-                "light": "#000000"
+                "light": "#000000",
+                "dark": "#FFFFFF"
               },
               "numbersSelectorColor": {
-                "light": "#000000"
+                "light": "#000000",
+                "dark": "#FFFFFF"
               }
             }
           }

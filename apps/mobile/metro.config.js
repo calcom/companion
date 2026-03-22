@@ -15,24 +15,31 @@ process.env.NODE_PATH = process.env.NODE_PATH
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 require("node:module").Module._initPaths();
 
-// Resolve react/compiler-runtime and react-native-css-interop to the correct paths.
-// NODE_PATH above includes the root .bun/node_modules which contains a stale
-// react-native-css-interop@0.1.22. We must force resolution to the 0.2.1 copy
-// inside apps/mobile/node_modules to avoid two conflicting CssInterop runtimes.
+// Force resolution of react, react-dom, react/compiler-runtime, and
+// react-native-css-interop to the copies inside apps/mobile/node_modules.
+// Without this, Metro may resolve these from the monorepo root where a
+// different React version is hoisted (e.g. 19.2.3 from apps/chat), causing
+// duplicate React instances and breaking the React Compiler on web.
+const mobileNodeModules = path.resolve(__dirname, "node_modules");
 const originalResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName === "react/compiler-runtime") {
-    return {
-      filePath: require.resolve("react/compiler-runtime"),
-      type: "sourceFile",
-    };
+  if (
+    moduleName === "react" ||
+    moduleName === "react-dom" ||
+    moduleName.startsWith("react/") ||
+    moduleName.startsWith("react-dom/")
+  ) {
+    const resolved = require.resolve(moduleName, {
+      paths: [mobileNodeModules],
+    });
+    return { filePath: resolved, type: "sourceFile" };
   }
   if (
     moduleName === "react-native-css-interop" ||
     moduleName.startsWith("react-native-css-interop/")
   ) {
     const resolved = require.resolve(moduleName, {
-      paths: [path.resolve(__dirname, "node_modules")],
+      paths: [mobileNodeModules],
     });
     return { filePath: resolved, type: "sourceFile" };
   }

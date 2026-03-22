@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getColors } from "@/constants/colors";
 import { useUpdateSchedule } from "@/hooks/useSchedules";
 import type { Schedule } from "@/services/calcom";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 
 // Convert 24-hour time to 12-hour format with AM/PM
 const formatTime12Hour = (time24: string): string => {
@@ -96,11 +96,11 @@ export const EditAvailabilityOverrideScreen = forwardRef<
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
-  const backgroundStyle = transparentBackground
-    ? "bg-transparent"
+  const backgroundColor = transparentBackground
+    ? "transparent"
     : isDark
-      ? "bg-black"
-      : `bg-[${theme.backgroundMuted}]`;
+      ? theme.background
+      : theme.backgroundMuted;
 
   // Use mutation hook for cache-synchronized updates
   const { mutate: updateSchedule, isPending: isMutating } = useUpdateSchedule();
@@ -185,7 +185,7 @@ export const EditAvailabilityOverrideScreen = forwardRef<
         { id: schedule.id, updates: { overrides: newOverrides } },
         {
           onSuccess: () => {
-            showSuccessAlert("Success", successMessage);
+            showSilentSuccessAlert("Success", successMessage);
             onSuccess();
           },
           onError: () => {
@@ -344,7 +344,7 @@ export const EditAvailabilityOverrideScreen = forwardRef<
 
   if (!schedule) {
     return (
-      <View className={`flex-1 items-center justify-center ${backgroundStyle}`}>
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor }}>
         <Text className="text-[#A3A3A3]">No schedule data</Text>
       </View>
     );
@@ -352,7 +352,8 @@ export const EditAvailabilityOverrideScreen = forwardRef<
 
   return (
     <ScrollView
-      className={`flex-1 ${backgroundStyle}`}
+      className="flex-1"
+      style={{ backgroundColor }}
       contentContainerStyle={{
         padding: 16,
         paddingBottom: insets.bottom + 16,

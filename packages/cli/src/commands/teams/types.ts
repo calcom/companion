@@ -1,13 +1,13 @@
 import type {
   BookingReference,
-  BookingReferencesOutput_2024_08_13,
+  BookingReferencesOutput20240813,
   CreateTeamMembershipOutput,
   CreateTeamOutput,
   GetTeamEventTypesOutput,
   GetTeamsOutput,
   OrgMeTeamsOutputResponseDto,
   OrgTeamOutputDto,
-  TeamEventTypeOutput_2024_06_14,
+  TeamEventTypeOutput20240614,
   TeamMembershipOutput,
   TeamOutputDto,
   UpdateTeamMembershipOutput,
@@ -27,10 +27,10 @@ export type TeamMembershipUpdateResponse = UpdateTeamMembershipOutput["data"];
 // Types for new org-scoped team endpoints
 export type OrgTeam = OrgTeamOutputDto;
 export type MyTeamsList = OrgMeTeamsOutputResponseDto["data"];
-export type TeamEventType = TeamEventTypeOutput_2024_06_14;
+export type TeamEventType = TeamEventTypeOutput20240614;
 export type TeamEventTypesList = GetTeamEventTypesOutput["data"];
 export type BookingReferenceType = BookingReference;
-export type BookingReferencesList = BookingReferencesOutput_2024_08_13["data"];
+export type BookingReferencesList = BookingReferencesOutput20240813["data"];
 
 // Booking reference type filter values
 export type BookingReferenceFilterType =

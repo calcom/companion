@@ -16,11 +16,11 @@ Unified TypeScript SDK for building chat bots across Slack, Teams, Google Chat, 
 
 ## Critical: Read the bundled docs
 
-The `chat` package ships with full documentation in `chat/node_modules/chat/docs/` and TypeScript source types. **Always read these before writing code:**
+The `chat` package ships with full documentation in `apps/chat/node_modules/chat/docs/` and TypeScript source types. **Always read these before writing code:**
 
 ```
-chat/node_modules/chat/docs/           # Full documentation (MDX files)
-chat/node_modules/chat/dist/           # Built types (.d.ts files)
+apps/chat/node_modules/chat/docs/           # Full documentation (MDX files)
+apps/chat/node_modules/chat/dist/           # Built types (.d.ts files)
 ```
 
 Key docs to read based on task:
