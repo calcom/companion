@@ -247,7 +247,7 @@ export function registerSlackHandlers(
 
       const bookings = await getBookings(
         accessToken,
-        { status: "upcoming", take: 5 },
+        { status: "upcoming", take: 20 },
         { id: linked.calcomUserId, email: linked.calcomEmail }
       );
 
@@ -256,7 +256,7 @@ export function registerSlackHandlers(
         subtitle: "Upcoming Bookings",
         children: [
           ...(bookings.length > 0
-            ? bookings.slice(0, 5).flatMap((b) => [
+            ? bookings.slice(0, 20).flatMap((b) => [
                 Fields([
                   Field({
                     label: b.title,
@@ -405,7 +405,7 @@ export function registerSlackHandlers(
             }
             const bookings = await getBookings(
               accessToken,
-              { status: "upcoming", take: 5 },
+              { status: "upcoming", take: 20 },
               { id: linked.calcomUserId, email: linked.calcomEmail }
             );
             const card = upcomingBookingsCard(
@@ -673,7 +673,7 @@ export function registerSlackHandlers(
             }
             const bookings = await getBookings(
               accessToken,
-              { status: "upcoming", take: 10 },
+              { status: "upcoming", take: 100 },
               { id: linked.calcomUserId, email: linked.calcomEmail }
             );
             const card = cancelBookingPickerCard(
@@ -708,7 +708,7 @@ export function registerSlackHandlers(
             }
             const bookings = await getBookings(
               accessToken,
-              { status: "upcoming", take: 10 },
+              { status: "upcoming", take: 100 },
               { id: linked.calcomUserId, email: linked.calcomEmail }
             );
             const card = rescheduleBookingPickerCard(
@@ -1378,7 +1378,7 @@ export function registerSlackHandlers(
 
         const bookings = await getBookings(
           accessToken,
-          { status: "upcoming", take: 10 },
+          { status: "upcoming", take: 100 },
           { id: linked.calcomUserId, email: linked.calcomEmail }
         );
         const selected = bookings.find((b) => b.uid === bookingUid);
