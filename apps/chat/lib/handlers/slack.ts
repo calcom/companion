@@ -673,7 +673,7 @@ export function registerSlackHandlers(
             }
             const bookings = await getBookings(
               accessToken,
-              { status: "upcoming", take: 100 },
+              { status: "upcoming", take: 50 },
               { id: linked.calcomUserId, email: linked.calcomEmail }
             );
             const card = cancelBookingPickerCard(
@@ -708,7 +708,7 @@ export function registerSlackHandlers(
             }
             const bookings = await getBookings(
               accessToken,
-              { status: "upcoming", take: 100 },
+              { status: "upcoming", take: 50 },
               { id: linked.calcomUserId, email: linked.calcomEmail }
             );
             const card = rescheduleBookingPickerCard(
@@ -1378,7 +1378,7 @@ export function registerSlackHandlers(
 
         const bookings = await getBookings(
           accessToken,
-          { status: "upcoming", take: 100 },
+          { status: "upcoming", take: 50 },
           { id: linked.calcomUserId, email: linked.calcomEmail }
         );
         const selected = bookings.find((b) => b.uid === bookingUid);

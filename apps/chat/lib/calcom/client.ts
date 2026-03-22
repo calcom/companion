@@ -263,8 +263,24 @@ export async function getBookings(
   params: GetBookingsParams = {},
   currentUser?: BookingCurrentUser
 ): Promise<CalcomBooking[]> {
+  const { bookings } = await getBookingsWithMeta(accessToken, params, currentUser);
+  return bookings;
+}
+
+/**
+ * Like getBookings but also returns the raw API count before client-side filtering.
+ * rawCount is the number of rows the API returned (before filtering to only the current
+ * user's bookings). Callers can use rawCount >= params.take to detect whether the API
+ * has more pages, independently of how many rows survived client-side filtering.
+ */
+export async function getBookingsWithMeta(
+  accessToken: string,
+  params: GetBookingsParams = {},
+  currentUser?: BookingCurrentUser
+): Promise<{ bookings: CalcomBooking[]; rawCount: number }> {
   const qs = buildBookingsQuery(params);
-  const bookings = await calcomFetch<CalcomBooking[]>(`/v2/bookings${qs}`, accessToken);
+  const raw = await calcomFetch<CalcomBooking[]>(`/v2/bookings${qs}`, accessToken);
+  const rawCount = raw.length;
 
   // Org/team admins see all team bookings from the API. Filter to only
   // bookings where the current user is a host or an attendee to prevent
@@ -273,14 +289,14 @@ export async function getBookings(
   // bookings) with server-side `take` applied *before* this filter, so
   // pagination signals (`hasMore`) may be inaccurate — a known limitation
   // until the org-scoped endpoint supports OAuth tokens.
-  if (!currentUser) return bookings;
+  if (!currentUser) return { bookings: raw, rawCount };
 
   const emailLower = currentUser.email.toLowerCase();
   const idEq = (a?: string | number, b?: string | number) =>
     a !== undefined && b !== undefined && String(a) === String(b);
   const emailEq = (a?: string, b?: string) => a?.toLowerCase() === b?.toLowerCase();
 
-  return bookings.filter((booking) => {
+  const bookings = raw.filter((booking) => {
     const isHost = booking.hosts?.some(
       (h) => idEq(h.id, currentUser.id) || emailEq(h.email, emailLower)
     );
@@ -289,6 +305,8 @@ export async function getBookings(
     );
     return isHost || isAttendee;
   });
+
+  return { bookings, rawCount };
 }
 
 export async function getBooking(accessToken: string, bookingUid: string): Promise<CalcomBooking> {

@@ -16,6 +16,9 @@ import { formatBookingTime } from "./calcom/webhooks";
 
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
 
+/** Max bookings shown in the upcoming-bookings card. Must match the fetch limit used by callers. */
+const MAX_UPCOMING_BOOKINGS_SHOWN = 20;
+
 function attendeeNames(payload: CalcomWebhookPayload["payload"]): string {
   return payload.attendees.map((a) => a.name).join(", ");
 }
@@ -156,7 +159,7 @@ export function upcomingBookingsCard(
     });
   }
 
-  const shownCount = Math.min(bookings.length, 20);
+  const shownCount = Math.min(bookings.length, MAX_UPCOMING_BOOKINGS_SHOWN);
 
   return Card({
     title:

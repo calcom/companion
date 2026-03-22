@@ -329,7 +329,7 @@ export async function handleTelegramCommand(
         if (!auth) return;
         const bookings = await getBookings(
           auth.accessToken,
-          { status: "upcoming", take: 100 },
+          { status: "upcoming", take: 50 },
           { id: auth.linked.calcomUserId, email: auth.linked.calcomEmail }
         );
         if (bookings.length === 0) {
@@ -373,7 +373,7 @@ export async function handleTelegramCommand(
         if (!auth) return;
         const bookings = await getBookings(
           auth.accessToken,
-          { status: "upcoming", take: 100 },
+          { status: "upcoming", take: 50 },
           { id: auth.linked.calcomUserId, email: auth.linked.calcomEmail }
         );
         if (bookings.length === 0) {

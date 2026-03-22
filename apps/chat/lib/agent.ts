@@ -16,6 +16,7 @@ import {
   getAvailableSlotsPublic,
   getBooking,
   getBookings,
+  getBookingsWithMeta,
   getBusyTimes,
   getCalendarLinks,
   getDefaultSchedule,
@@ -1391,13 +1392,16 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             ? LIST_BOOKINGS_DEFAULT_TAKE_BOUNDED
             : LIST_BOOKINGS_DEFAULT_TAKE_UNBOUNDED;
           const requestedTake = take != null ? take : defaultTake;
-          const apiTake =
+          // For org-linked users the API paginates before client-side filtering,
+          // so we over-fetch to compensate. The +1 sentinel is added on top so
+          // we can still detect whether the API has more pages.
+          const apiFetchCount =
             requestedTake * (isOrgLinkedUser ? LIST_BOOKINGS_ORG_PREFETCH_MULTIPLIER : 1) + 1;
-          const bookings = await getBookings(
+          const { bookings, rawCount } = await getBookingsWithMeta(
             token,
             {
               status: status ?? "upcoming",
-              take: apiTake,
+              take: apiFetchCount,
               skip: skip ?? 0,
               ...(attendeeEmail ? { attendeeEmail } : {}),
               ...(attendeeName ? { attendeeName } : {}),
@@ -1407,8 +1411,13 @@ function createCalTools(teamId: string, userId: string, platform: string, lookup
             },
             currentUser
           );
-          const hasMore = bookings.length > requestedTake;
-          const trimmed = hasMore ? bookings.slice(0, requestedTake) : bookings;
+          // hasMore is true when:
+          // - the API returned a full page (rawCount >= apiFetchCount), meaning more
+          //   rows likely exist upstream, OR
+          // - after client-side filtering we still have more than requestedTake rows
+          //   (the over-fetch for org users yielded more than the caller asked for).
+          const hasMore = rawCount >= apiFetchCount || bookings.length > requestedTake;
+          const trimmed = bookings.length > requestedTake ? bookings.slice(0, requestedTake) : bookings;
           return {
             bookings: trimmed.map((b) => ({
               uid: b.uid,
