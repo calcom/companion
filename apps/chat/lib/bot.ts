@@ -31,7 +31,7 @@ import { CalcomApiError } from "./calcom/client";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
 import { formatForTelegram } from "./format-for-telegram";
-import { RETRY_STOP_BLOCKS, registerSlackHandlers } from "./handlers/slack";
+import { registerSlackHandlers } from "./handlers/slack";
 import { handleTelegramCommand, registerTelegramHandlers, TELEGRAM_COMMAND_RE } from "./handlers/telegram";
 import { logger as botLogger } from "./logger";
 import { helpCard, telegramHelpCard } from "./notifications";
@@ -687,11 +687,33 @@ async function withSlackToken<T>(teamId: string, fn: () => Promise<T>): Promise<
   return fn();
 }
 
+/** Returns true when the agent response warrants a Retry button (error, tool failure, or empty output). */
+function shouldShowRetry(
+  onErrorRef: { current: Error | null } | undefined,
+  steps: unknown[] | undefined
+): boolean {
+  if (onErrorRef?.current) return true;
+  if (steps) {
+    for (const step of steps) {
+      const s = step as Record<string, unknown>;
+      if (!Array.isArray(s.toolResults)) continue;
+      for (const tr of s.toolResults) {
+        const r = tr as Record<string, unknown>;
+        if (r.result && typeof r.result === "object" && "error" in (r.result as object)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 // Streaming flow (see chat/docs/streaming.mdx): Slack uses the native chatStream API via
-// adapter.stream() with stopBlocks for the Retry button; other platforms use the post+edit
-// fallback via thread.post(textStream).
+// adapter.stream(); other platforms use the post+edit fallback via thread.post(textStream).
 // For Telegram we use result.text (Promise) instead of consuming textStream — the AI SDK
 // textStream can yield empty when used with multi-step tool calls; result.text resolves to the full text.
+// The Retry button is only shown when shouldShowRetry detects an error signal (stream error,
+// tool call error, or empty response).
 async function postAgentStream(
   thread: Thread,
   agentResult: {
@@ -716,13 +738,20 @@ async function postAgentStream(
         await slack.stream(thread.id, agentResult.textStream, {
           recipientUserId: ctx.userId,
           recipientTeamId: ctx.teamId,
-          stopBlocks: RETRY_STOP_BLOCKS,
         });
         log.info("Slack stream completed", { userId: ctx.userId });
+        const steps = agentResult.steps ? await agentResult.steps : undefined;
+        if (shouldShowRetry(options?.onErrorRef, steps)) {
+          await thread.post(
+            Card({ children: [Actions([Button({ id: "retry_response", label: "Retry" })])] })
+          );
+        }
       });
     } else {
       if (ctx.platform === "telegram") {
         const fullText = await agentResult.text;
+        const steps = agentResult.steps ? await agentResult.steps : undefined;
+        const showRetry = shouldShowRetry(options?.onErrorRef, steps);
         const formatted = formatForTelegram(fullText ?? "");
         if (!formatted.trim()) {
           log.warn("Agent produced empty text, posting fallback", { userId: ctx.userId });
@@ -730,14 +759,23 @@ async function postAgentStream(
             options?.onErrorRef?.current && isAIToolCallError(options.onErrorRef.current)
               ? "I had trouble processing that request. Please try again, or be more specific (e.g. run /cal bookings first, then cancel by booking ID)."
               : "Sorry, I couldn't generate a response. Please try again.";
-          await thread.post(fallbackMsg);
+          await thread.post(
+            Card({
+              children: [
+                CardText(fallbackMsg),
+                Actions([Button({ id: "retry_response", label: "Retry" })]),
+              ],
+            })
+          );
         } else {
           // Wrap in Card so the adapter uses parse_mode=Markdown; plain text gets no parse_mode and links don't render.
           await thread.post(
             Card({
               children: [
                 CardText(formatted),
-                Actions([Button({ id: "retry_response", label: "Retry" })]),
+                ...(showRetry
+                  ? [Actions([Button({ id: "retry_response", label: "Retry" })])]
+                  : []),
               ],
             })
           );

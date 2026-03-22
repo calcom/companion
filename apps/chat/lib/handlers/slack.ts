@@ -81,12 +81,6 @@ function isSlackAuthError(err: unknown): boolean {
   return false;
 }
 
-const RETRY_STOP_BLOCKS = cardToBlockKit(
-  Card({
-    children: [Actions([Button({ id: "retry_response", label: "Retry" })])],
-  })
-);
-
 export interface PlatformContext {
   platform: string;
   teamId: string;
@@ -1705,5 +1699,3 @@ export function registerSlackHandlers(
     );
   });
 }
-
-export { RETRY_STOP_BLOCKS };
