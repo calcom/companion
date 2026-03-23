@@ -230,17 +230,13 @@ Add to `.vscode/mcp.json`:
 
 ## Regenerating from OpenAPI
 
-When the Cal.com API spec changes:
+The MCP server uses `docs/api-reference/v2/openapi.json` (symlinked). When the spec changes:
 
-1. Replace `openapi.json` with the updated spec
-2. Regenerate the tools:
-   ```bash
-   npx openapi-mcp-generator
-   ```
-3. Rebuild:
-   ```bash
-   bun run build
-   ```
+```bash
+cd apps/mcp
+bun run generate   # regenerates src/generated.ts
+bun run build
+```
 
 Note: `toolsets.ts` is hand-maintained. If new controllers are added, add them to the appropriate toolset.
 
