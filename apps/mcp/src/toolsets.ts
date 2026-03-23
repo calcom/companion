@@ -388,7 +388,7 @@ export function getMetaToolDefinitions(): Tool[] {
     {
       name: "list_toolsets",
       description:
-        "List all available toolsets, their descriptions, tool counts, and which are currently active. Call this to discover what toolsets can be added or removed.",
+        "List available Cal.com toolsets with their status. Use this to discover toolsets you can add when you need functionality not currently loaded. IMPORTANT: Only core toolsets are loaded by default to save context. Add toolsets on-demand as needed.",
       inputSchema: {
         type: "object" as const,
         properties: {},
@@ -397,7 +397,7 @@ export function getMetaToolDefinitions(): Tool[] {
     {
       name: "add_toolsets",
       description:
-        "Add one or more toolsets to the active set, making their tools available. Call list_toolsets first to see available toolsets.",
+        "Load additional Cal.com toolsets when you need their functionality. Only add toolsets you actually need for the current task - this keeps context usage low. Call list_toolsets first to see what's available.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -413,7 +413,7 @@ export function getMetaToolDefinitions(): Tool[] {
     {
       name: "remove_toolsets",
       description:
-        "Remove one or more toolsets from the active set, freeing context window space. The removed tools will no longer be available until added back.",
+        "Unload toolsets you no longer need to free up context window space. RECOMMENDED: After completing a task that required specific toolsets, remove them if you won't need them again. This improves response quality by reducing noise.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -454,6 +454,8 @@ export async function handleMetaTool(
   }
 }
 
+const MAX_RECOMMENDED_TOOLS = 50;
+
 function handleListToolsets(state: ToolsetState): {
   content: { type: "text"; text: string }[];
 } {
@@ -471,10 +473,22 @@ function handleListToolsets(state: ToolsetState): {
     };
   }
 
+  const activeCount = state.activeToolMap.size;
+  const guidance: string[] = [];
+
+  if (activeCount > MAX_RECOMMENDED_TOOLS) {
+    guidance.push(
+      `You have ${activeCount} tools loaded. Consider removing toolsets you're not actively using to improve response quality.`
+    );
+  }
+  guidance.push("Best practice: Add toolsets only when needed, remove them after completing the task.");
+
   const result = {
     current_profile: state.initialProfile,
     active_toolsets: Array.from(state.activeToolsets),
-    active_tool_count: state.activeToolMap.size,
+    active_tool_count: activeCount,
+    total_available_tools: state.allTools.size,
+    guidance,
     available_toolsets: available,
   };
 
@@ -529,12 +543,17 @@ async function handleAddToolsets(
     await state.server.notification({ method: "notifications/tools/list_changed" });
   }
 
-  const result = {
+  const activeCount = state.activeToolMap.size;
+  const result: Record<string, unknown> = {
     added,
     already_active: alreadyActive,
     active_toolsets: Array.from(state.activeToolsets),
-    active_tool_count: state.activeToolMap.size,
+    active_tool_count: activeCount,
   };
+
+  if (activeCount > MAX_RECOMMENDED_TOOLS) {
+    result.hint = `You now have ${activeCount} tools loaded. Remember to remove toolsets you no longer need.`;
+  }
 
   return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 }
