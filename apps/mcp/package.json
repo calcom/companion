@@ -14,7 +14,7 @@
   "scripts": {
     "start": "node build/index.js",
     "build": "tsc && shx chmod 755 build/index.js",
-    "generate": "bun scripts/generate.ts",
+    "generate": "echo 'Run: npx openapi-mcp-generator -i openapi.json -o /tmp/mcp-gen && manually extract tool definitions'",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
