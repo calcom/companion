@@ -22,7 +22,10 @@
       "!**/bun.lock",
       "!**/android",
       "!**/ios",
-      "!**/safari-extension"
+      "!**/safari-extension",
+      "!apps/mcp/src/generated.ts",
+      "!apps/mcp/openapi.json",
+      "!docs/api-reference/v2/openapi.json"
     ]
   },
   "formatter": {
