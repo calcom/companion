@@ -1,7 +1,6 @@
 /**
  * Generated from OpenAPI spec - DO NOT EDIT
  * Regenerate: bun run generate
- * Generated: 2026-03-23T12:38:08.157Z
  */
 
 import type { McpToolDefinition } from "./types.js";
@@ -9,8 +8,6 @@ import type { McpToolDefinition } from "./types.js";
 export type { JsonObject, McpToolDefinition } from "./types.js";
 export { SERVER_NAME, SERVER_VERSION, API_BASE_URL } from "./types.js";
 export { executeApiTool } from "./executor.js";
-
-export const securitySchemes: Record<string, unknown> = {};
 
 export const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
 
