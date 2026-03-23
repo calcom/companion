@@ -15,6 +15,7 @@
     "start": "node build/stdio/index.js",
     "build": "npm run build:stdio",
     "build:stdio": "tsc && shx chmod 755 build/stdio/index.js",
+    "generate": "bun scripts/extract-tools.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.2",
+    "openapi-mcp-generator": "^3.3.0",
     "typescript": "^5.8.3",
     "shx": "^0.4.0",
     "vitest": "^3.0.0"

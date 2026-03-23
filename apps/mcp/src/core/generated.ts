@@ -1,26 +1,17 @@
 /**
- * MCP Server generated from OpenAPI spec for @calcom/mcp v1.0.0
- * Generated on: 2026-03-23T11:19:05.267Z
- *
- * DO NOT MANUALLY EDIT THIS FILE.
- * Regenerate using: bun run generate
+ * Generated from OpenAPI spec - DO NOT EDIT
+ * Regenerate: bun run generate
+ * Generated: 2026-03-23T12:38:08.157Z
  */
 
 import type { McpToolDefinition } from "./types.js";
 
-// Re-export types and executor for backwards compatibility
 export type { JsonObject, McpToolDefinition } from "./types.js";
 export { SERVER_NAME, SERVER_VERSION, API_BASE_URL } from "./types.js";
 export { executeApiTool } from "./executor.js";
 
-/**
- * Security schemes from OpenAPI spec
- */
 export const securitySchemes: Record<string, unknown> = {};
 
-/**
- * Map of tool definitions by name
- */
 export const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
 
 
