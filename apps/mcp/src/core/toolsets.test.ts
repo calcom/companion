@@ -15,7 +15,7 @@ import {
   resolveActiveToolsets,
 } from "./toolsets.js";
 
-const SERVER_PATH = resolve(import.meta.dirname, "../build/index.js");
+const SERVER_PATH = resolve(import.meta.dirname, "../../build/stdio/index.js");
 
 // ---------------------------------------------------------------------------
 // Unit tests for toolsets.ts pure functions

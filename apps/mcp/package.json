@@ -4,16 +4,17 @@
   "description": "Cal.com MCP Server - Exposes Cal.com API v2 as MCP tools for AI assistants",
   "private": true,
   "type": "module",
-  "main": "build/index.js",
+  "main": "build/stdio/index.js",
   "bin": {
-    "calcom-mcp": "build/index.js"
+    "calcom-mcp": "build/stdio/index.js"
   },
   "files": [
     "build"
   ],
   "scripts": {
-    "start": "node build/index.js",
-    "build": "tsc && shx chmod 755 build/index.js",
+    "start": "node build/stdio/index.js",
+    "build": "npm run build:stdio",
+    "build:stdio": "tsc && shx chmod 755 build/stdio/index.js",
     "generate": "bun scripts/extract-tools.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

@@ -4,7 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-const SERVER_PATH = resolve(import.meta.dirname, "../build/index.js");
+const SERVER_PATH = resolve(import.meta.dirname, "../../build/stdio/index.js");
 
 function createClient(
   extraArgs: string[] = []
@@ -185,7 +185,7 @@ describe("Cal.com MCP Server", () => {
 
 describe("OpenAPI spec filtering", () => {
   it("deprecated platform paths are tagged as deprecated", () => {
-    const specPath = resolve(import.meta.dirname, "../openapi.json");
+    const specPath = resolve(import.meta.dirname, "../../openapi.json");
     const spec = JSON.parse(readFileSync(specPath, "utf-8"));
 
     const deprecatedPaths = [
@@ -211,7 +211,7 @@ describe("OpenAPI spec filtering", () => {
   });
 
   it("filtered spec retains non-deprecated paths", () => {
-    const specPath = resolve(import.meta.dirname, "../openapi.json");
+    const specPath = resolve(import.meta.dirname, "../../openapi.json");
     const spec = JSON.parse(readFileSync(specPath, "utf-8"));
 
     const expectedPaths = [
@@ -228,7 +228,7 @@ describe("OpenAPI spec filtering", () => {
   });
 
   it("spec paths include deprecated endpoints with deprecated tags", () => {
-    const specPath = resolve(import.meta.dirname, "../openapi.json");
+    const specPath = resolve(import.meta.dirname, "../../openapi.json");
     const spec = JSON.parse(readFileSync(specPath, "utf-8"));
 
     // Check that deprecated endpoints have deprecated tags in their operations
@@ -246,7 +246,7 @@ describe("OpenAPI spec filtering", () => {
   });
 
   it("spec has expected number of paths", () => {
-    const specPath = resolve(import.meta.dirname, "../openapi.json");
+    const specPath = resolve(import.meta.dirname, "../../openapi.json");
     const spec = JSON.parse(readFileSync(specPath, "utf-8"));
 
     const pathCount = Object.keys(spec.paths).length;

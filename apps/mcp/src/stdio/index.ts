@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 /**
- * Cal.com MCP Server entry point
+ * Cal.com MCP Server - stdio transport entry point
  *
- * This file wires together:
- * - generated.ts: Auto-generated tool definitions from OpenAPI spec
- * - toolsets.ts: Tool grouping and filtering for context optimization
+ * This entry point is for local installations via npm/npx.
+ * It uses stdio transport and reads the API key from environment variables.
  *
- * When regenerating from OpenAPI, only generated.ts needs to be updated.
+ * Usage:
+ *   npx @calcom/mcp                           # Personal profile (core)
+ *   npx @calcom/mcp --profile team            # Team profile (core)
+ *   npx @calcom/mcp --all                     # Full profile
+ *   npx @calcom/mcp --toolsets bookings,slots # Specific toolsets
  */
 
 import dotenv from "dotenv";
@@ -24,15 +27,11 @@ import {
 
 import {
   toolDefinitionMap,
-  securitySchemes,
   executeApiTool,
   SERVER_NAME,
   SERVER_VERSION,
   API_BASE_URL,
   type McpToolDefinition,
-} from "./generated.js";
-
-import {
   TOOLSETS,
   DEFAULT_PROFILE,
   parseCliArgs,
@@ -43,7 +42,7 @@ import {
   getMetaToolDefinitions,
   handleMetaTool,
   type MetaToolName,
-} from "./toolsets.js";
+} from "../core/index.js";
 
 console.error("API_BASE_URL is set to:", API_BASE_URL);
 
@@ -79,6 +78,9 @@ const toolsetState = {
   initialProfile,
   server,
 };
+
+// Get API key from environment for stdio transport
+const apiKey = process.env.CAL_API_KEY;
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   const metaTools = getMetaToolDefinitions();
@@ -118,7 +120,7 @@ server.setRequestHandler(
       };
     }
 
-    return await executeApiTool(toolName, toolDefinition, toolArgs ?? {}, securitySchemes);
+    return await executeApiTool(toolName, toolDefinition, toolArgs ?? {}, { apiKey });
   }
 );
 

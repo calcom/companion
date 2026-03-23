@@ -12,7 +12,7 @@
 
 import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { McpToolDefinition } from "./generated.js";
+import type { McpToolDefinition } from "./types.js";
 
 export const TOOLSETS: Record<string, string[]> = {
   // === Personal toolsets ===
