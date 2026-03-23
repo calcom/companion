@@ -1,37 +1,15 @@
-/**
- * Toolsets configuration for Cal.com MCP Server
- *
- * Toolsets group API tools by domain (controller prefix). Users select which
- * toolsets to load via CLI flags or runtime meta-tools, reducing LLM context
- * window consumption.
- *
- * When new endpoints are added to existing controllers, they automatically
- * land in the correct toolset (prefix-based matching). Only brand-new
- * controllers require a manual one-line addition here.
- */
-
 import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { McpToolDefinition } from "./types.js";
 
 export const TOOLSETS: Record<string, string[]> = {
-  // === Personal toolsets ===
-  bookings: [
-    "BookingsController",
-    "BookingAttendeesController",
-    "BookingGuestsController",
-    "BookingLocationController",
-  ],
+  // Personal
+  bookings: ["BookingsController", "BookingAttendeesController", "BookingGuestsController", "BookingLocationController"],
   "event-types": ["EventTypesController", "EventTypesPrivateLinksController"],
   schedules: ["SchedulesController"],
   slots: ["SlotsController"],
   me: ["MeController"],
-  calendars: [
-    "CalendarsController",
-    "CalUnifiedCalendarsController",
-    "SelectedCalendarsController",
-    "DestinationCalendarsController",
-  ],
+  calendars: ["CalendarsController", "CalUnifiedCalendarsController", "SelectedCalendarsController", "DestinationCalendarsController"],
   conferencing: ["ConferencingController"],
   webhooks: ["WebhooksController", "EventTypeWebhooksController"],
   "routing-forms": ["RoutingFormsController"],
@@ -40,7 +18,7 @@ export const TOOLSETS: Record<string, string[]> = {
   "api-keys": ["ApiKeysController"],
   stripe: ["StripeController"],
 
-  // === Team toolsets ===
+  // Team
   teams: ["TeamsController"],
   "teams-members": ["TeamsMembershipsController", "TeamsInviteController"],
   "teams-event-types": ["TeamsEventTypesController", "TeamsEventTypesWebhooksController"],
@@ -49,15 +27,11 @@ export const TOOLSETS: Record<string, string[]> = {
   "teams-ooo": ["TeamsOOOController"],
   "teams-verified-resources": ["TeamsVerifiedResourcesController"],
 
-  // === Organization toolsets ===
+  // Organization
   oauth: ["OAuth2Controller"],
   orgs: ["OrganizationsOrganizationsController"],
   "orgs-members": ["OrganizationsMembershipsController"],
-  "orgs-users": [
-    "OrganizationsUsersController",
-    "OrganizationsUsersOOOController",
-    "OrganizationsUsersBookingsController",
-  ],
+  "orgs-users": ["OrganizationsUsersController", "OrganizationsUsersOOOController", "OrganizationsUsersBookingsController"],
   "orgs-teams": [
     "OrganizationsTeamsController",
     "OrganizationsTeamsInviteController",
@@ -66,14 +40,8 @@ export const TOOLSETS: Record<string, string[]> = {
     "OrganizationsTeamsSchedulesController",
     "OrgTeamsVerifiedResourcesController",
   ],
-  "orgs-event-types": [
-    "OrganizationsEventTypesController",
-    "OrganizationsEventTypesPrivateLinksController",
-  ],
-  "orgs-attributes": [
-    "OrganizationsAttributesController",
-    "OrganizationsAttributesOptionsController",
-  ],
+  "orgs-event-types": ["OrganizationsEventTypesController", "OrganizationsEventTypesPrivateLinksController"],
+  "orgs-attributes": ["OrganizationsAttributesController", "OrganizationsAttributesOptionsController"],
   "orgs-webhooks": ["OrganizationsWebhooksController"],
   "orgs-schedules": ["OrganizationsSchedulesController"],
   "orgs-roles": [
@@ -96,7 +64,6 @@ export const TOOLSETS: Record<string, string[]> = {
 };
 
 export const TOOLSET_DESCRIPTIONS: Record<string, string> = {
-  // Personal
   bookings: "Create, get, cancel, reschedule bookings and manage attendees/guests/location",
   "event-types": "CRUD for event types and private links",
   schedules: "Manage user availability schedules",
@@ -110,8 +77,6 @@ export const TOOLSET_DESCRIPTIONS: Record<string, string> = {
   "verified-resources": "Verify emails and phone numbers",
   "api-keys": "Refresh API keys",
   stripe: "Stripe payment connection",
-
-  // Teams
   teams: "Create, get, update, delete teams",
   "teams-members": "Team memberships and invitations",
   "teams-event-types": "Team event types and their webhooks",
@@ -119,14 +84,11 @@ export const TOOLSET_DESCRIPTIONS: Record<string, string> = {
   "teams-schedules": "Get team schedules",
   "teams-ooo": "Team member out-of-office",
   "teams-verified-resources": "Team verified emails and phone numbers",
-
-  // Organizations
   oauth: "OAuth2 client info and token exchange",
   orgs: "CRUD for organizations",
   "orgs-members": "Organization memberships",
   "orgs-users": "Manage org users, their OOO, and bookings",
-  "orgs-teams":
-    "Org-level team management, memberships, bookings, schedules, verified resources",
+  "orgs-teams": "Org-level team management, memberships, bookings, schedules, verified resources",
   "orgs-event-types": "Org team event types and private links",
   "orgs-attributes": "Organization-level custom attributes and attribute options",
   "orgs-webhooks": "Organization-level webhooks",
@@ -141,66 +103,35 @@ export const TOOLSET_DESCRIPTIONS: Record<string, string> = {
 };
 
 const PERSONAL_TOOLSETS = [
-  "bookings",
-  "event-types",
-  "schedules",
-  "slots",
-  "me",
-  "calendars",
-  "conferencing",
-  "webhooks",
-  "routing-forms",
-  "ooo",
-  "verified-resources",
-  "api-keys",
-  "stripe",
+  "bookings", "event-types", "schedules", "slots", "me", "calendars",
+  "conferencing", "webhooks", "routing-forms", "ooo", "verified-resources", "api-keys", "stripe",
 ];
 
 const PERSONAL_CORE = ["bookings", "event-types", "schedules", "slots", "me"];
 
 const TEAM_TOOLSETS = [
   ...PERSONAL_TOOLSETS,
-  "teams",
-  "teams-members",
-  "teams-event-types",
-  "teams-bookings",
-  "teams-schedules",
-  "teams-ooo",
-  "teams-verified-resources",
+  "teams", "teams-members", "teams-event-types", "teams-bookings",
+  "teams-schedules", "teams-ooo", "teams-verified-resources",
 ];
 
 const TEAM_CORE = [...PERSONAL_CORE, "teams", "teams-members"];
 
 const ORG_TOOLSETS = [
   ...TEAM_TOOLSETS,
-  "oauth",
-  "orgs",
-  "orgs-members",
-  "orgs-users",
-  "orgs-teams",
-  "orgs-event-types",
-  "orgs-attributes",
-  "orgs-webhooks",
-  "orgs-schedules",
-  "orgs-roles",
-  "orgs-routing-forms",
-  "orgs-conferencing",
-  "orgs-stripe",
-  "orgs-bookings",
-  "orgs-delegation",
-  "orgs-workflows",
+  "oauth", "orgs", "orgs-members", "orgs-users", "orgs-teams", "orgs-event-types",
+  "orgs-attributes", "orgs-webhooks", "orgs-schedules", "orgs-roles", "orgs-routing-forms",
+  "orgs-conferencing", "orgs-stripe", "orgs-bookings", "orgs-delegation", "orgs-workflows",
 ];
 
 const ORG_CORE = [...TEAM_CORE, "orgs", "orgs-members", "orgs-teams"];
 
-// Full profiles (used with --all flag)
 export const PROFILES: Record<string, string[]> = {
   personal: PERSONAL_TOOLSETS,
   team: TEAM_TOOLSETS,
   org: ORG_TOOLSETS,
 };
 
-// Core profiles (default, loads only essential toolsets)
 export const PROFILES_CORE: Record<string, string[]> = {
   personal: PERSONAL_CORE,
   team: TEAM_CORE,
@@ -235,24 +166,19 @@ export function parseCliArgs(argv: string[]): CliArgs {
     } else if (arg === "--list-toolsets") {
       result.listToolsets = true;
     } else if (arg === "--profile" && i + 1 < argv.length) {
-      result.profile = argv[i + 1];
-      i++;
+      result.profile = argv[++i];
     } else if (arg === "--toolsets" && i + 1 < argv.length) {
-      result.toolsets = argv[i + 1].split(",").map((s) => s.trim());
-      i++;
+      result.toolsets = argv[++i].split(",").map((s) => s.trim());
     }
   }
 
   return result;
 }
 
-// Priority: --all-tools > --toolsets > --profile (with --all for full) > DEFAULT_PROFILE
 export function resolveActiveToolsets(args: CliArgs): Set<string> {
   const allToolsetNames = Object.keys(TOOLSETS);
 
-  if (args.allTools) {
-    return new Set(allToolsetNames);
-  }
+  if (args.allTools) return new Set(allToolsetNames);
 
   if (args.toolsets) {
     const valid = args.toolsets.filter((t) => allToolsetNames.includes(t));
@@ -264,15 +190,11 @@ export function resolveActiveToolsets(args: CliArgs): Set<string> {
   }
 
   const profileName = args.profile || DEFAULT_PROFILE;
-
-  // Use full profile if --all flag, otherwise use core (minimal) profile
   const profileSource = args.fullProfile ? PROFILES : PROFILES_CORE;
   const profileToolsets = profileSource[profileName];
 
   if (!profileToolsets) {
-    console.error(
-      `Warning: Unknown profile "${profileName}", falling back to "${DEFAULT_PROFILE}"`
-    );
+    console.error(`Warning: Unknown profile "${profileName}", falling back to "${DEFAULT_PROFILE}"`);
     return new Set(profileSource[DEFAULT_PROFILE]);
   }
 
@@ -287,9 +209,7 @@ export function filterToolsByToolsets(
   const activePrefixes: string[] = [];
   for (const toolsetName of activeToolsets) {
     const prefixes = toolsetConfig[toolsetName];
-    if (prefixes) {
-      activePrefixes.push(...prefixes);
-    }
+    if (prefixes) activePrefixes.push(...prefixes);
   }
 
   const filtered = new Map<string, McpToolDefinition>();
@@ -312,38 +232,27 @@ export function getToolsetToolCount(
 
   let count = 0;
   for (const name of allTools.keys()) {
-    if (prefixes.some((prefix) => name.startsWith(prefix))) {
-      count++;
-    }
+    if (prefixes.some((prefix) => name.startsWith(prefix))) count++;
   }
   return count;
 }
 
 export function printToolsetsList(allTools: Map<string, McpToolDefinition>): void {
-  const lines: string[] = [];
-  lines.push("Cal.com MCP — Available Toolsets");
-  lines.push("");
+  const lines: string[] = ["Cal.com MCP — Available Toolsets", ""];
 
   const sections: { label: string; toolsets: string[] }[] = [
     { label: "PERSONAL TOOLSETS", toolsets: PERSONAL_TOOLSETS },
-    {
-      label: "TEAM TOOLSETS",
-      toolsets: TEAM_TOOLSETS.filter((t) => !PERSONAL_TOOLSETS.includes(t)),
-    },
+    { label: "TEAM TOOLSETS", toolsets: TEAM_TOOLSETS.filter((t) => !PERSONAL_TOOLSETS.includes(t)) },
     { label: "ORGANIZATION TOOLSETS", toolsets: ORG_TOOLSETS.filter((t) => !TEAM_TOOLSETS.includes(t)) },
   ];
 
   for (const section of sections) {
-    const sectionToolCount = section.toolsets.reduce(
-      (sum, t) => sum + getToolsetToolCount(allTools, t, TOOLSETS),
-      0
-    );
+    const sectionToolCount = section.toolsets.reduce((sum, t) => sum + getToolsetToolCount(allTools, t, TOOLSETS), 0);
     lines.push(`${section.label} (${section.toolsets.length} toolsets, ${sectionToolCount} tools):`);
     for (const name of section.toolsets) {
       const count = getToolsetToolCount(allTools, name, TOOLSETS);
       const desc = TOOLSET_DESCRIPTIONS[name] || "";
-      const toolWord = count === 1 ? "tool " : "tools";
-      lines.push(`  ${name.padEnd(26)} ${String(count).padStart(3)} ${toolWord}   ${desc}`);
+      lines.push(`  ${name.padEnd(26)} ${String(count).padStart(3)} ${count === 1 ? "tool " : "tools"}   ${desc}`);
     }
     lines.push("");
   }
@@ -351,19 +260,14 @@ export function printToolsetsList(allTools: Map<string, McpToolDefinition>): voi
   lines.push("PROFILES (core / full with --all):");
   for (const [profileName, fullToolsets] of Object.entries(PROFILES)) {
     const coreToolsets = PROFILES_CORE[profileName];
-    const coreCount = coreToolsets.reduce(
-      (sum, t) => sum + getToolsetToolCount(allTools, t, TOOLSETS),
-      0
-    );
-    const fullCount = fullToolsets.reduce(
-      (sum, t) => sum + getToolsetToolCount(allTools, t, TOOLSETS),
-      0
-    );
+    const coreCount = coreToolsets.reduce((sum, t) => sum + getToolsetToolCount(allTools, t, TOOLSETS), 0);
+    const fullCount = fullToolsets.reduce((sum, t) => sum + getToolsetToolCount(allTools, t, TOOLSETS), 0);
     const isDefault = profileName === DEFAULT_PROFILE ? " (default)" : "";
     lines.push(
       `  ${profileName.padEnd(12)} ${String(coreToolsets.length).padStart(2)} / ${String(fullToolsets.length).padStart(2)} toolsets   ${String(coreCount).padStart(3)} / ${String(fullCount).padStart(3)} tools${isDefault}`
     );
   }
+
   lines.push("");
   lines.push("Usage:");
   lines.push("  npx @calcom/mcp                              # Personal profile (core toolsets)");
@@ -389,10 +293,7 @@ export function getMetaToolDefinitions(): Tool[] {
       name: "list_toolsets",
       description:
         "List available Cal.com toolsets with their status. Use this to discover toolsets you can add when you need functionality not currently loaded. IMPORTANT: Only core toolsets are loaded by default to save context. Add toolsets on-demand as needed.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {},
-      },
+      inputSchema: { type: "object" as const, properties: {} },
     },
     {
       name: "add_toolsets",
@@ -404,7 +305,7 @@ export function getMetaToolDefinitions(): Tool[] {
           toolsets: {
             type: "array",
             items: { type: "string" },
-            description: "Array of toolset names to add (e.g. [\"teams\", \"teams-members\"])",
+            description: 'Array of toolset names to add (e.g. ["teams", "teams-members"])',
           },
         },
         required: ["toolsets"],
@@ -420,7 +321,7 @@ export function getMetaToolDefinitions(): Tool[] {
           toolsets: {
             type: "array",
             items: { type: "string" },
-            description: "Array of toolset names to remove (e.g. [\"webhooks\"])",
+            description: 'Array of toolset names to remove (e.g. ["webhooks"])',
           },
         },
         required: ["toolsets"],
@@ -456,14 +357,9 @@ export async function handleMetaTool(
 
 const MAX_RECOMMENDED_TOOLS = 50;
 
-function handleListToolsets(state: ToolsetState): {
-  content: { type: "text"; text: string }[];
-} {
+function handleListToolsets(state: ToolsetState): { content: { type: "text"; text: string }[] } {
   const allToolsetNames = Object.keys(TOOLSETS);
-  const available: Record<
-    string,
-    { description: string; tool_count: number; active: boolean }
-  > = {};
+  const available: Record<string, { description: string; tool_count: number; active: boolean }> = {};
 
   for (const name of allToolsetNames) {
     available[name] = {
@@ -477,9 +373,7 @@ function handleListToolsets(state: ToolsetState): {
   const guidance: string[] = [];
 
   if (activeCount > MAX_RECOMMENDED_TOOLS) {
-    guidance.push(
-      `You have ${activeCount} tools loaded. Consider removing toolsets you're not actively using to improve response quality.`
-    );
+    guidance.push(`You have ${activeCount} tools loaded. Consider removing toolsets you're not actively using.`);
   }
   guidance.push("Best practice: Add toolsets only when needed, remove them after completing the task.");
 
@@ -501,23 +395,14 @@ async function handleAddToolsets(
 ): Promise<{ content: { type: "text"; text: string }[] }> {
   const toolsets = args.toolsets;
   if (!Array.isArray(toolsets) || toolsets.length === 0) {
-    return {
-      content: [
-        { type: "text", text: "Error: 'toolsets' must be a non-empty array of toolset names." },
-      ],
-    };
+    return { content: [{ type: "text", text: "Error: 'toolsets' must be a non-empty array of toolset names." }] };
   }
 
   const allToolsetNames = Object.keys(TOOLSETS);
   const invalid = toolsets.filter((t) => !allToolsetNames.includes(t));
   if (invalid.length > 0) {
     return {
-      content: [
-        {
-          type: "text",
-          text: `Error: Unknown toolsets: ${invalid.join(", ")}. Use list_toolsets to see available toolsets.`,
-        },
-      ],
+      content: [{ type: "text", text: `Error: Unknown toolsets: ${invalid.join(", ")}. Use list_toolsets to see available.` }],
     };
   }
 
@@ -532,14 +417,9 @@ async function handleAddToolsets(
   }
 
   if (added.length > 0) {
-    // Rebuild active tool map
     const newMap = filterToolsByToolsets(state.allTools, state.activeToolsets, TOOLSETS);
     state.activeToolMap.clear();
-    for (const [k, v] of newMap) {
-      state.activeToolMap.set(k, v);
-    }
-
-    // Notify client that tool list has changed
+    for (const [k, v] of newMap) state.activeToolMap.set(k, v);
     await state.server.notification({ method: "notifications/tools/list_changed" });
   }
 
@@ -564,23 +444,14 @@ async function handleRemoveToolsets(
 ): Promise<{ content: { type: "text"; text: string }[] }> {
   const toolsets = args.toolsets;
   if (!Array.isArray(toolsets) || toolsets.length === 0) {
-    return {
-      content: [
-        { type: "text", text: "Error: 'toolsets' must be a non-empty array of toolset names." },
-      ],
-    };
+    return { content: [{ type: "text", text: "Error: 'toolsets' must be a non-empty array of toolset names." }] };
   }
 
   const allToolsetNames = Object.keys(TOOLSETS);
   const invalid = toolsets.filter((t) => !allToolsetNames.includes(t));
   if (invalid.length > 0) {
     return {
-      content: [
-        {
-          type: "text",
-          text: `Error: Unknown toolsets: ${invalid.join(", ")}. Use list_toolsets to see available toolsets.`,
-        },
-      ],
+      content: [{ type: "text", text: `Error: Unknown toolsets: ${invalid.join(", ")}. Use list_toolsets to see available.` }],
     };
   }
 
@@ -595,23 +466,21 @@ async function handleRemoveToolsets(
   }
 
   if (removed.length > 0) {
-    // Rebuild active tool map
     const newMap = filterToolsByToolsets(state.allTools, state.activeToolsets, TOOLSETS);
     state.activeToolMap.clear();
-    for (const [k, v] of newMap) {
-      state.activeToolMap.set(k, v);
-    }
-
-    // Notify client that tool list has changed
+    for (const [k, v] of newMap) state.activeToolMap.set(k, v);
     await state.server.notification({ method: "notifications/tools/list_changed" });
   }
 
-  const result = {
-    removed,
-    not_active: notActive,
-    active_toolsets: Array.from(state.activeToolsets),
-    active_tool_count: state.activeToolMap.size,
+  return {
+    content: [{
+      type: "text",
+      text: JSON.stringify({
+        removed,
+        not_active: notActive,
+        active_toolsets: Array.from(state.activeToolsets),
+        active_tool_count: state.activeToolMap.size,
+      }, null, 2),
+    }],
   };
-
-  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 }
