@@ -188,9 +188,10 @@ function getZodSchemaFromJsonSchema(jsonSchema: unknown, toolName: string): z.Zo
   }
   try {
     const zodSchemaString = jsonSchemaToZod(jsonSchema);
-    const zodSchema = eval(zodSchemaString);
+    // Use Function constructor to evaluate the generated Zod schema string
+    const zodSchema = new Function("z", \\\`return \\\${zodSchemaString}\\\`)(z);
     if (typeof zodSchema?.parse !== "function") {
-      throw new Error("Eval did not produce a valid Zod schema.");
+      throw new Error("Schema evaluation did not produce a valid Zod schema.");
     }
     return zodSchema as z.ZodTypeAny;
   } catch (err) {
@@ -218,13 +219,14 @@ export async function executeApiTool(
     } catch (error: unknown) {
       if (error instanceof ZodError) {
         const validationErrorMessage = \`Invalid arguments for tool '\${toolName}': \${error.errors.map((e) => \`\${e.path.join(".")} (\${e.code}): \${e.message}\`).join(", ")}\`;
-        return { content: [{ type: "text", text: validationErrorMessage }] };
+        return { content: [{ type: "text", text: validationErrorMessage }], isError: true };
       } else {
         const errorMessage = error instanceof Error ? error.message : String(error);
         return {
           content: [
             { type: "text", text: \`Internal error during validation setup: \${errorMessage}\` },
           ],
+          isError: true,
         };
       }
     }
@@ -308,7 +310,7 @@ export async function executeApiTool(
       errorMessage = "Unexpected error: " + String(error);
     }
     console.error(\`Error during execution of tool '\${toolName}':\`, errorMessage);
-    return { content: [{ type: "text", text: errorMessage }] };
+    return { content: [{ type: "text", text: errorMessage }], isError: true };
   }
 }
 
