@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync, rmSync, mkdirSync } from "fs";
 import { resolve } from "path";
 
 const TEMP_DIR = "/tmp/calcom-mcp-gen";
-const OPENAPI_PATH = resolve(__dirname, "../openapi.json");
+const OPENAPI_PATH = resolve(__dirname, "../../../docs/api-reference/v2/openapi.json");
 const OUTPUT_PATH = resolve(__dirname, "../src/generated.ts");
 
 // Step 1: Run openapi-mcp-generator
