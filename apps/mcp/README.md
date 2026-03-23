@@ -4,7 +4,103 @@ Cal.com MCP (Model Context Protocol) Server — exposes Cal.com API v2 endpoints
 
 Generated from the Cal.com API v2 OpenAPI spec using [openapi-mcp-generator](https://www.npmjs.com/package/openapi-mcp-generator) with `stdio` transport.
 
-## Build
+## Install
+
+<details>
+<summary><strong>Claude Code</strong></summary>
+
+```bash
+# Personal profile (core toolsets - default)
+claude mcp add calcom npx @calcom/mcp -e CAL_API_KEY=your_api_key
+
+# Personal profile (all toolsets)
+claude mcp add calcom npx @calcom/mcp --args="--all" -e CAL_API_KEY=your_api_key
+
+# Team profile (core)
+claude mcp add calcom npx @calcom/mcp --args="--profile team" -e CAL_API_KEY=your_api_key
+
+# Team profile (all)
+claude mcp add calcom npx @calcom/mcp --args="--profile team --all" -e CAL_API_KEY=your_api_key
+
+# Org profile (core)
+claude mcp add calcom npx @calcom/mcp --args="--profile org" -e CAL_API_KEY=your_api_key
+
+# Org profile (all)
+claude mcp add calcom npx @calcom/mcp --args="--profile org --all" -e CAL_API_KEY=your_api_key
+
+# Custom toolsets
+claude mcp add calcom npx @calcom/mcp --args="--toolsets bookings,schedules,slots" -e CAL_API_KEY=your_api_key
+```
+
+</details>
+
+<details>
+<summary><strong>Claude Desktop</strong></summary>
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "calcom": {
+      "command": "npx",
+      "args": ["@calcom/mcp"],
+      "env": {
+        "CAL_API_KEY": "cal_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><strong>Cursor</strong></summary>
+
+Add to `.cursor/mcp.json` in your project:
+
+```json
+{
+  "mcpServers": {
+    "calcom": {
+      "command": "npx",
+      "args": ["@calcom/mcp"],
+      "env": {
+        "CAL_API_KEY": "cal_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><strong>VS Code</strong></summary>
+
+Add to `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "calcom": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@calcom/mcp"],
+      "env": {
+        "CAL_API_KEY": "cal_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+## Development
+
+### Build
 
 ```bash
 cd apps/mcp
@@ -12,7 +108,7 @@ bun install
 bun run build
 ```
 
-## Configuration
+### Configuration
 
 Copy `.env.example` to `.env` and fill in your values:
 
@@ -24,28 +120,38 @@ CAL_API_KEY=cal_your_api_key_here
 - **API_BASE_URL**: Cal.com API v2 base URL (default: `https://api.cal.com`)
 - **CAL_API_KEY**: Your Cal.com API key (get one from https://app.cal.com/settings/developer/api-keys)
 
-## Install
+### Local Installation
 
-### Claude Code
+<details>
+<summary><strong>Claude Code</strong></summary>
 
-Add to `~/.claude.json`:
+```bash
+# Personal profile (core toolsets - default)
+claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js -e CAL_API_KEY=your_api_key
 
-```json
-{
-  "mcpServers": {
-    "calcom": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["/path/to/companion/apps/mcp/build/index.js"],
-      "env": {
-        "CAL_API_KEY": "cal_your_api_key_here"
-      }
-    }
-  }
-}
+# Personal profile (all toolsets)
+claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--all" -e CAL_API_KEY=your_api_key
+
+# Team profile (core)
+claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--profile team" -e CAL_API_KEY=your_api_key
+
+# Team profile (all)
+claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--profile team --all" -e CAL_API_KEY=your_api_key
+
+# Org profile (core)
+claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--profile org" -e CAL_API_KEY=your_api_key
+
+# Org profile (all)
+claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--profile org --all" -e CAL_API_KEY=your_api_key
+
+# Custom toolsets
+claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--toolsets bookings,schedules,slots" -e CAL_API_KEY=your_api_key
 ```
 
-### Claude Desktop
+</details>
+
+<details>
+<summary><strong>Claude Desktop</strong></summary>
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -63,7 +169,10 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-### Cursor
+</details>
+
+<details>
+<summary><strong>Cursor</strong></summary>
 
 Add to `.cursor/mcp.json` in your project:
 
@@ -81,7 +190,10 @@ Add to `.cursor/mcp.json` in your project:
 }
 ```
 
-### VS Code
+</details>
+
+<details>
+<summary><strong>VS Code</strong></summary>
 
 Add to `.vscode/mcp.json`:
 
@@ -99,6 +211,8 @@ Add to `.vscode/mcp.json`:
   }
 }
 ```
+
+</details>
 
 ## What's Included
 
