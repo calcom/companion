@@ -381,9 +381,9 @@ describe("toolsets integration — default profile (personal core)", () => {
     await client.close();
   });
 
-  it("loads personal core profile by default (41 API tools + 3 meta-tools)", async () => {
+  it("loads personal core profile by default (43 API tools + 3 meta-tools)", async () => {
     const result = await client.listTools();
-    expect(result.tools.length).toBe(44);
+    expect(result.tools.length).toBe(46);
   });
 
   it("only contains core toolset tools", async () => {
@@ -433,9 +433,9 @@ describe("toolsets integration — team profile (core)", () => {
     await client.close();
   });
 
-  it("loads team core profile (52 API tools + 3 meta-tools)", async () => {
+  it("loads team core profile (54 API tools + 3 meta-tools)", async () => {
     const result = await client.listTools();
-    expect(result.tools.length).toBe(55);
+    expect(result.tools.length).toBe(57);
   });
 
   it("contains both personal and team tools", async () => {
@@ -475,9 +475,9 @@ describe("toolsets integration — specific toolsets via --toolsets", () => {
     await client.close();
   });
 
-  it("loads only specified toolsets (bookings=19 + slots=5 + 3 meta = 27)", async () => {
+  it("loads only specified toolsets (bookings=21 + slots=5 + 3 meta = 29)", async () => {
     const result = await client.listTools();
-    expect(result.tools.length).toBe(27);
+    expect(result.tools.length).toBe(29);
   });
 
   it("contains only bookings and slots tools", async () => {
@@ -521,9 +521,9 @@ describe("toolsets integration — runtime add/remove", () => {
     await client.close();
   });
 
-  it("starts with bookings only (19 + 3 meta = 22)", async () => {
+  it("starts with bookings only (21 + 3 meta = 24)", async () => {
     const result = await client.listTools();
-    expect(result.tools.length).toBe(22);
+    expect(result.tools.length).toBe(24);
   });
 
   it("add_toolsets adds slots tools", async () => {
@@ -535,11 +535,11 @@ describe("toolsets integration — runtime add/remove", () => {
       (addResult.content as Array<{ type: string; text: string }>)[0].text
     );
     expect(parsed.added).toEqual(["slots"]);
-    expect(parsed.active_tool_count).toBe(24); // 19 bookings + 5 slots
+    expect(parsed.active_tool_count).toBe(26); // 21 bookings + 5 slots
 
     // Verify tools list updated
     const tools = await client.listTools();
-    expect(tools.tools.length).toBe(27); // 24 API + 3 meta
+    expect(tools.tools.length).toBe(29); // 26 API + 3 meta
   });
 
   it("remove_toolsets removes bookings tools", async () => {

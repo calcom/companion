@@ -49,11 +49,11 @@ describe("Cal.com MCP Server", () => {
   });
 
   describe("tool listing", () => {
-    it("lists all 260 API tools plus 3 meta-tools with --all-tools", async () => {
+    it("lists all 254 API tools plus 3 meta-tools with --all-tools", async () => {
       const result = await client.listTools();
       expect(result.tools).toBeDefined();
-      // 260 API tools + 3 meta-tools (list_toolsets, add_toolsets, remove_toolsets)
-      expect(result.tools.length).toBe(263);
+      // 254 API tools + 3 meta-tools (list_toolsets, add_toolsets, remove_toolsets)
+      expect(result.tools.length).toBe(257);
     });
 
     it("includes meta-tools", async () => {
@@ -296,8 +296,8 @@ describe("server configuration", () => {
     await testClient.connect(transport);
 
     const tools = await testClient.listTools();
-    // 260 API tools + 3 meta-tools
-    expect(tools.tools.length).toBe(263);
+    // 254 API tools + 3 meta-tools
+    expect(tools.tools.length).toBe(257);
 
     await testClient.close();
   }, 15000);
