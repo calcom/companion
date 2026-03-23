@@ -68,7 +68,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Build MCP server
         working-directory: apps/mcp
-        run: npx tsc && npx shx chmod 755 build/index.js
+        run: npx tsc && npx shx chmod 755 build/stdio/index.js
       - name: Run MCP tests
         working-directory: apps/mcp
         run: npx vitest run
