@@ -14,10 +14,6 @@ import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { McpToolDefinition } from "./generated.js";
 
-// ---------------------------------------------------------------------------
-// Toolset Definitions — maps toolset names to controller prefixes
-// ---------------------------------------------------------------------------
-
 export const TOOLSETS: Record<string, string[]> = {
   // === Personal toolsets ===
   bookings: [
@@ -99,10 +95,6 @@ export const TOOLSETS: Record<string, string[]> = {
   "orgs-workflows": ["OrganizationTeamWorkflowsController"],
 };
 
-// ---------------------------------------------------------------------------
-// Toolset Descriptions — used by list_toolsets meta-tool
-// ---------------------------------------------------------------------------
-
 export const TOOLSET_DESCRIPTIONS: Record<string, string> = {
   // Personal
   bookings: "Create, get, cancel, reschedule bookings and manage attendees/guests/location",
@@ -147,10 +139,6 @@ export const TOOLSET_DESCRIPTIONS: Record<string, string> = {
   "orgs-delegation": "Delegation credentials",
   "orgs-workflows": "Org team workflows for event types and routing forms",
 };
-
-// ---------------------------------------------------------------------------
-// Profiles — named bundles of toolsets mapping to Cal.com user types
-// ---------------------------------------------------------------------------
 
 const PERSONAL_TOOLSETS = [
   "bookings",
@@ -207,10 +195,6 @@ export const PROFILES: Record<string, string[]> = {
 
 export const DEFAULT_PROFILE = "personal";
 
-// ---------------------------------------------------------------------------
-// CLI Argument Parsing
-// ---------------------------------------------------------------------------
-
 export interface CliArgs {
   profile: string | null;
   toolsets: string[] | null;
@@ -244,15 +228,7 @@ export function parseCliArgs(argv: string[]): CliArgs {
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// Toolset Resolution
-// ---------------------------------------------------------------------------
-
-/**
- * Resolves which toolsets should be active based on CLI args.
- *
- * Priority: --all-tools > --toolsets > --profile > DEFAULT_PROFILE
- */
+// Priority: --all-tools > --toolsets > --profile > DEFAULT_PROFILE
 export function resolveActiveToolsets(args: CliArgs): Set<string> {
   const allToolsetNames = Object.keys(TOOLSETS);
 
@@ -281,21 +257,11 @@ export function resolveActiveToolsets(args: CliArgs): Set<string> {
   return new Set(profileToolsets);
 }
 
-// ---------------------------------------------------------------------------
-// Tool Filtering
-// ---------------------------------------------------------------------------
-
-/**
- * Filters toolDefinitionMap to only include tools belonging to active toolsets.
- * A tool belongs to a toolset if its name starts with any of the toolset's
- * controller prefixes.
- */
 export function filterToolsByToolsets(
   allTools: Map<string, McpToolDefinition>,
   activeToolsets: Set<string>,
   toolsetConfig: Record<string, string[]>
 ): Map<string, McpToolDefinition> {
-  // Collect all active controller prefixes
   const activePrefixes: string[] = [];
   for (const toolsetName of activeToolsets) {
     const prefixes = toolsetConfig[toolsetName];
@@ -314,9 +280,6 @@ export function filterToolsByToolsets(
   return filtered;
 }
 
-/**
- * Counts how many tools belong to a specific toolset.
- */
 export function getToolsetToolCount(
   allTools: Map<string, McpToolDefinition>,
   toolsetName: string,
@@ -334,13 +297,6 @@ export function getToolsetToolCount(
   return count;
 }
 
-// ---------------------------------------------------------------------------
-// --list-toolsets Output
-// ---------------------------------------------------------------------------
-
-/**
- * Prints available toolsets and profiles to stdout, then exits.
- */
 export function printToolsetsList(allTools: Map<string, McpToolDefinition>): void {
   const lines: string[] = [];
   lines.push("Cal.com MCP — Available Toolsets");
@@ -391,10 +347,6 @@ export function printToolsetsList(allTools: Map<string, McpToolDefinition>): voi
 
   process.stdout.write(`${lines.join("\n")}\n`);
 }
-
-// ---------------------------------------------------------------------------
-// Meta-Tool Definitions (always registered, regardless of profile)
-// ---------------------------------------------------------------------------
 
 const META_TOOL_NAMES = ["list_toolsets", "add_toolsets", "remove_toolsets"] as const;
 export type MetaToolName = (typeof META_TOOL_NAMES)[number];
@@ -448,10 +400,6 @@ export function getMetaToolDefinitions(): Tool[] {
     },
   ];
 }
-
-// ---------------------------------------------------------------------------
-// Meta-Tool Execution
-// ---------------------------------------------------------------------------
 
 interface ToolsetState {
   activeToolsets: Set<string>;

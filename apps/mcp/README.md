@@ -4,12 +4,12 @@ Cal.com MCP (Model Context Protocol) Server — exposes Cal.com API v2 endpoints
 
 Generated from the Cal.com API v2 OpenAPI spec using [openapi-mcp-generator](https://www.npmjs.com/package/openapi-mcp-generator) with `stdio` transport.
 
-## Setup
+## Build
 
 ```bash
 cd apps/mcp
-npm install
-npm run build
+bun install
+bun run build
 ```
 
 ## Configuration
@@ -24,11 +24,30 @@ CAL_API_KEY=cal_your_api_key_here
 - **API_BASE_URL**: Cal.com API v2 base URL (default: `https://api.cal.com`)
 - **CAL_API_KEY**: Your Cal.com API key (get one from https://app.cal.com/settings/developer/api-keys)
 
-## Usage
+## Install
+
+### Claude Code
+
+Add to `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "calcom": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/path/to/companion/apps/mcp/build/index.js"],
+      "env": {
+        "CAL_API_KEY": "cal_your_api_key_here"
+      }
+    }
+  }
+}
+```
 
 ### Claude Desktop
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -64,7 +83,7 @@ Add to `.cursor/mcp.json` in your project:
 
 ### VS Code
 
-Add to your VS Code settings (`.vscode/mcp.json`):
+Add to `.vscode/mcp.json`:
 
 ```json
 {
@@ -95,10 +114,26 @@ Add to your VS Code settings (`.vscode/mcp.json`):
 - `Deprecated: Platform / Webhooks`
 - `Deprecated: Platform OAuth Clients`
 
+## Regenerating from OpenAPI
+
+When the Cal.com API spec changes:
+
+1. Replace `openapi.json` with the updated spec
+2. Regenerate the tools:
+   ```bash
+   npx openapi-mcp-generator
+   ```
+3. Rebuild:
+   ```bash
+   bun run build
+   ```
+
+Note: `toolsets.ts` is hand-maintained. If new controllers are added, add them to the appropriate toolset.
+
 ## Testing
 
 ```bash
-npm test
+bun test
 ```
 
 ## Transport
