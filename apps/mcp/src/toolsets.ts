@@ -12,20 +12,7 @@
 
 import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-
-/**
- * Interface for MCP Tool Definition (must match index.ts)
- */
-interface McpToolDefinition {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  method: string;
-  pathTemplate: string;
-  executionParameters: { name: string; in: string }[];
-  requestBodyContentType?: string;
-  securityRequirements: Record<string, unknown>[];
-}
+import type { McpToolDefinition } from "./generated.js";
 
 // ---------------------------------------------------------------------------
 // Toolset Definitions — maps toolset names to controller prefixes
