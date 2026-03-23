@@ -359,7 +359,7 @@ describe("toolset configuration integrity", () => {
 // Integration tests — spawn actual MCP server with different profiles
 // ---------------------------------------------------------------------------
 
-describe("toolsets integration — default profile (personal)", () => {
+describe("toolsets integration — default profile (personal core)", () => {
   let client: Client;
   let transport: StdioClientTransport;
 
@@ -381,17 +381,19 @@ describe("toolsets integration — default profile (personal)", () => {
     await client.close();
   });
 
-  it("loads personal profile by default (90 API tools + 3 meta-tools)", async () => {
+  it("loads personal core profile by default (41 API tools + 3 meta-tools)", async () => {
     const result = await client.listTools();
-    expect(result.tools.length).toBe(93);
+    expect(result.tools.length).toBe(44);
   });
 
-  it("only contains personal toolset tools", async () => {
+  it("only contains core toolset tools", async () => {
     const result = await client.listTools();
     const toolNames = result.tools.map((t) => t.name);
 
-    // Should have booking tools
+    // Should have booking tools (core)
     expect(toolNames.some((n) => n.startsWith("BookingsController"))).toBe(true);
+    // Should NOT have webhooks (not in core)
+    expect(toolNames.some((n) => n.startsWith("WebhooksController"))).toBe(false);
     // Should NOT have team tools
     expect(toolNames.some((n) => n.startsWith("TeamsController"))).toBe(false);
     // Should NOT have org tools
@@ -409,7 +411,7 @@ describe("toolsets integration — default profile (personal)", () => {
   });
 });
 
-describe("toolsets integration — team profile", () => {
+describe("toolsets integration — team profile (core)", () => {
   let client: Client;
   let transport: StdioClientTransport;
 
@@ -431,9 +433,9 @@ describe("toolsets integration — team profile", () => {
     await client.close();
   });
 
-  it("loads team profile (127 API tools + 3 meta-tools)", async () => {
+  it("loads team core profile (52 API tools + 3 meta-tools)", async () => {
     const result = await client.listTools();
-    expect(result.tools.length).toBe(130);
+    expect(result.tools.length).toBe(55);
   });
 
   it("contains both personal and team tools", async () => {
