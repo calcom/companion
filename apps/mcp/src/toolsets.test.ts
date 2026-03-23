@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   DEFAULT_PROFILE,
   PROFILES,
+  PROFILES_CORE,
   TOOLSETS,
   TOOLSET_DESCRIPTIONS,
   filterToolsByToolsets,
@@ -27,6 +28,7 @@ describe("parseCliArgs", () => {
       profile: null,
       toolsets: null,
       allTools: false,
+      fullProfile: false,
       listToolsets: false,
     });
   });
@@ -71,43 +73,84 @@ describe("parseCliArgs", () => {
 });
 
 describe("resolveActiveToolsets", () => {
-  it("defaults to default profile when no args", () => {
+  it("defaults to personal core profile when no args", () => {
     const result = resolveActiveToolsets({
       profile: null,
       toolsets: null,
       allTools: false,
+      fullProfile: false,
       listToolsets: false,
     });
-    expect(result).toEqual(new Set(PROFILES.default));
+    expect(result).toEqual(new Set(PROFILES_CORE.personal));
+    expect(result.size).toBe(5);
   });
 
-  it("resolves personal profile", () => {
+  it("resolves personal core profile", () => {
     const result = resolveActiveToolsets({
       profile: "personal",
       toolsets: null,
       allTools: false,
+      fullProfile: false,
+      listToolsets: false,
+    });
+    expect(result).toEqual(new Set(PROFILES_CORE.personal));
+    expect(result.size).toBe(5);
+  });
+
+  it("resolves personal full profile with --all", () => {
+    const result = resolveActiveToolsets({
+      profile: "personal",
+      toolsets: null,
+      allTools: false,
+      fullProfile: true,
       listToolsets: false,
     });
     expect(result).toEqual(new Set(PROFILES.personal));
     expect(result.size).toBe(13);
   });
 
-  it("resolves team profile", () => {
+  it("resolves team core profile", () => {
     const result = resolveActiveToolsets({
       profile: "team",
       toolsets: null,
       allTools: false,
+      fullProfile: false,
+      listToolsets: false,
+    });
+    expect(result).toEqual(new Set(PROFILES_CORE.team));
+    expect(result.size).toBe(7);
+  });
+
+  it("resolves team full profile with --all", () => {
+    const result = resolveActiveToolsets({
+      profile: "team",
+      toolsets: null,
+      allTools: false,
+      fullProfile: true,
       listToolsets: false,
     });
     expect(result).toEqual(new Set(PROFILES.team));
     expect(result.size).toBe(20);
   });
 
-  it("resolves org profile", () => {
+  it("resolves org core profile", () => {
     const result = resolveActiveToolsets({
       profile: "org",
       toolsets: null,
       allTools: false,
+      fullProfile: false,
+      listToolsets: false,
+    });
+    expect(result).toEqual(new Set(PROFILES_CORE.org));
+    expect(result.size).toBe(10);
+  });
+
+  it("resolves org full profile with --all", () => {
+    const result = resolveActiveToolsets({
+      profile: "org",
+      toolsets: null,
+      allTools: false,
+      fullProfile: true,
       listToolsets: false,
     });
     expect(result).toEqual(new Set(PROFILES.org));
@@ -119,6 +162,7 @@ describe("resolveActiveToolsets", () => {
       profile: null,
       toolsets: null,
       allTools: true,
+      fullProfile: false,
       listToolsets: false,
     });
     expect(result.size).toBe(Object.keys(TOOLSETS).length);
@@ -129,6 +173,7 @@ describe("resolveActiveToolsets", () => {
       profile: "org",
       toolsets: ["bookings", "slots"],
       allTools: false,
+      fullProfile: false,
       listToolsets: false,
     });
     expect(result).toEqual(new Set(["bookings", "slots"]));
@@ -139,19 +184,21 @@ describe("resolveActiveToolsets", () => {
       profile: null,
       toolsets: ["bookings"],
       allTools: true,
+      fullProfile: false,
       listToolsets: false,
     });
     expect(result.size).toBe(Object.keys(TOOLSETS).length);
   });
 
-  it("falls back to default profile for unknown profile", () => {
+  it("falls back to default core profile for unknown profile", () => {
     const result = resolveActiveToolsets({
       profile: "nonexistent",
       toolsets: null,
       allTools: false,
+      fullProfile: false,
       listToolsets: false,
     });
-    expect(result).toEqual(new Set(PROFILES[DEFAULT_PROFILE]));
+    expect(result).toEqual(new Set(PROFILES_CORE[DEFAULT_PROFILE]));
   });
 
   it("ignores unknown toolset names in --toolsets", () => {
@@ -159,6 +206,7 @@ describe("resolveActiveToolsets", () => {
       profile: null,
       toolsets: ["bookings", "fake_toolset"],
       allTools: false,
+      fullProfile: false,
       listToolsets: false,
     });
     expect(result).toEqual(new Set(["bookings"]));

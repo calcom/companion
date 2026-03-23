@@ -140,16 +140,12 @@ export const TOOLSET_DESCRIPTIONS: Record<string, string> = {
   "orgs-workflows": "Org team workflows for event types and routing forms",
 };
 
-const DEFAULT_TOOLSETS = [
+const PERSONAL_TOOLSETS = [
   "bookings",
   "event-types",
   "schedules",
   "slots",
   "me",
-];
-
-const PERSONAL_TOOLSETS = [
-  ...DEFAULT_TOOLSETS,
   "calendars",
   "conferencing",
   "webhooks",
@@ -159,6 +155,8 @@ const PERSONAL_TOOLSETS = [
   "api-keys",
   "stripe",
 ];
+
+const PERSONAL_CORE = ["bookings", "event-types", "schedules", "slots", "me"];
 
 const TEAM_TOOLSETS = [
   ...PERSONAL_TOOLSETS,
@@ -170,6 +168,8 @@ const TEAM_TOOLSETS = [
   "teams-ooo",
   "teams-verified-resources",
 ];
+
+const TEAM_CORE = [...PERSONAL_CORE, "teams", "teams-members"];
 
 const ORG_TOOLSETS = [
   ...TEAM_TOOLSETS,
@@ -191,19 +191,29 @@ const ORG_TOOLSETS = [
   "orgs-workflows",
 ];
 
+const ORG_CORE = [...TEAM_CORE, "orgs", "orgs-members", "orgs-teams"];
+
+// Full profiles (used with --all flag)
 export const PROFILES: Record<string, string[]> = {
-  default: DEFAULT_TOOLSETS,
   personal: PERSONAL_TOOLSETS,
   team: TEAM_TOOLSETS,
   org: ORG_TOOLSETS,
 };
 
-export const DEFAULT_PROFILE = "default";
+// Core profiles (default, loads only essential toolsets)
+export const PROFILES_CORE: Record<string, string[]> = {
+  personal: PERSONAL_CORE,
+  team: TEAM_CORE,
+  org: ORG_CORE,
+};
+
+export const DEFAULT_PROFILE = "personal";
 
 export interface CliArgs {
   profile: string | null;
   toolsets: string[] | null;
   allTools: boolean;
+  fullProfile: boolean;
   listToolsets: boolean;
 }
 
@@ -212,6 +222,7 @@ export function parseCliArgs(argv: string[]): CliArgs {
     profile: null,
     toolsets: null,
     allTools: false,
+    fullProfile: false,
     listToolsets: false,
   };
 
@@ -219,6 +230,8 @@ export function parseCliArgs(argv: string[]): CliArgs {
     const arg = argv[i];
     if (arg === "--all-tools" || arg === "-a") {
       result.allTools = true;
+    } else if (arg === "--all") {
+      result.fullProfile = true;
     } else if (arg === "--list-toolsets") {
       result.listToolsets = true;
     } else if (arg === "--profile" && i + 1 < argv.length) {
@@ -233,7 +246,7 @@ export function parseCliArgs(argv: string[]): CliArgs {
   return result;
 }
 
-// Priority: --all-tools > --toolsets > --profile > DEFAULT_PROFILE
+// Priority: --all-tools > --toolsets > --profile (with --all for full) > DEFAULT_PROFILE
 export function resolveActiveToolsets(args: CliArgs): Set<string> {
   const allToolsetNames = Object.keys(TOOLSETS);
 
@@ -251,12 +264,16 @@ export function resolveActiveToolsets(args: CliArgs): Set<string> {
   }
 
   const profileName = args.profile || DEFAULT_PROFILE;
-  const profileToolsets = PROFILES[profileName];
+
+  // Use full profile if --all flag, otherwise use core (minimal) profile
+  const profileSource = args.fullProfile ? PROFILES : PROFILES_CORE;
+  const profileToolsets = profileSource[profileName];
+
   if (!profileToolsets) {
     console.error(
       `Warning: Unknown profile "${profileName}", falling back to "${DEFAULT_PROFILE}"`
     );
-    return new Set(PROFILES[DEFAULT_PROFILE]);
+    return new Set(profileSource[DEFAULT_PROFILE]);
   }
 
   return new Set(profileToolsets);
@@ -308,11 +325,7 @@ export function printToolsetsList(allTools: Map<string, McpToolDefinition>): voi
   lines.push("");
 
   const sections: { label: string; toolsets: string[] }[] = [
-    { label: "DEFAULT TOOLSETS (loaded by default)", toolsets: DEFAULT_TOOLSETS },
-    {
-      label: "PERSONAL TOOLSETS",
-      toolsets: PERSONAL_TOOLSETS.filter((t) => !DEFAULT_TOOLSETS.includes(t)),
-    },
+    { label: "PERSONAL TOOLSETS", toolsets: PERSONAL_TOOLSETS },
     {
       label: "TEAM TOOLSETS",
       toolsets: TEAM_TOOLSETS.filter((t) => !PERSONAL_TOOLSETS.includes(t)),
@@ -335,25 +348,30 @@ export function printToolsetsList(allTools: Map<string, McpToolDefinition>): voi
     lines.push("");
   }
 
-  lines.push("PROFILES:");
-  for (const [profileName, profileToolsets] of Object.entries(PROFILES)) {
-    const toolCount = profileToolsets.reduce(
+  lines.push("PROFILES (core / full with --all):");
+  for (const [profileName, fullToolsets] of Object.entries(PROFILES)) {
+    const coreToolsets = PROFILES_CORE[profileName];
+    const coreCount = coreToolsets.reduce(
+      (sum, t) => sum + getToolsetToolCount(allTools, t, TOOLSETS),
+      0
+    );
+    const fullCount = fullToolsets.reduce(
       (sum, t) => sum + getToolsetToolCount(allTools, t, TOOLSETS),
       0
     );
     const isDefault = profileName === DEFAULT_PROFILE ? " (default)" : "";
     lines.push(
-      `  ${profileName.padEnd(12)} ${String(profileToolsets.length).padStart(2)} toolsets  ${String(toolCount).padStart(3)} tools${isDefault}`
+      `  ${profileName.padEnd(12)} ${String(coreToolsets.length).padStart(2)} / ${String(fullToolsets.length).padStart(2)} toolsets   ${String(coreCount).padStart(3)} / ${String(fullCount).padStart(3)} tools${isDefault}`
     );
   }
   lines.push("");
   lines.push("Usage:");
-  lines.push("  npx @calcom/mcp                              # Default profile (core tools only)");
-  lines.push("  npx @calcom/mcp --profile personal           # Load all personal toolsets");
-  lines.push("  npx @calcom/mcp --profile team               # Load all team toolsets");
-  lines.push("  npx @calcom/mcp --profile org                # Load all org toolsets");
-  lines.push("  npx @calcom/mcp --toolsets bookings,slots,me  # Load specific toolsets");
-  lines.push("  npx @calcom/mcp --all-tools                  # Load all tools");
+  lines.push("  npx @calcom/mcp                              # Personal profile (core toolsets)");
+  lines.push("  npx @calcom/mcp --all                        # Personal profile (all toolsets)");
+  lines.push("  npx @calcom/mcp --profile team               # Team profile (core toolsets)");
+  lines.push("  npx @calcom/mcp --profile team --all         # Team profile (all toolsets)");
+  lines.push("  npx @calcom/mcp --toolsets bookings,teams    # Specific toolsets only");
+  lines.push("  npx @calcom/mcp --all-tools                  # All 260 tools");
 
   process.stdout.write(`${lines.join("\n")}\n`);
 }
