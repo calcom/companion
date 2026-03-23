@@ -6,10 +6,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const SERVER_PATH = resolve(import.meta.dirname, "../build/index.js");
 
-function createClient(): { client: Client; transport: StdioClientTransport } {
+function createClient(
+  extraArgs: string[] = []
+): { client: Client; transport: StdioClientTransport } {
   const transport = new StdioClientTransport({
     command: "node",
-    args: [SERVER_PATH],
+    args: [SERVER_PATH, ...extraArgs],
     env: {
       ...process.env,
       API_BASE_URL: "https://api.cal.com",
@@ -27,7 +29,7 @@ describe("Cal.com MCP Server", () => {
   let transport: StdioClientTransport;
 
   beforeAll(async () => {
-    const created = createClient();
+    const created = createClient(["--all-tools"]);
     client = created.client;
     transport = created.transport;
     await client.connect(transport);
@@ -47,10 +49,19 @@ describe("Cal.com MCP Server", () => {
   });
 
   describe("tool listing", () => {
-    it("lists all 260 non-deprecated tools", async () => {
+    it("lists all 260 API tools plus 3 meta-tools with --all-tools", async () => {
       const result = await client.listTools();
       expect(result.tools).toBeDefined();
-      expect(result.tools.length).toBe(260);
+      // 260 API tools + 3 meta-tools (list_toolsets, add_toolsets, remove_toolsets)
+      expect(result.tools.length).toBe(263);
+    });
+
+    it("includes meta-tools", async () => {
+      const result = await client.listTools();
+      const toolNames = result.tools.map((t) => t.name);
+      expect(toolNames).toContain("list_toolsets");
+      expect(toolNames).toContain("add_toolsets");
+      expect(toolNames).toContain("remove_toolsets");
     });
 
     it("does not include deprecated platform tools", async () => {
@@ -131,6 +142,21 @@ describe("Cal.com MCP Server", () => {
       expect(result.content).toBeDefined();
       const textContent = result.content as Array<{ type: string; text: string }>;
       expect(textContent[0].text).toContain("Unknown tool");
+    });
+
+    it("list_toolsets meta-tool returns available toolsets", async () => {
+      const result = await client.callTool({
+        name: "list_toolsets",
+        arguments: {},
+      });
+
+      expect(result.content).toBeDefined();
+      const textContent = result.content as Array<{ type: string; text: string }>;
+      const parsed = JSON.parse(textContent[0].text);
+      expect(parsed.available_toolsets).toBeDefined();
+      expect(parsed.available_toolsets.bookings).toBeDefined();
+      expect(parsed.available_toolsets.bookings.description).toBeTruthy();
+      expect(parsed.available_toolsets.bookings.tool_count).toBeGreaterThan(0);
     });
 
     it("returns validation error for missing required parameters", async () => {
@@ -222,7 +248,7 @@ describe("server configuration", () => {
   it("uses default API_BASE_URL when env var is not set", async () => {
     const transport = new StdioClientTransport({
       command: "node",
-      args: [SERVER_PATH],
+      args: [SERVER_PATH, "--all-tools"],
       env: {
         ...process.env,
         API_BASE_URL: "",
@@ -243,7 +269,7 @@ describe("server configuration", () => {
   it("can start with custom API_BASE_URL", async () => {
     const transport = new StdioClientTransport({
       command: "node",
-      args: [SERVER_PATH],
+      args: [SERVER_PATH, "--all-tools"],
       env: {
         ...process.env,
         API_BASE_URL: "https://custom.cal.dev",
@@ -259,7 +285,8 @@ describe("server configuration", () => {
     await testClient.connect(transport);
 
     const tools = await testClient.listTools();
-    expect(tools.tools.length).toBe(260);
+    // 260 API tools + 3 meta-tools
+    expect(tools.tools.length).toBe(263);
 
     await testClient.close();
   }, 15000);

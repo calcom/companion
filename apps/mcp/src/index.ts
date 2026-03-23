@@ -21,6 +21,18 @@ import {
 import axios, { type AxiosError, type AxiosRequestConfig } from "axios";
 import { jsonSchemaToZod } from "json-schema-to-zod";
 import { ZodError, z } from "zod";
+import {
+  TOOLSETS,
+  DEFAULT_PROFILE,
+  parseCliArgs,
+  resolveActiveToolsets,
+  filterToolsByToolsets,
+  printToolsetsList,
+  isMetaTool,
+  getMetaToolDefinitions,
+  handleMetaTool,
+  type MetaToolName,
+} from "./toolsets.js";
 
 /**
  * Type definition for JSON objects
@@ -55,8 +67,17 @@ console.error("API_BASE_URL is set to:", API_BASE_URL);
  */
 const server = new Server(
   { name: SERVER_NAME, version: SERVER_VERSION },
-  { capabilities: { tools: {} } }
+  { capabilities: { tools: { listChanged: true } } }
 );
+
+/**
+ * Toolsets initialization — parse CLI args and resolve active toolsets
+ */
+const cliArgs = parseCliArgs(process.argv);
+if (cliArgs.listToolsets) {
+  // Will print and exit after toolDefinitionMap is populated (see below)
+}
+const initialProfile = cliArgs.profile || DEFAULT_PROFILE;
 
 /**
  * Map of tool definitions by name
@@ -23099,23 +23120,66 @@ Cancelling recurring seated bookings:
  */
 const securitySchemes = {};
 
+/**
+ * Handle --list-toolsets flag (must be after toolDefinitionMap is populated)
+ */
+if (cliArgs.listToolsets) {
+  printToolsetsList(toolDefinitionMap);
+  process.exit(0);
+}
+
+/**
+ * Active toolsets and filtered tool map (mutable — changed by meta-tools at runtime)
+ */
+const activeToolsets: Set<string> = resolveActiveToolsets(cliArgs);
+let activeToolMap: Map<string, McpToolDefinition> = filterToolsByToolsets(
+  toolDefinitionMap,
+  activeToolsets,
+  TOOLSETS
+);
+
+console.error(
+  `Toolsets: profile="${initialProfile}", active=${activeToolsets.size} toolsets, ${activeToolMap.size} tools loaded (of ${toolDefinitionMap.size} total)`
+);
+
+/**
+ * Shared state object passed to meta-tool handlers
+ */
+const toolsetState = {
+  activeToolsets,
+  activeToolMap,
+  allTools: toolDefinitionMap,
+  initialProfile,
+  server,
+};
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const toolsForClient: Tool[] = Array.from(toolDefinitionMap.values()).map((def) => ({
+  const metaTools = getMetaToolDefinitions();
+  const apiTools: Tool[] = Array.from(activeToolMap.values()).map((def) => ({
     name: def.name,
     description: def.description,
     inputSchema: def.inputSchema,
   }));
-  return { tools: toolsForClient };
+  return { tools: [...metaTools, ...apiTools] };
 });
 
 server.setRequestHandler(
   CallToolRequestSchema,
   async (request: CallToolRequest): Promise<CallToolResult> => {
     const { name: toolName, arguments: toolArgs } = request.params;
-    const toolDefinition = toolDefinitionMap.get(toolName);
+
+    // Handle meta-tools (list_toolsets, add_toolsets, remove_toolsets)
+    if (isMetaTool(toolName)) {
+      const result = await handleMetaTool(toolName as MetaToolName, toolArgs ?? {}, toolsetState);
+      // Update local reference in case meta-tool rebuilt the map
+      activeToolMap = toolsetState.activeToolMap;
+      return result;
+    }
+
+    const toolDefinition = activeToolMap.get(toolName);
     if (!toolDefinition) {
       console.error(`Error: Unknown tool requested: ${toolName}`);
-      return { content: [{ type: "text", text: `Error: Unknown tool requested: ${toolName}` }] };
+      return { content: [{ type: "text", text: `Error: Unknown tool "${toolName}". It may not be in the active toolsets. Use list_toolsets to see available toolsets, then add_toolsets to load more.` }] };
     }
     return await executeApiTool(toolName, toolDefinition, toolArgs ?? {}, securitySchemes);
   }
