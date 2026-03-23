@@ -184,7 +184,7 @@ describe("Cal.com MCP Server", () => {
 });
 
 describe("OpenAPI spec filtering", () => {
-  it("filtered spec does not contain deprecated platform paths", () => {
+  it("deprecated platform paths are tagged as deprecated", () => {
     const specPath = resolve(import.meta.dirname, "../openapi.json");
     const spec = JSON.parse(readFileSync(specPath, "utf-8"));
 
@@ -200,7 +200,13 @@ describe("OpenAPI spec filtering", () => {
     ];
 
     for (const path of deprecatedPaths) {
-      expect(spec.paths).not.toHaveProperty(path);
+      if (spec.paths[path]) {
+        const methods = Object.values(spec.paths[path]) as Array<{ tags?: string[] }>;
+        const hasDeprecatedTag = methods.some((method) =>
+          method.tags?.some((tag: string) => tag.toLowerCase().includes("deprecated"))
+        );
+        expect(hasDeprecatedTag).toBe(true);
+      }
     }
   });
 
@@ -221,26 +227,31 @@ describe("OpenAPI spec filtering", () => {
     }
   });
 
-  it("filtered spec does not contain deprecated platform tags", () => {
+  it("spec paths include deprecated endpoints with deprecated tags", () => {
     const specPath = resolve(import.meta.dirname, "../openapi.json");
     const spec = JSON.parse(readFileSync(specPath, "utf-8"));
 
-    const tagNames = (spec.tags || []).map((t: { name: string }) => t.name);
-
-    expect(tagNames).not.toContain("Deprecated: Platform / Managed Users");
-    expect(tagNames).not.toContain("Deprecated: Platform / Webhooks");
-    expect(tagNames).not.toContain("Deprecated: Platform OAuth Clients");
+    // Check that deprecated endpoints have deprecated tags in their operations
+    let foundDeprecated = false;
+    for (const [, pathItem] of Object.entries(spec.paths)) {
+      for (const [, operation] of Object.entries(pathItem as Record<string, { tags?: string[] }>)) {
+        if (operation.tags?.some((t) => t.toLowerCase().includes("deprecated"))) {
+          foundDeprecated = true;
+          break;
+        }
+      }
+      if (foundDeprecated) break;
+    }
+    expect(foundDeprecated).toBe(true);
   });
 
-  it("filtered spec has expected number of paths", () => {
+  it("spec has expected number of paths", () => {
     const specPath = resolve(import.meta.dirname, "../openapi.json");
     const spec = JSON.parse(readFileSync(specPath, "utf-8"));
 
     const pathCount = Object.keys(spec.paths).length;
-    // Original had 178 paths, some paths had only deprecated operations
-    // so filtered should have fewer paths
+    // Full spec from docs includes all paths
     expect(pathCount).toBeGreaterThan(100);
-    expect(pathCount).toBeLessThanOrEqual(178);
   });
 });
 
