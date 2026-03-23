@@ -127,25 +127,25 @@ CAL_API_KEY=cal_your_api_key_here
 
 ```bash
 # Personal profile (core toolsets - default)
-claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js -e CAL_API_KEY=your_api_key
+claude mcp add calcom node /path/to/companion/apps/mcp/build/stdio/index.js -e CAL_API_KEY=your_api_key
 
 # Personal profile (all toolsets)
-claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--all" -e CAL_API_KEY=your_api_key
+claude mcp add calcom node /path/to/companion/apps/mcp/build/stdio/index.js --args="--all" -e CAL_API_KEY=your_api_key
 
 # Team profile (core)
-claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--profile team" -e CAL_API_KEY=your_api_key
+claude mcp add calcom node /path/to/companion/apps/mcp/build/stdio/index.js --args="--profile team" -e CAL_API_KEY=your_api_key
 
 # Team profile (all)
-claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--profile team --all" -e CAL_API_KEY=your_api_key
+claude mcp add calcom node /path/to/companion/apps/mcp/build/stdio/index.js --args="--profile team --all" -e CAL_API_KEY=your_api_key
 
 # Org profile (core)
-claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--profile org" -e CAL_API_KEY=your_api_key
+claude mcp add calcom node /path/to/companion/apps/mcp/build/stdio/index.js --args="--profile org" -e CAL_API_KEY=your_api_key
 
 # Org profile (all)
-claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--profile org --all" -e CAL_API_KEY=your_api_key
+claude mcp add calcom node /path/to/companion/apps/mcp/build/stdio/index.js --args="--profile org --all" -e CAL_API_KEY=your_api_key
 
 # Custom toolsets
-claude mcp add calcom node /path/to/companion/apps/mcp/build/index.js --args="--toolsets bookings,schedules,slots" -e CAL_API_KEY=your_api_key
+claude mcp add calcom node /path/to/companion/apps/mcp/build/stdio/index.js --args="--toolsets bookings,schedules,slots" -e CAL_API_KEY=your_api_key
 ```
 
 </details>
@@ -160,7 +160,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "calcom": {
       "command": "node",
-      "args": ["/path/to/companion/apps/mcp/build/index.js"],
+      "args": ["/path/to/companion/apps/mcp/build/stdio/index.js"],
       "env": {
         "CAL_API_KEY": "cal_your_api_key_here"
       }
@@ -181,7 +181,7 @@ Add to `.cursor/mcp.json` in your project:
   "mcpServers": {
     "calcom": {
       "command": "node",
-      "args": ["/path/to/companion/apps/mcp/build/index.js"],
+      "args": ["/path/to/companion/apps/mcp/build/stdio/index.js"],
       "env": {
         "CAL_API_KEY": "cal_your_api_key_here"
       }
@@ -203,7 +203,7 @@ Add to `.vscode/mcp.json`:
     "calcom": {
       "type": "stdio",
       "command": "node",
-      "args": ["/path/to/companion/apps/mcp/build/index.js"],
+      "args": ["/path/to/companion/apps/mcp/build/stdio/index.js"],
       "env": {
         "CAL_API_KEY": "cal_your_api_key_here"
       }
@@ -216,7 +216,7 @@ Add to `.vscode/mcp.json`:
 
 ## What's Included
 
-- **260 tools** covering all non-deprecated Cal.com API v2 endpoints
+- **250+ tools** covering all non-deprecated Cal.com API v2 endpoints
 - Bookings, Event Types, Schedules, Slots, Calendars, Webhooks, Teams, Organizations, and more
 - Auth via `CAL_API_KEY` environment variable (auto-injected into all API requests)
 - Configurable API base URL
