@@ -8,9 +8,9 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { getColors } from "@/constants/colors";
 import { openInAppBrowser } from "@/utils/browser";
 import { IOSPickerTrigger } from "./tabs/IOSPickerTrigger";
-import { getColors } from "@/constants/colors";
 
 // Section header
 export function SectionHeader({

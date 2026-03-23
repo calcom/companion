@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Pressable, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { Linking, Pressable, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SvgImage } from "@/components/SvgImage";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,13 +13,11 @@ import {
 import { Text as UIText } from "@/components/ui/text";
 import { getColors } from "@/constants/colors";
 import type { Booking } from "@/services/calcom";
+import { showErrorAlert } from "@/utils/alerts";
+import { getBookingActions } from "@/utils/booking-actions";
 import type { RecurringBookingGroup } from "@/utils/bookings-utils";
 import { formatDate, formatTime, getHostAndAttendeesDisplay } from "@/utils/bookings-utils";
 import { getMeetingInfo } from "@/utils/meetings-utils";
-import { SvgImage } from "@/components/SvgImage";
-import { showErrorAlert } from "@/utils/alerts";
-import { Linking } from "react-native";
-import { getBookingActions } from "@/utils/booking-actions";
 
 export interface RecurringBookingListItemProps {
   group: RecurringBookingGroup;

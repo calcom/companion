@@ -29,18 +29,20 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { Animated, Platform, StyleSheet, Text, View } from "react-native";
+import { Animated, Platform, StyleSheet, Text, useColorScheme, View } from "react-native";
 
-import { useGlobalToast, type ToastType } from "@/contexts/ToastContext";
+import { type ToastType, useGlobalToast } from "@/contexts/ToastContext";
 
-const ICON_CONFIG: Record<ToastType, { name: keyof typeof Ionicons.glyphMap; color: string }> = {
-  success: { name: "checkmark-circle", color: "#000000" },
-  error: { name: "close-circle", color: "#000000" },
-  info: { name: "information-circle", color: "#000000" },
+const ICON_CONFIG: Record<ToastType, { name: keyof typeof Ionicons.glyphMap }> = {
+  success: { name: "checkmark-circle" },
+  error: { name: "close-circle" },
+  info: { name: "information-circle" },
 };
 
 export function GlobalToast() {
   const { toast } = useGlobalToast();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
   // Use useState to preserve Animated.Value instance across renders
   const [fadeAnim] = useState(() => new Animated.Value(0));
 
@@ -94,15 +96,16 @@ export function GlobalToast() {
       <Animated.View
         style={[
           styles.container,
-          {
-            opacity: fadeAnim,
-          },
+          isDark && dynamicStyles.darkContainer,
+          { opacity: fadeAnim },
         ]}
       >
-        <Ionicons name={iconConfig.name} size={24} color={iconConfig.color} style={styles.icon} />
+        <Ionicons name={iconConfig.name} size={24} color={isDark ? "#FFFFFF" : "#000000"} style={styles.icon} />
         <View style={styles.textContainer}>
-          <Text style={styles.title}>{toast.title}</Text>
-          {toast.message ? <Text style={styles.message}>{toast.message}</Text> : null}
+          <Text style={[styles.title, isDark && dynamicStyles.darkTitle]}>{toast.title}</Text>
+          {toast.message ? (
+            <Text style={[styles.message, isDark && dynamicStyles.darkMessage]}>{toast.message}</Text>
+          ) : null}
         </View>
       </Animated.View>
     </View>
@@ -154,5 +157,18 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     color: "#374151",
     lineHeight: 18,
+  },
+});
+
+const dynamicStyles = StyleSheet.create({
+  darkContainer: {
+    backgroundColor: "#171717",
+    borderColor: "#4D4D4D",
+  },
+  darkTitle: {
+    color: "#FFFFFF",
+  },
+  darkMessage: {
+    color: "#A3A3A3",
   },
 });

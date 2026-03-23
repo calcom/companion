@@ -15,14 +15,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from "react-native";
-
+import { getColors } from "@/constants/colors";
 import { showInfoAlert, showNotAvailableAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 import { NavigationRow, SettingRow, SettingsGroup } from "../SettingsUI";
-import { getColors } from "@/constants/colors";
-import { useColorScheme } from "react-native";
 
 // Interface language options matching API V2 enum
 const interfaceLanguageOptions = [

@@ -2,11 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useRef } from "react";
 import { Text, useColorScheme } from "react-native";
+import { AppPressable } from "@/components/AppPressable";
+import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 import {
   AvailabilityDetailScreen,
   type AvailabilityDetailScreenHandle,
 } from "@/components/screens/AvailabilityDetailScreen";
-import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +16,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getColors } from "@/constants/colors";
-import { AppPressable } from "@/components/AppPressable";
 
 // Type for action handlers exposed by AvailabilityDetailScreen
 type ActionHandlers = {

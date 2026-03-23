@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Text as AlertDialogText } from "@/components/ui/text";
+import { getColors } from "@/constants/colors";
 import {
   useCreateEventType,
   useDeleteEventType,
@@ -39,15 +40,13 @@ import {
 } from "@/hooks";
 import { useEventTypeFilter } from "@/hooks/useEventTypeFilter";
 import type { EventType } from "@/services/calcom";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 import { getEventDuration } from "@/utils/getEventDuration";
 import { offlineAwareRefresh } from "@/utils/network";
 import { normalizeMarkdown } from "@/utils/normalizeMarkdown";
 import { shadows } from "@/utils/shadows";
 import { slugify } from "@/utils/slugify";
-
-import { getColors } from "@/constants/colors";
 
 export default function EventTypes() {
   const router = useRouter();
@@ -254,7 +253,7 @@ export default function EventTypes() {
       { eventType, existingEventTypes: eventTypes },
       {
         onSuccess: (duplicatedEventType) => {
-          showSuccessAlert("Success", "Event type duplicated successfully");
+          showSilentSuccessAlert("Success", "Event type duplicated successfully");
 
           const duration = getEventDuration(eventType);
 

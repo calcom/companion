@@ -9,7 +9,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -23,7 +22,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRescheduleBooking } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { safeLogError, safeLogInfo } from "@/utils/safeLogger";
 
 const isWeb = Platform.OS === "web";
@@ -111,14 +110,8 @@ export const RescheduleScreen = forwardRef<RescheduleScreenHandle, RescheduleScr
         },
         {
           onSuccess: () => {
-            if (Platform.OS === "web") {
-              showSuccessAlert("Success", "Booking rescheduled successfully");
-              onSuccess();
-            } else {
-              Alert.alert("Success", "Booking rescheduled successfully", [
-                { text: "OK", onPress: onSuccess },
-              ]);
-            }
+            showSilentSuccessAlert("Success", "Booking rescheduled successfully");
+            onSuccess();
           },
           onError: (error) => {
             safeLogError("[RescheduleScreen] Failed to reschedule:", error);

@@ -8,8 +8,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { ConferencingSession } from "@/services/types/bookings.types";
 import { getColors } from "@/constants/colors";
+import type { ConferencingSession } from "@/services/types/bookings.types";
 
 export interface MeetingSessionDetailsScreenProps {
   sessions: ConferencingSession[];
@@ -54,16 +54,16 @@ export function MeetingSessionDetailsScreen({
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
-  const backgroundStyle = transparentBackground
-    ? "bg-transparent"
+  const backgroundColor = transparentBackground
+    ? "transparent"
     : isDark
-      ? "bg-black"
-      : `bg-[${theme.backgroundMuted}]`;
-  const pillStyle = transparentBackground
-    ? "bg-[#E8E8ED]/50"
+      ? theme.background
+      : theme.backgroundMuted;
+  const pillBg = transparentBackground
+    ? "rgba(232, 232, 237, 0.5)"
     : isDark
-      ? "bg-[#4D4D4D]"
-      : "bg-[#E8E8ED]";
+      ? "#4D4D4D"
+      : "#E8E8ED";
 
   const renderSession = ({ item, index }: { item: ConferencingSession; index: number }) => (
     <View
@@ -87,7 +87,7 @@ export function MeetingSessionDetailsScreen({
         }`}
       >
         <View className="flex-row items-center">
-          <View className={`mr-3 h-10 w-10 items-center justify-center rounded-full ${pillStyle}`}>
+          <View className="mr-3 h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: pillBg }}>
             <Ionicons name="videocam" size={20} color={isDark ? "#A3A3A3" : "#6B7280"} />
           </View>
           <Text className={`text-[17px] font-semibold ${isDark ? "text-white" : "text-[#000]"}`}>
@@ -95,7 +95,7 @@ export function MeetingSessionDetailsScreen({
           </Text>
         </View>
         {item.duration && (
-          <View className={`rounded-full px-3 py-1 ${pillStyle}`}>
+          <View className="rounded-full px-3 py-1" style={{ backgroundColor: pillBg }}>
             <Text
               className={`text-[13px] font-medium ${isDark ? "text-[#A3A3A3]" : "text-gray-600"}`}
             >
@@ -157,7 +157,8 @@ export function MeetingSessionDetailsScreen({
               }`}
             >
               <View
-                className={`mr-3 h-9 w-9 items-center justify-center rounded-full ${pillStyle}`}
+                className="mr-3 h-9 w-9 items-center justify-center rounded-full"
+                style={{ backgroundColor: pillBg }}
               >
                 <Ionicons name="person" size={18} color={isDark ? "#A3A3A3" : "#6B7280"} />
               </View>
@@ -183,8 +184,8 @@ export function MeetingSessionDetailsScreen({
 
   if (sessions.length === 0) {
     return (
-      <View className={`flex-1 items-center justify-center px-8 ${backgroundStyle}`}>
-        <View className={`mb-4 h-16 w-16 items-center justify-center rounded-full ${pillStyle}`}>
+      <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor }}>
+        <View className="mb-4 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: pillBg }}>
           <Ionicons name="information-circle" size={32} color="#A3A3A3" />
         </View>
         <Text
@@ -202,7 +203,7 @@ export function MeetingSessionDetailsScreen({
   }
 
   return (
-    <View className={`flex-1 ${backgroundStyle}`}>
+    <View className="flex-1" style={{ backgroundColor }}>
       <View className="flex-1 p-4" style={{ paddingBottom: insets.bottom }}>
         <FlatList
           data={sessions}

@@ -1,10 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import type { ColorValue, ImageSourcePropType } from "react-native";
-import { Tabs, VectorIcon, useRouter } from "expo-router";
+import { Tabs, useRouter, VectorIcon } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
-import { useColorScheme } from "react-native";
-import { Platform } from "react-native";
 import { useEffect, useRef } from "react";
+import type { ColorValue, ImageSourcePropType } from "react-native";
+import { Platform, useColorScheme } from "react-native";
 import { getRouteFromPreference, useUserPreferences } from "@/hooks/useUserPreferences";
 
 // Type for vector icon families that support getImageSource

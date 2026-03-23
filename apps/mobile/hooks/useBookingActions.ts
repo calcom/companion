@@ -2,7 +2,7 @@ import type { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, Platform } from "react-native";
 import type { Booking } from "@/services/calcom";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 
 interface UseBookingActionsParams {
   router: ReturnType<typeof useRouter>;
@@ -158,7 +158,7 @@ export const useBookingActions = ({
         onSuccess: () => {
           setShowRescheduleModal(false);
           setRescheduleBooking(null);
-          showSuccessAlert("Success", "Booking rescheduled successfully");
+          showSilentSuccessAlert("Success", "Booking rescheduled successfully");
         },
         onError: (error) => {
           showErrorAlert("Error", error.message || "Failed to reschedule booking");
@@ -209,7 +209,7 @@ export const useBookingActions = ({
           onSuccess: () => {
             setShowRescheduleModal(false);
             setRescheduleBooking(null);
-            showSuccessAlert("Success", "Booking rescheduled successfully");
+            showSilentSuccessAlert("Success", "Booking rescheduled successfully");
             resolve();
           },
           onError: (error) => {
@@ -336,7 +336,7 @@ export const useBookingActions = ({
             { uid: booking.uid },
             {
               onSuccess: () => {
-                showSuccessAlert("Success", "Booking confirmed successfully");
+                showSilentSuccessAlert("Success", "Booking confirmed successfully");
               },
               onError: (error) => {
                 showErrorAlert("Error", error.message || "Failed to confirm booking");
@@ -380,7 +380,7 @@ export const useBookingActions = ({
                     { uid: booking.uid, reason: reason || undefined },
                     {
                       onSuccess: () => {
-                        showSuccessAlert("Success", "Booking declined successfully");
+                        showSilentSuccessAlert("Success", "Booking declined successfully");
                       },
                       onError: (error) => {
                         showErrorAlert("Error", error.message || "Failed to decline booking");
@@ -416,7 +416,7 @@ export const useBookingActions = ({
           setShowRejectModal(false);
           setRejectBooking(null);
           setRejectReason("");
-          showSuccessAlert("Success", "Booking rejected successfully");
+          showSilentSuccessAlert("Success", "Booking rejected successfully");
         },
         onError: (_error) => {
           showErrorAlert("Error", "Failed to reject booking. Please try again.");
@@ -442,7 +442,7 @@ export const useBookingActions = ({
       { uid: booking.uid },
       {
         onSuccess: () => {
-          showSuccessAlert("Success", "Booking confirmed successfully");
+          showSilentSuccessAlert("Success", "Booking confirmed successfully");
         },
         onError: (_error) => {
           showErrorAlert("Error", "Failed to confirm booking. Please try again.");

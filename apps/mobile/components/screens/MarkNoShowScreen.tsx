@@ -17,10 +17,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getColors } from "@/constants/colors";
 import { useMarkNoShow } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
-import { getColors } from "@/constants/colors";
 
 interface Attendee {
   id?: number | string;

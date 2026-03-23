@@ -10,8 +10,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Text } from "@/components/ui/text";
-import { getBookingActions } from "@/utils/booking-actions";
 import { getColors } from "@/constants/colors";
+import { getBookingActions } from "@/utils/booking-actions";
 import {
   BadgesRow,
   BookingDescription,

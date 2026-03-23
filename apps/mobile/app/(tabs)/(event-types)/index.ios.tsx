@@ -1,7 +1,7 @@
-import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
+import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
@@ -19,6 +19,7 @@ import {
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { EventTypeListItem } from "@/components/event-type-list-item/EventTypeListItem";
 import { EventTypeListSkeleton } from "@/components/event-type-list-item/EventTypeListItemSkeleton";
+import { getColors } from "@/constants/colors";
 import {
   useCreateEventType,
   useDeleteEventType,
@@ -28,14 +29,12 @@ import {
 } from "@/hooks";
 import { useEventTypeFilter } from "@/hooks/useEventTypeFilter";
 import type { EventType } from "@/services/calcom";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 import { getEventDuration } from "@/utils/getEventDuration";
 import { offlineAwareRefresh } from "@/utils/network";
 import { slugify } from "@/utils/slugify";
-
-import { getColors } from "@/constants/colors";
 
 export default function EventTypesIOS() {
   const router = useRouter();
@@ -198,7 +197,7 @@ export default function EventTypesIOS() {
       { eventType, existingEventTypes: eventTypes },
       {
         onSuccess: (duplicatedEventType) => {
-          showSuccessAlert("Success", "Event type duplicated successfully");
+          showSilentSuccessAlert("Success", "Event type duplicated successfully");
 
           const duration = getEventDuration(eventType);
 

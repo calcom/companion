@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { getColors } from "@/constants/colors";
 import { Pressable, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -10,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Text } from "@/components/ui/text";
+import { getColors } from "@/constants/colors";
 import { EventTypeBadges, EventTypeDescription, EventTypeTitle } from "./EventTypeListItemParts";
 import type { EventTypeListItemProps } from "./types";
 import { useEventTypeListItemData } from "./useEventTypeListItemData";

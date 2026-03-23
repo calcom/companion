@@ -8,7 +8,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,11 +18,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getColors } from "@/constants/colors";
 import { useAddGuests } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
-import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { safeLogError } from "@/utils/safeLogger";
-import { getColors } from "@/constants/colors";
 
 export interface AddGuestsScreenProps {
   booking: Booking | null;
@@ -67,9 +66,8 @@ export const AddGuestsScreen = forwardRef<AddGuestsScreenHandle, AddGuestsScreen
       destructive: getColors(isDark).destructive,
     };
 
-    // Derive styles from colors and props
-    const backgroundStyle = transparentBackground ? "" : `bg-[${colors.background}]`;
-    const pillStyle = transparentBackground ? "bg-gray-200/50" : `bg-[${colors.pill}]`;
+    const bgColor = transparentBackground ? undefined : colors.background;
+    const pillBg = transparentBackground ? "rgba(229, 231, 235, 0.5)" : colors.pill;
 
     const [email, setEmail] = useState("");
     const [name, setName] = useState("");
@@ -132,14 +130,8 @@ export const AddGuestsScreen = forwardRef<AddGuestsScreenHandle, AddGuestsScreen
         },
         {
           onSuccess: () => {
-            if (Platform.OS === "web") {
-              showSuccessAlert("Success", "Guests added successfully");
-              onSuccess();
-            } else {
-              Alert.alert("Success", "Guests added successfully", [
-                { text: "OK", onPress: onSuccess },
-              ]);
-            }
+            showSilentSuccessAlert("Success", "Guests added successfully");
+            onSuccess();
           },
           onError: (error) => {
             safeLogError("[AddGuestsScreen] Failed to add guests:", error);
@@ -160,7 +152,7 @@ export const AddGuestsScreen = forwardRef<AddGuestsScreenHandle, AddGuestsScreen
 
     if (!booking) {
       return (
-        <View className={`flex-1 items-center justify-center ${backgroundStyle}`}>
+        <View className="flex-1 items-center justify-center" style={{ backgroundColor: bgColor }}>
           <Text className="text-gray-500">No booking data</Text>
         </View>
       );
@@ -169,7 +161,8 @@ export const AddGuestsScreen = forwardRef<AddGuestsScreenHandle, AddGuestsScreen
     return (
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className={`flex-1 ${backgroundStyle}`}
+        className="flex-1"
+        style={{ backgroundColor: bgColor }}
       >
         <ScrollView
           className="flex-1"
@@ -299,7 +292,8 @@ export const AddGuestsScreen = forwardRef<AddGuestsScreenHandle, AddGuestsScreen
                     }`}
                   >
                     <View
-                      className={`mr-3 h-10 w-10 items-center justify-center rounded-full ${pillStyle}`}
+                      className="mr-3 h-10 w-10 items-center justify-center rounded-full"
+                      style={{ backgroundColor: pillBg }}
                     >
                       <Ionicons name="person" size={20} color={isDark ? "#A3A3A3" : "#6B7280"} />
                     </View>

@@ -4,11 +4,11 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } fro
 import { Alert, ScrollView, Switch, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppPressable } from "@/components/AppPressable";
+import { getColors } from "@/constants/colors";
 import { useUpdateSchedule } from "@/hooks/useSchedules";
 import type { Schedule } from "@/services/calcom";
 import type { ScheduleAvailability } from "@/services/types";
-import { showErrorAlert } from "@/utils/alerts";
-import { getColors } from "@/constants/colors";
+import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -290,9 +290,8 @@ export const EditAvailabilityDayScreen = forwardRef<
       { id: schedule.id, updates: { availability: fullAvailability } },
       {
         onSuccess: () => {
-          Alert.alert("Success", `${dayName} updated successfully`, [
-            { text: "OK", onPress: onSuccess },
-          ]);
+          showSilentSuccessAlert("Success", `${dayName} updated successfully`);
+          onSuccess();
         },
         onError: () => {
           showErrorAlert("Error", "Failed to update schedule. Please try again.");

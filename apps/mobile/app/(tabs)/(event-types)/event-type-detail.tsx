@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -16,32 +17,33 @@ import {
   View,
 } from "react-native";
 import { AppPressable } from "@/components/AppPressable";
-import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 import { AdvancedTab } from "@/components/event-type-detail/tabs/AdvancedTab";
 import { AvailabilityTab } from "@/components/event-type-detail/tabs/AvailabilityTab";
 import { BasicsTab } from "@/components/event-type-detail/tabs/BasicsTab";
 import { LimitsTab } from "@/components/event-type-detail/tabs/LimitsTab";
 import { RecurringTab } from "@/components/event-type-detail/tabs/RecurringTab";
+import { truncateTitle } from "@/components/event-type-detail/utils";
+import { buildPartialUpdatePayload } from "@/components/event-type-detail/utils/buildPartialUpdatePayload";
+import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { truncateTitle } from "@/components/event-type-detail/utils";
-import { buildPartialUpdatePayload } from "@/components/event-type-detail/utils/buildPartialUpdatePayload";
+import { useCreateEventType, useDeleteEventType, useUpdateEventType } from "@/hooks";
 import {
   CalComAPIService,
   type ConferencingOption,
   type EventType,
   type Schedule,
 } from "@/services/calcom";
-import { useCreateEventType, useDeleteEventType, useUpdateEventType } from "@/hooks";
 import type { LocationItem, LocationOptionGroup } from "@/types/locations";
 import {
   showErrorAlert,
   showInfoAlert,
   showNotAvailableAlert,
+  showSilentSuccessAlert,
   showSuccessAlert,
 } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
@@ -52,7 +54,6 @@ import {
   validateLocationItem,
 } from "@/utils/locationHelpers";
 import { safeLogError } from "@/utils/safeLogger";
-import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 
 // Type definitions for extended EventType fields not in the base type
 interface EventTypeExtended {
@@ -1248,7 +1249,7 @@ export default function EventTypeDetail() {
         showErrorAlert("Error", "Failed to create event type. Please try again.");
         return;
       }
-      showSuccessAlert("Success", "Event type created successfully");
+      showSilentSuccessAlert("Success", "Event type created successfully");
       router.back();
     } else {
       // For UPDATE mode, use partial update - only send changed fields
@@ -1269,7 +1270,7 @@ export default function EventTypeDetail() {
         showErrorAlert("Error", "Failed to update event type. Please try again.");
         return;
       }
-      showSuccessAlert("Success", "Event type updated successfully");
+      showSilentSuccessAlert("Success", "Event type updated successfully");
       // No need to manually refresh - cache is updated by the mutation hook
     }
   }, [

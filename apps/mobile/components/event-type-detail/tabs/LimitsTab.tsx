@@ -6,13 +6,19 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
-import { type Animated, Platform, Text, TextInput, TouchableOpacity, View } from "react-native";
-
+import {
+  type Animated,
+  Platform,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
+} from "react-native";
+import { getColors } from "@/constants/colors";
 import { NavigationRow, SettingRow, SettingsGroup } from "../SettingsUI";
 import { LimitsTabDatePicker } from "./LimitsTabDatePicker";
 import { LimitsTabIOSPicker } from "./LimitsTabIOSPicker";
-import { getColors } from "@/constants/colors";
-import { useColorScheme } from "react-native";
 
 interface FrequencyLimit {
   id: number;
