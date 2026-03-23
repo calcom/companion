@@ -8,9 +8,9 @@
  * Usage: bun run generate
  */
 
-import { execSync } from "child_process";
-import { readFileSync, writeFileSync, rmSync, mkdirSync } from "fs";
-import { resolve } from "path";
+import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
+import { resolve } from "node:path";
 
 const TEMP_DIR = "/tmp/calcom-mcp-gen";
 const OPENAPI_PATH = resolve(__dirname, "../../../docs/api-reference/v2/openapi.json");

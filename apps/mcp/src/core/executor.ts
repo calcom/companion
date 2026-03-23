@@ -53,6 +53,7 @@ function getZodSchemaFromJsonSchema(jsonSchema: unknown, toolName: string): z.Zo
   }
   try {
     const zodSchemaString = jsonSchemaToZod(jsonSchema);
+    // biome-ignore lint/security/noGlobalEval: json-schema-to-zod outputs executable code
     const zodSchema = eval(zodSchemaString);
     if (typeof zodSchema?.parse !== "function") {
       throw new Error("Eval did not produce a valid Zod schema.");
@@ -119,7 +120,7 @@ export async function executeApiTool(
 
     // Inject Authorization header if apiKey is provided
     if (apiKey) {
-      headers["authorization"] = apiKey.startsWith("Bearer ")
+      headers.authorization = apiKey.startsWith("Bearer ")
         ? apiKey
         : `Bearer ${apiKey}`;
     }
@@ -186,7 +187,7 @@ export async function executeApiTool(
     } else if (error instanceof Error) {
       errorMessage = error.message;
     } else {
-      errorMessage = "Unexpected error: " + String(error);
+      errorMessage = `Unexpected error: ${String(error)}`;
     }
     console.error(`Error during execution of tool '${toolName}':`, errorMessage);
     return { content: [{ type: "text", text: errorMessage }] };
