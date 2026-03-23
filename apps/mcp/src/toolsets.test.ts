@@ -71,14 +71,14 @@ describe("parseCliArgs", () => {
 });
 
 describe("resolveActiveToolsets", () => {
-  it("defaults to personal profile when no args", () => {
+  it("defaults to default profile when no args", () => {
     const result = resolveActiveToolsets({
       profile: null,
       toolsets: null,
       allTools: false,
       listToolsets: false,
     });
-    expect(result).toEqual(new Set(PROFILES.personal));
+    expect(result).toEqual(new Set(PROFILES.default));
   });
 
   it("resolves personal profile", () => {

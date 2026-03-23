@@ -140,12 +140,16 @@ export const TOOLSET_DESCRIPTIONS: Record<string, string> = {
   "orgs-workflows": "Org team workflows for event types and routing forms",
 };
 
-const PERSONAL_TOOLSETS = [
+const DEFAULT_TOOLSETS = [
   "bookings",
   "event-types",
   "schedules",
   "slots",
   "me",
+];
+
+const PERSONAL_TOOLSETS = [
+  ...DEFAULT_TOOLSETS,
   "calendars",
   "conferencing",
   "webhooks",
@@ -188,12 +192,13 @@ const ORG_TOOLSETS = [
 ];
 
 export const PROFILES: Record<string, string[]> = {
+  default: DEFAULT_TOOLSETS,
   personal: PERSONAL_TOOLSETS,
   team: TEAM_TOOLSETS,
   org: ORG_TOOLSETS,
 };
 
-export const DEFAULT_PROFILE = "personal";
+export const DEFAULT_PROFILE = "default";
 
 export interface CliArgs {
   profile: string | null;
@@ -303,7 +308,11 @@ export function printToolsetsList(allTools: Map<string, McpToolDefinition>): voi
   lines.push("");
 
   const sections: { label: string; toolsets: string[] }[] = [
-    { label: "PERSONAL TOOLSETS", toolsets: PERSONAL_TOOLSETS },
+    { label: "DEFAULT TOOLSETS (loaded by default)", toolsets: DEFAULT_TOOLSETS },
+    {
+      label: "PERSONAL TOOLSETS",
+      toolsets: PERSONAL_TOOLSETS.filter((t) => !DEFAULT_TOOLSETS.includes(t)),
+    },
     {
       label: "TEAM TOOLSETS",
       toolsets: TEAM_TOOLSETS.filter((t) => !PERSONAL_TOOLSETS.includes(t)),
@@ -339,9 +348,10 @@ export function printToolsetsList(allTools: Map<string, McpToolDefinition>): voi
   }
   lines.push("");
   lines.push("Usage:");
-  lines.push("  npx @calcom/mcp --profile personal          # Load personal profile (default)");
-  lines.push("  npx @calcom/mcp --profile team               # Load team profile");
-  lines.push("  npx @calcom/mcp --profile org                # Load org profile (all tools)");
+  lines.push("  npx @calcom/mcp                              # Default profile (core tools only)");
+  lines.push("  npx @calcom/mcp --profile personal           # Load all personal toolsets");
+  lines.push("  npx @calcom/mcp --profile team               # Load all team toolsets");
+  lines.push("  npx @calcom/mcp --profile org                # Load all org toolsets");
   lines.push("  npx @calcom/mcp --toolsets bookings,slots,me  # Load specific toolsets");
   lines.push("  npx @calcom/mcp --all-tools                  # Load all tools");
 
