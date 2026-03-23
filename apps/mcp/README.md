@@ -234,18 +234,12 @@ The MCP server uses `docs/api-reference/v2/openapi.json` (symlinked). When the s
 
 ```bash
 cd apps/mcp
-
-# Generate to temp directory
-npx openapi-mcp-generator -i openapi.json -o /tmp/mcp-gen --force
-
-# Extract toolDefinitionMap from /tmp/mcp-gen/src/index.ts
-# and merge into src/generated.ts (manual step - preserve exports)
-
+bun run generate  # runs openapi-mcp-generator and extracts tools
 bun run build
 bun test
 ```
 
-Note: The generator creates a monolithic server. We use a modular architecture, so `toolDefinitionMap` must be manually extracted and merged into `generated.ts` while preserving our exports (`toolDefinitionMap`, `securitySchemes`, `executeApiTool`, `McpToolDefinition`, etc.).
+The extraction script (`scripts/extract-tools.ts`) runs `openapi-mcp-generator` and automatically extracts `toolDefinitionMap` into `src/generated.ts`. The library handles OpenAPI parsing; we just extract and transform the output to fit our modular architecture.
 
 If new controllers are added, update `toolsets.ts` accordingly.
 
