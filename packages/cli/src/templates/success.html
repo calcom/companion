@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Authorization Successful</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+    .card {
+      background: #171717;
+      border: 1px solid #262626;
+      border-radius: 12px;
+      padding: 48px;
+      text-align: center;
+      max-width: 420px;
+      width: 90%;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: #262626;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-icon svg {
+      width: 20px;
+      height: 20px;
+      color: #22c55e;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+    p {
+      color: #a1a1a1;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .status {
+      margin-top: 24px;
+    }
+    .status p {
+      color: #a1a1a1;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+    </div>
+    <h1>Authorization Successful</h1>
+    <p>Your CLI has been authenticated with Cal.com</p>
+    <div class="status">
+      <p>You can close this window and return to your terminal.</p>
+    </div>
+  </div>
+</body>
+</html>

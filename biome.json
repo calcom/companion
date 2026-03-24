@@ -78,7 +78,7 @@
   },
   "overrides": [
     {
-      "includes": ["extension/**/*.ts", "extension/**/*.tsx"],
+      "includes": ["apps/extension/**/*.ts", "apps/extension/**/*.tsx"],
       "javascript": {
         "globals": ["chrome", "browser"]
       }
