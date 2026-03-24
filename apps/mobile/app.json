@@ -71,31 +71,55 @@
                 "light": "#000000",
                 "dark": "#FFFFFF"
               },
+              "colorControlActivated": {
+                "light": "#000000",
+                "dark": "#FFFFFF"
+              },
+              "colorControlHighlight": {
+                "light": "#33000000",
+                "dark": "#33FFFFFF"
+              },
               "textColorPrimary": {
                 "light": "#000000",
                 "dark": "#FFFFFF"
+              },
+              "textColor": {
+                "light": "#000000",
+                "dark": "#FFFFFF"
+              },
+              "textColorSecondary": {
+                "light": "#757575",
+                "dark": "#A3A3A3"
+              },
+              "textColorPrimaryInverse": {
+                "light": "#FFFFFF",
+                "dark": "#000000"
+              },
+              "textColorSecondaryInverse": {
+                "light": "#B3B3B3",
+                "dark": "#6B7280"
+              },
+              "windowBackground": {
+                "light": "#FFFFFF",
+                "dark": "#121212"
               }
             },
             "timePicker": {
               "background": {
-                "light": "#f8f9fa",
+                "light": "#ffffff",
                 "dark": "#000000"
               },
               "numbersBackgroundColor": {
                 "light": "#ffffff",
-                "dark": "#1e1e1e"
+                "dark": "#000000"
               },
               "headerBackground": {
                 "light": "#000000",
-                "dark": "#ffffff"
+                "dark": "#FFFFFF"
               },
               "numbersSelectorColor": {
-                "light": "#e8e8ed",
-                "dark": "#000000"
-              },
-              "numbersTextColor": {
                 "light": "#000000",
-                "dark": "#ffffff"
+                "dark": "#FFFFFF"
               }
             }
           }
