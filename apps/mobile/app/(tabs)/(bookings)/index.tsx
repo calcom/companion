@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Text, TextInput, useColorScheme, View } from "react-native";
+import { Platform, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 import { AppPressable } from "@/components/AppPressable";
 import { BookingListScreen } from "@/components/booking-list-screen/BookingListScreen";
 import { Header } from "@/components/Header";
@@ -177,13 +177,14 @@ export default function Bookings() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, position: "relative", justifyContent: "center" }}>
             <TextInput
               className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-black"
               style={{
                 borderColor: theme.border,
                 backgroundColor: theme.backgroundSecondary,
                 color: theme.text,
+                paddingRight: searchQuery.length > 0 ? 32 : 12,
               }}
               placeholder="Search bookings"
               placeholderTextColor={theme.textSecondary}
@@ -193,6 +194,15 @@ export default function Bookings() {
               autoCorrect={false}
               clearButtonMode="while-editing"
             />
+            {searchQuery.length > 0 && Platform.OS === "android" && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery("")}
+                style={{ position: "absolute", right: 8 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>

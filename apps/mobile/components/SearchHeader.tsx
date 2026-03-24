@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { Platform, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 
 interface SearchHeaderProps {
   /** Current search query value */
@@ -40,15 +40,28 @@ export function SearchHeader({
 
   return (
     <View className="flex-row items-center gap-3 border-b border-gray-300 bg-gray-100 px-4 py-2 dark:border-[#4D4D4D] dark:bg-black">
-      <TextInput
-        className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[17px] text-black focus:border-black focus:ring-2 focus:ring-black dark:border-[#4D4D4D] dark:bg-[#171717] dark:text-white"
-        placeholder={placeholder}
-        placeholderTextColor="#9CA3AF"
-        value={searchQuery}
-        onChangeText={onSearchChange}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
+      <View style={{ flex: 1, position: "relative", justifyContent: "center" }}>
+        <TextInput
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[17px] text-black focus:border-black focus:ring-2 focus:ring-black dark:border-[#4D4D4D] dark:bg-[#171717] dark:text-white"
+          style={{ paddingRight: searchQuery.length > 0 ? 32 : 12 }}
+          placeholder={placeholder}
+          placeholderTextColor="#9CA3AF"
+          value={searchQuery}
+          onChangeText={onSearchChange}
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
+        {searchQuery.length > 0 && Platform.OS === "android" && (
+          <TouchableOpacity
+            onPress={() => onSearchChange("")}
+            style={{ position: "absolute", right: 8 }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
+        )}
+      </View>
       <TouchableOpacity
         className="min-w-[60px] flex-row items-center justify-center gap-1 rounded-lg bg-black px-2.5 py-2 dark:bg-white"
         onPress={onNewPress}

@@ -314,21 +314,33 @@ export function AvailabilityListScreen({
           }}
           className="flex-row items-center gap-3 px-4 py-2"
         >
-          <TextInput
-            style={{
-              backgroundColor: isDark ? "#171717" : "#FFFFFF",
-              borderColor: colors.border,
-              color: colors.text,
-            }}
-            className="flex-1 rounded-lg border px-3 py-2 text-[17px]"
-            placeholder="Search schedules"
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={handleSearch}
-            autoCapitalize="none"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-          />
+          <View style={{ flex: 1, position: "relative", justifyContent: "center" }}>
+            <TextInput
+              style={{
+                backgroundColor: isDark ? "#171717" : "#FFFFFF",
+                borderColor: colors.border,
+                color: colors.text,
+                paddingRight: searchQuery.length > 0 ? 32 : 12,
+              }}
+              className="rounded-lg border px-3 py-2 text-[17px]"
+              placeholder="Search schedules"
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={handleSearch}
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
+            {searchQuery.length > 0 && Platform.OS === "android" && (
+              <TouchableOpacity
+                onPress={() => handleSearch("")}
+                style={{ position: "absolute", right: 8 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
           <TouchableOpacity
             className="min-w-[60px] flex-row items-center justify-center gap-1 rounded-lg bg-black px-2.5 py-2 dark:bg-white"
             onPress={handleCreateNew}
