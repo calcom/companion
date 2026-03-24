@@ -1,0 +1,77 @@
+display_information:
+  name: Cal.com
+  description: Manage your Cal.com bookings, availability, and notifications directly from Slack.
+  background_color: "#101010"
+  long_description: >-
+    The Cal.com Slack app brings your scheduling workflow into Slack.
+    Get notified instantly when someone books, reschedules, or cancels a meeting.
+    Check availability, book time with teammates, and manage your upcoming meetings
+    — all without leaving Slack.
+
+features:
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  assistant_view:
+    assistant_description: "Manage your Cal.com calendar, bookings, and availability from Slack."
+    suggested_prompts:
+      - title: "Show my upcoming bookings"
+        message: "Show me my upcoming bookings"
+      - title: "Check my availability"
+        message: "What's my availability this week?"
+      - title: "Book a meeting"
+        message: "Help me book a meeting"
+  bot_user:
+    display_name: Cal.com
+    always_online: true
+  slash_commands:
+    - command: /cal
+      url: https://chat.cal.com/api/webhooks/slack
+      description: Manage your Cal.com bookings and availability
+      usage_hint: "[availability | book | bookings | link | help] [options]"
+      should_escape: false
+
+oauth_config:
+  redirect_urls:
+    - https://chat.cal.com/api/auth/slack/callback
+  scopes:
+    bot:
+      - app_mentions:read
+      - assistant:write
+      - channels:history
+      - channels:join
+      - channels:read
+      - chat:write
+      - chat:write.public
+      - commands
+      - groups:history
+      - groups:read
+      - im:history
+      - im:read
+      - im:write
+      - mpim:history
+      - mpim:read
+      - reactions:read
+      - reactions:write
+      - users:read
+      - users:read.email
+
+settings:
+  event_subscriptions:
+    request_url: https://chat.cal.com/api/webhooks/slack
+    bot_events:
+      - app_home_opened
+      - app_mention
+      - assistant_thread_started
+      - assistant_thread_context_changed
+      - message.channels
+      - message.groups
+      - message.im
+      - message.mpim
+  interactivity:
+    is_enabled: true
+    request_url: https://chat.cal.com/api/webhooks/slack
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

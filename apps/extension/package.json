@@ -1,0 +1,41 @@
+{
+  "name": "extension",
+  "displayName": "Cal.com Companion Extension",
+  "version": "1.7.6",
+  "private": true,
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "build:prod": "BUILD_FOR_STORE=true wxt build",
+    "zip": "wxt zip",
+    "zip:prod": "BUILD_FOR_STORE=true wxt zip",
+    "build:chrome": "BROWSER_TARGET=chrome wxt build -b chrome",
+    "build:chrome:prod": "BUILD_FOR_STORE=true BROWSER_TARGET=chrome wxt build -b chrome",
+    "zip:chrome": "BROWSER_TARGET=chrome wxt zip -b chrome",
+    "zip:chrome:prod": "BUILD_FOR_STORE=true BROWSER_TARGET=chrome wxt zip -b chrome",
+    "build:firefox": "BROWSER_TARGET=firefox wxt build -b firefox",
+    "build:firefox:prod": "BUILD_FOR_STORE=true BROWSER_TARGET=firefox wxt build -b firefox",
+    "zip:firefox": "BROWSER_TARGET=firefox wxt zip -b firefox",
+    "zip:firefox:prod": "BUILD_FOR_STORE=true BROWSER_TARGET=firefox wxt zip -b firefox",
+    "build:safari": "BROWSER_TARGET=safari wxt build -b safari",
+    "build:safari:prod": "BUILD_FOR_STORE=true BROWSER_TARGET=safari wxt build -b safari",
+    "zip:safari": "BROWSER_TARGET=safari wxt zip -b safari",
+    "zip:safari:prod": "BUILD_FOR_STORE=true BROWSER_TARGET=safari wxt zip -b safari",
+    "build:edge": "BROWSER_TARGET=edge wxt build -b edge",
+    "build:edge:prod": "BUILD_FOR_STORE=true BROWSER_TARGET=edge wxt build -b edge",
+    "zip:edge": "BROWSER_TARGET=edge wxt zip -b edge",
+    "zip:edge:prod": "BUILD_FOR_STORE=true BROWSER_TARGET=edge wxt zip -b edge",
+    "build:all": "bun run build && bun run build:firefox && bun run build:safari && bun run build:edge",
+    "build:all:prod": "bun run build:prod && bun run build:firefox:prod && bun run build:safari:prod && bun run build:edge:prod",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-native-web": "0.21.2"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.1.31",
+    "wxt": "0.20.11"
+  }
+}
