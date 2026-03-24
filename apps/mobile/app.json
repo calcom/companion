@@ -1,0 +1,153 @@
+{
+  "expo": {
+    "name": "Calcom",
+    "slug": "calcom-companion",
+    "scheme": ["calcom", "expo-wxt-app"],
+    "version": "1.0.5",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "appleTeamId": "ADWKXDJV75",
+      "deploymentTarget": "18.0",
+      "bundleIdentifier": "com.cal.companion",
+      "userInterfaceStyle": "automatic",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.developer.default-data-protection": "NSFileProtectionComplete",
+        "com.apple.security.application-groups": ["group.com.cal.companion"]
+      },
+      "icon": "./assets/cal-logo.icon"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.calcom.companion",
+      "softwareKeyboardLayoutMode": "pan",
+      "usesCleartextTraffic": false,
+      "userInterfaceStyle": "automatic"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f5e97f6f-1e95-44ac-bfa4-f737ef90f198"
+      }
+    },
+    "owner": "calcoms-organization",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
+      ],
+      [
+        "@react-native-community/datetimepicker",
+        {
+          "android": {
+            "datePicker": {
+              "colorAccent": {
+                "light": "#000000",
+                "dark": "#FFFFFF"
+              },
+              "colorControlActivated": {
+                "light": "#000000",
+                "dark": "#FFFFFF"
+              },
+              "colorControlHighlight": {
+                "light": "#33000000",
+                "dark": "#33FFFFFF"
+              },
+              "textColorPrimary": {
+                "light": "#000000",
+                "dark": "#FFFFFF"
+              },
+              "textColor": {
+                "light": "#000000",
+                "dark": "#FFFFFF"
+              },
+              "textColorSecondary": {
+                "light": "#757575",
+                "dark": "#A3A3A3"
+              },
+              "textColorPrimaryInverse": {
+                "light": "#FFFFFF",
+                "dark": "#000000"
+              },
+              "textColorSecondaryInverse": {
+                "light": "#B3B3B3",
+                "dark": "#6B7280"
+              },
+              "windowBackground": {
+                "light": "#FFFFFF",
+                "dark": "#121212"
+              }
+            },
+            "timePicker": {
+              "background": {
+                "light": "#ffffff",
+                "dark": "#000000"
+              },
+              "numbersBackgroundColor": {
+                "light": "#ffffff",
+                "dark": "#000000"
+              },
+              "headerBackground": {
+                "light": "#000000",
+                "dark": "#FFFFFF"
+              },
+              "numbersSelectorColor": {
+                "light": "#000000",
+                "dark": "#FFFFFF"
+              }
+            }
+          }
+        }
+      ],
+      "@bacons/apple-targets",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "UpcomingBookingsWidget",
+              "label": "Upcoming Bookings",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "description": "View your upcoming Cal.com bookings",
+              "previewImage": "./assets/widget-preview.png",
+              "resizeMode": "horizontal|vertical",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2
+            }
+          ]
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
