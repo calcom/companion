@@ -51,6 +51,21 @@
         "wxt": "0.20.11",
       },
     },
+    "apps/mcp-server": {
+      "name": "@calcom/mcp-server",
+      "version": "0.1.0",
+      "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.12.1",
+        "zod": "^3.24.4",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "2.3.10",
+        "@types/node": "22.19.6",
+        "tsx": "^4.19.4",
+        "typescript": "5.9.3",
+        "vitest": "^3.2.1",
+      },
+    },
     "apps/mobile": {
       "name": "mobile",
       "version": "1.7.6",
@@ -139,21 +154,6 @@
         "@types/node": "^20.17.23",
         "ts-node": "10.9.2",
         "typescript": "5.9.3",
-      },
-    },
-    "packages/mcp-server": {
-      "name": "@calcom/mcp-server",
-      "version": "0.1.0",
-      "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.12.1",
-        "zod": "^3.24.4",
-      },
-      "devDependencies": {
-        "@biomejs/biome": "2.3.10",
-        "@types/node": "22.19.6",
-        "tsx": "^4.19.4",
-        "typescript": "5.9.3",
-        "vitest": "^3.2.1",
       },
     },
   },
@@ -388,7 +388,7 @@
 
     "@calcom/cli": ["@calcom/cli@workspace:packages/cli"],
 
-    "@calcom/mcp-server": ["@calcom/mcp-server@workspace:packages/mcp-server"],
+    "@calcom/mcp-server": ["@calcom/mcp-server@workspace:apps/mcp-server"],
 
     "@chat-adapter/shared": ["@chat-adapter/shared@4.19.0", "", { "dependencies": { "chat": "4.19.0" } }, "sha512-77AUsz8XiY9uS1iBISOsJzjUhcV6v/RbJr30uQearaGlkddEy9bb5B66Knc0O+7TA8uuGEMNPrMqglzG7lqwOQ=="],
 

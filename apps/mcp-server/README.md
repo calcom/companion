@@ -30,7 +30,7 @@ bun --filter @calcom/mcp-server build
 Copy the example env file and fill in your credentials:
 
 ```bash
-cp packages/mcp-server/.env.example packages/mcp-server/.env
+cp apps/mcp-server/.env.example apps/mcp-server/.env
 ```
 
 | Variable | Required | Default | Description |
@@ -64,7 +64,7 @@ Add this to your `claude_desktop_config.json`:
   "mcpServers": {
     "calcom": {
       "command": "node",
-      "args": ["<path-to-repo>/packages/mcp-server/dist/index.js"],
+      "args": ["<path-to-repo>/apps/mcp-server/dist/index.js"],
       "env": {
         "CAL_AUTH_MODE": "apikey",
         "CAL_API_KEY": "cal_live_xxxx"
@@ -76,7 +76,7 @@ Add this to your `claude_desktop_config.json`:
 
 ### Cursor / Other MCP Clients
 
-Point your MCP client to the built entry point at `packages/mcp-server/dist/index.js` with the required environment variables.
+Point your MCP client to the built entry point at `apps/mcp-server/dist/index.js` with the required environment variables.
 
 ## Auth Modes
 
