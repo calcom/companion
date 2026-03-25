@@ -267,4 +267,120 @@ describe("calApi", () => {
     const [, options] = mockFetch.mock.calls[0];
     expect(options.headers["cal-api-version"]).toBe("2024-08-13");
   });
+
+  it("preserves path-based version override on 401 retry (slots)", async () => {
+    vi.mocked(getAuthMode).mockReturnValue("oauth");
+    vi.mocked(getAuthHeaders)
+      .mockResolvedValueOnce({
+        Authorization: "Bearer old",
+        "cal-api-version": "2024-08-13",
+        "Content-Type": "application/json",
+      })
+      .mockResolvedValueOnce({
+        Authorization: "Bearer new",
+        "cal-api-version": "2024-08-13",
+        "Content-Type": "application/json",
+      });
+
+    // First call returns 401
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ message: "Unauthorized" }),
+    });
+    // Retry returns 200
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ slots: {} }),
+    });
+
+    await calApi("slots", { params: { start: "2024-08-13", end: "2024-08-14" } });
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // Initial request: refreshed auth + path-based version override
+    const [, firstOpts] = mockFetch.mock.calls[0];
+    expect(firstOpts.headers.Authorization).toBe("Bearer old");
+    expect(firstOpts.headers["cal-api-version"]).toBe("2024-09-04");
+    // Retry request: refreshed auth + path-based version override preserved
+    const [, retryOpts] = mockFetch.mock.calls[1];
+    expect(retryOpts.headers.Authorization).toBe("Bearer new");
+    expect(retryOpts.headers["cal-api-version"]).toBe("2024-09-04");
+  });
+
+  it("preserves explicit apiVersionOverride on 401 retry", async () => {
+    vi.mocked(getAuthMode).mockReturnValue("oauth");
+    vi.mocked(getAuthHeaders)
+      .mockResolvedValueOnce({
+        Authorization: "Bearer old",
+        "cal-api-version": "2024-08-13",
+        "Content-Type": "application/json",
+      })
+      .mockResolvedValueOnce({
+        Authorization: "Bearer new",
+        "cal-api-version": "2024-08-13",
+        "Content-Type": "application/json",
+      });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ message: "Unauthorized" }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({}),
+    });
+
+    await calApi("slots", { apiVersionOverride: "2025-01-01" });
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const [, firstOpts] = mockFetch.mock.calls[0];
+    expect(firstOpts.headers["cal-api-version"]).toBe("2025-01-01");
+    const [, retryOpts] = mockFetch.mock.calls[1];
+    expect(retryOpts.headers.Authorization).toBe("Bearer new");
+    expect(retryOpts.headers["cal-api-version"]).toBe("2025-01-01");
+  });
+
+  it("non-overridden endpoint retry keeps default version", async () => {
+    vi.mocked(getAuthMode).mockReturnValue("oauth");
+    vi.mocked(getAuthHeaders)
+      .mockResolvedValueOnce({
+        Authorization: "Bearer old",
+        "cal-api-version": "2024-08-13",
+        "Content-Type": "application/json",
+      })
+      .mockResolvedValueOnce({
+        Authorization: "Bearer new",
+        "cal-api-version": "2024-08-13",
+        "Content-Type": "application/json",
+      });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ message: "Unauthorized" }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ data: "ok" }),
+    });
+
+    await calApi("me");
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const [, firstOpts] = mockFetch.mock.calls[0];
+    expect(firstOpts.headers["cal-api-version"]).toBe("2024-08-13");
+    const [, retryOpts] = mockFetch.mock.calls[1];
+    expect(retryOpts.headers.Authorization).toBe("Bearer new");
+    expect(retryOpts.headers["cal-api-version"]).toBe("2024-08-13");
+  });
 });

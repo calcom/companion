@@ -51,19 +51,29 @@ const PATH_VERSION_OVERRIDES: Record<string, string> = {
   slots: "2024-09-04",
 };
 
+/**
+ * Build request headers: auth headers + any cal-api-version override.
+ * Always returns a fresh object so callers don't share mutable state.
+ */
+async function buildRequestHeaders(
+  normalizedPath: string,
+  apiVersionOverride: string | undefined
+): Promise<Record<string, string>> {
+  const base = await getAuthHeaders();
+  const versionOverride =
+    apiVersionOverride ?? PATH_VERSION_OVERRIDES[normalizedPath];
+  if (versionOverride) {
+    return { ...(base as Record<string, string>), "cal-api-version": versionOverride };
+  }
+  return { ...(base as Record<string, string>) };
+}
+
 export async function calApi<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, params, apiVersionOverride } = options;
   const url = buildUrl(path, params);
-  const baseHeaders = await getAuthHeaders();
-
-  // Apply version override: explicit option > path-based map > default
-  // Spread into a new object to avoid mutating the original headers.
   const normalizedPath = path.replace(/^\//, "");
-  const versionOverride =
-    apiVersionOverride ?? PATH_VERSION_OVERRIDES[normalizedPath];
-  const headers = versionOverride
-    ? { ...(baseHeaders as Record<string, string>), "cal-api-version": versionOverride }
-    : baseHeaders;
+
+  const headers = await buildRequestHeaders(normalizedPath, apiVersionOverride);
 
   const fetchOptions: RequestInit = { method, headers };
   if (body !== undefined) {
@@ -76,8 +86,8 @@ export async function calApi<T = unknown>(path: string, options: RequestOptions 
   if (res.status === 401 && getAuthMode() === "oauth") {
     console.error("[api-client] Got 401, attempting token refresh...");
     await refreshOAuthToken();
-    const refreshedHeaders = await getAuthHeaders();
-    const retryOptions: RequestInit = { method, headers: refreshedHeaders };
+    const retryHeaders = await buildRequestHeaders(normalizedPath, apiVersionOverride);
+    const retryOptions: RequestInit = { method, headers: retryHeaders };
     if (body !== undefined) {
       retryOptions.body = JSON.stringify(body);
     }
