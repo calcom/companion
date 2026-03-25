@@ -21,7 +21,7 @@
     "build:transpile": "bun scripts/build.ts",
     "start": "node dist/index.js",
     "dev": "node --import tsx src/index.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "test": "vitest run",
