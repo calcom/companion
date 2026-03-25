@@ -125,10 +125,10 @@ async function main(): Promise<void> {
   server.tool("update_schedule", "Update a schedule.", updateScheduleSchema, updateSchedule);
   server.tool("delete_schedule", "Delete a schedule.", deleteScheduleSchema, deleteSchedule);
 
-  // Availability
+  // Availability / Slots
   server.tool(
     "get_availability",
-    "Get available time slots.",
+    "Get available time slots (GET /v2/slots). Uses cal-api-version 2024-09-04.",
     getAvailabilitySchema,
     getAvailability
   );

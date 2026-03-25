@@ -129,10 +129,10 @@ Set `CAL_AUTH_MODE=oauth` and provide `CAL_OAUTH_CLIENT_ID` and `CAL_OAUTH_CLIEN
 | `update_schedule` | Update a schedule |
 | `delete_schedule` | Delete a schedule |
 
-### Availability
+### Availability / Slots
 | Tool | Description |
 |---|---|
-| `get_availability` | Get available time slots |
+| `get_availability` | Get available time slots (`GET /v2/slots`). Params: `start` (required), `end` (required), `timeZone?`, `eventTypeId?`, `eventTypeSlug?`, `username?`, `teamSlug?`, `organizationSlug?`, `usernames?`, `duration?`, `format?`, `bookingUidToReschedule?`. Uses `cal-api-version: 2024-09-04`. |
 
 ### Calendars
 | Tool | Description |

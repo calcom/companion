@@ -21,38 +21,62 @@ function ok(data: unknown): { content: { type: "text"; text: string }[] } {
 }
 
 export const getAvailabilitySchema = {
-  startTime: z
+  start: z
     .string()
-    .describe("Start of the time range in ISO 8601 format (e.g. 2024-08-13T00:00:00Z)"),
-  endTime: z
+    .describe("Start of the time range (ISO 8601 date or datetime, e.g. 2024-08-13 or 2024-08-13T00:00:00Z)"),
+  end: z
     .string()
-    .describe("End of the time range in ISO 8601 format (e.g. 2024-08-14T00:00:00Z)"),
+    .describe("End of the time range (ISO 8601 date or datetime, e.g. 2024-08-14 or 2024-08-14T00:00:00Z)"),
+  timeZone: z.string().optional().describe("IANA time zone for the results (e.g. America/New_York)"),
   eventTypeId: z.number().int().optional().describe("Filter by event type ID"),
   eventTypeSlug: z.string().optional().describe("Filter by event type slug"),
-  usernameList: z.array(z.string()).optional().describe("Filter by usernames"),
-  timeZone: z.string().describe("IANA time zone for the results (e.g. America/New_York)"),
+  username: z.string().optional().describe("Filter by a single username"),
+  teamSlug: z.string().optional().describe("Filter by team slug"),
+  organizationSlug: z.string().optional().describe("Filter by organization slug"),
+  usernames: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .describe("Comma-separated string or array of usernames"),
+  duration: z.number().int().optional().describe("Slot duration in minutes"),
+  format: z.string().optional().describe("Response format"),
+  bookingUidToReschedule: z.string().optional().describe("Booking UID to reschedule (shows slots that would otherwise be busy)"),
 };
 
 export async function getAvailability(params: {
-  startTime: string;
-  endTime: string;
+  start: string;
+  end: string;
+  timeZone?: string;
   eventTypeId?: number;
   eventTypeSlug?: string;
-  usernameList?: string[];
-  timeZone: string;
+  username?: string;
+  teamSlug?: string;
+  organizationSlug?: string;
+  usernames?: string | string[];
+  duration?: number;
+  format?: string;
+  bookingUidToReschedule?: string;
 }) {
   try {
     const queryParams: Record<string, string | number | string[] | undefined> = {
-      startTime: params.startTime,
-      endTime: params.endTime,
-      timeZone: params.timeZone,
+      start: params.start,
+      end: params.end,
     };
+    if (params.timeZone) queryParams.timeZone = params.timeZone;
     if (params.eventTypeId !== undefined) queryParams.eventTypeId = params.eventTypeId;
     if (params.eventTypeSlug) queryParams.eventTypeSlug = params.eventTypeSlug;
-    if (params.usernameList && params.usernameList.length > 0) {
-      queryParams.usernameList = params.usernameList;
+    if (params.username) queryParams.username = params.username;
+    if (params.teamSlug) queryParams.teamSlug = params.teamSlug;
+    if (params.organizationSlug) queryParams.organizationSlug = params.organizationSlug;
+    if (params.usernames !== undefined) {
+      queryParams.usernames = Array.isArray(params.usernames)
+        ? params.usernames.join(",")
+        : params.usernames;
     }
-    const data = await calApi("slots/available", { params: queryParams });
+    if (params.duration !== undefined) queryParams.duration = params.duration;
+    if (params.format) queryParams.format = params.format;
+    if (params.bookingUidToReschedule) queryParams.bookingUidToReschedule = params.bookingUidToReschedule;
+
+    const data = await calApi("slots", { params: queryParams });
     return ok(data);
   } catch (err) {
     return handleError("get_availability", err);

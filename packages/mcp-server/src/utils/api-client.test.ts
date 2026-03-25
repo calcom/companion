@@ -99,13 +99,13 @@ describe("calApi", () => {
       json: () => Promise.resolve({}),
     });
 
-    await calApi("slots/available", {
-      params: { usernameList: ["alice", "bob"] },
+    await calApi("bookings", {
+      params: { tags: ["vip", "priority"] },
     });
 
     const [url] = mockFetch.mock.calls[0];
-    expect(url).toContain("usernameList=alice");
-    expect(url).toContain("usernameList=bob");
+    expect(url).toContain("tags=vip");
+    expect(url).toContain("tags=priority");
   });
 
   it("sends JSON body for POST requests", async () => {
@@ -224,5 +224,47 @@ describe("calApi", () => {
       "cal-api-version": "2024-08-13",
       "Content-Type": "application/json",
     });
+  });
+
+  it("overrides cal-api-version for /v2/slots via path map", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ slots: {} }),
+    });
+
+    await calApi("slots", { params: { start: "2024-08-13", end: "2024-08-14" } });
+
+    const [, options] = mockFetch.mock.calls[0];
+    expect(options.headers["cal-api-version"]).toBe("2024-09-04");
+  });
+
+  it("uses explicit apiVersionOverride over path map", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({}),
+    });
+
+    await calApi("slots", { apiVersionOverride: "2025-01-01" });
+
+    const [, options] = mockFetch.mock.calls[0];
+    expect(options.headers["cal-api-version"]).toBe("2025-01-01");
+  });
+
+  it("does not override cal-api-version for non-slots paths", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({}),
+    });
+
+    await calApi("bookings");
+
+    const [, options] = mockFetch.mock.calls[0];
+    expect(options.headers["cal-api-version"]).toBe("2024-08-13");
   });
 });

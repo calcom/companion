@@ -9,6 +9,7 @@ interface RequestOptions {
   method?: string;
   body?: unknown;
   params?: Record<string, string | number | boolean | string[] | undefined>;
+  apiVersionOverride?: string;
 }
 
 function buildUrl(path: string, params?: RequestOptions["params"]): string {
@@ -45,10 +46,24 @@ async function handleResponse(res: Response): Promise<unknown> {
   return body;
 }
 
+/** Per-path API version overrides (some endpoints require a newer version). */
+const PATH_VERSION_OVERRIDES: Record<string, string> = {
+  slots: "2024-09-04",
+};
+
 export async function calApi<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, params } = options;
+  const { method = "GET", body, params, apiVersionOverride } = options;
   const url = buildUrl(path, params);
-  const headers = await getAuthHeaders();
+  const baseHeaders = await getAuthHeaders();
+
+  // Apply version override: explicit option > path-based map > default
+  // Spread into a new object to avoid mutating the original headers.
+  const normalizedPath = path.replace(/^\//, "");
+  const versionOverride =
+    apiVersionOverride ?? PATH_VERSION_OVERRIDES[normalizedPath];
+  const headers = versionOverride
+    ? { ...(baseHeaders as Record<string, string>), "cal-api-version": versionOverride }
+    : baseHeaders;
 
   const fetchOptions: RequestInit = { method, headers };
   if (body !== undefined) {
