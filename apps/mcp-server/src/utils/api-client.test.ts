@@ -3,19 +3,11 @@ import { CalApiError } from "./errors.js";
 
 // Mock the auth module before importing api-client
 vi.mock("../auth.js", () => ({
-  getAuthHeaders: vi.fn().mockResolvedValue({
+  getApiKeyHeaders: vi.fn().mockReturnValue({
     Authorization: "Bearer test-key",
     "cal-api-version": "2024-08-13",
     "Content-Type": "application/json",
   }),
-  getAuthMode: vi.fn().mockReturnValue("apikey"),
-  refreshOAuthToken: vi.fn().mockResolvedValue(undefined),
-  getConnectionAuthHeaders: vi.fn().mockResolvedValue({
-    Authorization: "Bearer conn-token",
-    "cal-api-version": "2024-08-13",
-    "Content-Type": "application/json",
-  }),
-  refreshConnectionTokens: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock global fetch
@@ -23,7 +15,6 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 import { calApi } from "./api-client.js";
-import { getAuthHeaders, getAuthMode, refreshOAuthToken, getConnectionAuthHeaders, refreshConnectionTokens } from "../auth.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -159,35 +150,7 @@ describe("calApi", () => {
     });
   });
 
-  it("retries on 401 in OAuth mode", async () => {
-    vi.mocked(getAuthMode).mockReturnValue("oauth");
-
-    // First call returns 401
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ message: "Unauthorized" }),
-    });
-    // Retry returns 200
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ data: "refreshed" }),
-    });
-
-    const result = await calApi("me");
-
-    expect(refreshOAuthToken).toHaveBeenCalledOnce();
-    expect(getAuthHeaders).toHaveBeenCalledTimes(2);
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ data: "refreshed" });
-  });
-
-  it("does not retry on 401 in apikey mode", async () => {
-    vi.mocked(getAuthMode).mockReturnValue("apikey");
-
+  it("throws CalApiError on 401 (no retry in API key mode)", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -196,7 +159,6 @@ describe("calApi", () => {
     });
 
     await expect(calApi("me")).rejects.toThrow(CalApiError);
-    expect(refreshOAuthToken).not.toHaveBeenCalled();
     expect(mockFetch).toHaveBeenCalledOnce();
   });
 
@@ -214,7 +176,7 @@ describe("calApi", () => {
     expect(url).toBe("https://api.cal.com/v2/bookings");
   });
 
-  it("includes auth headers from getAuthHeaders", async () => {
+  it("includes auth headers from getApiKeyHeaders", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -272,211 +234,5 @@ describe("calApi", () => {
 
     const [, options] = mockFetch.mock.calls[0];
     expect(options.headers["cal-api-version"]).toBe("2024-08-13");
-  });
-
-  it("preserves path-based version override on 401 retry (slots)", async () => {
-    vi.mocked(getAuthMode).mockReturnValue("oauth");
-    vi.mocked(getAuthHeaders)
-      .mockResolvedValueOnce({
-        Authorization: "Bearer old",
-        "cal-api-version": "2024-08-13",
-        "Content-Type": "application/json",
-      })
-      .mockResolvedValueOnce({
-        Authorization: "Bearer new",
-        "cal-api-version": "2024-08-13",
-        "Content-Type": "application/json",
-      });
-
-    // First call returns 401
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ message: "Unauthorized" }),
-    });
-    // Retry returns 200
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ slots: {} }),
-    });
-
-    await calApi("slots", { params: { start: "2024-08-13", end: "2024-08-14" } });
-
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    // Initial request: refreshed auth + path-based version override
-    const [, firstOpts] = mockFetch.mock.calls[0];
-    expect(firstOpts.headers.Authorization).toBe("Bearer old");
-    expect(firstOpts.headers["cal-api-version"]).toBe("2024-09-04");
-    // Retry request: refreshed auth + path-based version override preserved
-    const [, retryOpts] = mockFetch.mock.calls[1];
-    expect(retryOpts.headers.Authorization).toBe("Bearer new");
-    expect(retryOpts.headers["cal-api-version"]).toBe("2024-09-04");
-  });
-
-  it("preserves explicit apiVersionOverride on 401 retry", async () => {
-    vi.mocked(getAuthMode).mockReturnValue("oauth");
-    vi.mocked(getAuthHeaders)
-      .mockResolvedValueOnce({
-        Authorization: "Bearer old",
-        "cal-api-version": "2024-08-13",
-        "Content-Type": "application/json",
-      })
-      .mockResolvedValueOnce({
-        Authorization: "Bearer new",
-        "cal-api-version": "2024-08-13",
-        "Content-Type": "application/json",
-      });
-
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ message: "Unauthorized" }),
-    });
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({}),
-    });
-
-    await calApi("slots", { apiVersionOverride: "2025-01-01" });
-
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    const [, firstOpts] = mockFetch.mock.calls[0];
-    expect(firstOpts.headers["cal-api-version"]).toBe("2025-01-01");
-    const [, retryOpts] = mockFetch.mock.calls[1];
-    expect(retryOpts.headers.Authorization).toBe("Bearer new");
-    expect(retryOpts.headers["cal-api-version"]).toBe("2025-01-01");
-  });
-
-  it("non-overridden endpoint retry keeps default version", async () => {
-    vi.mocked(getAuthMode).mockReturnValue("oauth");
-    vi.mocked(getAuthHeaders)
-      .mockResolvedValueOnce({
-        Authorization: "Bearer old",
-        "cal-api-version": "2024-08-13",
-        "Content-Type": "application/json",
-      })
-      .mockResolvedValueOnce({
-        Authorization: "Bearer new",
-        "cal-api-version": "2024-08-13",
-        "Content-Type": "application/json",
-      });
-
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ message: "Unauthorized" }),
-    });
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ data: "ok" }),
-    });
-
-    await calApi("me");
-
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    const [, firstOpts] = mockFetch.mock.calls[0];
-    expect(firstOpts.headers["cal-api-version"]).toBe("2024-08-13");
-    const [, retryOpts] = mockFetch.mock.calls[1];
-    expect(retryOpts.headers.Authorization).toBe("Bearer new");
-    expect(retryOpts.headers["cal-api-version"]).toBe("2024-08-13");
-  });
-});
-
-describe("calApi with connectionId (hosted mode)", () => {
-  it("uses getConnectionAuthHeaders when connectionId is provided", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ data: "hosted" }),
-    });
-
-    await calApi("me", { connectionId: "conn-123" });
-
-    expect(getConnectionAuthHeaders).toHaveBeenCalledWith("conn-123");
-    expect(getAuthHeaders).not.toHaveBeenCalled();
-    const [, options] = mockFetch.mock.calls[0];
-    expect(options.headers.Authorization).toBe("Bearer conn-token");
-  });
-
-  it("retries on 401 with connectionId using refreshConnectionTokens", async () => {
-    vi.mocked(getConnectionAuthHeaders)
-      .mockResolvedValueOnce({
-        Authorization: "Bearer old-conn",
-        "cal-api-version": "2024-08-13",
-        "Content-Type": "application/json",
-      })
-      .mockResolvedValueOnce({
-        Authorization: "Bearer new-conn",
-        "cal-api-version": "2024-08-13",
-        "Content-Type": "application/json",
-      });
-
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ message: "Unauthorized" }),
-    });
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ data: "refreshed" }),
-    });
-
-    const result = await calApi("me", { connectionId: "conn-123" });
-
-    expect(refreshConnectionTokens).toHaveBeenCalledWith("conn-123");
-    expect(refreshOAuthToken).not.toHaveBeenCalled();
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    const [, retryOpts] = mockFetch.mock.calls[1];
-    expect(retryOpts.headers.Authorization).toBe("Bearer new-conn");
-    expect(result).toEqual({ data: "refreshed" });
-  });
-
-  it("preserves version override on 401 retry with connectionId", async () => {
-    vi.mocked(getConnectionAuthHeaders)
-      .mockResolvedValueOnce({
-        Authorization: "Bearer old-conn",
-        "cal-api-version": "2024-08-13",
-        "Content-Type": "application/json",
-      })
-      .mockResolvedValueOnce({
-        Authorization: "Bearer new-conn",
-        "cal-api-version": "2024-08-13",
-        "Content-Type": "application/json",
-      });
-
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ message: "Unauthorized" }),
-    });
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({ slots: {} }),
-    });
-
-    await calApi("slots", { connectionId: "conn-123", params: { start: "2024-08-13", end: "2024-08-14" } });
-
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    const [, firstOpts] = mockFetch.mock.calls[0];
-    expect(firstOpts.headers["cal-api-version"]).toBe("2024-09-04");
-    const [, retryOpts] = mockFetch.mock.calls[1];
-    expect(retryOpts.headers["cal-api-version"]).toBe("2024-09-04");
-    expect(retryOpts.headers.Authorization).toBe("Bearer new-conn");
   });
 });

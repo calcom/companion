@@ -1,4 +1,4 @@
-import { getAuthHeaders, getAuthMode, refreshOAuthToken, getConnectionAuthHeaders, refreshConnectionTokens } from "../auth.js";
+import { getApiKeyHeaders } from "../auth.js";
 import { CalApiError } from "./errors.js";
 
 function getBaseUrl(): string {
@@ -10,8 +10,6 @@ interface RequestOptions {
   body?: unknown;
   params?: Record<string, string | number | boolean | string[] | undefined>;
   apiVersionOverride?: string;
-  /** Connection ID for hosted/multi-tenant mode. */
-  connectionId?: string;
 }
 
 function buildUrl(path: string, params?: RequestOptions["params"]): string {
@@ -54,21 +52,13 @@ const PATH_VERSION_OVERRIDES: Record<string, string> = {
 };
 
 /**
- * Build request headers: auth headers + any cal-api-version override.
- * Supports both legacy (global auth) and connection-based auth.
+ * Build request headers: API key auth + any cal-api-version override.
  */
-async function buildRequestHeaders(
+function buildRequestHeaders(
   normalizedPath: string,
   apiVersionOverride: string | undefined,
-  connectionId: string | undefined
-): Promise<Record<string, string>> {
-  let base: Record<string, string>;
-
-  if (connectionId) {
-    base = await getConnectionAuthHeaders(connectionId);
-  } else {
-    base = await getAuthHeaders();
-  }
+): Record<string, string> {
+  const base = getApiKeyHeaders();
 
   const versionOverride =
     apiVersionOverride ?? PATH_VERSION_OVERRIDES[normalizedPath];
@@ -78,51 +68,19 @@ async function buildRequestHeaders(
   return { ...base };
 }
 
-/**
- * Refresh tokens for the appropriate auth context.
- */
-async function refreshTokensForContext(connectionId: string | undefined): Promise<void> {
-  if (connectionId) {
-    await refreshConnectionTokens(connectionId);
-  } else {
-    await refreshOAuthToken();
-  }
-}
-
-/**
- * Determine if the current auth context supports OAuth-style 401 retry.
- */
-function isOAuthContext(connectionId: string | undefined): boolean {
-  if (connectionId) return true; // hosted mode is always OAuth
-  const mode = getAuthMode();
-  return mode === "oauth" || mode === "hosted";
-}
-
 export async function calApi<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, params, apiVersionOverride, connectionId } = options;
+  const { method = "GET", body, params, apiVersionOverride } = options;
   const url = buildUrl(path, params);
   const normalizedPath = path.replace(/^\//, "");
 
-  const headers = await buildRequestHeaders(normalizedPath, apiVersionOverride, connectionId);
+  const headers = buildRequestHeaders(normalizedPath, apiVersionOverride);
 
   const fetchOptions: RequestInit = { method, headers };
   if (body !== undefined) {
     fetchOptions.body = JSON.stringify(body);
   }
 
-  let res = await fetch(url, fetchOptions);
-
-  // On 401 in OAuth mode, refresh token and retry once
-  if (res.status === 401 && isOAuthContext(connectionId)) {
-    console.error("[api-client] Got 401, attempting token refresh...");
-    await refreshTokensForContext(connectionId);
-    const retryHeaders = await buildRequestHeaders(normalizedPath, apiVersionOverride, connectionId);
-    const retryOptions: RequestInit = { method, headers: retryHeaders };
-    if (body !== undefined) {
-      retryOptions.body = JSON.stringify(body);
-    }
-    res = await fetch(url, retryOptions);
-  }
+  const res = await fetch(url, fetchOptions);
 
   return (await handleResponse(res)) as T;
 }
