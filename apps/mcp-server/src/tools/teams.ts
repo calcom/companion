@@ -227,7 +227,7 @@ export const getTeamBookingsSchema = {
 
 export async function getTeamBookings(params: {
   teamId: number;
-  status?: "upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed"[];
+  status?: ("upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed")[];
   attendeeEmail?: string;
   attendeeName?: string;
   bookingUid?: string;
@@ -243,7 +243,7 @@ export async function getTeamBookings(params: {
 }) {
   try {
     const qp: Record<string, string | number | boolean | undefined> = {};
-    if (params.status !== undefined) qp.status = params.status;
+    if (params.status !== undefined) qp.status = params.status.join(",");
     if (params.attendeeEmail !== undefined) qp.attendeeEmail = params.attendeeEmail;
     if (params.attendeeName !== undefined) qp.attendeeName = params.attendeeName;
     if (params.bookingUid !== undefined) qp.bookingUid = params.bookingUid;
@@ -850,7 +850,7 @@ export async function createTeamEventTypeWebhook(params: {
   payloadTemplate?: string;
   active: boolean;
   subscriberUrl: string;
-  triggers: "BOOKING_CREATED" | "BOOKING_PAYMENT_INITIATED" | "BOOKING_PAID" | "BOOKING_RESCHEDULED" | "BOOKING_REQUESTED" | "BOOKING_CANCELLED" | "BOOKING_REJECTED" | "BOOKING_NO_SHOW_UPDATED" | "FORM_SUBMITTED" | "MEETING_ENDED" | "MEETING_STARTED" | "RECORDING_READY" | "INSTANT_MEETING" | "RECORDING_TRANSCRIPTION_GENERATED" | "OOO_CREATED" | "AFTER_HOSTS_CAL_VIDEO_NO_SHOW" | "AFTER_GUESTS_CAL_VIDEO_NO_SHOW" | "FORM_SUBMITTED_NO_EVENT" | "ROUTING_FORM_FALLBACK_HIT" | "DELEGATION_CREDENTIAL_ERROR" | "WRONG_ASSIGNMENT_REPORT"[];
+  triggers: ("BOOKING_CREATED" | "BOOKING_PAYMENT_INITIATED" | "BOOKING_PAID" | "BOOKING_RESCHEDULED" | "BOOKING_REQUESTED" | "BOOKING_CANCELLED" | "BOOKING_REJECTED" | "BOOKING_NO_SHOW_UPDATED" | "FORM_SUBMITTED" | "MEETING_ENDED" | "MEETING_STARTED" | "RECORDING_READY" | "INSTANT_MEETING" | "RECORDING_TRANSCRIPTION_GENERATED" | "OOO_CREATED" | "AFTER_HOSTS_CAL_VIDEO_NO_SHOW" | "AFTER_GUESTS_CAL_VIDEO_NO_SHOW" | "FORM_SUBMITTED_NO_EVENT" | "ROUTING_FORM_FALLBACK_HIT" | "DELEGATION_CREDENTIAL_ERROR" | "WRONG_ASSIGNMENT_REPORT")[];
   secret?: string;
   version?: "2021-10-20";
 }) {
@@ -929,7 +929,7 @@ export async function updateTeamEventTypeWebhook(params: {
   payloadTemplate?: string;
   active?: boolean;
   subscriberUrl?: string;
-  triggers?: "BOOKING_CREATED" | "BOOKING_PAYMENT_INITIATED" | "BOOKING_PAID" | "BOOKING_RESCHEDULED" | "BOOKING_REQUESTED" | "BOOKING_CANCELLED" | "BOOKING_REJECTED" | "BOOKING_NO_SHOW_UPDATED" | "FORM_SUBMITTED" | "MEETING_ENDED" | "MEETING_STARTED" | "RECORDING_READY" | "INSTANT_MEETING" | "RECORDING_TRANSCRIPTION_GENERATED" | "OOO_CREATED" | "AFTER_HOSTS_CAL_VIDEO_NO_SHOW" | "AFTER_GUESTS_CAL_VIDEO_NO_SHOW" | "FORM_SUBMITTED_NO_EVENT" | "ROUTING_FORM_FALLBACK_HIT" | "DELEGATION_CREDENTIAL_ERROR" | "WRONG_ASSIGNMENT_REPORT"[];
+  triggers?: ("BOOKING_CREATED" | "BOOKING_PAYMENT_INITIATED" | "BOOKING_PAID" | "BOOKING_RESCHEDULED" | "BOOKING_REQUESTED" | "BOOKING_CANCELLED" | "BOOKING_REJECTED" | "BOOKING_NO_SHOW_UPDATED" | "FORM_SUBMITTED" | "MEETING_ENDED" | "MEETING_STARTED" | "RECORDING_READY" | "INSTANT_MEETING" | "RECORDING_TRANSCRIPTION_GENERATED" | "OOO_CREATED" | "AFTER_HOSTS_CAL_VIDEO_NO_SHOW" | "AFTER_GUESTS_CAL_VIDEO_NO_SHOW" | "FORM_SUBMITTED_NO_EVENT" | "ROUTING_FORM_FALLBACK_HIT" | "DELEGATION_CREDENTIAL_ERROR" | "WRONG_ASSIGNMENT_REPORT")[];
   secret?: string;
   version?: "2021-10-20";
 }) {
@@ -1046,7 +1046,7 @@ export async function getTeamMemberships(params: {
     const qp: Record<string, string | number | boolean | undefined> = {};
     if (params.take !== undefined) qp.take = params.take;
     if (params.skip !== undefined) qp.skip = params.skip;
-    if (params.emails !== undefined) qp.emails = params.emails;
+    if (params.emails !== undefined) qp.emails = params.emails.join(",");
     const data = await calApi(`teams/${params.teamId}/memberships`, { params: qp });
     return ok(data);
   } catch (err) {

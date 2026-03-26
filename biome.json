@@ -22,7 +22,9 @@
       "!**/bun.lock",
       "!**/android",
       "!**/ios",
-      "!**/safari-extension"
+      "!**/safari-extension",
+      "!apps/mcp-server/openapi-v2.json",
+      "!apps/mcp-server/scripts"
     ]
   },
   "formatter": {

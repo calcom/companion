@@ -58,7 +58,7 @@ export async function getOrgRoutingForms(params: {
     if (params.afterUpdatedAt !== undefined) qp.afterUpdatedAt = params.afterUpdatedAt;
     if (params.beforeUpdatedAt !== undefined) qp.beforeUpdatedAt = params.beforeUpdatedAt;
     if (params.routedToBookingUid !== undefined) qp.routedToBookingUid = params.routedToBookingUid;
-    if (params.teamIds !== undefined) qp.teamIds = params.teamIds;
+    if (params.teamIds !== undefined) qp.teamIds = params.teamIds.join(",");
     const data = await calApi(`organizations/${params.orgId}/routing-forms`, { params: qp });
     return ok(data);
   } catch (err) {

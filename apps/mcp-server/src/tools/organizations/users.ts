@@ -43,10 +43,10 @@ export async function getOrgUsers(params: {
     const qp: Record<string, string | number | boolean | undefined> = {};
     if (params.take !== undefined) qp.take = params.take;
     if (params.skip !== undefined) qp.skip = params.skip;
-    if (params.emails !== undefined) qp.emails = params.emails;
-    if (params.assignedOptionIds !== undefined) qp.assignedOptionIds = params.assignedOptionIds;
+    if (params.emails !== undefined) qp.emails = params.emails.join(",");
+    if (params.assignedOptionIds !== undefined) qp.assignedOptionIds = params.assignedOptionIds.join(",");
     if (params.attributeQueryOperator !== undefined) qp.attributeQueryOperator = params.attributeQueryOperator;
-    if (params.teamIds !== undefined) qp.teamIds = params.teamIds;
+    if (params.teamIds !== undefined) qp.teamIds = params.teamIds.join(",");
     const data = await calApi(`organizations/${params.orgId}/users`, { params: qp });
     return ok(data);
   } catch (err) {

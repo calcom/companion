@@ -247,8 +247,8 @@ export async function getOrgAttributeAssignedOptions(params: {
     const qp: Record<string, string | number | boolean | undefined> = {};
     if (params.skip !== undefined) qp.skip = params.skip;
     if (params.take !== undefined) qp.take = params.take;
-    if (params.assignedOptionIds !== undefined) qp.assignedOptionIds = params.assignedOptionIds;
-    if (params.teamIds !== undefined) qp.teamIds = params.teamIds;
+    if (params.assignedOptionIds !== undefined) qp.assignedOptionIds = params.assignedOptionIds.join(",");
+    if (params.teamIds !== undefined) qp.teamIds = params.teamIds.join(",");
     const data = await calApi(`organizations/${params.orgId}/attributes/${params.attributeId}/options/assigned`, { params: qp });
     return ok(data);
   } catch (err) {
@@ -277,8 +277,8 @@ export async function getOrgAttributeOptionsBySlug(params: {
     const qp: Record<string, string | number | boolean | undefined> = {};
     if (params.skip !== undefined) qp.skip = params.skip;
     if (params.take !== undefined) qp.take = params.take;
-    if (params.assignedOptionIds !== undefined) qp.assignedOptionIds = params.assignedOptionIds;
-    if (params.teamIds !== undefined) qp.teamIds = params.teamIds;
+    if (params.assignedOptionIds !== undefined) qp.assignedOptionIds = params.assignedOptionIds.join(",");
+    if (params.teamIds !== undefined) qp.teamIds = params.teamIds.join(",");
     const data = await calApi(`organizations/${params.orgId}/attributes/slugs/${params.attributeSlug}/options/assigned`, { params: qp });
     return ok(data);
   } catch (err) {

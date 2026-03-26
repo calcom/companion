@@ -41,7 +41,7 @@ export const getOrgTeamBookingsSchema = {
 export async function getOrgTeamBookings(params: {
   orgId: number;
   teamId: number;
-  status?: "upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed"[];
+  status?: ("upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed")[];
   attendeeEmail?: string;
   attendeeName?: string;
   bookingUid?: string;
@@ -57,7 +57,7 @@ export async function getOrgTeamBookings(params: {
 }) {
   try {
     const qp: Record<string, string | number | boolean | undefined> = {};
-    if (params.status !== undefined) qp.status = params.status;
+    if (params.status !== undefined) qp.status = params.status.join(",");
     if (params.attendeeEmail !== undefined) qp.attendeeEmail = params.attendeeEmail;
     if (params.attendeeName !== undefined) qp.attendeeName = params.attendeeName;
     if (params.bookingUid !== undefined) qp.bookingUid = params.bookingUid;

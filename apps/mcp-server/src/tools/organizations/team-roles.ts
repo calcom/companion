@@ -34,7 +34,7 @@ export async function createOrgTeamRole(params: {
   teamId: number;
   color?: string;
   description?: string;
-  permissions?: "role.create" | "role.read" | "role.update" | "role.delete" | "eventType.create" | "eventType.read" | "eventType.update" | "eventType.delete" | "team.read" | "team.update" | "team.delete" | "team.invite" | "team.remove" | "team.listMembers" | "team.listMembersPrivate" | "team.changeMemberRole" | "team.impersonate" | "booking.read" | "booking.readTeamBookings" | "booking.readRecordings" | "booking.update" | "booking.readTeamAuditLogs" | "insights.read" | "workflow.create" | "workflow.read" | "workflow.update" | "workflow.delete" | "routingForm.create" | "routingForm.read" | "routingForm.update" | "routingForm.delete" | "webhook.create" | "webhook.read" | "webhook.update" | "webhook.delete" | "featureOptIn.read" | "featureOptIn.update"[];
+  permissions?: ("role.create" | "role.read" | "role.update" | "role.delete" | "eventType.create" | "eventType.read" | "eventType.update" | "eventType.delete" | "team.read" | "team.update" | "team.delete" | "team.invite" | "team.remove" | "team.listMembers" | "team.listMembersPrivate" | "team.changeMemberRole" | "team.impersonate" | "booking.read" | "booking.readTeamBookings" | "booking.readRecordings" | "booking.update" | "booking.readTeamAuditLogs" | "insights.read" | "workflow.create" | "workflow.read" | "workflow.update" | "workflow.delete" | "routingForm.create" | "routingForm.read" | "routingForm.update" | "routingForm.delete" | "webhook.create" | "webhook.read" | "webhook.update" | "webhook.delete" | "featureOptIn.read" | "featureOptIn.update")[];
   name: string;
 }) {
   try {
@@ -109,7 +109,7 @@ export async function updateOrgTeamRole(params: {
   roleId: string;
   color?: string;
   description?: string;
-  permissions?: "role.create" | "role.read" | "role.update" | "role.delete" | "eventType.create" | "eventType.read" | "eventType.update" | "eventType.delete" | "team.read" | "team.update" | "team.delete" | "team.invite" | "team.remove" | "team.listMembers" | "team.listMembersPrivate" | "team.changeMemberRole" | "team.impersonate" | "booking.read" | "booking.readTeamBookings" | "booking.readRecordings" | "booking.update" | "booking.readTeamAuditLogs" | "insights.read" | "workflow.create" | "workflow.read" | "workflow.update" | "workflow.delete" | "routingForm.create" | "routingForm.read" | "routingForm.update" | "routingForm.delete" | "webhook.create" | "webhook.read" | "webhook.update" | "webhook.delete" | "featureOptIn.read" | "featureOptIn.update"[];
+  permissions?: ("role.create" | "role.read" | "role.update" | "role.delete" | "eventType.create" | "eventType.read" | "eventType.update" | "eventType.delete" | "team.read" | "team.update" | "team.delete" | "team.invite" | "team.remove" | "team.listMembers" | "team.listMembersPrivate" | "team.changeMemberRole" | "team.impersonate" | "booking.read" | "booking.readTeamBookings" | "booking.readRecordings" | "booking.update" | "booking.readTeamAuditLogs" | "insights.read" | "workflow.create" | "workflow.read" | "workflow.update" | "workflow.delete" | "routingForm.create" | "routingForm.read" | "routingForm.update" | "routingForm.delete" | "webhook.create" | "webhook.read" | "webhook.update" | "webhook.delete" | "featureOptIn.read" | "featureOptIn.update")[];
   name?: string;
 }) {
   try {
@@ -155,7 +155,7 @@ export async function addOrgTeamRolePermissions(params: {
   orgId: number;
   teamId: number;
   roleId: string;
-  permissions: "role.create" | "role.read" | "role.update" | "role.delete" | "eventType.create" | "eventType.read" | "eventType.update" | "eventType.delete" | "team.read" | "team.update" | "team.delete" | "team.invite" | "team.remove" | "team.listMembers" | "team.listMembersPrivate" | "team.changeMemberRole" | "team.impersonate" | "booking.read" | "booking.readTeamBookings" | "booking.readRecordings" | "booking.update" | "booking.readTeamAuditLogs" | "insights.read" | "workflow.create" | "workflow.read" | "workflow.update" | "workflow.delete" | "routingForm.create" | "routingForm.read" | "routingForm.update" | "routingForm.delete" | "webhook.create" | "webhook.read" | "webhook.update" | "webhook.delete" | "featureOptIn.read" | "featureOptIn.update"[];
+  permissions: ("role.create" | "role.read" | "role.update" | "role.delete" | "eventType.create" | "eventType.read" | "eventType.update" | "eventType.delete" | "team.read" | "team.update" | "team.delete" | "team.invite" | "team.remove" | "team.listMembers" | "team.listMembersPrivate" | "team.changeMemberRole" | "team.impersonate" | "booking.read" | "booking.readTeamBookings" | "booking.readRecordings" | "booking.update" | "booking.readTeamAuditLogs" | "insights.read" | "workflow.create" | "workflow.read" | "workflow.update" | "workflow.delete" | "routingForm.create" | "routingForm.read" | "routingForm.update" | "routingForm.delete" | "webhook.create" | "webhook.read" | "webhook.update" | "webhook.delete" | "featureOptIn.read" | "featureOptIn.update")[];
 }) {
   try {
     const body: Record<string, unknown> = {};
@@ -197,7 +197,7 @@ export async function replaceOrgTeamRolePermissions(params: {
   orgId: number;
   teamId: number;
   roleId: string;
-  permissions: "role.create" | "role.read" | "role.update" | "role.delete" | "eventType.create" | "eventType.read" | "eventType.update" | "eventType.delete" | "team.read" | "team.update" | "team.delete" | "team.invite" | "team.remove" | "team.listMembers" | "team.listMembersPrivate" | "team.changeMemberRole" | "team.impersonate" | "booking.read" | "booking.readTeamBookings" | "booking.readRecordings" | "booking.update" | "booking.readTeamAuditLogs" | "insights.read" | "workflow.create" | "workflow.read" | "workflow.update" | "workflow.delete" | "routingForm.create" | "routingForm.read" | "routingForm.update" | "routingForm.delete" | "webhook.create" | "webhook.read" | "webhook.update" | "webhook.delete" | "featureOptIn.read" | "featureOptIn.update"[];
+  permissions: ("role.create" | "role.read" | "role.update" | "role.delete" | "eventType.create" | "eventType.read" | "eventType.update" | "eventType.delete" | "team.read" | "team.update" | "team.delete" | "team.invite" | "team.remove" | "team.listMembers" | "team.listMembersPrivate" | "team.changeMemberRole" | "team.impersonate" | "booking.read" | "booking.readTeamBookings" | "booking.readRecordings" | "booking.update" | "booking.readTeamAuditLogs" | "insights.read" | "workflow.create" | "workflow.read" | "workflow.update" | "workflow.delete" | "routingForm.create" | "routingForm.read" | "routingForm.update" | "routingForm.delete" | "webhook.create" | "webhook.read" | "webhook.update" | "webhook.delete" | "featureOptIn.read" | "featureOptIn.update")[];
 }) {
   try {
     const body: Record<string, unknown> = {};
@@ -220,11 +220,11 @@ export async function removeOrgTeamRolePermissions(params: {
   orgId: number;
   teamId: number;
   roleId: string;
-  permissions?: "role.create" | "role.read" | "role.update" | "role.delete" | "eventType.create" | "eventType.read" | "eventType.update" | "eventType.delete" | "team.read" | "team.update" | "team.delete" | "team.invite" | "team.remove" | "team.listMembers" | "team.listMembersPrivate" | "team.changeMemberRole" | "team.impersonate" | "booking.read" | "booking.readTeamBookings" | "booking.readRecordings" | "booking.update" | "booking.readTeamAuditLogs" | "insights.read" | "workflow.create" | "workflow.read" | "workflow.update" | "workflow.delete" | "routingForm.create" | "routingForm.read" | "routingForm.update" | "routingForm.delete" | "webhook.create" | "webhook.read" | "webhook.update" | "webhook.delete" | "featureOptIn.read" | "featureOptIn.update"[];
+  permissions?: ("role.create" | "role.read" | "role.update" | "role.delete" | "eventType.create" | "eventType.read" | "eventType.update" | "eventType.delete" | "team.read" | "team.update" | "team.delete" | "team.invite" | "team.remove" | "team.listMembers" | "team.listMembersPrivate" | "team.changeMemberRole" | "team.impersonate" | "booking.read" | "booking.readTeamBookings" | "booking.readRecordings" | "booking.update" | "booking.readTeamAuditLogs" | "insights.read" | "workflow.create" | "workflow.read" | "workflow.update" | "workflow.delete" | "routingForm.create" | "routingForm.read" | "routingForm.update" | "routingForm.delete" | "webhook.create" | "webhook.read" | "webhook.update" | "webhook.delete" | "featureOptIn.read" | "featureOptIn.update")[];
 }) {
   try {
     const qp: Record<string, string | number | boolean | undefined> = {};
-    if (params.permissions !== undefined) qp.permissions = params.permissions;
+    if (params.permissions !== undefined) qp.permissions = Array.isArray(params.permissions) ? params.permissions.join(",") : params.permissions;
     const data = await calApi(`organizations/${params.orgId}/teams/${params.teamId}/roles/${params.roleId}/permissions`, { method: "DELETE", params: qp });
     return ok(data);
   } catch (err) {
