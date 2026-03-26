@@ -35,10 +35,12 @@ function saveTokensToCache(tokens: OAuthTokens): void {
   }
 }
 
-export function getAuthMode(): "apikey" | "oauth" {
+export type AuthMode = "apikey" | "oauth" | "hosted";
+
+export function getAuthMode(): AuthMode {
   const mode = process.env.CAL_AUTH_MODE || "apikey";
-  if (mode !== "apikey" && mode !== "oauth") {
-    throw new Error(`Invalid CAL_AUTH_MODE: ${mode}. Must be "apikey" or "oauth".`);
+  if (mode !== "apikey" && mode !== "oauth" && mode !== "hosted") {
+    throw new Error(`Invalid CAL_AUTH_MODE: ${mode}. Must be "apikey", "oauth", or "hosted".`);
   }
   return mode;
 }
@@ -68,7 +70,7 @@ export function initOAuthTokens(): void {
     cachedTokens = {
       accessToken,
       refreshToken,
-      expiresAt: Date.now() + 55 * 60 * 1000, // assume ~55 min validity for seed tokens
+      expiresAt: Date.now() + 55 * 60 * 1000,
     };
     saveTokensToCache(cachedTokens);
   }
@@ -136,12 +138,107 @@ export async function refreshOAuthToken(): Promise<void> {
   console.error("[auth] OAuth tokens refreshed successfully.");
 }
 
+// ── Per-connection auth (hosted mode) ──
+
+/**
+ * Get auth headers for a specific connection (hosted/multi-tenant mode).
+ * Automatically refreshes if the connection's token is expired.
+ */
+export async function getConnectionAuthHeaders(
+  connectionId: string,
+): Promise<Record<string, string>> {
+  const { getOAuthConnection } = await import(
+    "./storage/oauth-connections-repo.js"
+  );
+
+  const conn = getOAuthConnection(connectionId);
+  if (!conn) {
+    throw new Error(`Connection ${connectionId} not found`);
+  }
+
+  // Auto-refresh if expired (with 60s buffer)
+  if (Date.now() >= conn.expiresAt - 60_000) {
+    await refreshConnectionTokens(connectionId);
+    const refreshed = getOAuthConnection(connectionId);
+    if (!refreshed) {
+      throw new Error(`Connection ${connectionId} disappeared after refresh`);
+    }
+    return {
+      Authorization: `Bearer ${refreshed.accessToken}`,
+      "cal-api-version": "2024-08-13",
+      "Content-Type": "application/json",
+    };
+  }
+
+  return {
+    Authorization: `Bearer ${conn.accessToken}`,
+    "cal-api-version": "2024-08-13",
+    "Content-Type": "application/json",
+  };
+}
+
+/**
+ * Refresh tokens for a specific connection and update the database.
+ */
+export async function refreshConnectionTokens(connectionId: string): Promise<void> {
+  const { getOAuthConnection, updateOAuthConnectionTokens } = await import(
+    "./storage/oauth-connections-repo.js"
+  );
+
+  const conn = getOAuthConnection(connectionId);
+  if (!conn) {
+    throw new Error(`Connection ${connectionId} not found`);
+  }
+
+  const clientId = process.env.CAL_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.CAL_OAUTH_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error("CAL_OAUTH_CLIENT_ID and CAL_OAUTH_CLIENT_SECRET are required for token refresh.");
+  }
+
+  const baseUrl = getBaseUrl();
+  const url = `${baseUrl}/v2/oauth/${clientId}/refresh`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      refreshToken: conn.refreshToken,
+      clientSecret,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Connection token refresh failed (${res.status}): ${body}`);
+  }
+
+  const data = (await res.json()) as {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn?: number;
+  };
+
+  updateOAuthConnectionTokens(connectionId, {
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
+    expiresAt: Date.now() + (data.expiresIn || 3600) * 1000,
+  });
+
+  console.error("[auth] Connection tokens refreshed successfully.");
+}
+
+/**
+ * Get auth headers based on mode. For backward compat (apikey + single-account oauth).
+ * Hosted mode should use getConnectionAuthHeaders() instead.
+ */
 export async function getAuthHeaders(): Promise<Record<string, string>> {
   const mode = getAuthMode();
   if (mode === "apikey") {
     return getApiKeyHeaders();
   }
 
+  // Single-account OAuth (legacy/stdio mode)
   if (isTokenExpired()) {
     await refreshOAuthToken();
   }

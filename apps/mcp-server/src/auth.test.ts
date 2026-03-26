@@ -46,6 +46,11 @@ describe("getAuthMode", () => {
     expect(getAuthMode()).toBe("oauth");
   });
 
+  it("returns hosted when set", () => {
+    process.env.CAL_AUTH_MODE = "hosted";
+    expect(getAuthMode()).toBe("hosted");
+  });
+
   it("throws on invalid mode", () => {
     process.env.CAL_AUTH_MODE = "invalid";
     expect(() => getAuthMode()).toThrow('Invalid CAL_AUTH_MODE: invalid');
@@ -106,8 +111,6 @@ describe("getOAuthHeaders", () => {
 
 describe("isTokenExpired", () => {
   it("returns true when no tokens are cached", () => {
-    // Reset by not initializing tokens (fresh module state may have tokens from prior tests)
-    // This test checks the boundary condition
     expect(typeof isTokenExpired()).toBe("boolean");
   });
 });
@@ -126,9 +129,6 @@ describe("refreshOAuthToken", () => {
     process.env.CAL_OAUTH_CLIENT_ID = "client_id";
     process.env.CAL_OAUTH_CLIENT_SECRET = "client_secret";
 
-    // Force a fresh state by not initializing
-    // This may or may not have cached tokens from prior tests
-    // but validates the env var check comes first
     await expect(refreshOAuthToken()).rejects.toThrow();
   });
 });

@@ -10,6 +10,12 @@ vi.mock("../auth.js", () => ({
   }),
   getAuthMode: vi.fn().mockReturnValue("apikey"),
   refreshOAuthToken: vi.fn().mockResolvedValue(undefined),
+  getConnectionAuthHeaders: vi.fn().mockResolvedValue({
+    Authorization: "Bearer conn-token",
+    "cal-api-version": "2024-08-13",
+    "Content-Type": "application/json",
+  }),
+  refreshConnectionTokens: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock global fetch
@@ -17,7 +23,7 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 import { calApi } from "./api-client.js";
-import { getAuthHeaders, getAuthMode, refreshOAuthToken } from "../auth.js";
+import { getAuthHeaders, getAuthMode, refreshOAuthToken, getConnectionAuthHeaders, refreshConnectionTokens } from "../auth.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -382,5 +388,95 @@ describe("calApi", () => {
     const [, retryOpts] = mockFetch.mock.calls[1];
     expect(retryOpts.headers.Authorization).toBe("Bearer new");
     expect(retryOpts.headers["cal-api-version"]).toBe("2024-08-13");
+  });
+});
+
+describe("calApi with connectionId (hosted mode)", () => {
+  it("uses getConnectionAuthHeaders when connectionId is provided", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ data: "hosted" }),
+    });
+
+    await calApi("me", { connectionId: "conn-123" });
+
+    expect(getConnectionAuthHeaders).toHaveBeenCalledWith("conn-123");
+    expect(getAuthHeaders).not.toHaveBeenCalled();
+    const [, options] = mockFetch.mock.calls[0];
+    expect(options.headers.Authorization).toBe("Bearer conn-token");
+  });
+
+  it("retries on 401 with connectionId using refreshConnectionTokens", async () => {
+    vi.mocked(getConnectionAuthHeaders)
+      .mockResolvedValueOnce({
+        Authorization: "Bearer old-conn",
+        "cal-api-version": "2024-08-13",
+        "Content-Type": "application/json",
+      })
+      .mockResolvedValueOnce({
+        Authorization: "Bearer new-conn",
+        "cal-api-version": "2024-08-13",
+        "Content-Type": "application/json",
+      });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ message: "Unauthorized" }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ data: "refreshed" }),
+    });
+
+    const result = await calApi("me", { connectionId: "conn-123" });
+
+    expect(refreshConnectionTokens).toHaveBeenCalledWith("conn-123");
+    expect(refreshOAuthToken).not.toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const [, retryOpts] = mockFetch.mock.calls[1];
+    expect(retryOpts.headers.Authorization).toBe("Bearer new-conn");
+    expect(result).toEqual({ data: "refreshed" });
+  });
+
+  it("preserves version override on 401 retry with connectionId", async () => {
+    vi.mocked(getConnectionAuthHeaders)
+      .mockResolvedValueOnce({
+        Authorization: "Bearer old-conn",
+        "cal-api-version": "2024-08-13",
+        "Content-Type": "application/json",
+      })
+      .mockResolvedValueOnce({
+        Authorization: "Bearer new-conn",
+        "cal-api-version": "2024-08-13",
+        "Content-Type": "application/json",
+      });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ message: "Unauthorized" }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ slots: {} }),
+    });
+
+    await calApi("slots", { connectionId: "conn-123", params: { start: "2024-08-13", end: "2024-08-14" } });
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const [, firstOpts] = mockFetch.mock.calls[0];
+    expect(firstOpts.headers["cal-api-version"]).toBe("2024-09-04");
+    const [, retryOpts] = mockFetch.mock.calls[1];
+    expect(retryOpts.headers["cal-api-version"]).toBe("2024-09-04");
+    expect(retryOpts.headers.Authorization).toBe("Bearer new-conn");
   });
 });

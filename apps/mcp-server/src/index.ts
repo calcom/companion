@@ -3,6 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { getAuthMode, initOAuthTokens } from "./auth.js";
+import type { AuthMode } from "./auth.js";
 
 // ── Bookings ──
 import {
@@ -591,11 +592,20 @@ import {
 } from "./tools/organizations/index.js";
 
 async function main(): Promise<void> {
-  const authMode = getAuthMode();
+  const authMode: AuthMode = getAuthMode();
   console.error(`[mcp-server] Starting Cal.com MCP server (auth: ${authMode})`);
 
   if (authMode === "oauth") {
     initOAuthTokens();
+  }
+
+  // In hosted mode, initialize the database and start the OAuth HTTP server
+  if (authMode === "hosted") {
+    const { getDb } = await import("./storage/db.js");
+    getDb(); // initialize DB + create tables
+    const { startOAuthServer } = await import("./oauth/routes.js");
+    const port = Number.parseInt(process.env.PORT || "3100", 10);
+    startOAuthServer(port);
   }
 
   const server = new McpServer({
