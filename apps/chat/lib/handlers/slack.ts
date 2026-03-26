@@ -59,7 +59,6 @@ import {
   getLinkedUser,
   getRescheduleFlow,
   getValidAccessToken,
-  isOrgPlanUser,
   setBookingFlow,
   setCancelFlow,
   setRescheduleFlow,
@@ -732,13 +731,22 @@ export function registerSlackHandlers(
               );
               return;
             }
-            if (!isOrgPlanUser(linked)) {
-              await event.channel.postEphemeral(
-                event.user,
-                "The AI assistant is available on the Cal.com Organizations plan. Use `/cal help` to see available slash commands, or upgrade at <https://cal.com/pricing|cal.com/pricing>.",
-                { fallbackToDM: true }
-              );
-              return;
+            const accessTokenForAgent = await getValidAccessToken(teamId, userId);
+            if (accessTokenForAgent) {
+              try {
+                const { checkCredits } = await import("../calcom/client");
+                const credits = await checkCredits(accessTokenForAgent);
+                if (!credits.hasCredits) {
+                  await event.channel.postEphemeral(
+                    event.user,
+                    "You've run out of AI credits. Use `/cal help` to see available slash commands, or purchase more credits at <https://cal.com/pricing|cal.com/pricing>.",
+                    { fallbackToDM: true }
+                  );
+                  return;
+                }
+              } catch {
+                // If credits check fails, allow the request through during rollout
+              }
             }
 
             const result = runAgentStream({
