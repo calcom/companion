@@ -5,6 +5,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 ## Features
 
 - **34 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Routing Forms, Organizations, and User Profile
+- **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **API key authentication** — simple Bearer token auth
 - **Structured error handling** with clean MCP error responses
 - **Zod-validated inputs** for every tool
@@ -37,20 +38,47 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 |---|---|---|---|
 | `CAL_API_KEY` | Yes | — | Your Cal.com API key |
 | `CAL_API_BASE_URL` | No | `https://api.cal.com` | Cal.com API base URL |
+| `MCP_TRANSPORT` | No | `stdio` | Transport mode: `stdio` or `http` |
+| `PORT` | No | `3100` | HTTP server port (only when `MCP_TRANSPORT=http`) |
 
-### Run
+## Transport Modes
+
+The server supports two transport modes selected via the `MCP_TRANSPORT` environment variable.
+
+### stdio (default) — Local Developer Tooling
+
+Best for: **Claude Desktop, Cursor, VS Code**, and any MCP client that spawns the server as a subprocess.
 
 ```bash
-# Production (after build)
+# Start via stdio (default)
 bun --filter @calcom/mcp-server start
 
-# Development
-bun --filter @calcom/mcp-server dev
+# Or explicitly
+MCP_TRANSPORT=stdio node apps/mcp-server/dist/index.js
 ```
+
+The MCP client communicates over stdin/stdout. No HTTP server is started.
+
+### http — Remote / Production
+
+Best for: **Hosted deployments, shared services, remote MCP clients** that connect over the network.
+
+```bash
+# Start HTTP server
+MCP_TRANSPORT=http PORT=3100 node apps/mcp-server/dist/index.js
+```
+
+This starts a StreamableHTTP server with:
+- `POST /mcp` — JSON-RPC over Streamable HTTP (creates a new session on first request)
+- `GET  /mcp` — SSE stream for server-initiated messages (requires `mcp-session-id` header)
+- `DELETE /mcp` — Terminate a session (requires `mcp-session-id` header)
+- `GET  /health` — Health check (returns `{ "status": "ok", "sessions": <count> }`)
+
+Each HTTP session gets its own `McpServer` instance with a unique session ID, so multiple clients can connect concurrently.
 
 ## Connecting to MCP Clients
 
-### Claude Desktop
+### Claude Desktop (stdio)
 
 Add this to your `claude_desktop_config.json`:
 
@@ -68,9 +96,13 @@ Add this to your `claude_desktop_config.json`:
 }
 ```
 
-### Cursor / Other MCP Clients
+### Cursor / VS Code (stdio)
 
-Point your MCP client to the built entry point at `apps/mcp-server/dist/index.js` with the required environment variables.
+Point your MCP client to `apps/mcp-server/dist/index.js` with the required environment variables.
+
+### Remote MCP Clients (http)
+
+Start the server with `MCP_TRANSPORT=http` and point your client to `http://<host>:3100/mcp`.
 
 ## Authentication
 
