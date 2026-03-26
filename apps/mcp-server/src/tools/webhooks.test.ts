@@ -133,3 +133,43 @@ describe("deleteWebhook", () => {
     expect(result).toHaveProperty("isError", true);
   });
 });
+
+// ── Tests for new tools ──
+import {
+  updateWebhook,
+  updateWebhookSchema,
+  getWebhook,
+  getWebhookSchema,
+} from "./webhooks.js";
+
+describe("updateWebhook", () => {
+  it("exports updateWebhookSchema", () => { expect(updateWebhookSchema).toBeDefined(); });
+  it("returns data on success", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success" });
+    const result = await updateWebhook({"webhookId":"test-id"});
+    expect(result.content[0].type).toBe("text");
+    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
+  });
+  it("handles API errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
+    const result = await updateWebhook({"webhookId":"test-id"});
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("400");
+  });
+});
+
+describe("getWebhook", () => {
+  it("exports getWebhookSchema", () => { expect(getWebhookSchema).toBeDefined(); });
+  it("returns data on success", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success" });
+    const result = await getWebhook({"webhookId":"test-id"});
+    expect(result.content[0].type).toBe("text");
+    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
+  });
+  it("handles API errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
+    const result = await getWebhook({"webhookId":"test-id"});
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("400");
+  });
+});

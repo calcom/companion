@@ -179,3 +179,79 @@ describe("getAvailability", () => {
     ).rejects.toThrow("Network failure");
   });
 });
+
+// ── Tests for new tools ──
+import {
+  reserveSlot,
+  reserveSlotSchema,
+  getSlotReservation,
+  getSlotReservationSchema,
+  updateSlotReservation,
+  updateSlotReservationSchema,
+  deleteSlotReservation,
+  deleteSlotReservationSchema,
+} from "./availability.js";
+
+describe("reserveSlot", () => {
+  it("exports reserveSlotSchema", () => { expect(reserveSlotSchema).toBeDefined(); });
+  it("returns data on success", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success" });
+    const result = await reserveSlot({"eventTypeId":1,"slotStart":"test"});
+    expect(result.content[0].type).toBe("text");
+    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
+  });
+  it("handles API errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
+    const result = await reserveSlot({"eventTypeId":1,"slotStart":"test"});
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("400");
+  });
+});
+
+describe("getSlotReservation", () => {
+  it("exports getSlotReservationSchema", () => { expect(getSlotReservationSchema).toBeDefined(); });
+  it("returns data on success", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success" });
+    const result = await getSlotReservation({"uid":"test-id"});
+    expect(result.content[0].type).toBe("text");
+    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
+  });
+  it("handles API errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
+    const result = await getSlotReservation({"uid":"test-id"});
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("400");
+  });
+});
+
+describe("updateSlotReservation", () => {
+  it("exports updateSlotReservationSchema", () => { expect(updateSlotReservationSchema).toBeDefined(); });
+  it("returns data on success", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success" });
+    const result = await updateSlotReservation({"uid":"test-id","eventTypeId":1,"slotStart":"test"});
+    expect(result.content[0].type).toBe("text");
+    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
+  });
+  it("handles API errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
+    const result = await updateSlotReservation({"uid":"test-id","eventTypeId":1,"slotStart":"test"});
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("400");
+  });
+});
+
+describe("deleteSlotReservation", () => {
+  it("exports deleteSlotReservationSchema", () => { expect(deleteSlotReservationSchema).toBeDefined(); });
+  it("returns data on success", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success" });
+    const result = await deleteSlotReservation({"uid":"test-id"});
+    expect(result.content[0].type).toBe("text");
+    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
+  });
+  it("handles API errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
+    const result = await deleteSlotReservation({"uid":"test-id"});
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("400");
+  });
+});

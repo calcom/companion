@@ -145,3 +145,289 @@ export async function confirmBooking(params: { bookingUid: string }) {
     return handleError("confirm_booking", err);
   }
 }
+
+// ── New tools (generated) ──
+
+export const getBookingBySeatSchema = {
+  seatUid: z.string().describe("seatUid"),
+};
+
+export async function getBookingBySeat(params: {
+  seatUid: string;
+}) {
+  try {
+    const data = await calApi(`bookings/by-seat/${params.seatUid}`);
+    return ok(data);
+  } catch (err) {
+    return handleError("get_booking_by_seat", err);
+  }
+}
+
+export const getBookingRecordingsSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+};
+
+export async function getBookingRecordings(params: {
+  bookingUid: string;
+}) {
+  try {
+    const data = await calApi(`bookings/${params.bookingUid}/recordings`);
+    return ok(data);
+  } catch (err) {
+    return handleError("get_booking_recordings", err);
+  }
+}
+
+export const getBookingTranscriptsSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+};
+
+export async function getBookingTranscripts(params: {
+  bookingUid: string;
+}) {
+  try {
+    const data = await calApi(`bookings/${params.bookingUid}/transcripts`);
+    return ok(data);
+  } catch (err) {
+    return handleError("get_booking_transcripts", err);
+  }
+}
+
+export const markBookingAbsentSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+  host: z.boolean().describe("Whether the host was absent").optional(),
+  attendees: z.array(z.object({
+    email: z.string(),
+    absent: z.boolean(),
+  })).optional(),
+};
+
+export async function markBookingAbsent(params: {
+  bookingUid: string;
+  host?: boolean;
+  attendees?: { email: string; absent: boolean }[];
+}) {
+  try {
+    const body: Record<string, unknown> = {};
+    if (params.host !== undefined) body.host = params.host;
+    if (params.attendees !== undefined) body.attendees = params.attendees;
+    const data = await calApi(`bookings/${params.bookingUid}/mark-absent`, { method: "POST", body });
+    return ok(data);
+  } catch (err) {
+    return handleError("mark_booking_absent", err);
+  }
+}
+
+export const reassignBookingSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+};
+
+export async function reassignBooking(params: {
+  bookingUid: string;
+}) {
+  try {
+    const data = await calApi(`bookings/${params.bookingUid}/reassign`, { method: "POST", body: {} });
+    return ok(data);
+  } catch (err) {
+    return handleError("reassign_booking", err);
+  }
+}
+
+export const reassignBookingToUserSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+  userId: z.number().int().describe("userId"),
+  reason: z.string().describe("Reason for reassigning the booking").optional(),
+};
+
+export async function reassignBookingToUser(params: {
+  bookingUid: string;
+  userId: number;
+  reason?: string;
+}) {
+  try {
+    const body: Record<string, unknown> = {};
+    if (params.reason !== undefined) body.reason = params.reason;
+    const data = await calApi(`bookings/${params.bookingUid}/reassign/${params.userId}`, { method: "POST", body });
+    return ok(data);
+  } catch (err) {
+    return handleError("reassign_booking_to_user", err);
+  }
+}
+
+export const declineBookingSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+  reason: z.string().describe("Reason for declining a booking that requires a confirmation").optional(),
+};
+
+export async function declineBooking(params: {
+  bookingUid: string;
+  reason?: string;
+}) {
+  try {
+    const body: Record<string, unknown> = {};
+    if (params.reason !== undefined) body.reason = params.reason;
+    const data = await calApi(`bookings/${params.bookingUid}/decline`, { method: "POST", body });
+    return ok(data);
+  } catch (err) {
+    return handleError("decline_booking", err);
+  }
+}
+
+export const getBookingCalendarLinksSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+};
+
+export async function getBookingCalendarLinks(params: {
+  bookingUid: string;
+}) {
+  try {
+    const data = await calApi(`bookings/${params.bookingUid}/calendar-links`);
+    return ok(data);
+  } catch (err) {
+    return handleError("get_booking_calendar_links", err);
+  }
+}
+
+export const getBookingReferencesSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+  type: z.enum(["google_calendar", "office365_calendar", "daily_video", "google_video", "office365_video", "zoom_video"]).describe("Filter booking references by type").optional(),
+};
+
+export async function getBookingReferences(params: {
+  bookingUid: string;
+  type?: "google_calendar" | "office365_calendar" | "daily_video" | "google_video" | "office365_video" | "zoom_video";
+}) {
+  try {
+    const qp: Record<string, string | number | boolean | undefined> = {};
+    if (params.type !== undefined) qp.type = params.type;
+    const data = await calApi(`bookings/${params.bookingUid}/references`, { params: qp });
+    return ok(data);
+  } catch (err) {
+    return handleError("get_booking_references", err);
+  }
+}
+
+export const getBookingConferencingSessionsSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+};
+
+export async function getBookingConferencingSessions(params: {
+  bookingUid: string;
+}) {
+  try {
+    const data = await calApi(`bookings/${params.bookingUid}/conferencing-sessions`);
+    return ok(data);
+  } catch (err) {
+    return handleError("get_booking_conferencing_sessions", err);
+  }
+}
+
+export const updateBookingLocationSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+  location: z.object({
+    type: z.string().describe("only allowed value for type is `address` - it refers to address defined by the organizer."),
+    address: z.string(),
+  }).optional(),
+};
+
+export async function updateBookingLocation(params: {
+  bookingUid: string;
+  location?: { type: string; address: string };
+}) {
+  try {
+    const body: Record<string, unknown> = {};
+    if (params.location !== undefined) body.location = params.location;
+    const data = await calApi(`bookings/${params.bookingUid}/location`, { method: "PATCH", body });
+    return ok(data);
+  } catch (err) {
+    return handleError("update_booking_location", err);
+  }
+}
+
+export const getBookingAttendeesSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+};
+
+export async function getBookingAttendees(params: {
+  bookingUid: string;
+}) {
+  try {
+    const data = await calApi(`bookings/${params.bookingUid}/attendees`);
+    return ok(data);
+  } catch (err) {
+    return handleError("get_booking_attendees", err);
+  }
+}
+
+export const addBookingAttendeeSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+  name: z.string().describe("The name of the attendee."),
+  timeZone: z.string().describe("The time zone of the attendee."),
+  phoneNumber: z.string().describe("The phone number of the attendee in international format.").optional(),
+  language: z.enum(["ar", "ca", "de", "es", "eu", "he", "id", "ja", "lv", "pl", "ro", "sr", "th", "vi", "az", "cs", "el", "es-419", "fi", "hr", "it", "km", "nl", "pt", "ru", "sv", "tr", "zh-CN", "bg", "da", "en", "et", "fr", "hu", "iw", "ko", "no", "pt-BR", "sk", "ta", "uk", "zh-TW", "bn"]).describe("The preferred language of the attendee. Used for booking confirmation.").optional(),
+  email: z.string().describe("The email of the attendee."),
+};
+
+export async function addBookingAttendee(params: {
+  bookingUid: string;
+  name: string;
+  timeZone: string;
+  phoneNumber?: string;
+  language?: "ar" | "ca" | "de" | "es" | "eu" | "he" | "id" | "ja" | "lv" | "pl" | "ro" | "sr" | "th" | "vi" | "az" | "cs" | "el" | "es-419" | "fi" | "hr" | "it" | "km" | "nl" | "pt" | "ru" | "sv" | "tr" | "zh-CN" | "bg" | "da" | "en" | "et" | "fr" | "hu" | "iw" | "ko" | "no" | "pt-BR" | "sk" | "ta" | "uk" | "zh-TW" | "bn";
+  email: string;
+}) {
+  try {
+    const body: Record<string, unknown> = {};
+    body.name = params.name;
+    body.timeZone = params.timeZone;
+    if (params.phoneNumber !== undefined) body.phoneNumber = params.phoneNumber;
+    if (params.language !== undefined) body.language = params.language;
+    body.email = params.email;
+    const data = await calApi(`bookings/${params.bookingUid}/attendees`, { method: "POST", body });
+    return ok(data);
+  } catch (err) {
+    return handleError("add_booking_attendee", err);
+  }
+}
+
+export const getBookingAttendeeSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+  attendeeId: z.number().int().describe("attendeeId"),
+};
+
+export async function getBookingAttendee(params: {
+  bookingUid: string;
+  attendeeId: number;
+}) {
+  try {
+    const data = await calApi(`bookings/${params.bookingUid}/attendees/${params.attendeeId}`);
+    return ok(data);
+  } catch (err) {
+    return handleError("get_booking_attendee", err);
+  }
+}
+
+export const addBookingGuestsSchema = {
+  bookingUid: z.string().describe("bookingUid"),
+  guests: z.array(z.object({
+    email: z.string().describe("The email of the guest."),
+    name: z.string().optional().describe("The name of the guest."),
+    timeZone: z.string().optional().describe("The time zone of the guest."),
+    phoneNumber: z.string().optional().describe("The phone number of the guest in international format."),
+    language: z.enum(["ar", "ca", "de", "es", "eu", "he", "id", "ja", "lv", "pl", "ro", "sr", "th", "vi", "az", "cs", "el", "es-419", "fi", "hr", "it", "km", "nl", "pt", "ru", "sv", "tr", "zh-CN", "bg", "da", "en", "et", "fr", "hu", "iw", "ko", "no", "pt-BR", "sk", "ta", "uk", "zh-TW", "bn"]).optional().describe("The preferred language of the guest. Used for booking confirmation."),
+  })),
+};
+
+export async function addBookingGuests(params: {
+  bookingUid: string;
+  guests: { email: string; name?: string; timeZone?: string; phoneNumber?: string; language?: "ar" | "ca" | "de" | "es" | "eu" | "he" | "id" | "ja" | "lv" | "pl" | "ro" | "sr" | "th" | "vi" | "az" | "cs" | "el" | "es-419" | "fi" | "hr" | "it" | "km" | "nl" | "pt" | "ru" | "sv" | "tr" | "zh-CN" | "bg" | "da" | "en" | "et" | "fr" | "hu" | "iw" | "ko" | "no" | "pt-BR" | "sk" | "ta" | "uk" | "zh-TW" | "bn" }[];
+}) {
+  try {
+    const body: Record<string, unknown> = {};
+    body.guests = params.guests;
+    const data = await calApi(`bookings/${params.bookingUid}/guests`, { method: "POST", body });
+    return ok(data);
+  } catch (err) {
+    return handleError("add_booking_guests", err);
+  }
+}

@@ -109,3 +109,16 @@ export async function deleteSchedule(params: { scheduleId: number }) {
     return handleError("delete_schedule", err);
   }
 }
+
+// ── New tools (generated) ──
+
+export const getDefaultScheduleSchema = {};
+
+export async function getDefaultSchedule() {
+  try {
+    const data = await calApi("schedules/default");
+    return ok(data);
+  } catch (err) {
+    return handleError("get_default_schedule", err);
+  }
+}
