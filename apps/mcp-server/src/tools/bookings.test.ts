@@ -13,12 +13,20 @@ import {
   rescheduleBooking,
   cancelBooking,
   confirmBooking,
+  markBookingAbsent,
+  getBookingAttendees,
+  addBookingAttendee,
+  getBookingAttendee,
   getBookingsSchema,
   getBookingSchema,
   createBookingSchema,
   rescheduleBookingSchema,
   cancelBookingSchema,
   confirmBookingSchema,
+  markBookingAbsentSchema,
+  getBookingAttendeesSchema,
+  addBookingAttendeeSchema,
+  getBookingAttendeeSchema,
 } from "./bookings.js";
 
 const mockCalApi = vi.mocked(calApi);
@@ -56,6 +64,25 @@ describe("bookings schemas", () => {
 
   it("exports confirmBookingSchema", () => {
     expect(confirmBookingSchema.bookingUid).toBeDefined();
+  });
+
+  it("exports markBookingAbsentSchema", () => {
+    expect(markBookingAbsentSchema.bookingUid).toBeDefined();
+  });
+
+  it("exports getBookingAttendeesSchema", () => {
+    expect(getBookingAttendeesSchema.bookingUid).toBeDefined();
+  });
+
+  it("exports addBookingAttendeeSchema", () => {
+    expect(addBookingAttendeeSchema.bookingUid).toBeDefined();
+    expect(addBookingAttendeeSchema.name).toBeDefined();
+    expect(addBookingAttendeeSchema.email).toBeDefined();
+  });
+
+  it("exports getBookingAttendeeSchema", () => {
+    expect(getBookingAttendeeSchema.bookingUid).toBeDefined();
+    expect(getBookingAttendeeSchema.attendeeId).toBeDefined();
   });
 });
 
@@ -198,275 +225,61 @@ describe("confirmBooking", () => {
   });
 });
 
-// ── Tests for new tools ──
-import {
-  getBookingBySeat,
-  getBookingBySeatSchema,
-  getBookingRecordings,
-  getBookingRecordingsSchema,
-  getBookingTranscripts,
-  getBookingTranscriptsSchema,
-  markBookingAbsent,
-  markBookingAbsentSchema,
-  reassignBooking,
-  reassignBookingSchema,
-  reassignBookingToUser,
-  reassignBookingToUserSchema,
-  declineBooking,
-  declineBookingSchema,
-  getBookingCalendarLinks,
-  getBookingCalendarLinksSchema,
-  getBookingReferences,
-  getBookingReferencesSchema,
-  getBookingConferencingSessions,
-  getBookingConferencingSessionsSchema,
-  updateBookingLocation,
-  updateBookingLocationSchema,
-  getBookingAttendees,
-  getBookingAttendeesSchema,
-  addBookingAttendee,
-  addBookingAttendeeSchema,
-  getBookingAttendee,
-  getBookingAttendeeSchema,
-  addBookingGuests,
-  addBookingGuestsSchema,
-} from "./bookings.js";
-
-describe("getBookingBySeat", () => {
-  it("exports getBookingBySeatSchema", () => { expect(getBookingBySeatSchema).toBeDefined(); });
-  it("returns data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await getBookingBySeat({"seatUid":"test-id"});
-    expect(result.content[0].type).toBe("text");
-    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-  });
-  it("handles API errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await getBookingBySeat({"seatUid":"test-id"});
-    expect(result).toHaveProperty("isError", true);
-    expect(result.content[0].text).toContain("400");
-  });
-});
-
-describe("getBookingRecordings", () => {
-  it("exports getBookingRecordingsSchema", () => { expect(getBookingRecordingsSchema).toBeDefined(); });
-  it("returns data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await getBookingRecordings({"bookingUid":"test-id"});
-    expect(result.content[0].type).toBe("text");
-    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-  });
-  it("handles API errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await getBookingRecordings({"bookingUid":"test-id"});
-    expect(result).toHaveProperty("isError", true);
-    expect(result.content[0].text).toContain("400");
-  });
-});
-
-describe("getBookingTranscripts", () => {
-  it("exports getBookingTranscriptsSchema", () => { expect(getBookingTranscriptsSchema).toBeDefined(); });
-  it("returns data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await getBookingTranscripts({"bookingUid":"test-id"});
-    expect(result.content[0].type).toBe("text");
-    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-  });
-  it("handles API errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await getBookingTranscripts({"bookingUid":"test-id"});
-    expect(result).toHaveProperty("isError", true);
-    expect(result.content[0].text).toContain("400");
-  });
-});
-
 describe("markBookingAbsent", () => {
-  it("exports markBookingAbsentSchema", () => { expect(markBookingAbsentSchema).toBeDefined(); });
   it("returns data on success", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await markBookingAbsent({"bookingUid":"test-id"});
+    const result = await markBookingAbsent({ bookingUid: "test-id" });
     expect(result.content[0].type).toBe("text");
     expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
   });
   it("handles API errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await markBookingAbsent({"bookingUid":"test-id"});
-    expect(result).toHaveProperty("isError", true);
-    expect(result.content[0].text).toContain("400");
-  });
-});
-
-describe("reassignBooking", () => {
-  it("exports reassignBookingSchema", () => { expect(reassignBookingSchema).toBeDefined(); });
-  it("returns data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await reassignBooking({"bookingUid":"test-id"});
-    expect(result.content[0].type).toBe("text");
-    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-  });
-  it("handles API errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await reassignBooking({"bookingUid":"test-id"});
-    expect(result).toHaveProperty("isError", true);
-    expect(result.content[0].text).toContain("400");
-  });
-});
-
-describe("reassignBookingToUser", () => {
-  it("exports reassignBookingToUserSchema", () => { expect(reassignBookingToUserSchema).toBeDefined(); });
-  it("returns data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await reassignBookingToUser({"bookingUid":"test-id","userId":1});
-    expect(result.content[0].type).toBe("text");
-    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-  });
-  it("handles API errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await reassignBookingToUser({"bookingUid":"test-id","userId":1});
-    expect(result).toHaveProperty("isError", true);
-    expect(result.content[0].text).toContain("400");
-  });
-});
-
-describe("declineBooking", () => {
-  it("exports declineBookingSchema", () => { expect(declineBookingSchema).toBeDefined(); });
-  it("returns data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await declineBooking({"bookingUid":"test-id"});
-    expect(result.content[0].type).toBe("text");
-    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-  });
-  it("handles API errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await declineBooking({"bookingUid":"test-id"});
-    expect(result).toHaveProperty("isError", true);
-    expect(result.content[0].text).toContain("400");
-  });
-});
-
-describe("getBookingCalendarLinks", () => {
-  it("exports getBookingCalendarLinksSchema", () => { expect(getBookingCalendarLinksSchema).toBeDefined(); });
-  it("returns data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await getBookingCalendarLinks({"bookingUid":"test-id"});
-    expect(result.content[0].type).toBe("text");
-    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-  });
-  it("handles API errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await getBookingCalendarLinks({"bookingUid":"test-id"});
-    expect(result).toHaveProperty("isError", true);
-    expect(result.content[0].text).toContain("400");
-  });
-});
-
-describe("getBookingReferences", () => {
-  it("exports getBookingReferencesSchema", () => { expect(getBookingReferencesSchema).toBeDefined(); });
-  it("returns data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await getBookingReferences({"bookingUid":"test-id"});
-    expect(result.content[0].type).toBe("text");
-    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-  });
-  it("handles API errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await getBookingReferences({"bookingUid":"test-id"});
-    expect(result).toHaveProperty("isError", true);
-    expect(result.content[0].text).toContain("400");
-  });
-});
-
-describe("getBookingConferencingSessions", () => {
-  it("exports getBookingConferencingSessionsSchema", () => { expect(getBookingConferencingSessionsSchema).toBeDefined(); });
-  it("returns data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await getBookingConferencingSessions({"bookingUid":"test-id"});
-    expect(result.content[0].type).toBe("text");
-    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-  });
-  it("handles API errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await getBookingConferencingSessions({"bookingUid":"test-id"});
-    expect(result).toHaveProperty("isError", true);
-    expect(result.content[0].text).toContain("400");
-  });
-});
-
-describe("updateBookingLocation", () => {
-  it("exports updateBookingLocationSchema", () => { expect(updateBookingLocationSchema).toBeDefined(); });
-  it("returns data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await updateBookingLocation({"bookingUid":"test-id"});
-    expect(result.content[0].type).toBe("text");
-    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-  });
-  it("handles API errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await updateBookingLocation({"bookingUid":"test-id"});
+    const result = await markBookingAbsent({ bookingUid: "test-id" });
     expect(result).toHaveProperty("isError", true);
     expect(result.content[0].text).toContain("400");
   });
 });
 
 describe("getBookingAttendees", () => {
-  it("exports getBookingAttendeesSchema", () => { expect(getBookingAttendeesSchema).toBeDefined(); });
   it("returns data on success", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await getBookingAttendees({"bookingUid":"test-id"});
+    const result = await getBookingAttendees({ bookingUid: "test-id" });
     expect(result.content[0].type).toBe("text");
     expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
   });
   it("handles API errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await getBookingAttendees({"bookingUid":"test-id"});
+    const result = await getBookingAttendees({ bookingUid: "test-id" });
     expect(result).toHaveProperty("isError", true);
     expect(result.content[0].text).toContain("400");
   });
 });
 
 describe("addBookingAttendee", () => {
-  it("exports addBookingAttendeeSchema", () => { expect(addBookingAttendeeSchema).toBeDefined(); });
   it("returns data on success", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await addBookingAttendee({"bookingUid":"test-id","name":"test","timeZone":"test","email":"test"});
+    const result = await addBookingAttendee({ bookingUid: "test-id", name: "test", timeZone: "UTC", email: "test@example.com" });
     expect(result.content[0].type).toBe("text");
     expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
   });
   it("handles API errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await addBookingAttendee({"bookingUid":"test-id","name":"test","timeZone":"test","email":"test"});
+    const result = await addBookingAttendee({ bookingUid: "test-id", name: "test", timeZone: "UTC", email: "test@example.com" });
     expect(result).toHaveProperty("isError", true);
     expect(result.content[0].text).toContain("400");
   });
 });
 
 describe("getBookingAttendee", () => {
-  it("exports getBookingAttendeeSchema", () => { expect(getBookingAttendeeSchema).toBeDefined(); });
   it("returns data on success", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await getBookingAttendee({"bookingUid":"test-id","attendeeId":1});
+    const result = await getBookingAttendee({ bookingUid: "test-id", attendeeId: 1 });
     expect(result.content[0].type).toBe("text");
     expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
   });
   it("handles API errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await getBookingAttendee({"bookingUid":"test-id","attendeeId":1});
-    expect(result).toHaveProperty("isError", true);
-    expect(result.content[0].text).toContain("400");
-  });
-});
-
-describe("addBookingGuests", () => {
-  it("exports addBookingGuestsSchema", () => { expect(addBookingGuestsSchema).toBeDefined(); });
-  it("returns data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ status: "success" });
-    const result = await addBookingGuests({"bookingUid":"test-id","guests":[]});
-    expect(result.content[0].type).toBe("text");
-    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-  });
-  it("handles API errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-    const result = await addBookingGuests({"bookingUid":"test-id","guests":[]});
+    const result = await getBookingAttendee({ bookingUid: "test-id", attendeeId: 1 });
     expect(result).toHaveProperty("isError", true);
     expect(result.content[0].text).toContain("400");
   });

@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **~263 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Webhooks, User Profile, Teams, Organizations, Conferencing, Stripe, Routing Forms, and more
+- **34 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Routing Forms, Organizations, and User Profile
 - **Three auth modes**: API Key (local/dev), single-account OAuth (stdio), and multi-tenant hosted OAuth with per-connection token storage
 - **Multi-tenant OAuth**: Authorization Code + PKCE flow with encrypted token storage (AES-256-GCM) in SQLite
 - **Structured error handling** with clean MCP error responses
@@ -144,9 +144,24 @@ Set `CAL_AUTH_MODE=hosted` for multi-tenant deployments where multiple customers
 - PKCE (S256) prevents authorization code interception
 - Token values are never logged or exposed in API responses
 
-## Tools
+## Tools (34)
 
-### Bookings
+### User Profile (2)
+| Tool | Description |
+|---|---|
+| `get_me` | Get authenticated user profile |
+| `update_me` | Update user profile |
+
+### Event Types (5)
+| Tool | Description |
+|---|---|
+| `get_event_types` | List all event types |
+| `get_event_type` | Get a specific event type by ID |
+| `create_event_type` | Create a new event type |
+| `update_event_type` | Update an event type |
+| `delete_event_type` | Delete an event type |
+
+### Bookings (10)
 | Tool | Description |
 |---|---|
 | `get_bookings` | List bookings with optional filters |
@@ -155,45 +170,52 @@ Set `CAL_AUTH_MODE=hosted` for multi-tenant deployments where multiple customers
 | `reschedule_booking` | Reschedule a booking |
 | `cancel_booking` | Cancel a booking |
 | `confirm_booking` | Confirm a pending booking |
+| `mark_booking_absent` | Mark a booking absence |
+| `get_booking_attendees` | Get all attendees for a booking |
+| `add_booking_attendee` | Add an attendee to a booking |
+| `get_booking_attendee` | Get a specific attendee for a booking |
 
-### Event Types
-| Tool | Description |
-|---|---|
-| `get_event_types` | List all event types |
-| `get_event_type` | Get a specific event type |
-| `create_event_type` | Create a new event type |
-| `update_event_type` | Update an event type |
-| `delete_event_type` | Delete an event type |
-
-### Schedules
+### Schedules (6)
 | Tool | Description |
 |---|---|
 | `get_schedules` | List all schedules |
-| `get_schedule` | Get a specific schedule |
+| `get_schedule` | Get a specific schedule by ID |
 | `create_schedule` | Create a new schedule |
 | `update_schedule` | Update a schedule |
 | `delete_schedule` | Delete a schedule |
+| `get_default_schedule` | Get default schedule |
 
-### Availability / Slots
+### Availability / Slots (2)
 | Tool | Description |
 |---|---|
-| `get_availability` | Get available time slots (`GET /v2/slots`). Params: `start` (required), `end` (required), `timeZone?`, `eventTypeId?`, `eventTypeSlug?`, `username?`, `teamSlug?`, `organizationSlug?`, `usernames?`, `duration?`, `format?`, `bookingUidToReschedule?`. Uses `cal-api-version: 2024-09-04`. |
-
-### Calendars
-| Tool | Description |
-|---|---|
-| `get_calendars` | List connected calendars |
+| `get_availability` | Get available time slots (`GET /v2/slots`). Uses `cal-api-version: 2024-09-04`. |
 | `get_busy_times` | Get busy times from calendars |
 
-### Webhooks
+### Conferencing (1)
 | Tool | Description |
 |---|---|
-| `get_webhooks` | List all webhooks |
-| `create_webhook` | Create a webhook |
-| `delete_webhook` | Delete a webhook |
+| `get_conferencing_apps` | List conferencing applications |
 
-### User Profile
+### Routing Forms (1)
 | Tool | Description |
 |---|---|
-| `get_me` | Get authenticated user profile |
-| `update_me` | Update user profile |
+| `calculate_routing_form_slots` | Calculate slots based on routing form response |
+
+### Organizations: Memberships (4)
+| Tool | Description |
+|---|---|
+| `get_org_memberships` | Get all organization memberships |
+| `create_org_membership` | Create an organization membership |
+| `get_org_membership` | Get an organization membership |
+| `delete_org_membership` | Delete an organization membership |
+
+### Organizations: Routing Forms (2)
+| Tool | Description |
+|---|---|
+| `get_org_routing_forms` | Get organization routing forms |
+| `get_org_routing_form_responses` | Get routing form responses |
+
+### API Version Notes
+
+- Default API version: `2024-08-13`
+- `/v2/slots` endpoint uses: `2024-09-04` (automatically applied)
