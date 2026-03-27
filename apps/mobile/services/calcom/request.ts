@@ -118,10 +118,14 @@ export async function makeRequest<T>(
           const onAuthFailure = getAuthFailureCallback();
           clearAuth();
           // Trigger full logout so AuthContext resets isAuthenticated
-          onAuthFailure?.();
+          await onAuthFailure?.();
           throw new Error("Authentication failed. Please sign in again.");
         }
       }
+
+      const onAuthFailure = getAuthFailureCallback();
+      clearAuth();
+      await onAuthFailure?.();
 
       if (errorMessage.includes("expired")) {
         throw new Error("Your authentication has expired. Please sign in again.");

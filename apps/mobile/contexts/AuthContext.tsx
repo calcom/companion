@@ -78,6 +78,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return {
         accessToken: newTokens.accessToken,
         refreshToken: newTokens.refreshToken,
+        expiresAt: newTokens.expiresAt,
       };
     });
   }, []);
