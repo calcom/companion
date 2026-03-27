@@ -1,4 +1,5 @@
 import { getApiKeyHeaders } from "../auth.js";
+import { authContext } from "../auth/context.js";
 import { CalApiError } from "./errors.js";
 
 function getBaseUrl(): string {
@@ -52,13 +53,16 @@ const PATH_VERSION_OVERRIDES: Record<string, string> = {
 };
 
 /**
- * Build request headers: API key auth + any cal-api-version override.
+ * Build request headers with auth + any cal-api-version override.
+ * In HTTP/OAuth mode, uses per-session Cal.com tokens from authContext.
+ * In stdio mode, falls back to API key from env.
  */
 function buildRequestHeaders(
   normalizedPath: string,
   apiVersionOverride: string | undefined,
 ): Record<string, string> {
-  const base = getApiKeyHeaders();
+  const contextHeaders = authContext.getStore();
+  const base = contextHeaders ?? getApiKeyHeaders();
 
   const versionOverride =
     apiVersionOverride ?? PATH_VERSION_OVERRIDES[normalizedPath];
