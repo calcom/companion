@@ -1,7 +1,7 @@
 /**
  * Determines if the error should be displayed to the user.
- * Filters out authentication errors (which are handled by auth redirect)
- * and only shows errors in development mode.
+ * Auth errors are suppressed because the auth failure callback triggers logout.
+ * Non-auth errors are shown so query failures don't masquerade as valid empty states.
  *
  * @param queryError - The error from a query, if any
  * @param context - A description of what was being loaded (e.g., "event types", "bookings")
@@ -23,6 +23,7 @@ export function getDisplayError(
 ): string | null {
   if (!queryError) return null;
 
+  // Auth errors are handled by the auth failure callback which triggers logout
   const isAuthError =
     queryError.message?.includes("Authentication") ||
     queryError.message?.includes("sign in") ||
@@ -30,5 +31,5 @@ export function getDisplayError(
 
   if (isAuthError) return null;
 
-  return __DEV__ ? `Failed to load ${context}.` : null;
+  return `Failed to load ${context}.`;
 }

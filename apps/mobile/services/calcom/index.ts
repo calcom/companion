@@ -40,6 +40,7 @@ export type {
 import {
   clearAuth,
   setAccessToken,
+  setAuthFailureCallback,
   setRefreshTokenFunction,
   setTokenRefreshCallback,
 } from "./auth";
@@ -110,6 +111,7 @@ export const CalComAPIService = {
   setRefreshTokenFunction,
   clearAuth,
   setTokenRefreshCallback,
+  setAuthFailureCallback,
 
   // User
   getCurrentUser,

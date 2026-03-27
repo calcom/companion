@@ -430,7 +430,8 @@ export class CalComOAuthService {
   }
 
   isTokenExpired(tokens: OAuthTokens): boolean {
-    if (!tokens.expiresAt) return false;
+    // Missing expiresAt means we can't verify validity — treat as expired to trigger refresh
+    if (!tokens.expiresAt) return true;
     return Date.now() >= tokens.expiresAt - 5 * 60 * 1000;
   }
 

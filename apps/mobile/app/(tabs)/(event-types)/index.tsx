@@ -43,6 +43,7 @@ import type { EventType } from "@/services/calcom";
 import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 import { getEventDuration } from "@/utils/getEventDuration";
+import { getDisplayError } from "@/utils/error";
 import { offlineAwareRefresh } from "@/utils/network";
 import { normalizeMarkdown } from "@/utils/normalizeMarkdown";
 import { shadows } from "@/utils/shadows";
@@ -76,14 +77,7 @@ export default function EventTypes() {
   const { mutate: deleteEventTypeMutation, isPending: isDeleting } = useDeleteEventType();
   const { mutate: duplicateEventTypeMutation } = useDuplicateEventType();
 
-  // Convert query error to string
-  // Don't show error UI for authentication errors (user will be redirected to login)
-  // Only show error UI in development mode for other errors
-  const isAuthError =
-    queryError?.message?.includes("Authentication") ||
-    queryError?.message?.includes("sign in") ||
-    queryError?.message?.includes("401");
-  const error = queryError && !isAuthError && __DEV__ ? "Failed to load event types." : null;
+  const error = getDisplayError(queryError, "event types");
 
   // Modal state for web platform action sheet
   const [showActionModal, setShowActionModal] = useState(false);
@@ -438,7 +432,7 @@ export default function EventTypes() {
     );
   }
 
-  if (eventTypes.length === 0) {
+  if (eventTypes.length === 0 && !queryError) {
     return (
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
         {Platform.OS === "web" && <Header />}

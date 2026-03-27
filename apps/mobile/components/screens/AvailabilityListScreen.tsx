@@ -40,6 +40,7 @@ import {
 } from "@/hooks";
 import { CalComAPIService, type Schedule } from "@/services/calcom";
 import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
+import { getDisplayError } from "@/utils/error";
 import { offlineAwareRefresh } from "@/utils/network";
 
 export interface AvailabilityListScreenProps {
@@ -83,14 +84,7 @@ export function AvailabilityListScreen({
   const { mutate: duplicateScheduleMutation } = useDuplicateSchedule();
   const { mutate: setAsDefaultMutation } = useSetScheduleAsDefault();
 
-  // Convert query error to string
-  // Don't show error UI for authentication errors (user will be redirected to login)
-  // Only show error UI in development mode for other errors
-  const isAuthError =
-    queryError?.message?.includes("Authentication") ||
-    queryError?.message?.includes("sign in") ||
-    queryError?.message?.includes("401");
-  const error = queryError && !isAuthError && __DEV__ ? "Failed to load availability." : null;
+  const error = getDisplayError(queryError, "availability");
 
   // Filter schedules based on search query
   const filteredSchedules = useMemo(() => {
@@ -296,7 +290,7 @@ export function AvailabilityListScreen({
   }
 
   // Determine what content to show
-  const showEmptyState = schedules.length === 0 && !loading;
+  const showEmptyState = schedules.length === 0 && !loading && !queryError;
   const showSearchEmptyState =
     filteredSchedules.length === 0 && searchQuery.trim() !== "" && !showEmptyState;
   const showList = !showEmptyState && !showSearchEmptyState;

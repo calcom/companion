@@ -8,6 +8,7 @@ import { safeLogError } from "@/utils/safeLogger";
 import {
   clearAuth,
   getAuthConfig,
+  getAuthFailureCallback,
   getAuthHeader,
   getRefreshTokenFunction,
   getTokenRefreshCallback,
@@ -107,14 +108,17 @@ export async function makeRequest<T>(
             authConfig.refreshToken = newTokens.refreshToken;
           }
 
-          // Notify AuthContext to update stored tokens
-          await tokenRefreshCallback(newTokens.accessToken, newTokens.refreshToken);
+          // Notify AuthContext to update stored tokens (including expiresAt for proactive refresh)
+          await tokenRefreshCallback(newTokens.accessToken, newTokens.refreshToken, newTokens.expiresAt);
 
           // Retry the original request with the new token
           return makeRequest<T>(endpoint, options, apiVersion, true);
         } catch (refreshError) {
           safeLogError("Token refresh failed:", refreshError);
+          const onAuthFailure = getAuthFailureCallback();
           clearAuth();
+          // Trigger full logout so AuthContext resets isAuthenticated
+          onAuthFailure?.();
           throw new Error("Authentication failed. Please sign in again.");
         }
       }

@@ -33,6 +33,7 @@ import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/util
 import { openInAppBrowser } from "@/utils/browser";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 import { getEventDuration } from "@/utils/getEventDuration";
+import { getDisplayError } from "@/utils/error";
 import { offlineAwareRefresh } from "@/utils/network";
 import { slugify } from "@/utils/slugify";
 
@@ -62,14 +63,7 @@ export default function EventTypesIOS() {
   const { mutate: deleteEventTypeMutation } = useDeleteEventType();
   const { mutate: duplicateEventTypeMutation } = useDuplicateEventType();
 
-  // Convert query error to string
-  // Don't show error UI for authentication errors (user will be redirected to login)
-  // Only show error UI in development mode for other errors
-  const isAuthError =
-    queryError?.message?.includes("Authentication") ||
-    queryError?.message?.includes("sign in") ||
-    queryError?.message?.includes("401");
-  const error = queryError && !isAuthError && __DEV__ ? "Failed to load event types." : null;
+  const error = getDisplayError(queryError, "event types");
 
   // No modal state needed for iOS - using native Alert for delete confirmation
 
@@ -391,7 +385,7 @@ export default function EventTypesIOS() {
     );
   }
 
-  if (eventTypes.length === 0) {
+  if (eventTypes.length === 0 && !queryError) {
     return (
       <>
         <Stack.Screen

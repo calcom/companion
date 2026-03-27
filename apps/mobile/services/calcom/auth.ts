@@ -12,13 +12,17 @@ interface AuthConfig {
 const authConfig: AuthConfig = {};
 
 // Token refresh callback - will be set by AuthContext
-let tokenRefreshCallback: ((accessToken: string, refreshToken?: string) => Promise<void>) | null =
-  null;
+let tokenRefreshCallback:
+  | ((accessToken: string, refreshToken?: string, expiresAt?: number) => Promise<void>)
+  | null = null;
 
 // Refresh token function - will be set by AuthContext
 let refreshTokenFunction:
-  | ((refreshToken: string) => Promise<{ accessToken: string; refreshToken?: string }>)
+  | ((refreshToken: string) => Promise<{ accessToken: string; refreshToken?: string; expiresAt?: number }>)
   | null = null;
+
+// Auth failure callback - invoked when 401 + refresh failure leaves the app in a zombie session
+let authFailureCallback: (() => Promise<void>) | null = null;
 
 /**
  * Set OAuth access token for authentication
@@ -34,7 +38,7 @@ export function setAccessToken(accessToken: string, refreshToken?: string): void
  * Set refresh token function for automatic token refresh
  */
 export function setRefreshTokenFunction(
-  refreshFn: (refreshToken: string) => Promise<{ accessToken: string; refreshToken?: string }>
+  refreshFn: (refreshToken: string) => Promise<{ accessToken: string; refreshToken?: string; expiresAt?: number }>
 ): void {
   refreshTokenFunction = refreshFn;
 }
@@ -47,13 +51,14 @@ export function clearAuth(): void {
   authConfig.refreshToken = undefined;
   tokenRefreshCallback = null;
   refreshTokenFunction = null;
+  authFailureCallback = null;
 }
 
 /**
  * Set token refresh callback for OAuth token refresh
  */
 export function setTokenRefreshCallback(
-  callback: (accessToken: string, refreshToken?: string) => Promise<void>
+  callback: (accessToken: string, refreshToken?: string, expiresAt?: number) => Promise<void>
 ): void {
   tokenRefreshCallback = callback;
 }
@@ -88,4 +93,19 @@ export function getTokenRefreshCallback(): typeof tokenRefreshCallback {
  */
 export function getRefreshTokenFunction(): typeof refreshTokenFunction {
   return refreshTokenFunction;
+}
+
+/**
+ * Set auth failure callback - called when a 401 cannot be recovered via refresh,
+ * so AuthContext can trigger a full logout instead of leaving a zombie session.
+ */
+export function setAuthFailureCallback(callback: () => Promise<void>): void {
+  authFailureCallback = callback;
+}
+
+/**
+ * Get the auth failure callback (for internal use by request module)
+ */
+export function getAuthFailureCallback(): typeof authFailureCallback {
+  return authFailureCallback;
 }

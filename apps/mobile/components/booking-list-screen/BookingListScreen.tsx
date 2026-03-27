@@ -51,6 +51,7 @@ import {
   groupRecurringBookings,
   searchBookings,
 } from "@/utils/bookings-utils";
+import { getDisplayError } from "@/utils/error";
 import { offlineAwareRefresh } from "@/utils/network";
 
 interface BookingListScreenProps {
@@ -243,14 +244,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
     }
   }, [rawBookings, activeFilter]);
 
-  // Convert query error to string
-  // Don't show error UI for authentication errors (user will be redirected to login)
-  // Only show error UI in development mode for other errors
-  const isAuthError =
-    queryError?.message?.includes("Authentication") ||
-    queryError?.message?.includes("sign in") ||
-    queryError?.message?.includes("401");
-  const error = queryError && !isAuthError && __DEV__ ? "Failed to load bookings." : null;
+  const error = getDisplayError(queryError, "bookings");
 
   // Prevents showing loading indicator when refreshing or changing filters
   function manualRefresh() {
@@ -665,7 +659,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
   }
 
   // Determine what content to show
-  const showEmptyState = bookings.length === 0 && !loading;
+  const showEmptyState = bookings.length === 0 && !loading && !queryError;
   const showSearchEmptyState =
     filteredBookings.length === 0 && searchQuery.trim() !== "" && !loading && !showEmptyState;
   const showList = !showEmptyState && !showSearchEmptyState && !loading;

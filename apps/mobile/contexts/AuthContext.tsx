@@ -245,12 +245,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkAuthState();
 
     // Set up token refresh callback
-    const handleTokenRefresh = async (newAccessToken: string, newRefreshToken?: string) => {
+    const handleTokenRefresh = async (newAccessToken: string, newRefreshToken?: string, expiresAt?: number) => {
       try {
         const tokens: OAuthTokens = {
           accessToken: newAccessToken,
           refreshToken: newRefreshToken || refreshToken || undefined,
           tokenType: "Bearer",
+          expiresAt,
         };
 
         await saveOAuthTokens(tokens);
@@ -277,9 +278,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     CalComAPIService.setTokenRefreshCallback(handleTokenRefresh);
+    CalComAPIService.setAuthFailureCallback(logout);
 
     return () => {
       CalComAPIService.setTokenRefreshCallback(() => Promise.resolve());
+      CalComAPIService.setAuthFailureCallback(() => Promise.resolve());
     };
   }, [refreshToken, checkAuthState, logout, saveOAuthTokens]);
 
