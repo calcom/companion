@@ -14,6 +14,22 @@ import {
   getAccessToken,
 } from "../storage/token-store.js";
 
+/**
+ * Default OAuth scopes requested during the Cal.com authorize redirect.
+ * Covers all 34 MCP tools (read + write for individual, org memberships, and apps).
+ */
+const DEFAULT_CAL_OAUTH_SCOPES = [
+  "EVENT_TYPE_READ",
+  "EVENT_TYPE_WRITE",
+  "BOOKING_READ",
+  "BOOKING_WRITE",
+  "SCHEDULE_READ",
+  "SCHEDULE_WRITE",
+  "PROFILE_READ",
+  "PROFILE_WRITE",
+  "APPS_READ",
+].join(",");
+
 export interface OAuthConfig {
   /** Public URL of the MCP server */
   serverUrl: string;
@@ -25,6 +41,8 @@ export interface OAuthConfig {
   calApiBaseUrl: string;
   /** Cal.com app base URL for authorize redirect (default: https://app.cal.com) */
   calAppBaseUrl?: string;
+  /** Comma-separated OAuth scopes to request (defaults to all scopes needed by the 34 tools) */
+  calOAuthScopes?: string;
 }
 
 /** Read the full request body as a string. */
@@ -152,6 +170,7 @@ export function handleAuthorize(
   calAuthUrl.searchParams.set("code_challenge", calCodeChallenge);
   calAuthUrl.searchParams.set("code_challenge_method", "S256");
   calAuthUrl.searchParams.set("response_type", "code");
+  calAuthUrl.searchParams.set("scope", config.calOAuthScopes ?? DEFAULT_CAL_OAUTH_SCOPES);
 
   res.writeHead(302, { Location: calAuthUrl.toString() });
   res.end();

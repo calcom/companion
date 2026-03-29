@@ -28,6 +28,7 @@ async function main(): Promise<void> {
 
     const calApiBaseUrl = process.env.CAL_API_BASE_URL || "https://api.cal.com";
     const calAppBaseUrl = process.env.CAL_APP_BASE_URL || "https://app.cal.com";
+    const calOAuthScopes = process.env.CAL_OAUTH_SCOPES;
 
     startHttpServer(registerTools, {
       port,
@@ -37,6 +38,7 @@ async function main(): Promise<void> {
         calOAuthClientSecret,
         calApiBaseUrl,
         calAppBaseUrl,
+        calOAuthScopes,
       },
     });
   } else {
