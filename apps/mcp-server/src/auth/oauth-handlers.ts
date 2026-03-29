@@ -21,8 +21,10 @@ export interface OAuthConfig {
   calOAuthClientId: string;
   /** Cal.com OAuth client secret */
   calOAuthClientSecret: string;
-  /** Cal.com API base URL */
+  /** Cal.com API base URL (default: https://api.cal.com) */
   calApiBaseUrl: string;
+  /** Cal.com app base URL for authorize redirect (default: https://app.cal.com) */
+  calAppBaseUrl?: string;
 }
 
 /** Read the full request body as a string. */
@@ -141,7 +143,10 @@ export function handleAuthorize(
   });
 
   // Redirect to Cal.com authorize
-  const calAuthUrl = new URL(`/v2/oauth/${config.calOAuthClientId}/authorize`, config.calApiBaseUrl);
+  // Cal.com's OAuth2 authorize endpoint is on app.cal.com, not on the API base URL
+  const calAppBaseUrl = config.calAppBaseUrl ?? "https://app.cal.com";
+  const calAuthUrl = new URL("/auth/oauth2/authorize", calAppBaseUrl);
+  calAuthUrl.searchParams.set("client_id", config.calOAuthClientId);
   calAuthUrl.searchParams.set("redirect_uri", `${config.serverUrl}/oauth/callback`);
   calAuthUrl.searchParams.set("state", internalState);
   calAuthUrl.searchParams.set("code_challenge", calCodeChallenge);
@@ -185,16 +190,18 @@ export async function handleCallback(
     return;
   }
 
-  // Exchange code with Cal.com
-  const exchangeUrl = `${config.calApiBaseUrl}/v2/oauth/${config.calOAuthClientId}/exchange`;
+  // Exchange code with Cal.com (RFC 6749-compliant token endpoint)
+  const exchangeUrl = `${config.calApiBaseUrl}/v2/auth/oauth2/token`;
   const exchangeRes = await fetch(exchangeUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      client_id: config.calOAuthClientId,
+      client_secret: config.calOAuthClientSecret,
+      grant_type: "authorization_code",
       code,
-      clientSecret: config.calOAuthClientSecret,
-      redirectUri: `${config.serverUrl}/oauth/callback`,
-      codeVerifier: pending.calCodeVerifier,
+      redirect_uri: `${config.serverUrl}/oauth/callback`,
+      code_verifier: pending.calCodeVerifier,
     }),
   });
 
@@ -206,20 +213,18 @@ export async function handleCallback(
     return;
   }
 
+  // Cal.com returns RFC 6749-compliant response: { access_token, refresh_token, expires_in, token_type, scope }
   const tokens = (await exchangeRes.json()) as {
-    status: string;
-    data: {
-      accessToken: string;
-      refreshToken: string;
-      accessTokenExpiresAt?: number;
-    };
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    token_type: string;
+    scope?: string;
   };
 
-  const calAccessToken = tokens.data.accessToken;
-  const calRefreshToken = tokens.data.refreshToken;
-  const calTokenExpiresAt = tokens.data.accessTokenExpiresAt
-    ? Math.floor(tokens.data.accessTokenExpiresAt / 1000)
-    : Math.floor(Date.now() / 1000) + 3600;
+  const calAccessToken = tokens.access_token;
+  const calRefreshToken = tokens.refresh_token;
+  const calTokenExpiresAt = Math.floor(Date.now() / 1000) + (tokens.expires_in ?? 3600);
 
   // Create auth code for the MCP client
   const authCode = createAuthCode({
@@ -373,14 +378,17 @@ export async function refreshCalTokens(
   calRefreshToken: string,
   config: OAuthConfig,
 ): Promise<{ calAccessToken: string; calRefreshToken: string; calTokenExpiresAt: number } | undefined> {
-  const refreshUrl = `${config.calApiBaseUrl}/v2/oauth/${config.calOAuthClientId}/refresh`;
+  // Cal.com uses the same RFC 6749-compliant token endpoint for refresh
+  const refreshUrl = `${config.calApiBaseUrl}/v2/auth/oauth2/token`;
 
   const refreshRes = await fetch(refreshUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      refreshToken: calRefreshToken,
-      clientSecret: config.calOAuthClientSecret,
+      client_id: config.calOAuthClientId,
+      client_secret: config.calOAuthClientSecret,
+      grant_type: "refresh_token",
+      refresh_token: calRefreshToken,
     }),
   });
 
@@ -389,22 +397,20 @@ export async function refreshCalTokens(
     return undefined;
   }
 
+  // Cal.com returns RFC 6749-compliant response
   const data = (await refreshRes.json()) as {
-    status: string;
-    data: {
-      accessToken: string;
-      refreshToken: string;
-      accessTokenExpiresAt?: number;
-    };
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    token_type: string;
+    scope?: string;
   };
 
   const { updateCalTokens } = await import("../storage/token-store.js");
 
-  const newCalAccessToken = data.data.accessToken;
-  const newCalRefreshToken = data.data.refreshToken;
-  const newCalTokenExpiresAt = data.data.accessTokenExpiresAt
-    ? Math.floor(data.data.accessTokenExpiresAt / 1000)
-    : Math.floor(Date.now() / 1000) + 3600;
+  const newCalAccessToken = data.access_token;
+  const newCalRefreshToken = data.refresh_token;
+  const newCalTokenExpiresAt = Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600);
 
   // Update the DB
   updateCalTokens(accessTokenValue, newCalAccessToken, newCalRefreshToken, newCalTokenExpiresAt);
