@@ -33,7 +33,7 @@ export function getDb(): Database.Database {
       client_redirect_uri TEXT NOT NULL,
       client_state TEXT NOT NULL,
       client_code_challenge TEXT NOT NULL,
-      cal_code_verifier TEXT NOT NULL,
+      cal_code_verifier TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       expires_at INTEGER NOT NULL
     );
