@@ -40,7 +40,7 @@ export interface PendingAuth {
   clientRedirectUri: string;
   clientState: string;
   clientCodeChallenge: string;
-  calCodeVerifier: string;
+  calCodeVerifier: string | undefined;
   expiresAt: number;
 }
 
@@ -71,7 +71,7 @@ export function getPendingAuth(state: string): PendingAuth | undefined {
     client_redirect_uri: string;
     client_state: string;
     client_code_challenge: string;
-    cal_code_verifier: string;
+    cal_code_verifier: string | null;
     expires_at: number;
   } | undefined;
   if (!row) return undefined;
@@ -81,7 +81,7 @@ export function getPendingAuth(state: string): PendingAuth | undefined {
     clientRedirectUri: row.client_redirect_uri,
     clientState: row.client_state,
     clientCodeChallenge: row.client_code_challenge,
-    calCodeVerifier: row.cal_code_verifier,
+    calCodeVerifier: row.cal_code_verifier ?? undefined,
     expiresAt: row.expires_at,
   };
 }

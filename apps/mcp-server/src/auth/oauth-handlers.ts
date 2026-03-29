@@ -127,10 +127,15 @@ export function handleAuthorize(
     return;
   }
 
-  // Generate internal state + PKCE for Cal.com
+  // Generate internal state for Cal.com
   const internalState = generateState();
-  const calCodeVerifier = generateCodeVerifier();
-  const calCodeChallenge = generateCodeChallenge(calCodeVerifier);
+
+  // Only use PKCE for the Cal.com leg when we don't have a client_secret
+  // (i.e., public client). Cal.com's token validator rejects requests that
+  // contain both client_secret and code_verifier (forbidNonWhitelisted).
+  const useCalPkce = !config.calOAuthClientSecret;
+  const calCodeVerifier = useCalPkce ? generateCodeVerifier() : undefined;
+  const calCodeChallenge = calCodeVerifier ? generateCodeChallenge(calCodeVerifier) : undefined;
 
   // Store pending auth
   createPendingAuth({
@@ -149,8 +154,10 @@ export function handleAuthorize(
   calAuthUrl.searchParams.set("client_id", config.calOAuthClientId);
   calAuthUrl.searchParams.set("redirect_uri", `${config.serverUrl}/oauth/callback`);
   calAuthUrl.searchParams.set("state", internalState);
-  calAuthUrl.searchParams.set("code_challenge", calCodeChallenge);
-  calAuthUrl.searchParams.set("code_challenge_method", "S256");
+  if (calCodeChallenge) {
+    calAuthUrl.searchParams.set("code_challenge", calCodeChallenge);
+    calAuthUrl.searchParams.set("code_challenge_method", "S256");
+  }
   calAuthUrl.searchParams.set("response_type", "code");
 
   res.writeHead(302, { Location: calAuthUrl.toString() });
@@ -191,18 +198,24 @@ export async function handleCallback(
   }
 
   // Exchange code with Cal.com (RFC 6749-compliant token endpoint)
+  // Send either client_secret (confidential) or code_verifier (public PKCE), not both.
+  // Cal.com's validator uses forbidNonWhitelisted and rejects mixed requests.
   const exchangeUrl = `${config.calApiBaseUrl}/v2/auth/oauth2/token`;
+  const exchangeBody: Record<string, string> = {
+    client_id: config.calOAuthClientId,
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: `${config.serverUrl}/oauth/callback`,
+  };
+  if (config.calOAuthClientSecret) {
+    exchangeBody.client_secret = config.calOAuthClientSecret;
+  } else if (pending.calCodeVerifier) {
+    exchangeBody.code_verifier = pending.calCodeVerifier;
+  }
   const exchangeRes = await fetch(exchangeUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: config.calOAuthClientId,
-      client_secret: config.calOAuthClientSecret,
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: `${config.serverUrl}/oauth/callback`,
-      code_verifier: pending.calCodeVerifier,
-    }),
+    body: JSON.stringify(exchangeBody),
   });
 
   if (!exchangeRes.ok) {
