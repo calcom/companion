@@ -203,17 +203,19 @@ export function startHttpServer(
 
         await server.connect(transport);
 
-        // Store session after connect (sessionId is now set)
+        // Handle the initialization request within the auth context.
+        // The session ID is assigned by the transport during handleRequest
+        // (not during connect), so we must store the session *after* this call.
+        await authContext.run(calAuthHeaders, async () => {
+          await transport.handleRequest(req, res);
+        });
+
+        // Store session after handleRequest (sessionId is now set)
         const newSessionId = transport.sessionId;
         if (newSessionId) {
           sessions.set(newSessionId, { transport, server, calAuthHeaders });
           console.error(`[mcp-server] New session: ${newSessionId}`);
         }
-
-        // Handle the initialization request within the auth context
-        await authContext.run(calAuthHeaders, async () => {
-          await transport.handleRequest(req, res);
-        });
         return;
       }
 
