@@ -3,9 +3,12 @@ import "../global.css";
 
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { PortalHost } from "@rn-primitives/portal";
+import * as Linking from "expo-linking";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
+import { useEffect } from "react";
 import { Platform, StatusBar, useColorScheme, View } from "react-native";
+import { getDailyRoomUrl, isCalVideoUrl } from "@/utils/cal-video";
 import { CalComLogo } from "@/components/CalComLogo";
 import LoginScreenComponent from "@/components/LoginScreen";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
@@ -21,6 +24,29 @@ function RootLayoutContent() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = getColors(isDark);
+  const router = useRouter();
+
+  // Handle incoming deep links for Cal Video URLs (app.cal.com/video/*)
+  useEffect(() => {
+    function handleDeepLink(event: { url: string }) {
+      const { url } = event;
+      if (isCalVideoUrl(url)) {
+        const dailyUrl = getDailyRoomUrl(url);
+        if (dailyUrl) {
+          router.push({ pathname: "/video-call", params: { url: dailyUrl } });
+        }
+      }
+    }
+
+    // Handle URL that launched the app (cold start)
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    // Handle URLs while the app is already open (warm start)
+    const subscription = Linking.addEventListener("url", handleDeepLink);
+    return () => subscription.remove();
+  }, [router]);
 
   // Show Cal.com logo while checking auth state to prevent login flash
   if (loading) {

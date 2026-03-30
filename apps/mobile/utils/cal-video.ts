@@ -13,7 +13,7 @@
 
 const CAL_VIDEO_HOSTS = ["app.cal.com", "cal.com"];
 const CAL_VIDEO_PATH_PREFIX = "/video/";
-const DAILY_ROOM_BASE = "https://cal-video.daily.co";
+const DAILY_ROOM_BASE = "https://meetco.daily.co";
 
 /**
  * Check if a URL is a Cal Video URL that can be opened natively.
