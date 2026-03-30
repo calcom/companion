@@ -1,7 +1,7 @@
 import type { BookingFilter } from "@/hooks";
 import type { Booking } from "@/services/calcom";
 
-import { recurringGroupHasPendingPayment } from "./booking-payment-status";
+import { shouldShowRecurringPendingPaymentBadge } from "./booking-payment-status";
 import { safeLogError, safeLogWarn } from "./safeLogger";
 
 export const getEmptyStateContent = (activeFilter: BookingFilter) => {
@@ -312,7 +312,7 @@ export const groupRecurringBookings = (bookings: Booking[]): RecurringBookingGro
         b.requiresConfirmation
     );
 
-    const hasPendingPayment = recurringGroupHasPendingPayment([firstUpcoming]);
+    const hasPendingPayment = shouldShowRecurringPendingPaymentBadge([firstUpcoming]);
 
     groups.push({
       recurringBookingUid,

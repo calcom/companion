@@ -84,9 +84,9 @@ export function getBookingPaymentStatus(booking: Booking): BookingPaymentStatus 
 }
 
 /**
- * Checks if any booking in a recurring group has a pending payment.
- * Used to show a "Pending payment" badge on recurring booking group rows.
+ * Checks whether the bookings represented by a recurring row should show the
+ * pending payment badge.
  */
-export function recurringGroupHasPendingPayment(bookings: Booking[]): boolean {
-  return bookings.some((b) => getBookingPaymentStatus(b).isPendingPayment);
+export function shouldShowRecurringPendingPaymentBadge(bookings: Booking[]): boolean {
+  return bookings.some((booking) => getBookingPaymentStatus(booking).isPendingPayment);
 }
