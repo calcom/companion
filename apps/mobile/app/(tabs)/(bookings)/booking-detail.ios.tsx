@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { useColorScheme } from "react-native";
 import { BookingDetailScreen } from "@/components/screens/BookingDetailScreen";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEventTypeById } from "@/hooks";
 import { useBookingByUid } from "@/hooks/useBookings";
 import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
 import { getMeetingUrl } from "@/utils/booking";
@@ -49,6 +50,23 @@ export default function BookingDetailIOS() {
 
   // Use React Query hook for booking data - single source of truth
   const { data: booking, isLoading, error, refetch, isRefetching } = useBookingByUid(uid);
+  const eventTypeId = booking?.eventTypeId ?? booking?.eventType?.id;
+  const { data: eventType } = useEventTypeById(eventTypeId);
+  const enrichedBooking = useMemo(() => {
+    if (!booking || !eventType) return booking;
+
+    return {
+      ...booking,
+      eventType: {
+        ...booking.eventType,
+        id: booking.eventType?.id ?? eventType.id,
+        title: booking.eventType?.title ?? eventType.title,
+        slug: booking.eventType?.slug ?? eventType.slug,
+        price: booking.eventType?.price ?? eventType.price,
+        metadata: booking.eventType?.metadata ?? eventType.metadata,
+      },
+    };
+  }, [booking, eventType]);
 
   // Ref to store action handlers from BookingDetailScreen
   const actionHandlersRef = useRef<ActionHandlers | null>(null);
@@ -60,12 +78,12 @@ export default function BookingDetailIOS() {
 
   // Get the month name from booking start date for back button
   const monthName = useMemo(() => {
-    const startTime = booking?.start || booking?.startTime;
+    const startTime = enrichedBooking?.start || enrichedBooking?.startTime;
     return getMonthName(startTime);
-  }, [booking?.start, booking?.startTime]);
+  }, [enrichedBooking?.start, enrichedBooking?.startTime]);
 
   // Get meeting URL for Join button
-  const meetingUrl = useMemo(() => getMeetingUrl(booking ?? null), [booking]);
+  const meetingUrl = useMemo(() => getMeetingUrl(enrichedBooking ?? null), [enrichedBooking]);
 
   // Handle join meeting
   const handleJoinMeeting = useCallback(() => {
@@ -84,15 +102,15 @@ export default function BookingDetailIOS() {
 
   // Compute actions using centralized gating (same as BookingDetailScreen)
   const actions = useMemo(() => {
-    if (!booking) return EMPTY_ACTIONS;
+    if (!enrichedBooking) return EMPTY_ACTIONS;
     return getBookingActions({
-      booking,
+      booking: enrichedBooking,
       eventType: undefined, // EventType not available in this context
       currentUserId: userInfo?.id,
       currentUserEmail: userInfo?.email,
       isOnline: true, // Assume online for now
     });
-  }, [booking, userInfo?.id, userInfo?.email]);
+  }, [enrichedBooking, userInfo?.id, userInfo?.email]);
 
   // Invoke a handler by name - only accesses ref at invocation time (event handler)
   // This avoids creating closures that capture the ref during render
@@ -290,7 +308,7 @@ export default function BookingDetailIOS() {
       </Stack.Header>
 
       <BookingDetailScreen
-        booking={booking}
+        booking={enrichedBooking}
         isLoading={isLoading}
         error={error ?? null}
         refetch={refetch}

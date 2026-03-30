@@ -45,6 +45,7 @@ import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
 import { getMeetingUrl } from "@/utils/booking";
 import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
+import { getBookingPaymentStatus } from "@/utils/booking-payment-status";
 import { openInAppBrowser } from "@/utils/browser";
 
 const CopyButton = ({
@@ -534,6 +535,8 @@ export function BookingDetailScreen({
 
   const isPastBooking = new Date(endTime) < new Date();
   const normalizedStatus = booking.status.toLowerCase();
+  const { isPendingPayment } = getBookingPaymentStatus(booking);
+  const isUnconfirmed = normalizedStatus === "pending";
 
   const getAttendeeStatusIcon = (attendee: { noShow?: boolean; absent?: boolean }) => {
     const isNoShow = attendee.noShow || attendee.absent;
@@ -704,6 +707,22 @@ export function BookingDetailScreen({
               <Text className="mt-0.5 text-[17px]" style={{ color: theme.destructive }}>
                 Repeats weekly
               </Text>
+            ) : null}
+
+            {/* Payment and Confirmation Status Badges */}
+            {(isPendingPayment || isUnconfirmed) ? (
+              <View className="mt-3 flex-row flex-wrap items-center">
+                {isPendingPayment ? (
+                  <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
+                    <Text className="text-xs font-medium text-white">Pending payment</Text>
+                  </View>
+                ) : null}
+                {isUnconfirmed ? (
+                  <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
+                    <Text className="text-xs font-medium text-white">Unconfirmed</Text>
+                  </View>
+                ) : null}
+              </View>
             ) : null}
           </View>
 

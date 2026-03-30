@@ -26,7 +26,7 @@ export default function Bookings() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEventTypeId, setSelectedEventTypeId] = useState<number | null>(null);
-  const { data: eventTypes } = useEventTypes();
+  const { data: eventTypes = [], isLoading: eventTypesLoading } = useEventTypes();
 
   // Use the active booking filter hook
   const { activeFilter, filterOptions, filterParams, handleFilterChange } = useActiveBookingFilter(
@@ -205,6 +205,8 @@ export default function Bookings() {
       />
 
       <BookingListScreen
+        eventTypes={eventTypes}
+        eventTypesLoading={eventTypesLoading}
         searchQuery={searchQuery}
         selectedEventTypeId={selectedEventTypeId}
         activeFilter={activeFilter}

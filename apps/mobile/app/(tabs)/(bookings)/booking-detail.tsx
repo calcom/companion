@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBookingByUid } from "@/hooks/useBookings";
+import { useEventTypeById } from "@/hooks";
 import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
 import { getMeetingUrl } from "@/utils/booking";
 import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
@@ -74,6 +75,23 @@ export default function BookingDetail() {
 
   // Use React Query hook for booking data - single source of truth
   const { data: booking, isLoading, error, refetch, isRefetching } = useBookingByUid(uid);
+  const eventTypeId = booking?.eventTypeId ?? booking?.eventType?.id;
+  const { data: eventType } = useEventTypeById(eventTypeId);
+  const enrichedBooking = useMemo(() => {
+    if (!booking || !eventType) return booking;
+
+    return {
+      ...booking,
+      eventType: {
+        ...booking.eventType,
+        id: booking.eventType?.id ?? eventType.id,
+        title: booking.eventType?.title ?? eventType.title,
+        slug: booking.eventType?.slug ?? eventType.slug,
+        price: booking.eventType?.price ?? eventType.price,
+        metadata: booking.eventType?.metadata ?? eventType.metadata,
+      },
+    };
+  }, [booking, eventType]);
 
   // Ref to store action handlers from BookingDetailScreen
   const actionHandlersRef = useRef<ActionHandlers | null>(null);
@@ -85,15 +103,15 @@ export default function BookingDetail() {
 
   // Compute actions using centralized gating (same as BookingDetailScreen)
   const actions = useMemo(() => {
-    if (!booking) return EMPTY_ACTIONS;
+    if (!enrichedBooking) return EMPTY_ACTIONS;
     return getBookingActions({
-      booking,
+      booking: enrichedBooking,
       eventType: undefined, // EventType not available in this context
       currentUserId: userInfo?.id,
       currentUserEmail: userInfo?.email,
       isOnline: true, // Assume online for now
     });
-  }, [booking, userInfo?.id, userInfo?.email]);
+  }, [enrichedBooking, userInfo?.id, userInfo?.email]);
 
   // Action handlers that use the booking data
   // Note: These are stable functions that don't change, so we don't memoize them
@@ -260,7 +278,7 @@ export default function BookingDetail() {
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === "dark";
 
-  const meetingUrl = useMemo(() => getMeetingUrl(booking ?? null), [booking]);
+  const meetingUrl = useMemo(() => getMeetingUrl(enrichedBooking ?? null), [enrichedBooking]);
 
   const handleJoinMeeting = useCallback(() => {
     if (meetingUrl) {
@@ -516,7 +534,7 @@ export default function BookingDetail() {
       )}
 
       <BookingDetailScreen
-        booking={booking}
+        booking={enrichedBooking}
         isLoading={isLoading}
         error={error ?? null}
         refetch={refetch}

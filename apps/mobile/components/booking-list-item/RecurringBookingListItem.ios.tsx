@@ -194,6 +194,20 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
             </Text>
           </View>
 
+          {/* Pending Payment Badge */}
+          {group.hasPendingPayment && (
+            <View
+              style={{
+                backgroundColor: "#FF9500", // cal-accent-warning
+                borderRadius: 4,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+              }}
+            >
+              <Text className="text-xs font-medium text-white">Pending payment</Text>
+            </View>
+          )}
+
           {/* Unconfirmed Badge */}
           {group.hasUnconfirmed && (
             <View

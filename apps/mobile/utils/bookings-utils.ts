@@ -1,6 +1,7 @@
 import type { BookingFilter } from "@/hooks";
 import type { Booking } from "@/services/calcom";
 
+import { shouldShowRecurringPendingPaymentBadge } from "./booking-payment-status";
 import { safeLogError, safeLogWarn } from "./safeLogger";
 
 export const getEmptyStateContent = (activeFilter: BookingFilter) => {
@@ -212,6 +213,7 @@ export interface RecurringBookingGroup {
   firstUpcoming: Booking;
   remainingCount: number;
   hasUnconfirmed: boolean;
+  hasPendingPayment: boolean;
   recurrenceText: string | null;
 }
 
@@ -310,12 +312,15 @@ export const groupRecurringBookings = (bookings: Booking[]): RecurringBookingGro
         b.requiresConfirmation
     );
 
+    const hasPendingPayment = shouldShowRecurringPendingPaymentBadge([firstUpcoming]);
+
     groups.push({
       recurringBookingUid,
       bookings: sortedBookings,
       firstUpcoming,
       remainingCount,
       hasUnconfirmed,
+      hasPendingPayment,
       recurrenceText: formatRecurrencePattern(sortedBookings),
     });
   });
@@ -381,7 +386,9 @@ export const filterByEventType = (bookings: Booking[], eventTypeId: number | nul
   if (eventTypeId === null) {
     return bookings;
   }
-  return bookings.filter((booking) => booking.eventTypeId === eventTypeId);
+  return bookings.filter(
+    (booking) => (booking.eventTypeId ?? booking.eventType?.id) === eventTypeId
+  );
 };
 
 /**

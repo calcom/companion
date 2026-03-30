@@ -55,6 +55,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
   const {
     isUpcoming,
     isPending,
+    isPendingPayment,
     isCancelled,
     isRejected,
     hostAndAttendeesDisplay,
@@ -180,7 +181,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
         android_ripple={{ color: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }}
       >
         <TimeAndDateRow formattedDate={formattedDate} formattedTimeRange={formattedTimeRange} />
-        <BadgesRow isPending={isPending} />
+        <BadgesRow isPending={isPending} isPendingPayment={isPendingPayment} />
         <BookingTitle title={booking.title} isCancelled={isCancelled} isRejected={isRejected} />
         <BookingDescription description={booking.description} />
         <HostAndAttendees

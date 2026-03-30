@@ -9,11 +9,13 @@ export interface Booking {
   endTime: string;
   start?: string;
   end?: string;
-  eventTypeId: number;
+  eventTypeId?: number;
   eventType?: {
     id: number;
-    title: string;
+    title?: string;
     slug: string;
+    price?: number;
+    metadata?: Record<string, unknown>;
   };
   hosts?: Array<{
     id?: number | string;
@@ -39,9 +41,13 @@ export interface Booking {
   status: BookingStatus;
   paid?: boolean;
   payment?: Array<{
-    id: number;
+    id?: number;
     success: boolean;
     paymentOption: string;
+    amount?: number;
+    currency?: string;
+    appId?: string;
+    refunded?: boolean;
   }>;
   rescheduled?: boolean;
   fromReschedule?: string;

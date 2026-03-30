@@ -224,7 +224,29 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
   const bookings = useMemo(() => {
     if (!rawBookings || !Array.isArray(rawBookings)) return [];
 
-    const sorted = [...rawBookings];
+    const eventTypeMap = new Map((eventTypes || []).map((eventType) => [eventType.id, eventType]));
+
+    const sorted = rawBookings.map((booking) => {
+      const eventTypeId = booking.eventTypeId ?? booking.eventType?.id;
+      const matchedEventType = eventTypeId ? eventTypeMap.get(eventTypeId) : undefined;
+
+      if (!matchedEventType) {
+        return booking;
+      }
+
+      return {
+        ...booking,
+        eventType: {
+          ...booking.eventType,
+          id: booking.eventType?.id ?? matchedEventType.id,
+          title: booking.eventType?.title ?? matchedEventType.title,
+          slug: booking.eventType?.slug ?? matchedEventType.slug,
+          price: booking.eventType?.price ?? matchedEventType.price,
+          metadata: booking.eventType?.metadata ?? matchedEventType.metadata,
+        },
+      };
+    });
+
     switch (activeFilter) {
       case "upcoming":
       case "unconfirmed":
@@ -241,7 +263,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
       default:
         return sorted;
     }
-  }, [rawBookings, activeFilter]);
+  }, [rawBookings, activeFilter, eventTypes]);
 
   // Convert query error to string
   // Don't show error UI for authentication errors (user will be redirected to login)

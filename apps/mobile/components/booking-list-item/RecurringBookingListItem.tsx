@@ -209,6 +209,13 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
             </Text>
           </View>
 
+          {/* Pending Payment Badge */}
+          {group.hasPendingPayment && (
+            <View className="rounded bg-cal-accent-warning px-2 py-0.5">
+              <Text className="text-xs font-medium text-white">Pending payment</Text>
+            </View>
+          )}
+
           {/* Unconfirmed Badge */}
           {group.hasUnconfirmed && (
             <View className="rounded bg-cal-accent-warning px-2 py-0.5">
