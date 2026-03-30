@@ -155,8 +155,22 @@ export function startHttpServer(
 
       const existingSession = sessionId ? sessions.get(sessionId) : undefined;
       if (sessionId && existingSession) {
-        // Existing session — run in auth context and delegate
-        await authContext.run(existingSession.calAuthHeaders, async () => {
+        // Re-resolve Cal.com auth headers on each request to handle token expiry.
+        // resolveCalAuthHeaders auto-refreshes expired Cal.com tokens.
+        // bearerToken is guaranteed non-undefined here (early return at line 144)
+        const freshHeaders = bearerToken ? await resolveCalAuthHeaders(bearerToken, oauthConfig) : undefined;
+        if (!freshHeaders) {
+          res.writeHead(401, {
+            "Content-Type": "application/json",
+            "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
+          });
+          res.end(JSON.stringify({ error: "invalid_token", error_description: "Cal.com token expired and could not be refreshed" }));
+          return;
+        }
+        // Update cached headers so subsequent requests benefit from refreshed tokens
+        existingSession.calAuthHeaders = freshHeaders;
+
+        await authContext.run(freshHeaders, async () => {
           await existingSession.transport.handleRequest(req, res);
         });
         return;

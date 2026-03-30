@@ -40,7 +40,12 @@ export async function calculateRoutingFormSlots(params: {
   bookingUidToReschedule?: string;
 }) {
   try {
-    const data = await calApi(`routing-forms/${params.routingFormId}/calculate-slots`, { method: "POST", body: {} });
+    const body: Record<string, unknown> = { start: params.start, end: params.end };
+    if (params.timeZone !== undefined) body.timeZone = params.timeZone;
+    if (params.duration !== undefined) body.duration = params.duration;
+    if (params.format !== undefined) body.format = params.format;
+    if (params.bookingUidToReschedule !== undefined) body.bookingUidToReschedule = params.bookingUidToReschedule;
+    const data = await calApi(`routing-forms/${params.routingFormId}/calculate-slots`, { method: "POST", body });
     return ok(data);
   } catch (err) {
     return handleError("calculate_routing_form_slots", err);
