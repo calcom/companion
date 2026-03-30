@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { resolveDailyRoomUrl } from "@/utils/cal-video";
 
 type CallState = "idle" | "joining" | "joined" | "leaving" | "error";
 
@@ -38,7 +39,7 @@ function extractParticipantInfo(p: DailyParticipant): ParticipantInfo {
 }
 
 export default function VideoCallScreen() {
-  const { url } = useLocalSearchParams<{ url: string }>();
+  const params = useLocalSearchParams<{ url?: string; bookingUid?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const callObjectRef = useRef<DailyCall | null>(null);
@@ -77,80 +78,96 @@ export default function VideoCallScreen() {
     }
   }, [router]);
 
-  // Join the call on mount
+  // Resolve the Daily.co room URL and join the call on mount.
+  // Accepts either a direct Daily room `url` or a `bookingUid` that is
+  // resolved to a Daily room URL via the Cal.com API.
   useEffect(() => {
-    if (!url) {
-      setCallState("error");
-      setErrorMessage("No meeting URL provided");
-      return;
+    let cancelled = false;
+
+    async function joinCall() {
+      // Resolve the joinable Daily.co URL
+      let dailyUrl: string | null = params.url ?? null;
+
+      if (!dailyUrl && params.bookingUid) {
+        // Deep-link case: resolve booking UID → Daily room URL
+        const calVideoUrl = `https://app.cal.com/video/${params.bookingUid}`;
+        dailyUrl = await resolveDailyRoomUrl(calVideoUrl);
+      }
+
+      if (cancelled) return;
+
+      if (!dailyUrl) {
+        setCallState("error");
+        setErrorMessage("No meeting URL provided");
+        return;
+      }
+
+      const callObject = Daily.createCallObject({
+        subscribeToTracksAutomatically: true,
+        reactNativeConfig: {
+          androidInCallNotification: {
+            title: "Cal.com Video",
+            subtitle: "In a video call",
+          },
+        },
+      });
+      callObjectRef.current = callObject;
+
+      const handleJoinedMeeting = () => {
+        setCallState("joined");
+        updateParticipants(callObject);
+      };
+
+      const handleParticipantJoined = (_event: DailyEventObjectParticipant) => {
+        updateParticipants(callObject);
+      };
+
+      const handleParticipantUpdated = (_event: DailyEventObjectParticipant) => {
+        updateParticipants(callObject);
+      };
+
+      const handleParticipantLeft = (_event: DailyEventObjectParticipantLeft) => {
+        updateParticipants(callObject);
+      };
+
+      const handleLeftMeeting = () => {
+        setCallState("idle");
+      };
+
+      const handleError = (event: DailyEventObjectFatalError) => {
+        setCallState("error");
+        setErrorMessage(event.errorMsg || "An error occurred during the call");
+      };
+
+      callObject.on("joined-meeting", handleJoinedMeeting);
+      callObject.on("participant-joined", handleParticipantJoined);
+      callObject.on("participant-updated", handleParticipantUpdated);
+      callObject.on("participant-left", handleParticipantLeft);
+      callObject.on("left-meeting", handleLeftMeeting);
+      callObject.on("error", handleError);
+
+      setCallState("joining");
+      callObject.join({ url: dailyUrl }).catch((err: Error) => {
+        setCallState("error");
+        setErrorMessage(err.message || "Failed to join meeting");
+      });
     }
 
-    const callObject = Daily.createCallObject({
-      subscribeToTracksAutomatically: true,
-      reactNativeConfig: {
-        androidInCallNotification: {
-          title: "Cal.com Video",
-          subtitle: "In a video call",
-        },
-      },
-    });
-    callObjectRef.current = callObject;
-
-    const handleJoinedMeeting = () => {
-      setCallState("joined");
-      updateParticipants(callObject);
-    };
-
-    const handleParticipantJoined = (_event: DailyEventObjectParticipant) => {
-      updateParticipants(callObject);
-    };
-
-    const handleParticipantUpdated = (_event: DailyEventObjectParticipant) => {
-      updateParticipants(callObject);
-    };
-
-    const handleParticipantLeft = (_event: DailyEventObjectParticipantLeft) => {
-      updateParticipants(callObject);
-    };
-
-    const handleLeftMeeting = () => {
-      setCallState("idle");
-    };
-
-    const handleError = (event: DailyEventObjectFatalError) => {
-      setCallState("error");
-      setErrorMessage(event.errorMsg || "An error occurred during the call");
-    };
-
-    callObject.on("joined-meeting", handleJoinedMeeting);
-    callObject.on("participant-joined", handleParticipantJoined);
-    callObject.on("participant-updated", handleParticipantUpdated);
-    callObject.on("participant-left", handleParticipantLeft);
-    callObject.on("left-meeting", handleLeftMeeting);
-    callObject.on("error", handleError);
-
-    setCallState("joining");
-    callObject.join({ url }).catch((err: Error) => {
-      setCallState("error");
-      setErrorMessage(err.message || "Failed to join meeting");
-    });
+    joinCall();
 
     return () => {
-      callObject.off("joined-meeting", handleJoinedMeeting);
-      callObject.off("participant-joined", handleParticipantJoined);
-      callObject.off("participant-updated", handleParticipantUpdated);
-      callObject.off("participant-left", handleParticipantLeft);
-      callObject.off("left-meeting", handleLeftMeeting);
-      callObject.off("error", handleError);
-
-      if (callObject.meetingState() === "joined-meeting") {
-        callObject.leave().then(() => callObject.destroy());
-      } else {
-        callObject.destroy();
+      cancelled = true;
+      const callObject = callObjectRef.current;
+      if (callObject) {
+        if (callObject.meetingState() === "joined-meeting") {
+          callObject.leave().then(() => callObject.destroy());
+        } else {
+          callObject.destroy();
+        }
+        callObjectRef.current = null;
       }
-      callObjectRef.current = null;
     };
-  }, [url, updateParticipants]);
+  }, [params.url, params.bookingUid, updateParticipants]);
 
   const toggleMic = useCallback(() => {
     const callObject = callObjectRef.current;

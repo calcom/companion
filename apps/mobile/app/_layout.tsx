@@ -8,7 +8,7 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack, useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Platform, StatusBar, useColorScheme, View } from "react-native";
-import { getDailyRoomUrl, isCalVideoUrl } from "@/utils/cal-video";
+import { getBookingUidFromCalVideoUrl, isCalVideoWebUrl } from "@/utils/cal-video";
 import { CalComLogo } from "@/components/CalComLogo";
 import LoginScreenComponent from "@/components/LoginScreen";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
@@ -26,14 +26,14 @@ function RootLayoutContent() {
   const colors = getColors(isDark);
   const router = useRouter();
 
-  // Handle incoming deep links for Cal Video URLs (app.cal.com/video/*)
+  // Handle incoming deep links for Cal Video URLs (app.cal.com/video/<bookingUid>)
   useEffect(() => {
     function handleDeepLink(event: { url: string }) {
       const { url } = event;
-      if (isCalVideoUrl(url)) {
-        const dailyUrl = getDailyRoomUrl(url);
-        if (dailyUrl) {
-          router.push({ pathname: "/video-call", params: { url: dailyUrl } });
+      if (isCalVideoWebUrl(url)) {
+        const bookingUid = getBookingUidFromCalVideoUrl(url);
+        if (bookingUid) {
+          router.push({ pathname: "/video-call", params: { bookingUid } });
         }
       }
     }
