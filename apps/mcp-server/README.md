@@ -58,6 +58,8 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 | `TOKEN_ENCRYPTION_KEY` | Yes | — | 64-char hex string (32 bytes) for AES-256-GCM token encryption |
 | `MCP_SERVER_URL` | Yes | — | Public URL of this server (e.g. `https://mcp.example.com`) |
 | `DATABASE_PATH` | No | `mcp-server.db` | SQLite database file path |
+| `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate limit window in ms (per IP) |
+| `RATE_LIMIT_MAX` | No | `30` | Max OAuth requests per window per IP |
 
 ## Transport Modes
 
@@ -172,6 +174,7 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - PKCE (S256) is required on both legs (client→server and server→Cal.com)
 - Auth codes are single-use
 - Expired tokens are cleaned up automatically every 5 minutes
+- In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
 
 ## Tools (34)
 

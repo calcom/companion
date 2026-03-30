@@ -18,6 +18,7 @@ import {
 import type { OAuthConfig } from "./auth/oauth-handlers.js";
 import { getDb, closeDb } from "./storage/db.js";
 import { cleanupExpired } from "./storage/token-store.js";
+import { createRateLimiterFromEnv, getClientIp, sendRateLimited } from "./utils/rate-limiter.js";
 
 export interface HttpServerConfig {
   port: number;
@@ -51,6 +52,10 @@ export function startHttpServer(
 
   // Initialize SQLite database
   getDb();
+
+  // In-process rate limiter for OAuth endpoints (configurable via env vars)
+  const rateLimiter = createRateLimiterFromEnv();
+  rateLimiter.startGc();
 
   // Periodically clean up expired tokens (every 5 minutes)
   const cleanupInterval = setInterval(() => {
@@ -97,26 +102,34 @@ export function startHttpServer(
       return;
     }
 
-    // ── OAuth flow endpoints ──
-    if (url.pathname === "/oauth/register") {
-      await handleRegister(req, res);
-      return;
-    }
-    if (url.pathname === "/oauth/authorize" && req.method === "GET") {
-      handleAuthorize(req, res, oauthConfig);
-      return;
-    }
-    if (url.pathname === "/oauth/callback" && req.method === "GET") {
-      await handleCallback(req, res, oauthConfig);
-      return;
-    }
-    if (url.pathname === "/oauth/token") {
-      await handleToken(req, res);
-      return;
-    }
-    if (url.pathname === "/oauth/revoke") {
-      await handleRevoke(req, res);
-      return;
+    // ── OAuth flow endpoints (rate-limited) ──
+    if (url.pathname.startsWith("/oauth/")) {
+      const clientIp = getClientIp(req);
+      if (!rateLimiter.consume(clientIp)) {
+        sendRateLimited(res);
+        return;
+      }
+
+      if (url.pathname === "/oauth/register") {
+        await handleRegister(req, res);
+        return;
+      }
+      if (url.pathname === "/oauth/authorize" && req.method === "GET") {
+        handleAuthorize(req, res, oauthConfig);
+        return;
+      }
+      if (url.pathname === "/oauth/callback" && req.method === "GET") {
+        await handleCallback(req, res, oauthConfig);
+        return;
+      }
+      if (url.pathname === "/oauth/token") {
+        await handleToken(req, res);
+        return;
+      }
+      if (url.pathname === "/oauth/revoke") {
+        await handleRevoke(req, res);
+        return;
+      }
     }
 
     // ── MCP endpoint (requires Bearer token) ──
@@ -254,6 +267,7 @@ export function startHttpServer(
   const shutdown = async () => {
     console.error("[mcp-server] Shutting down...");
     clearInterval(cleanupInterval);
+    rateLimiter.stopGc();
     for (const [id, session] of sessions) {
       await session.transport.close();
       sessions.delete(id);
