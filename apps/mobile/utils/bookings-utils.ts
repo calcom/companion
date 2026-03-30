@@ -312,7 +312,7 @@ export const groupRecurringBookings = (bookings: Booking[]): RecurringBookingGro
         b.requiresConfirmation
     );
 
-    const hasPendingPayment = recurringGroupHasPendingPayment(sortedBookings);
+    const hasPendingPayment = recurringGroupHasPendingPayment([firstUpcoming]);
 
     groups.push({
       recurringBookingUid,

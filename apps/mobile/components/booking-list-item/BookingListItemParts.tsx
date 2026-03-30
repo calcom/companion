@@ -28,8 +28,6 @@ interface BadgesRowProps {
 }
 
 export function BadgesRow({ isPending, isPendingPayment }: BadgesRowProps) {
-  if (!isPending && !isPendingPayment) return null;
-
   return (
     <View className="mb-3 flex-row flex-wrap items-center">
       {isPendingPayment ? (

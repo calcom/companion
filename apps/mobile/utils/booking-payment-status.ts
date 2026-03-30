@@ -35,16 +35,36 @@ export function getBookingPaymentStatus(booking: Booking): BookingPaymentStatus 
     paymentBadgeText: null,
   };
 
-  const payments = booking.payment;
-
-  // No payment rows -> no payment badge
-  if (!payments || payments.length === 0) {
-    return NO_PAYMENT;
-  }
-
   // Terminal booking states never show a payment badge
   const status = booking.status?.toLowerCase();
   if (status === "cancelled" || status === "rejected") {
+    return NO_PAYMENT;
+  }
+
+  const payments = booking.payment;
+
+  // No payment rows — try weak inference from eventType metadata
+  if (!payments || payments.length === 0) {
+    const price = booking.eventType?.price;
+    const stripePaymentOption =
+      booking.eventType?.metadata?.apps?.stripe?.paymentOption;
+
+    // If the event costs money, payment is configured as ON_BOOKING, and the
+    // booking isn't marked paid, treat it as pending payment. This covers
+    // thinner payloads from /v2/bookings that omit the payment[] array.
+    if (
+      price != null &&
+      price > 0 &&
+      stripePaymentOption === "ON_BOOKING" &&
+      booking.paid !== true
+    ) {
+      return {
+        isPaymentCompleted: false,
+        isPendingPayment: true,
+        paymentBadgeText: "Pending payment",
+      };
+    }
+
     return NO_PAYMENT;
   }
 

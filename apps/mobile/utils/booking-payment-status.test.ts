@@ -201,6 +201,73 @@ describe("getBookingPaymentStatus", () => {
     expect(result.isPendingPayment).toBe(false);
     expect(result.paymentBadgeText).toBeNull();
   });
+
+  // -- Weak inference from eventType metadata (no payment rows) ----------
+  it("infers Pending payment from eventType.price + stripe ON_BOOKING metadata when payment[] is missing", () => {
+    const result = getBookingPaymentStatus(
+      makeBooking({
+        paid: false,
+        eventType: {
+          id: 1,
+          title: "Paid Event",
+          slug: "paid",
+          price: 5000,
+          metadata: { apps: { stripe: { paymentOption: "ON_BOOKING" } } },
+        },
+      })
+    );
+    expect(result.isPendingPayment).toBe(true);
+    expect(result.paymentBadgeText).toBe("Pending payment");
+  });
+
+  it("does not infer Pending payment when paid is true despite metadata", () => {
+    const result = getBookingPaymentStatus(
+      makeBooking({
+        paid: true,
+        eventType: {
+          id: 1,
+          title: "Paid Event",
+          slug: "paid",
+          price: 5000,
+          metadata: { apps: { stripe: { paymentOption: "ON_BOOKING" } } },
+        },
+      })
+    );
+    expect(result.isPendingPayment).toBe(false);
+  });
+
+  it("does not infer Pending payment when stripe paymentOption is not ON_BOOKING", () => {
+    const result = getBookingPaymentStatus(
+      makeBooking({
+        paid: false,
+        eventType: {
+          id: 1,
+          title: "Paid Event",
+          slug: "paid",
+          price: 5000,
+          metadata: { apps: { stripe: { paymentOption: "HOLD" } } },
+        },
+      })
+    );
+    expect(result.isPendingPayment).toBe(false);
+  });
+
+  it("does not infer Pending payment for cancelled booking even with metadata", () => {
+    const result = getBookingPaymentStatus(
+      makeBooking({
+        status: "cancelled",
+        paid: false,
+        eventType: {
+          id: 1,
+          title: "Paid Event",
+          slug: "paid",
+          price: 5000,
+          metadata: { apps: { stripe: { paymentOption: "ON_BOOKING" } } },
+        },
+      })
+    );
+    expect(result.isPendingPayment).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -219,17 +286,22 @@ describe("recurringGroupHasPendingPayment", () => {
     expect(recurringGroupHasPendingPayment(bookings)).toBe(false);
   });
 
-  it("returns true when at least one booking has pending payment", () => {
+  it("returns true when the single booking has pending payment", () => {
     const bookings = [
-      makeBooking({ paid: true, payment: [{ success: true, paymentOption: "ON_BOOKING" }] }),
       makeBooking({ paid: false, payment: [{ success: false, paymentOption: "ON_BOOKING" }] }),
     ];
     expect(recurringGroupHasPendingPayment(bookings)).toBe(true);
   });
 
-  it("returns false when unpaid booking is cancelled", () => {
+  it("returns false when the single booking is paid", () => {
     const bookings = [
       makeBooking({ paid: true, payment: [{ success: true, paymentOption: "ON_BOOKING" }] }),
+    ];
+    expect(recurringGroupHasPendingPayment(bookings)).toBe(false);
+  });
+
+  it("returns false when the single booking is cancelled", () => {
+    const bookings = [
       makeBooking({
         status: "cancelled",
         paid: false,
