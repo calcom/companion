@@ -21,6 +21,8 @@
   },
   "dependencies": {
     "@bacons/apple-targets": "^3.0.7",
+    "@daily-co/react-native-daily-js": "^0.84.1",
+    "@daily-co/react-native-webrtc": "124.0.6-daily.1",
     "@expo/ui": "0.2.0-canary-20251230-fc48ddc",
     "@expo/vector-icons": "15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -61,8 +63,10 @@
     "react-dom": "19.2.4",
     "react-native": "0.83.1",
     "react-native-android-widget": "^0.20.1",
+    "react-native-background-timer": "^2.4.1",
     "react-native-css-interop": "0.2.1",
     "react-native-gesture-handler": "2.28.0",
+    "react-native-get-random-values": "^2.0.0",
     "react-native-reanimated": "4.2.0",
     "react-native-safe-area-context": "5.6.2",
     "react-native-screens": "4.19.0",
@@ -75,6 +79,7 @@
   },
   "devDependencies": {
     "@babel/plugin-transform-react-jsx": "^7.28.6",
+    "@daily-co/config-plugin-rn-daily-js": "^0.0.11",
     "@types/chrome": "0.1.31",
     "@types/node": "22.19.6",
     "@types/react": "19.2.10",

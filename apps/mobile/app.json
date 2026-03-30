@@ -20,7 +20,9 @@
       "bundleIdentifier": "com.cal.companion",
       "userInterfaceStyle": "automatic",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Cal.com needs access to your camera to join video calls",
+        "NSMicrophoneUsageDescription": "Cal.com needs access to your microphone to join video calls"
       },
       "entitlements": {
         "com.apple.developer.default-data-protection": "NSFileProtectionComplete",
@@ -125,6 +127,7 @@
           }
         }
       ],
+      "@daily-co/config-plugin-rn-daily-js",
       "@bacons/apple-targets",
       [
         "react-native-android-widget",

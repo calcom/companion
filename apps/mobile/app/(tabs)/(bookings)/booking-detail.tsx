@@ -20,6 +20,7 @@ import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts"
 import { getMeetingUrl } from "@/utils/booking";
 import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
 import { openInDefaultBrowser } from "@/utils/browser";
+import { getDailyRoomUrl, isCalVideoUrl } from "@/utils/cal-video";
 
 // Empty actions result for when no booking is loaded
 const EMPTY_ACTIONS: BookingActionsResult = {
@@ -263,10 +264,18 @@ export default function BookingDetail() {
   const meetingUrl = useMemo(() => getMeetingUrl(booking ?? null), [booking]);
 
   const handleJoinMeeting = useCallback(() => {
-    if (meetingUrl) {
-      openInDefaultBrowser(meetingUrl, "meeting link");
+    if (!meetingUrl) return;
+
+    if (isCalVideoUrl(meetingUrl)) {
+      const dailyUrl = getDailyRoomUrl(meetingUrl);
+      if (dailyUrl) {
+        router.push({ pathname: "/video-call", params: { url: dailyUrl } });
+        return;
+      }
     }
-  }, [meetingUrl]);
+
+    openInDefaultBrowser(meetingUrl, "meeting link");
+  }, [meetingUrl, router]);
 
   const handleCopyMeetingLink = useCallback(async () => {
     if (meetingUrl) {

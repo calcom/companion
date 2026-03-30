@@ -1,6 +1,6 @@
 import * as Clipboard from "expo-clipboard";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef } from "react";
 import { useColorScheme } from "react-native";
 import { BookingDetailScreen } from "@/components/screens/BookingDetailScreen";
@@ -10,6 +10,7 @@ import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts"
 import { getMeetingUrl } from "@/utils/booking";
 import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
 import { openInDefaultBrowser } from "@/utils/browser";
+import { getDailyRoomUrl, isCalVideoUrl } from "@/utils/cal-video";
 
 // Empty actions result for when no booking is loaded
 const EMPTY_ACTIONS: BookingActionsResult = {
@@ -44,6 +45,7 @@ const getMonthName = (dateString: string | undefined): string => {
 
 export default function BookingDetailIOS() {
   const { uid } = useLocalSearchParams<{ uid: string }>();
+  const router = useRouter();
   const { userInfo } = useAuth();
   const colorScheme = useColorScheme();
 
@@ -69,10 +71,18 @@ export default function BookingDetailIOS() {
 
   // Handle join meeting
   const handleJoinMeeting = useCallback(() => {
-    if (meetingUrl) {
-      openInDefaultBrowser(meetingUrl, "meeting link");
+    if (!meetingUrl) return;
+
+    if (isCalVideoUrl(meetingUrl)) {
+      const dailyUrl = getDailyRoomUrl(meetingUrl);
+      if (dailyUrl) {
+        router.push({ pathname: "/video-call", params: { url: dailyUrl } });
+        return;
+      }
     }
-  }, [meetingUrl]);
+
+    openInDefaultBrowser(meetingUrl, "meeting link");
+  }, [meetingUrl, router]);
 
   // Handle copy meeting link
   const handleCopyMeetingLink = useCallback(async () => {

@@ -380,6 +380,14 @@ function RootLayoutContent() {
         }}
       />
       <Stack.Screen
+        name="video-call"
+        options={{
+          headerShown: false,
+          presentation: "fullScreenModal",
+          animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen
         name="edit-availability-override"
         options={{
           headerShown: true,

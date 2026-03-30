@@ -46,6 +46,7 @@ import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts"
 import { getMeetingUrl } from "@/utils/booking";
 import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
 import { openInAppBrowser } from "@/utils/browser";
+import { getDailyRoomUrl, isCalVideoUrl } from "@/utils/cal-video";
 
 const CopyButton = ({
   text,
@@ -360,10 +361,18 @@ export function BookingDetailScreen({
   const meetingUrl = useMemo(() => getMeetingUrl(booking ?? null), [booking]);
 
   const handleJoinMeeting = useCallback(() => {
-    if (meetingUrl) {
-      openInAppBrowser(meetingUrl, "meeting link");
+    if (!meetingUrl) return;
+
+    if (isCalVideoUrl(meetingUrl)) {
+      const dailyUrl = getDailyRoomUrl(meetingUrl);
+      if (dailyUrl) {
+        router.push({ pathname: "/video-call", params: { url: dailyUrl } });
+        return;
+      }
     }
-  }, [meetingUrl]);
+
+    openInAppBrowser(meetingUrl, "meeting link");
+  }, [meetingUrl, router]);
 
   // Expose action handlers to parent component (for iOS header menu)
   useEffect(() => {
