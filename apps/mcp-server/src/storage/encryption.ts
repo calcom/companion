@@ -30,7 +30,6 @@ export function encrypt(plaintext: string): string {
   const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
 
-  // Pack: iv + encrypted + tag
   return Buffer.concat([iv, encrypted, tag]).toString("base64");
 }
 

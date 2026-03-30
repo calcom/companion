@@ -50,14 +50,11 @@ export function startHttpServer(
 ): void {
   const { port, oauthConfig } = config;
 
-  // Initialize SQLite database
   getDb();
 
-  // In-process rate limiter for OAuth endpoints (configurable via env vars)
   const rateLimiter = createRateLimiterFromEnv();
   rateLimiter.startGc();
 
-  // Periodically clean up expired tokens (every 5 minutes)
   const cleanupInterval = setInterval(() => {
     try {
       cleanupExpired();
@@ -66,7 +63,6 @@ export function startHttpServer(
     }
   }, 5 * 60 * 1000);
 
-  // Map of sessionId -> { transport, server, calAuthHeaders }
   const sessions = new Map<
     string,
     {
@@ -134,7 +130,6 @@ export function startHttpServer(
 
     // ── MCP endpoint (requires Bearer token) ──
     if (url.pathname === "/mcp") {
-      // Handle DELETE — terminate session
       if (req.method === "DELETE") {
         const sessionId = req.headers["mcp-session-id"] as string | undefined;
         const session = sessionId ? sessions.get(sessionId) : undefined;
@@ -150,7 +145,6 @@ export function startHttpServer(
         return;
       }
 
-      // Extract and validate Bearer token
       const authHeader = req.headers.authorization;
       const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
 
@@ -163,7 +157,6 @@ export function startHttpServer(
         return;
       }
 
-      // For GET and POST, check if there's an existing session
       const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
       const existingSession = sessionId ? sessions.get(sessionId) : undefined;
@@ -180,7 +173,6 @@ export function startHttpServer(
           res.end(JSON.stringify({ error: "invalid_token", error_description: "Cal.com token expired and could not be refreshed" }));
           return;
         }
-        // Update cached headers so subsequent requests benefit from refreshed tokens
         existingSession.calAuthHeaders = freshHeaders;
 
         await authContext.run(freshHeaders, async () => {
@@ -195,9 +187,7 @@ export function startHttpServer(
         return;
       }
 
-      // No session ID — this should be an initialization request (POST)
       if (req.method === "POST") {
-        // Resolve Cal.com auth headers from Bearer token
         const calAuthHeaders = await resolveCalAuthHeaders(bearerToken, oauthConfig);
         if (!calAuthHeaders) {
           res.writeHead(401, {
@@ -219,7 +209,6 @@ export function startHttpServer(
 
         registerTools(server);
 
-        // Clean up session on transport close
         transport.onclose = () => {
           const sid = transport.sessionId;
           if (sid) {
@@ -237,7 +226,6 @@ export function startHttpServer(
           await transport.handleRequest(req, res);
         });
 
-        // Store session after handleRequest (sessionId is now set)
         const newSessionId = transport.sessionId;
         if (newSessionId) {
           sessions.set(newSessionId, { transport, server, calAuthHeaders });
@@ -246,13 +234,11 @@ export function startHttpServer(
         return;
       }
 
-      // GET without session ID is invalid
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Missing mcp-session-id header" }));
       return;
     }
 
-    // ── Not found ──
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
   });
@@ -263,7 +249,6 @@ export function startHttpServer(
     console.error(`[mcp-server] Health check: http://localhost:${port}/health`);
   });
 
-  // Graceful shutdown
   const shutdown = async () => {
     console.error("[mcp-server] Shutting down...");
     clearInterval(cleanupInterval);

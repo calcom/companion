@@ -69,7 +69,6 @@ export class RateLimiter {
       this.buckets.set(key, bucket);
     }
 
-    // Refill tokens based on elapsed time
     const elapsed = now - bucket.lastRefill;
     const refillRate = this.max / this.windowMs; // tokens per ms
     const refill = elapsed * refillRate;

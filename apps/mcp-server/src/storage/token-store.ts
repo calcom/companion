@@ -148,7 +148,6 @@ export function consumeAuthCode(code: string): AuthCode | undefined {
   } | undefined;
   if (!row) return undefined;
 
-  // Mark as used
   db.prepare("UPDATE auth_codes SET used = 1 WHERE code = ?").run(code);
 
   return {

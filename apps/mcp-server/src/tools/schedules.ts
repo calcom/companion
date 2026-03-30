@@ -110,8 +110,6 @@ export async function deleteSchedule(params: { scheduleId: number }) {
   }
 }
 
-// ── New tools (generated) ──
-
 export const getDefaultScheduleSchema = {};
 
 export async function getDefaultSchedule() {

@@ -13,7 +13,6 @@ async function main(): Promise<void> {
   console.error(`[mcp-server] Starting Cal.com MCP server (transport: ${transport})`);
 
   if (transport === "http") {
-    // HTTP mode uses OAuth 2.1 — validate required OAuth env vars
     const calOAuthClientId = process.env.CAL_OAUTH_CLIENT_ID;
     const calOAuthClientSecret = process.env.CAL_OAUTH_CLIENT_SECRET;
     const tokenEncryptionKey = process.env.TOKEN_ENCRYPTION_KEY;
@@ -40,7 +39,6 @@ async function main(): Promise<void> {
       },
     });
   } else {
-    // stdio mode uses API key auth
     getApiKeyHeaders();
 
     const server = new McpServer({

@@ -99,7 +99,6 @@ export function handleAuthorize(
   const codeChallengeMethod = url.searchParams.get("code_challenge_method");
   const clientState = url.searchParams.get("state");
 
-  // Validate required params
   if (responseType !== "code") {
     jsonResponse(res, 400, { error: "unsupported_response_type" });
     return;
@@ -116,7 +115,6 @@ export function handleAuthorize(
     return;
   }
 
-  // Validate client registration
   const client = getRegisteredClient(clientId);
   if (!client) {
     jsonResponse(res, 400, { error: "invalid_client", error_description: "Unknown client_id" });
@@ -127,7 +125,6 @@ export function handleAuthorize(
     return;
   }
 
-  // Generate internal state for Cal.com
   const internalState = generateState();
 
   // Only use PKCE for the Cal.com leg when we don't have a client_secret
@@ -137,7 +134,6 @@ export function handleAuthorize(
   const calCodeVerifier = useCalPkce ? generateCodeVerifier() : undefined;
   const calCodeChallenge = calCodeVerifier ? generateCodeChallenge(calCodeVerifier) : undefined;
 
-  // Store pending auth
   createPendingAuth({
     state: internalState,
     clientId,
@@ -147,8 +143,7 @@ export function handleAuthorize(
     calCodeVerifier,
   });
 
-  // Redirect to Cal.com authorize
-  // Cal.com's OAuth2 authorize endpoint is on app.cal.com, not on the API base URL
+  // Cal.com's authorize endpoint is on app.cal.com, not on the API base URL
   const calAppBaseUrl = config.calAppBaseUrl ?? "https://app.cal.com";
   const calAuthUrl = new URL("/auth/oauth2/authorize", calAppBaseUrl);
   calAuthUrl.searchParams.set("client_id", config.calOAuthClientId);
@@ -190,14 +185,12 @@ export async function handleCallback(
     return;
   }
 
-  // Look up pending auth
   const pending = getPendingAuth(state);
   if (!pending) {
     jsonResponse(res, 400, { error: "invalid_request", error_description: "Unknown or expired state parameter" });
     return;
   }
 
-  // Exchange code with Cal.com (RFC 6749-compliant token endpoint)
   // Send either client_secret (confidential) or code_verifier (public PKCE), not both.
   // Cal.com's validator uses forbidNonWhitelisted and rejects mixed requests.
   const exchangeUrl = `${config.calApiBaseUrl}/v2/auth/oauth2/token`;
@@ -226,7 +219,6 @@ export async function handleCallback(
     return;
   }
 
-  // Cal.com returns RFC 6749-compliant response: { access_token, refresh_token, expires_in, token_type, scope }
   const tokens = (await exchangeRes.json()) as {
     access_token: string;
     refresh_token: string;
@@ -239,7 +231,6 @@ export async function handleCallback(
   const calRefreshToken = tokens.refresh_token;
   const calTokenExpiresAt = Math.floor(Date.now() / 1000) + (tokens.expires_in ?? 3600);
 
-  // Create auth code for the MCP client
   const authCode = createAuthCode({
     clientId: pending.clientId,
     redirectUri: pending.clientRedirectUri,
@@ -249,10 +240,8 @@ export async function handleCallback(
     calTokenExpiresAt,
   });
 
-  // Clean up pending auth
   deletePendingAuth(state);
 
-  // Redirect back to MCP client
   const clientRedirect = new URL(pending.clientRedirectUri);
   clientRedirect.searchParams.set("code", authCode);
   clientRedirect.searchParams.set("state", pending.clientState);
@@ -301,26 +290,22 @@ function handleAuthorizationCodeGrant(params: URLSearchParams, res: ServerRespon
     return;
   }
 
-  // Consume the auth code (single-use)
   const authCode = consumeAuthCode(code);
   if (!authCode) {
     jsonResponse(res, 400, { error: "invalid_grant", error_description: "Invalid, expired, or already-used authorization code" });
     return;
   }
 
-  // Validate client_id and redirect_uri match
   if (authCode.clientId !== clientId || authCode.redirectUri !== redirectUri) {
     jsonResponse(res, 400, { error: "invalid_grant", error_description: "client_id or redirect_uri mismatch" });
     return;
   }
 
-  // Verify PKCE
   if (!verifyCodeChallenge(codeVerifier, authCode.codeChallenge)) {
     jsonResponse(res, 400, { error: "invalid_grant", error_description: "PKCE code_verifier verification failed" });
     return;
   }
 
-  // Issue access token
   const result = createAccessToken({
     clientId: authCode.clientId,
     calAccessToken: authCode.calAccessToken,
@@ -376,7 +361,6 @@ export async function handleRevoke(
     deleteAccessToken(token);
   }
 
-  // Per RFC 7009, always return 200 even if token not found
   jsonResponse(res, 200, {});
 }
 
@@ -391,7 +375,6 @@ export async function refreshCalTokens(
   calRefreshToken: string,
   config: OAuthConfig,
 ): Promise<{ calAccessToken: string; calRefreshToken: string; calTokenExpiresAt: number } | undefined> {
-  // Cal.com uses the same RFC 6749-compliant token endpoint for refresh
   const refreshUrl = `${config.calApiBaseUrl}/v2/auth/oauth2/token`;
 
   const refreshRes = await fetch(refreshUrl, {
@@ -410,7 +393,6 @@ export async function refreshCalTokens(
     return undefined;
   }
 
-  // Cal.com returns RFC 6749-compliant response
   const data = (await refreshRes.json()) as {
     access_token: string;
     refresh_token: string;
@@ -425,7 +407,6 @@ export async function refreshCalTokens(
   const newCalRefreshToken = data.refresh_token;
   const newCalTokenExpiresAt = Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600);
 
-  // Update the DB
   updateCalTokens(accessTokenValue, newCalAccessToken, newCalRefreshToken, newCalTokenExpiresAt);
 
   return {
@@ -450,7 +431,6 @@ export async function resolveCalAuthHeaders(
   let { calAccessToken } = record;
   const now = Math.floor(Date.now() / 1000);
 
-  // Auto-refresh Cal.com token if expired or about to expire (60s buffer)
   if (now >= record.calTokenExpiresAt - 60) {
     const refreshed = await refreshCalTokens(bearerToken, record.calRefreshToken, config);
     if (!refreshed) return undefined;

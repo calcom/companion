@@ -12,13 +12,10 @@ export function getDb(): Database.Database {
   const dbPath = process.env.DATABASE_PATH || "mcp-server.db";
   db = new Database(dbPath);
 
-  // Enable WAL mode for better concurrency
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
 
-  // Create tables
   db.exec(`
-    -- Dynamically registered MCP OAuth clients
     CREATE TABLE IF NOT EXISTS registered_clients (
       client_id TEXT PRIMARY KEY,
       redirect_uris TEXT NOT NULL,
@@ -26,7 +23,6 @@ export function getDb(): Database.Database {
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
 
-    -- In-progress authorization flows (Cal.com redirect pending)
     CREATE TABLE IF NOT EXISTS pending_auths (
       state TEXT PRIMARY KEY,
       client_id TEXT NOT NULL,
@@ -38,7 +34,6 @@ export function getDb(): Database.Database {
       expires_at INTEGER NOT NULL
     );
 
-    -- Authorization codes issued to MCP clients (after Cal.com callback)
     CREATE TABLE IF NOT EXISTS auth_codes (
       code TEXT PRIMARY KEY,
       client_id TEXT NOT NULL,
@@ -52,7 +47,6 @@ export function getDb(): Database.Database {
       used INTEGER NOT NULL DEFAULT 0
     );
 
-    -- Issued MCP server access tokens (mapped to Cal.com credentials)
     CREATE TABLE IF NOT EXISTS access_tokens (
       token TEXT PRIMARY KEY,
       refresh_token TEXT NOT NULL UNIQUE,
