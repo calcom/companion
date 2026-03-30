@@ -12,6 +12,25 @@ export interface BookingPaymentStatus {
   paymentBadgeText: string | null;
 }
 
+function getOnBookingPaymentOption(booking: Booking): string | null {
+  const metadata = booking.eventType?.metadata;
+  if (!metadata || typeof metadata !== "object") return null;
+
+  const apps = (metadata as { apps?: Record<string, unknown> }).apps;
+  if (!apps || typeof apps !== "object") return null;
+
+  for (const appConfig of Object.values(apps)) {
+    if (!appConfig || typeof appConfig !== "object") continue;
+
+    const paymentOption = (appConfig as { paymentOption?: unknown }).paymentOption;
+    if (typeof paymentOption === "string") {
+      return paymentOption;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Derives the payment UI state from a raw booking payload.
  *
@@ -26,7 +45,9 @@ export interface BookingPaymentStatus {
  *      for terminal states)
  *   5. No payment row is refunded (refunds are not "pending")
  * - Cancelled/rejected bookings never show a payment badge.
- * - Free events (no payment rows and price absent/0) never show a badge.
+ * - If `payment[]` is absent, fall back to event type payment config only when
+ *   the booking is still pending, the event type is paid, and the payment
+ *   option is explicitly `ON_BOOKING`.
  */
 export function getBookingPaymentStatus(booking: Booking): BookingPaymentStatus {
   const NO_PAYMENT: BookingPaymentStatus = {
@@ -43,8 +64,20 @@ export function getBookingPaymentStatus(booking: Booking): BookingPaymentStatus 
 
   const payments = booking.payment;
 
-  // No payment rows -> no payment badge
+  // No payment rows -> fall back to explicit event type payment config if available
   if (!payments || payments.length === 0) {
+    const status = booking.status?.toLowerCase();
+    const paymentOption = getOnBookingPaymentOption(booking);
+    const isPaidEvent = (booking.eventType?.price ?? 0) > 0;
+
+    if (status === "pending" && booking.paid !== true && isPaidEvent && paymentOption === "ON_BOOKING") {
+      return {
+        isPaymentCompleted: false,
+        isPendingPayment: true,
+        paymentBadgeText: "Pending payment",
+      };
+    }
+
     return NO_PAYMENT;
   }
 

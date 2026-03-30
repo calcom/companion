@@ -12,16 +12,10 @@ export interface Booking {
   eventTypeId?: number;
   eventType?: {
     id: number;
-    title: string;
+    title?: string;
     slug: string;
     price?: number;
-    metadata?: {
-      apps?: {
-        stripe?: {
-          paymentOption?: string;
-        };
-      };
-    };
+    metadata?: Record<string, unknown>;
   };
   hosts?: Array<{
     id?: number | string;
