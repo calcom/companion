@@ -24,11 +24,19 @@ export function TimeAndDateRow({ formattedDate, formattedTimeRange }: TimeAndDat
 
 interface BadgesRowProps {
   isPending: boolean;
+  isPendingPayment?: boolean;
 }
 
-export function BadgesRow({ isPending }: BadgesRowProps) {
+export function BadgesRow({ isPending, isPendingPayment }: BadgesRowProps) {
+  if (!isPending && !isPendingPayment) return null;
+
   return (
     <View className="mb-3 flex-row flex-wrap items-center">
+      {isPendingPayment ? (
+        <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
+          <Text className="text-xs font-medium text-white">Pending payment</Text>
+        </View>
+      ) : null}
       {isPending ? (
         <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
           <Text className="text-xs font-medium text-white">Unconfirmed</Text>

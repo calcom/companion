@@ -96,9 +96,13 @@ export interface NormalizedBooking {
     };
   }>;
   payment?: Array<{
-    id: number;
+    id?: number;
     success: boolean;
     paymentOption: string;
+    amount?: number;
+    currency?: string;
+    appId?: string;
+    refunded?: boolean;
   }>;
 }
 
@@ -133,7 +137,7 @@ export function normalizeBooking(booking: Booking): NormalizedBooking {
     rescheduled: booking.rescheduled,
     fromReschedule: booking.fromReschedule,
     recurringEventId: booking.recurringEventId,
-    eventTypeId: booking.eventTypeId,
+    eventTypeId: booking.eventTypeId ?? booking.eventType?.id,
     user: booking.user,
     hosts: booking.hosts,
     attendees: booking.attendees,

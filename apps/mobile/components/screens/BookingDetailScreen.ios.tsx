@@ -16,6 +16,7 @@ import { AppPressable } from "@/components/AppPressable";
 import { useCancelBooking } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
+import { getBookingPaymentStatus } from "@/utils/booking-payment-status";
 
 const CopyButton = ({
   text,
@@ -356,6 +357,8 @@ export function BookingDetailScreen({
   const isPastBooking = new Date(endTime) < new Date();
 
   const normalizedStatus = booking.status.toLowerCase();
+  const { isPendingPayment } = getBookingPaymentStatus(booking);
+  const isUnconfirmed = normalizedStatus === "pending";
 
   const getAttendeeStatusIcon = (attendee: { noShow?: boolean; absent?: boolean }) => {
     const isNoShow = attendee.noShow || attendee.absent;
@@ -455,6 +458,22 @@ export function BookingDetailScreen({
               Repeats weekly
             </Text>
           )}
+
+          {/* Payment and Confirmation Status Badges */}
+          {(isPendingPayment || isUnconfirmed) ? (
+            <View className="mt-3 flex-row flex-wrap items-center">
+              {isPendingPayment ? (
+                <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
+                  <Text className="text-xs font-medium text-white">Pending payment</Text>
+                </View>
+              ) : null}
+              {isUnconfirmed ? (
+                <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
+                  <Text className="text-xs font-medium text-white">Unconfirmed</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </View>
 
         {/* Participants Card - iOS Calendar Style (Expandable) */}

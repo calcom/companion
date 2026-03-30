@@ -1,4 +1,5 @@
 import type { Booking } from "@/services/calcom";
+import { getBookingPaymentStatus } from "@/utils/booking-payment-status";
 import { formatDate, formatTime, getHostAndAttendeesDisplay } from "@/utils/bookings-utils";
 import { getMeetingInfo } from "@/utils/meetings-utils";
 
@@ -7,6 +8,7 @@ export interface BookingListItemData {
   endTime: string;
   isUpcoming: boolean;
   isPending: boolean;
+  isPendingPayment: boolean;
   isCancelled: boolean;
   isRejected: boolean;
   hostAndAttendeesDisplay: string | null;
@@ -31,6 +33,8 @@ export function useBookingListItemData(booking: Booking, userEmail?: string): Bo
   const hostAndAttendeesDisplay = getHostAndAttendeesDisplay(booking, userEmail);
   const meetingInfo = getMeetingInfo(booking.location);
 
+  const { isPendingPayment } = getBookingPaymentStatus(booking);
+
   const hasNoShowAttendee =
     booking.attendees?.some(
       (att: { noShow?: boolean; absent?: boolean }) => att.noShow === true || att.absent === true
@@ -44,6 +48,7 @@ export function useBookingListItemData(booking: Booking, userEmail?: string): Bo
     endTime,
     isUpcoming,
     isPending,
+    isPendingPayment,
     isCancelled,
     isRejected,
     hostAndAttendeesDisplay,
