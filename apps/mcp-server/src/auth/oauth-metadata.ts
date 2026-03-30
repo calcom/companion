@@ -13,7 +13,7 @@ export interface OAuthServerConfig {
  * Returned at GET /.well-known/oauth-authorization-server
  */
 export function buildAuthorizationServerMetadata(config: OAuthServerConfig): Record<string, unknown> {
-  const { serverUrl } = config;
+  const serverUrl = config.serverUrl.replace(/\/+$/, "");
   return {
     issuer: serverUrl,
     authorization_endpoint: `${serverUrl}/oauth/authorize`,
@@ -32,7 +32,7 @@ export function buildAuthorizationServerMetadata(config: OAuthServerConfig): Rec
  * Returned at GET /.well-known/oauth-protected-resource
  */
 export function buildProtectedResourceMetadata(config: OAuthServerConfig): Record<string, unknown> {
-  const { serverUrl } = config;
+  const serverUrl = config.serverUrl.replace(/\/+$/, "");
   return {
     resource: serverUrl,
     authorization_servers: [serverUrl],

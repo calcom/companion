@@ -130,6 +130,18 @@ export function startHttpServer(
 
     // ── MCP endpoint (requires Bearer token) ──
     if (url.pathname === "/mcp") {
+      const authHeader = req.headers.authorization;
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+
+      if (!bearerToken) {
+        res.writeHead(401, {
+          "Content-Type": "application/json",
+          "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
+        });
+        res.end(JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" }));
+        return;
+      }
+
       if (req.method === "DELETE") {
         const sessionId = req.headers["mcp-session-id"] as string | undefined;
         const session = sessionId ? sessions.get(sessionId) : undefined;
@@ -142,18 +154,6 @@ export function startHttpServer(
           res.writeHead(404, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Session not found" }));
         }
-        return;
-      }
-
-      const authHeader = req.headers.authorization;
-      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
-
-      if (!bearerToken) {
-        res.writeHead(401, {
-          "Content-Type": "application/json",
-          "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
-        });
-        res.end(JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" }));
         return;
       }
 

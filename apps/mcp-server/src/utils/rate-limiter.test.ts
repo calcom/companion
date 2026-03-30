@@ -88,12 +88,26 @@ describe("RateLimiter", () => {
 });
 
 describe("getClientIp", () => {
-  it("extracts IP from X-Forwarded-For header", () => {
+  it("extracts IP from X-Forwarded-For header when TRUST_PROXY is enabled", () => {
+    process.env.TRUST_PROXY = "true";
+    try {
+      const req = {
+        headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" },
+        socket: { remoteAddress: "127.0.0.1" },
+      } as unknown as IncomingMessage;
+      expect(getClientIp(req)).toBe("1.2.3.4");
+    } finally {
+      delete process.env.TRUST_PROXY;
+    }
+  });
+
+  it("ignores X-Forwarded-For when TRUST_PROXY is not set", () => {
+    delete process.env.TRUST_PROXY;
     const req = {
       headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" },
       socket: { remoteAddress: "127.0.0.1" },
     } as unknown as IncomingMessage;
-    expect(getClientIp(req)).toBe("1.2.3.4");
+    expect(getClientIp(req)).toBe("127.0.0.1");
   });
 
   it("falls back to socket remoteAddress", () => {

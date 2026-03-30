@@ -101,13 +101,17 @@ export class RateLimiter {
 
 /**
  * Extract the client IP from the request.
- * Respects `X-Forwarded-For` (first entry) when behind a reverse proxy.
+ * Only trusts `X-Forwarded-For` when `TRUST_PROXY` env var is set to "1" or "true",
+ * preventing IP spoofing when not behind a trusted reverse proxy.
  */
 export function getClientIp(req: IncomingMessage): string {
-  const xff = req.headers["x-forwarded-for"];
-  if (typeof xff === "string") {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
+  const trustProxy = process.env.TRUST_PROXY === "1" || process.env.TRUST_PROXY === "true";
+  if (trustProxy) {
+    const xff = req.headers["x-forwarded-for"];
+    if (typeof xff === "string") {
+      const first = xff.split(",")[0]?.trim();
+      if (first) return first;
+    }
   }
   return req.socket.remoteAddress ?? "unknown";
 }

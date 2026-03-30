@@ -192,7 +192,7 @@ export const addBookingAttendeeSchema = {
   timeZone: z.string().describe("The time zone of the attendee."),
   phoneNumber: z.string().describe("The phone number of the attendee in international format.").optional(),
   language: z.enum(["ar", "ca", "de", "es", "eu", "he", "id", "ja", "lv", "pl", "ro", "sr", "th", "vi", "az", "cs", "el", "es-419", "fi", "hr", "it", "km", "nl", "pt", "ru", "sv", "tr", "zh-CN", "bg", "da", "en", "et", "fr", "hu", "iw", "ko", "no", "pt-BR", "sk", "ta", "uk", "zh-TW", "bn"]).describe("The preferred language of the attendee. Used for booking confirmation.").optional(),
-  email: z.string().describe("The email of the attendee."),
+  email: z.string().email().describe("The email of the attendee."),
 };
 
 export async function addBookingAttendee(params: {

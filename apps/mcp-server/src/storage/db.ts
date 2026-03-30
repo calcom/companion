@@ -10,12 +10,12 @@ export function getDb(): Database.Database {
   if (db) return db;
 
   const dbPath = process.env.DATABASE_PATH || "mcp-server.db";
-  db = new Database(dbPath);
+  const instance = new Database(dbPath);
 
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
+  instance.pragma("journal_mode = WAL");
+  instance.pragma("foreign_keys = ON");
 
-  db.exec(`
+  instance.exec(`
     CREATE TABLE IF NOT EXISTS registered_clients (
       client_id TEXT PRIMARY KEY,
       redirect_uris TEXT NOT NULL,
@@ -59,6 +59,7 @@ export function getDb(): Database.Database {
     );
   `);
 
+  db = instance;
   return db;
 }
 

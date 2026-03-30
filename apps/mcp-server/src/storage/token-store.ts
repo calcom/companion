@@ -159,7 +159,7 @@ export function consumeAuthCode(code: string): AuthCode | undefined {
     calRefreshToken: decrypt(row.cal_refresh_token_enc),
     calTokenExpiresAt: row.cal_token_expires_at,
     expiresAt: row.expires_at,
-    used: false,
+    used: true,
   };
 }
 
@@ -277,7 +277,16 @@ export function deleteAccessToken(token: string): void {
 }
 
 /**
+ * Delete an access token by its refresh token (for RFC 7009 revocation).
+ */
+export function deleteAccessTokenByRefresh(refreshToken: string): void {
+  const db = getDb();
+  db.prepare("DELETE FROM access_tokens WHERE refresh_token = ?").run(refreshToken);
+}
+
+/**
  * Rotate: delete old token, issue new one with same Cal.com creds.
+ * Wrapped in a transaction so that if createAccessToken fails, the old token is not lost.
  */
 export function rotateAccessToken(oldRefreshToken: string): {
   accessToken: string;
@@ -287,14 +296,18 @@ export function rotateAccessToken(oldRefreshToken: string): {
   const existing = getAccessTokenByRefresh(oldRefreshToken);
   if (!existing) return undefined;
 
-  deleteAccessToken(existing.token);
-
-  return createAccessToken({
-    clientId: existing.clientId,
-    calAccessToken: existing.calAccessToken,
-    calRefreshToken: existing.calRefreshToken,
-    calTokenExpiresAt: existing.calTokenExpiresAt,
+  const db = getDb();
+  const rotate = db.transaction(() => {
+    deleteAccessToken(existing.token);
+    return createAccessToken({
+      clientId: existing.clientId,
+      calAccessToken: existing.calAccessToken,
+      calRefreshToken: existing.calRefreshToken,
+      calTokenExpiresAt: existing.calTokenExpiresAt,
+    });
   });
+
+  return rotate();
 }
 
 // ── Cleanup ──
