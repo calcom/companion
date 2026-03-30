@@ -143,6 +143,15 @@ export function startHttpServer(
       }
 
       if (req.method === "DELETE") {
+        const calAuthHeaders = await resolveCalAuthHeaders(bearerToken, oauthConfig);
+        if (!calAuthHeaders) {
+          res.writeHead(401, {
+            "Content-Type": "application/json",
+            "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
+          });
+          res.end(JSON.stringify({ error: "invalid_token", error_description: "Invalid or expired access token" }));
+          return;
+        }
         const sessionId = req.headers["mcp-session-id"] as string | undefined;
         const session = sessionId ? sessions.get(sessionId) : undefined;
         if (sessionId && session) {
