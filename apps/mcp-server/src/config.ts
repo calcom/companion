@@ -37,9 +37,8 @@ const httpSchema = baseSchema.extend({
   sessionIdleTimeoutMs: z.coerce.number().int().positive().default(30 * 60 * 1000),
   maxRegisteredClients: z.coerce.number().int().positive().default(10_000),
   trustProxy: z
-    .string()
+    .enum(["true", "false", "1", "0"])
     .transform((val) => val === "true" || val === "1")
-    .pipe(z.boolean())
     .default("false"),
   corsOrigin: z.string().optional(),
   fetchTimeoutMs: z.coerce.number().int().positive().default(30_000),
