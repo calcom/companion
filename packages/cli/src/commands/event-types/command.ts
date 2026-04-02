@@ -72,6 +72,7 @@ function registerEventTypeMutationCommands(eventTypesCmd: Command): void {
     .requiredOption("--length <minutes>", "Duration in minutes")
     .option("--description <desc>", "Description")
     .option("--hidden", "Create as hidden")
+    .option("--booking-fields <json>", "Booking fields as JSON array")
     .option("--json", "Output as JSON")
     .action(
       async (options: {
@@ -80,10 +81,20 @@ function registerEventTypeMutationCommands(eventTypesCmd: Command): void {
         length: string;
         description?: string;
         hidden?: boolean;
+        bookingFields?: string;
         json?: boolean;
       }) => {
         await withErrorHandling(async () => {
           await initializeClient();
+
+          let bookingFields: Record<string, unknown>[] | undefined;
+          if (options.bookingFields) {
+            try {
+              bookingFields = JSON.parse(options.bookingFields);
+            } catch {
+              throw new Error("Invalid JSON in --booking-fields");
+            }
+          }
 
           const { data: response } = await createEventType({
             body: {
@@ -92,6 +103,8 @@ function registerEventTypeMutationCommands(eventTypesCmd: Command): void {
               lengthInMinutes: Number(options.length),
               description: options.description,
               hidden: options.hidden,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              bookingFields: bookingFields as any,
             },
             headers: apiVersionHeader(ApiVersion.V2024_06_14),
           });
@@ -109,6 +122,7 @@ function registerEventTypeMutationCommands(eventTypesCmd: Command): void {
     .option("--length <minutes>", "New duration in minutes")
     .option("--description <desc>", "New description")
     .option("--hidden <value>", "Set hidden (true/false)")
+    .option("--booking-fields <json>", "Booking fields as JSON array")
     .option("--json", "Output as JSON")
     .action(
       async (
@@ -119,6 +133,7 @@ function registerEventTypeMutationCommands(eventTypesCmd: Command): void {
           length?: string;
           description?: string;
           hidden?: string;
+          bookingFields?: string;
           json?: boolean;
         }
       ) => {
@@ -131,6 +146,13 @@ function registerEventTypeMutationCommands(eventTypesCmd: Command): void {
           if (options.length) body.lengthInMinutes = Number(options.length);
           if (options.description) body.description = options.description;
           if (options.hidden !== undefined) body.hidden = options.hidden === "true";
+          if (options.bookingFields) {
+            try {
+              body.bookingFields = JSON.parse(options.bookingFields);
+            } catch {
+              throw new Error("Invalid JSON in --booking-fields");
+            }
+          }
 
           const { data: response } = await updateEventType({
             path: { eventTypeId: Number(eventTypeId) },

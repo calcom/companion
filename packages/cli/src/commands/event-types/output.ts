@@ -1,3 +1,4 @@
+import chalk from "chalk";
 import {
   type OutputOptions,
   renderDetail,
@@ -59,6 +60,23 @@ export function renderEventType(data: EventTypeResponse | undefined, { json }: O
     ["Hidden:", data.hidden],
     ["Schedule ID:", data.scheduleId],
   ]);
+
+  // Display custom booking fields (exclude default fields)
+  const bookingFields = (data as Record<string, unknown>).bookingFields as
+    | Array<{ type: string; slug: string; label: string; required?: boolean; isDefault?: boolean }>
+    | undefined;
+  if (bookingFields?.length) {
+    const customFields = bookingFields.filter((f) => !f.isDefault);
+    if (customFields.length > 0) {
+      console.log(chalk.bold("Booking Fields:"));
+      for (const field of customFields) {
+        console.log(
+          `  - ${field.type}: ${field.label} (${field.slug})${field.required ? " *required" : ""}`
+        );
+      }
+      console.log();
+    }
+  }
 }
 
 export function renderEventTypeCreated(
