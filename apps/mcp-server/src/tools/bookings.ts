@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { calApi } from "../utils/api-client.js";
+import { sanitizePathSegment } from "../utils/path-sanitizer.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
 export const getBookingsSchema = {
@@ -34,7 +35,8 @@ export const getBookingSchema = {
 
 export async function getBooking(params: { bookingUid: string }) {
   try {
-    const data = await calApi(`bookings/${params.bookingUid}`);
+    const uid = sanitizePathSegment(params.bookingUid);
+    const data = await calApi(`bookings/${uid}`);
     return ok(data);
   } catch (err) {
     return handleError("get_booking", err);
@@ -89,7 +91,8 @@ export async function rescheduleBooking(params: {
     const body: Record<string, unknown> = {};
     if (params.start) body.start = params.start;
     if (params.rescheduleReason) body.rescheduleReason = params.rescheduleReason;
-    const data = await calApi(`bookings/${params.bookingUid}/reschedule`, { method: "POST", body });
+    const uid = sanitizePathSegment(params.bookingUid);
+    const data = await calApi(`bookings/${uid}/reschedule`, { method: "POST", body });
     return ok(data);
   } catch (err) {
     return handleError("reschedule_booking", err);
@@ -105,7 +108,8 @@ export async function cancelBooking(params: { bookingUid: string; cancellationRe
   try {
     const body: Record<string, unknown> = {};
     if (params.cancellationReason) body.cancellationReason = params.cancellationReason;
-    const data = await calApi(`bookings/${params.bookingUid}/cancel`, { method: "POST", body });
+    const uid = sanitizePathSegment(params.bookingUid);
+    const data = await calApi(`bookings/${uid}/cancel`, { method: "POST", body });
     return ok(data);
   } catch (err) {
     return handleError("cancel_booking", err);
@@ -118,7 +122,8 @@ export const confirmBookingSchema = {
 
 export async function confirmBooking(params: { bookingUid: string }) {
   try {
-    const data = await calApi(`bookings/${params.bookingUid}/confirm`, {
+    const uid = sanitizePathSegment(params.bookingUid);
+    const data = await calApi(`bookings/${uid}/confirm`, {
       method: "POST",
       body: {},
     });
@@ -146,7 +151,8 @@ export async function markBookingAbsent(params: {
     const body: Record<string, unknown> = {};
     if (params.host !== undefined) body.host = params.host;
     if (params.attendees !== undefined) body.attendees = params.attendees;
-    const data = await calApi(`bookings/${params.bookingUid}/mark-absent`, { method: "POST", body });
+    const uid = sanitizePathSegment(params.bookingUid);
+    const data = await calApi(`bookings/${uid}/mark-absent`, { method: "POST", body });
     return ok(data);
   } catch (err) {
     return handleError("mark_booking_absent", err);
@@ -161,7 +167,8 @@ export async function getBookingAttendees(params: {
   bookingUid: string;
 }) {
   try {
-    const data = await calApi(`bookings/${params.bookingUid}/attendees`);
+    const uid = sanitizePathSegment(params.bookingUid);
+    const data = await calApi(`bookings/${uid}/attendees`);
     return ok(data);
   } catch (err) {
     return handleError("get_booking_attendees", err);
@@ -192,7 +199,8 @@ export async function addBookingAttendee(params: {
     if (params.phoneNumber !== undefined) body.phoneNumber = params.phoneNumber;
     if (params.language !== undefined) body.language = params.language;
     body.email = params.email;
-    const data = await calApi(`bookings/${params.bookingUid}/attendees`, { method: "POST", body });
+    const uid = sanitizePathSegment(params.bookingUid);
+    const data = await calApi(`bookings/${uid}/attendees`, { method: "POST", body });
     return ok(data);
   } catch (err) {
     return handleError("add_booking_attendee", err);
@@ -209,7 +217,8 @@ export async function getBookingAttendee(params: {
   attendeeId: number;
 }) {
   try {
-    const data = await calApi(`bookings/${params.bookingUid}/attendees/${params.attendeeId}`);
+    const uid = sanitizePathSegment(params.bookingUid);
+    const data = await calApi(`bookings/${uid}/attendees/${params.attendeeId}`);
     return ok(data);
   } catch (err) {
     return handleError("get_booking_attendee", err);
