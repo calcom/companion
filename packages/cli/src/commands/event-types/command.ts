@@ -103,7 +103,7 @@ function registerEventTypeMutationCommands(eventTypesCmd: Command): void {
               lengthInMinutes: Number(options.length),
               description: options.description,
               hidden: options.hidden,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              // biome-ignore lint/suspicious/noExplicitAny: bookingFields JSON is validated at runtime
               bookingFields: bookingFields as any,
             },
             headers: apiVersionHeader(ApiVersion.V2024_06_14),
