@@ -90,9 +90,13 @@ function registerEventTypeMutationCommands(eventTypesCmd: Command): void {
           let bookingFields: Record<string, unknown>[] | undefined;
           if (options.bookingFields) {
             try {
-              bookingFields = JSON.parse(options.bookingFields);
-            } catch {
-              throw new Error("Invalid JSON in --booking-fields");
+              const parsed = JSON.parse(options.bookingFields);
+              if (!Array.isArray(parsed)) {
+                throw new Error("--booking-fields must be a JSON array");
+              }
+              bookingFields = parsed;
+            } catch (e) {
+              throw e instanceof SyntaxError ? new Error("Invalid JSON in --booking-fields") : e;
             }
           }
 
@@ -148,9 +152,13 @@ function registerEventTypeMutationCommands(eventTypesCmd: Command): void {
           if (options.hidden !== undefined) body.hidden = options.hidden === "true";
           if (options.bookingFields) {
             try {
-              body.bookingFields = JSON.parse(options.bookingFields);
-            } catch {
-              throw new Error("Invalid JSON in --booking-fields");
+              const parsed = JSON.parse(options.bookingFields);
+              if (!Array.isArray(parsed)) {
+                throw new Error("--booking-fields must be a JSON array");
+              }
+              body.bookingFields = parsed;
+            } catch (e) {
+              throw e instanceof SyntaxError ? new Error("Invalid JSON in --booking-fields") : e;
             }
           }
 
