@@ -36,7 +36,11 @@ const httpSchema = baseSchema.extend({
   maxSessions: z.coerce.number().int().positive().default(10_000),
   sessionIdleTimeoutMs: z.coerce.number().int().positive().default(30 * 60 * 1000),
   maxRegisteredClients: z.coerce.number().int().positive().default(10_000),
-  trustProxy: z.coerce.boolean().default(false),
+  trustProxy: z
+    .string()
+    .transform((val) => val === "true" || val === "1")
+    .pipe(z.boolean())
+    .default("false"),
   corsOrigin: z.string().optional(),
   fetchTimeoutMs: z.coerce.number().int().positive().default(30_000),
   tokenFetchTimeoutMs: z.coerce.number().int().positive().default(10_000),

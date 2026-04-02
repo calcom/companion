@@ -16,8 +16,8 @@ function getRetryConfig(): { maxAttempts: number; baseDelayMs: number } {
   const envAttempts = process.env.RETRY_MAX_ATTEMPTS;
   const envDelay = process.env.RETRY_BASE_DELAY_MS;
   return {
-    maxAttempts: envAttempts !== undefined ? Number(envAttempts) : 2,
-    baseDelayMs: envDelay !== undefined ? Number(envDelay) : 500,
+    maxAttempts: envAttempts !== undefined && Number.isFinite(Number(envAttempts)) ? Number(envAttempts) : 2,
+    baseDelayMs: envDelay !== undefined && Number.isFinite(Number(envDelay)) ? Number(envDelay) : 500,
   };
 }
 

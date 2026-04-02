@@ -250,7 +250,6 @@ export function startHttpServer(
 
       const existingSession = sessionId ? sessions.get(sessionId) : undefined;
       if (sessionId && existingSession) {
-        existingSession.lastActivityAt = Date.now();
         const freshHeaders = bearerToken ? await resolveCalAuthHeaders(bearerToken, oauthConfig) : undefined;
         if (!freshHeaders) {
           res.writeHead(401, {
@@ -260,6 +259,7 @@ export function startHttpServer(
           res.end(JSON.stringify({ error: "invalid_token", error_description: "Cal.com token expired and could not be refreshed" }));
           return;
         }
+        existingSession.lastActivityAt = Date.now();
         existingSession.calAuthHeaders = freshHeaders;
 
         await withLogContext({ requestId, sessionId }, async () => {
