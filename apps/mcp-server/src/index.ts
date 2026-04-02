@@ -3,42 +3,41 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { getApiKeyHeaders } from "./auth.js";
+import { loadConfig } from "./config.js";
+import type { HttpConfig, StdioConfig } from "./config.js";
 import { registerTools } from "./register-tools.js";
 import { startHttpServer } from "./http-server.js";
+import { logger, setLogLevel } from "./utils/logger.js";
 
 async function main(): Promise<void> {
-  const transport = process.env.MCP_TRANSPORT === "http" ? "http" : "stdio";
-  const port = Number.parseInt(process.env.PORT || "3100", 10);
+  const config = loadConfig();
+  setLogLevel(config.logLevel);
 
-  console.error(`[mcp-server] Starting Cal.com MCP server (transport: ${transport})`);
+  logger.info("Starting Cal.com MCP server", { transport: config.transport });
 
-  if (transport === "http") {
-    const calOAuthClientId = process.env.CAL_OAUTH_CLIENT_ID;
-    const calOAuthClientSecret = process.env.CAL_OAUTH_CLIENT_SECRET;
-    const tokenEncryptionKey = process.env.TOKEN_ENCRYPTION_KEY;
-    const serverUrl = process.env.MCP_SERVER_URL;
-
-    if (!calOAuthClientId || !calOAuthClientSecret || !tokenEncryptionKey || !serverUrl) {
-      console.error(
-        "[mcp-server] HTTP mode requires: CAL_OAUTH_CLIENT_ID, CAL_OAUTH_CLIENT_SECRET, TOKEN_ENCRYPTION_KEY, MCP_SERVER_URL",
-      );
-      process.exit(1);
-    }
-
-    const calApiBaseUrl = process.env.CAL_API_BASE_URL || "https://api.cal.com";
-    const calAppBaseUrl = process.env.CAL_APP_BASE_URL || "https://app.cal.com";
-
+  if (config.transport === "http") {
+    const httpConfig = config as HttpConfig;
     startHttpServer(registerTools, {
-      port,
+      port: httpConfig.port,
       oauthConfig: {
-        serverUrl,
-        calOAuthClientId,
-        calOAuthClientSecret,
-        calApiBaseUrl,
-        calAppBaseUrl,
+        serverUrl: httpConfig.serverUrl,
+        calOAuthClientId: httpConfig.calOAuthClientId,
+        calOAuthClientSecret: httpConfig.calOAuthClientSecret,
+        calApiBaseUrl: httpConfig.calApiBaseUrl,
+        calAppBaseUrl: httpConfig.calAppBaseUrl,
       },
+      rateLimitWindowMs: httpConfig.rateLimitWindowMs,
+      rateLimitMax: httpConfig.rateLimitMax,
+      maxSessions: httpConfig.maxSessions,
+      sessionIdleTimeoutMs: httpConfig.sessionIdleTimeoutMs,
+      maxRegisteredClients: httpConfig.maxRegisteredClients,
+      corsOrigin: httpConfig.corsOrigin,
+      shutdownTimeoutMs: httpConfig.shutdownTimeoutMs,
     });
   } else {
+    const stdioConfig = config as StdioConfig;
+    // Validate API key early so we fail fast
+    process.env.CAL_API_KEY = stdioConfig.calApiKey;
     getApiKeyHeaders();
 
     const server = new McpServer({
@@ -51,11 +50,11 @@ async function main(): Promise<void> {
     const stdioTransport = new StdioServerTransport();
     await server.connect(stdioTransport);
 
-    console.error("[mcp-server] Cal.com MCP server running on stdio");
+    logger.info("Cal.com MCP server running on stdio");
   }
 }
 
 main().catch((err) => {
-  console.error("[mcp-server] Fatal error:", err);
+  logger.error("Fatal error", { error: String(err) });
   process.exit(1);
 });

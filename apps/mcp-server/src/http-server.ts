@@ -17,12 +17,20 @@ import {
 } from "./auth/oauth-handlers.js";
 import type { OAuthConfig } from "./auth/oauth-handlers.js";
 import { getDb, closeDb } from "./storage/db.js";
-import { cleanupExpired } from "./storage/token-store.js";
-import { createRateLimiterFromEnv, getClientIp, sendRateLimited } from "./utils/rate-limiter.js";
+import { cleanupExpired, countRegisteredClients } from "./storage/token-store.js";
+import { logger, withLogContext } from "./utils/logger.js";
+import { RateLimiter, getClientIp, sendRateLimited } from "./utils/rate-limiter.js";
 
 export interface HttpServerConfig {
   port: number;
   oauthConfig: OAuthConfig;
+  rateLimitWindowMs?: number;
+  rateLimitMax?: number;
+  maxSessions?: number;
+  sessionIdleTimeoutMs?: number;
+  maxRegisteredClients?: number;
+  corsOrigin?: string;
+  shutdownTimeoutMs?: number;
 }
 
 /**
@@ -44,22 +52,33 @@ export interface HttpServerConfig {
  *   POST /oauth/token — Token exchange / refresh
  *   POST /oauth/revoke — Token revocation
  */
+const startedAt = Date.now();
+
 export function startHttpServer(
   registerTools: (server: McpServer) => void,
   config: HttpServerConfig,
 ): void {
   const { port, oauthConfig } = config;
+  const maxSessions = config.maxSessions ?? Number(process.env.MAX_SESSIONS) || 10_000;
+  const sessionIdleTimeoutMs = config.sessionIdleTimeoutMs ?? Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60 * 1000;
+  const maxRegisteredClients = config.maxRegisteredClients ?? Number(process.env.MAX_REGISTERED_CLIENTS) || 10_000;
+  const corsOrigin = config.corsOrigin ?? process.env.CORS_ORIGIN;
+  const shutdownTimeoutMs = config.shutdownTimeoutMs ?? Number(process.env.SHUTDOWN_TIMEOUT_MS) || 10_000;
 
   getDb();
 
-  const rateLimiter = createRateLimiterFromEnv();
-  rateLimiter.startGc();
+  const rateLimitWindowMs = config.rateLimitWindowMs ?? Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000;
+  const rateLimitMax = config.rateLimitMax ?? Number(process.env.RATE_LIMIT_MAX) || 30;
+  const oauthRateLimiter = new RateLimiter({ windowMs: rateLimitWindowMs, max: rateLimitMax });
+  oauthRateLimiter.startGc();
+  const mcpRateLimiter = new RateLimiter({ windowMs: rateLimitWindowMs, max: rateLimitMax * 3 });
+  mcpRateLimiter.startGc();
 
   const cleanupInterval = setInterval(() => {
     try {
       cleanupExpired();
     } catch (err) {
-      console.error("[mcp-server] Cleanup error:", err);
+      logger.error("Cleanup error", { error: String(err) });
     }
   }, 5 * 60 * 1000);
 
@@ -69,19 +88,67 @@ export function startHttpServer(
       transport: StreamableHTTPServerTransport;
       server: McpServer;
       calAuthHeaders: Record<string, string>;
+      lastActivityAt: number;
     }
   >();
+
+  // Idle session eviction
+  const sessionEvictionInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [id, session] of sessions) {
+      if (now - session.lastActivityAt > sessionIdleTimeoutMs) {
+        session.transport.close().catch(() => {});
+        sessions.delete(id);
+        logger.info("Evicted idle session", { sessionId: id });
+      }
+    }
+  }, 60_000);
+  if (sessionEvictionInterval.unref) sessionEvictionInterval.unref();
 
   const asMetadata = buildAuthorizationServerMetadata({ serverUrl: oauthConfig.serverUrl });
   const prMetadata = buildProtectedResourceMetadata({ serverUrl: oauthConfig.serverUrl });
 
+  /** Add CORS headers if configured. */
+  function setCorsHeaders(res: import("node:http").ServerResponse): void {
+    const origin = corsOrigin ?? "*";
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id");
+    res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
+    if (origin !== "*") {
+      res.setHeader("Vary", "Origin");
+    }
+  }
+
   const httpServer = createServer(async (req, res) => {
+    const requestId = randomUUID();
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    setCorsHeaders(res);
+
+    // ── CORS preflight ──
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
 
     // ── Health check ──
     if (url.pathname === "/health") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", sessions: sessions.size }));
+      let dbOk = false;
+      try {
+        const db = getDb();
+        db.prepare("SELECT 1").get();
+        dbOk = true;
+      } catch { /* db not healthy */ }
+      const status = dbOk ? "ok" : "degraded";
+      const code = dbOk ? 200 : 503;
+      res.writeHead(code, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        status,
+        sessions: sessions.size,
+        db: dbOk ? "ok" : "error",
+        uptime: Math.floor((Date.now() - startedAt) / 1000),
+      }));
       return;
     }
 
@@ -101,12 +168,19 @@ export function startHttpServer(
     // ── OAuth flow endpoints (rate-limited) ──
     if (url.pathname.startsWith("/oauth/")) {
       const clientIp = getClientIp(req);
-      if (!rateLimiter.consume(clientIp)) {
+      if (!oauthRateLimiter.consume(clientIp)) {
         sendRateLimited(res);
         return;
       }
 
       if (url.pathname === "/oauth/register") {
+        // Enforce max registered clients limit
+        const currentCount = countRegisteredClients();
+        if (currentCount >= maxRegisteredClients) {
+          res.writeHead(503, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "server_error", error_description: "Maximum number of registered clients reached" }));
+          return;
+        }
         await handleRegister(req, res);
         return;
       }
@@ -128,8 +202,14 @@ export function startHttpServer(
       }
     }
 
-    // ── MCP endpoint (requires Bearer token) ──
+    // ── MCP endpoint (requires Bearer token, rate-limited) ──
     if (url.pathname === "/mcp") {
+      const clientIp = getClientIp(req);
+      if (!mcpRateLimiter.consume(clientIp)) {
+        sendRateLimited(res);
+        return;
+      }
+
       const authHeader = req.headers.authorization;
       const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
 
@@ -170,9 +250,7 @@ export function startHttpServer(
 
       const existingSession = sessionId ? sessions.get(sessionId) : undefined;
       if (sessionId && existingSession) {
-        // Re-resolve Cal.com auth headers on each request to handle token expiry.
-        // resolveCalAuthHeaders auto-refreshes expired Cal.com tokens.
-        // bearerToken is guaranteed non-undefined here (early return at line 144)
+        existingSession.lastActivityAt = Date.now();
         const freshHeaders = bearerToken ? await resolveCalAuthHeaders(bearerToken, oauthConfig) : undefined;
         if (!freshHeaders) {
           res.writeHead(401, {
@@ -184,8 +262,10 @@ export function startHttpServer(
         }
         existingSession.calAuthHeaders = freshHeaders;
 
-        await authContext.run(freshHeaders, async () => {
-          await existingSession.transport.handleRequest(req, res);
+        await withLogContext({ requestId, sessionId }, async () => {
+          await authContext.run(freshHeaders, async () => {
+            await existingSession.transport.handleRequest(req, res);
+          });
         });
         return;
       }
@@ -197,6 +277,13 @@ export function startHttpServer(
       }
 
       if (req.method === "POST") {
+        // Enforce max sessions limit
+        if (sessions.size >= maxSessions) {
+          res.writeHead(503, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "server_error", error_description: "Maximum number of sessions reached" }));
+          return;
+        }
+
         const calAuthHeaders = await resolveCalAuthHeaders(bearerToken, oauthConfig);
         if (!calAuthHeaders) {
           res.writeHead(401, {
@@ -222,23 +309,22 @@ export function startHttpServer(
           const sid = transport.sessionId;
           if (sid) {
             sessions.delete(sid);
-            console.error(`[mcp-server] Session ${sid} closed`);
+            logger.info("Session closed", { sessionId: sid });
           }
         };
 
         await server.connect(transport);
 
-        // Handle the initialization request within the auth context.
-        // The session ID is assigned by the transport during handleRequest
-        // (not during connect), so we must store the session *after* this call.
-        await authContext.run(calAuthHeaders, async () => {
-          await transport.handleRequest(req, res);
+        await withLogContext({ requestId }, async () => {
+          await authContext.run(calAuthHeaders, async () => {
+            await transport.handleRequest(req, res);
+          });
         });
 
         const newSessionId = transport.sessionId;
         if (newSessionId) {
-          sessions.set(newSessionId, { transport, server, calAuthHeaders });
-          console.error(`[mcp-server] New session: ${newSessionId}`);
+          sessions.set(newSessionId, { transport, server, calAuthHeaders, lastActivityAt: Date.now() });
+          logger.info("New session created", { sessionId: newSessionId });
         }
         return;
       }
@@ -253,27 +339,48 @@ export function startHttpServer(
   });
 
   httpServer.listen(port, () => {
-    console.error(`[mcp-server] StreamableHTTP server listening on http://localhost:${port}/mcp`);
-    console.error(`[mcp-server] OAuth endpoints: http://localhost:${port}/oauth/*`);
-    console.error(`[mcp-server] Health check: http://localhost:${port}/health`);
+    logger.info("StreamableHTTP server started", {
+      port,
+      mcpEndpoint: `http://localhost:${port}/mcp`,
+      oauthEndpoints: `http://localhost:${port}/oauth/*`,
+      healthCheck: `http://localhost:${port}/health`,
+    });
   });
 
   const shutdown = async () => {
-    console.error("[mcp-server] Shutting down...");
-    clearInterval(cleanupInterval);
-    rateLimiter.stopGc();
-    for (const [id, session] of sessions) {
-      await session.transport.close();
-      sessions.delete(id);
-    }
+    logger.info("Shutting down...");
+
+    // 1. Stop accepting new connections
     httpServer.close();
+
+    // 2. Stop background tasks
+    clearInterval(cleanupInterval);
+    clearInterval(sessionEvictionInterval);
+    oauthRateLimiter.stopGc();
+    mcpRateLimiter.stopGc();
+
+    // 3. Drain existing sessions with a timeout
+    const drainPromise = Promise.all(
+      Array.from(sessions.entries()).map(async ([id, session]) => {
+        try {
+          await session.transport.close();
+        } catch { /* best effort */ }
+        sessions.delete(id);
+      }),
+    );
+
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, shutdownTimeoutMs));
+    await Promise.race([drainPromise, timeout]);
+
+    // 4. Close database
     closeDb();
+    logger.info("Shutdown complete");
   };
 
   process.on("SIGINT", () => {
-    shutdown().then(() => process.exit(0));
+    shutdown().then(() => process.exit(0)).catch(() => process.exit(1));
   });
   process.on("SIGTERM", () => {
-    shutdown().then(() => process.exit(0));
+    shutdown().then(() => process.exit(0)).catch(() => process.exit(1));
   });
 }

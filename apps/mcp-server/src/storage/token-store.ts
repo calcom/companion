@@ -19,6 +19,12 @@ export function createRegisteredClient(redirectUris: string[], clientName?: stri
   return { clientId, redirectUris, clientName: clientName ?? null };
 }
 
+export function countRegisteredClients(): number {
+  const db = getDb();
+  const row = db.prepare("SELECT COUNT(*) as count FROM registered_clients").get() as { count: number };
+  return row.count;
+}
+
 export function getRegisteredClient(clientId: string): RegisteredClient | undefined {
   const db = getDb();
   const row = db

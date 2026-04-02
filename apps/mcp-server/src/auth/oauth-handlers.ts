@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { CAL_API_VERSION } from "../config.js";
+import { logger } from "../utils/logger.js";
 import { generateCodeVerifier, generateCodeChallenge, generateState, verifyCodeChallenge } from "./pkce.js";
 import {
   createRegisteredClient,
@@ -217,15 +219,17 @@ export async function handleCallback(
   } else if (pending.calCodeVerifier) {
     exchangeBody.code_verifier = pending.calCodeVerifier;
   }
+  const tokenFetchTimeoutMs = Number(process.env.TOKEN_FETCH_TIMEOUT_MS) || 10_000;
   const exchangeRes = await fetch(exchangeUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(exchangeBody),
+    signal: AbortSignal.timeout(tokenFetchTimeoutMs),
   });
 
   if (!exchangeRes.ok) {
     const body = await exchangeRes.text();
-    console.error(`[oauth] Cal.com token exchange failed (${exchangeRes.status}): ${body}`);
+    logger.error("Cal.com token exchange failed", { status: exchangeRes.status, body });
     deletePendingAuth(state);
     jsonResponse(res, 502, { error: "server_error", error_description: "Token exchange with Cal.com failed" });
     return;
@@ -390,6 +394,7 @@ export async function refreshCalTokens(
 ): Promise<{ calAccessToken: string; calRefreshToken: string; calTokenExpiresAt: number } | undefined> {
   const refreshUrl = `${config.calApiBaseUrl}/v2/auth/oauth2/token`;
 
+  const tokenFetchTimeoutMs = Number(process.env.TOKEN_FETCH_TIMEOUT_MS) || 10_000;
   const refreshRes = await fetch(refreshUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -399,10 +404,11 @@ export async function refreshCalTokens(
       grant_type: "refresh_token",
       refresh_token: calRefreshToken,
     }),
+    signal: AbortSignal.timeout(tokenFetchTimeoutMs),
   });
 
   if (!refreshRes.ok) {
-    console.error(`[oauth] Cal.com token refresh failed (${refreshRes.status})`);
+    logger.error("Cal.com token refresh failed", { status: refreshRes.status });
     return undefined;
   }
 
@@ -452,7 +458,7 @@ export async function resolveCalAuthHeaders(
 
   return {
     Authorization: `Bearer ${calAccessToken}`,
-    "cal-api-version": "2024-08-13",
+    "cal-api-version": CAL_API_VERSION,
     "Content-Type": "application/json",
   };
 }

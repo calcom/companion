@@ -1,9 +1,24 @@
 import { getApiKeyHeaders } from "../auth.js";
 import { authContext } from "../auth/context.js";
+import { CAL_API_VERSION_OVERRIDES } from "../config.js";
 import { CalApiError } from "./errors.js";
+import { logger } from "./logger.js";
 
 function getBaseUrl(): string {
   return process.env.CAL_API_BASE_URL || "https://api.cal.com";
+}
+
+function getFetchTimeoutMs(): number {
+  return Number(process.env.FETCH_TIMEOUT_MS) || 30_000;
+}
+
+function getRetryConfig(): { maxAttempts: number; baseDelayMs: number } {
+  const envAttempts = process.env.RETRY_MAX_ATTEMPTS;
+  const envDelay = process.env.RETRY_BASE_DELAY_MS;
+  return {
+    maxAttempts: envAttempts !== undefined ? Number(envAttempts) : 2,
+    baseDelayMs: envDelay !== undefined ? Number(envDelay) : 500,
+  };
 }
 
 interface RequestOptions {
@@ -47,11 +62,6 @@ async function handleResponse(res: Response): Promise<unknown> {
   return body;
 }
 
-/** Per-path API version overrides (some endpoints require a newer version). */
-const PATH_VERSION_OVERRIDES: Record<string, string> = {
-  slots: "2024-09-04",
-};
-
 /**
  * Build request headers with auth + any cal-api-version override.
  * In HTTP/OAuth mode, uses per-session Cal.com tokens from authContext.
@@ -65,11 +75,26 @@ function buildRequestHeaders(
   const base = contextHeaders ?? getApiKeyHeaders();
 
   const versionOverride =
-    apiVersionOverride ?? PATH_VERSION_OVERRIDES[normalizedPath];
+    apiVersionOverride ?? CAL_API_VERSION_OVERRIDES[normalizedPath];
   if (versionOverride) {
     return { ...base, "cal-api-version": versionOverride };
   }
   return { ...base };
+}
+
+function isRetryable(err: unknown): boolean {
+  if (err instanceof CalApiError) {
+    return err.status >= 500;
+  }
+  // Network errors and abort errors are retryable
+  if (err instanceof TypeError || err instanceof DOMException) {
+    return true;
+  }
+  return false;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function calApi<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -78,13 +103,38 @@ export async function calApi<T = unknown>(path: string, options: RequestOptions 
   const normalizedPath = path.replace(/^\//, "");
 
   const headers = buildRequestHeaders(normalizedPath, apiVersionOverride);
+  const timeoutMs = getFetchTimeoutMs();
+  const { maxAttempts, baseDelayMs } = getRetryConfig();
 
-  const fetchOptions: RequestInit = { method, headers };
-  if (body !== undefined) {
-    fetchOptions.body = JSON.stringify(body);
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxAttempts; attempt++) {
+    try {
+      if (attempt > 0) {
+        const delay = baseDelayMs * 2 ** (attempt - 1);
+        logger.warn("Retrying Cal.com API request", { path: normalizedPath, attempt, delay });
+        await sleep(delay);
+      }
+
+      const fetchOptions: RequestInit = {
+        method,
+        headers,
+        signal: AbortSignal.timeout(timeoutMs),
+      };
+      if (body !== undefined) {
+        fetchOptions.body = JSON.stringify(body);
+      }
+
+      const res = await fetch(url, fetchOptions);
+      return (await handleResponse(res)) as T;
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxAttempts && isRetryable(err)) {
+        continue;
+      }
+      throw err;
+    }
   }
 
-  const res = await fetch(url, fetchOptions);
-
-  return (await handleResponse(res)) as T;
+  throw lastError;
 }

@@ -1,3 +1,5 @@
+import { CAL_API_VERSION } from "./config.js";
+
 /**
  * Returns auth headers for Cal.com API requests using API key authentication.
  */
@@ -8,7 +10,7 @@ export function getApiKeyHeaders(): Record<string, string> {
   }
   return {
     Authorization: `Bearer ${apiKey}`,
-    "cal-api-version": "2024-08-13",
+    "cal-api-version": CAL_API_VERSION,
     "Content-Type": "application/json",
   };
 }

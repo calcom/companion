@@ -19,10 +19,13 @@ import { calApi } from "./api-client.js";
 beforeEach(() => {
   vi.clearAllMocks();
   delete process.env.CAL_API_BASE_URL;
+  // Disable retries by default so tests don't need to mock multiple responses
+  process.env.RETRY_MAX_ATTEMPTS = "0";
 });
 
 afterEach(() => {
   delete process.env.CAL_API_BASE_URL;
+  delete process.env.RETRY_MAX_ATTEMPTS;
 });
 
 describe("calApi", () => {
@@ -160,6 +163,49 @@ describe("calApi", () => {
 
     await expect(calApi("me")).rejects.toThrow(CalApiError);
     expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  it("retries on 500 and eventually throws", async () => {
+    process.env.RETRY_MAX_ATTEMPTS = "2";
+    process.env.RETRY_BASE_DELAY_MS = "1";
+
+    const error500 = {
+      ok: false,
+      status: 500,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ message: "Internal Server Error" }),
+    };
+    mockFetch
+      .mockResolvedValueOnce(error500)
+      .mockResolvedValueOnce(error500)
+      .mockResolvedValueOnce(error500);
+
+    await expect(calApi("me")).rejects.toThrow(CalApiError);
+    // 1 initial + 2 retries = 3 total calls
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries on 500 and succeeds on retry", async () => {
+    process.env.RETRY_MAX_ATTEMPTS = "2";
+    process.env.RETRY_BASE_DELAY_MS = "1";
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: () => Promise.resolve({ message: "Internal Server Error" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: () => Promise.resolve({ data: "recovered" }),
+      });
+
+    const result = await calApi("me");
+    expect(result).toEqual({ data: "recovered" });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
   it("strips leading slash from path", async () => {
