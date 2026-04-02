@@ -61,7 +61,6 @@ export function renderEventType(data: EventTypeResponse | undefined, { json }: O
     ["Schedule ID:", data.scheduleId],
   ]);
 
-  // Display custom booking fields (exclude default fields)
   const bookingFields = (data as Record<string, unknown>).bookingFields as
     | Array<{ type: string; slug: string; label: string; required?: boolean; isDefault?: boolean }>
     | undefined;
