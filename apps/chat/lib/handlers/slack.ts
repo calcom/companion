@@ -732,21 +732,27 @@ export function registerSlackHandlers(
               return;
             }
             const accessTokenForAgent = await getValidAccessToken(teamId, userId);
-            if (accessTokenForAgent) {
-              try {
-                const { checkCredits } = await import("../calcom/client");
-                const credits = await checkCredits(accessTokenForAgent);
-                if (!credits.hasCredits) {
-                  await event.channel.postEphemeral(
-                    event.user,
-                    "You've run out of AI credits. Use `/cal help` to see available slash commands, or purchase more credits at <https://cal.com/pricing|cal.com/pricing>.",
-                    { fallbackToDM: true }
-                  );
-                  return;
-                }
-              } catch {
-                // If credits check fails, allow the request through during rollout
+            if (!accessTokenForAgent) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              return;
+            }
+            try {
+              const { checkCredits } = await import("../calcom/client");
+              const credits = await checkCredits(accessTokenForAgent);
+              if (!credits.hasCredits) {
+                await event.channel.postEphemeral(
+                  event.user,
+                  "You've run out of AI credits. Use `/cal help` to see available slash commands, or purchase more credits at <https://cal.com/pricing|cal.com/pricing>.",
+                  { fallbackToDM: true }
+                );
+                return;
               }
+            } catch {
+              // If credits check fails, allow the request through during rollout
             }
 
             const result = runAgentStream({
@@ -760,6 +766,16 @@ export function registerSlackHandlers(
             });
 
             await safeChannelPost(event, result.textStream);
+
+            // Charge credits after successful agent completion
+            const externalRef = `agent-slack-${teamId}-${userId}-slash`;
+            try {
+              const { chargeCredits } = await import("../calcom/client");
+              await chargeCredits(accessTokenForAgent, { externalRef });
+            } catch {
+              // Don't fail the interaction if charging fails
+              bot.getLogger("/cal").warn("Failed to charge credits via slash command", { userId, externalRef });
+            }
           }
         }
       },

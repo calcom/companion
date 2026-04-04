@@ -618,7 +618,10 @@ export interface ChargeCreditsData {
   };
 }
 
-const AI_AGENT_CREDITS_PER_MESSAGE = Number(process.env.AI_AGENT_CREDITS_PER_MESSAGE) || 5;
+const parsedAiAgentCreditsPerMessage = Number(process.env.AI_AGENT_CREDITS_PER_MESSAGE);
+const AI_AGENT_CREDITS_PER_MESSAGE = Number.isFinite(parsedAiAgentCreditsPerMessage)
+  ? parsedAiAgentCreditsPerMessage
+  : 5;
 
 /**
  * Check if the authenticated user has available credits.

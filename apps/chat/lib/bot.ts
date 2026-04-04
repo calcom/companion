@@ -879,10 +879,8 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
   // Re-read in case token refresh synced org fields from /v2/me
   linked = await getLinkedUser(opts.ctx.teamId, opts.ctx.userId) ?? linked;
 
-  let creditBalance: { monthlyRemaining: number; additional: number } | undefined;
   try {
     const credits = await checkCredits(token);
-    creditBalance = credits.balance;
     if (!credits.hasCredits) {
       log.info("Agentic blocked — no credits", { userId: opts.ctx.userId });
       const noCreditsMsg = opts.ctx.platform === "slack"
@@ -944,16 +942,15 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
     });
 
     // Charge credits after successful agent completion
-    const externalRef = `agent-${opts.ctx.platform}-${opts.thread.id}-${Date.now()}`;
+    const externalRef = `agent-${opts.ctx.platform}-${opts.thread.id}`;
     try {
       const chargeResult = await chargeCredits(token, { externalRef });
       log.info("Credits charged", { userId: opts.ctx.userId, externalRef, remaining: chargeResult.remainingBalance });
 
-      // Warn if balance is running low (< 20% of monthly credits)
-      if (creditBalance) {
-        const totalMonthly = creditBalance.monthlyRemaining + creditBalance.additional;
+      // Warn if balance is running low
+      if (chargeResult.remainingBalance) {
         const remaining = chargeResult.remainingBalance.monthlyRemaining + chargeResult.remainingBalance.additional;
-        if (totalMonthly > 0 && remaining / totalMonthly < 0.2) {
+        if (remaining < 10) {
           const lowBalanceMsg = opts.ctx.platform === "slack"
             ? `_Your AI credits are running low (${remaining} remaining). Visit <https://cal.com/settings/billing|cal.com/settings/billing> to purchase more._`
             : `_Your AI credits are running low (${remaining} remaining). Visit [cal.com/settings/billing](https://cal.com/settings/billing) to purchase more._`;
