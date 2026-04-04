@@ -598,3 +598,53 @@ export async function markNoShow(
     }),
   }, API_VERSION, 0);
 }
+
+// ─── AI Agent Credits ────────────────────────────────────────────────────────
+
+export interface CreditsAvailableData {
+  hasCredits: boolean;
+  balance: {
+    monthlyRemaining: number;
+    additional: number;
+  };
+}
+
+export interface ChargeCreditsData {
+  charged: boolean;
+  teamId?: number;
+  remainingBalance: {
+    monthlyRemaining: number;
+    additional: number;
+  };
+}
+
+const parsedAiAgentCreditsPerMessage = Number(process.env.AI_AGENT_CREDITS_PER_MESSAGE);
+const AI_AGENT_CREDITS_PER_MESSAGE = Number.isFinite(parsedAiAgentCreditsPerMessage)
+  ? parsedAiAgentCreditsPerMessage
+  : 5;
+
+/**
+ * Check if the authenticated user has available credits.
+ * Call BEFORE running the agent to avoid wasting LLM tokens.
+ */
+export async function checkCredits(accessToken: string): Promise<CreditsAvailableData> {
+  return calcomFetch<CreditsAvailableData>("/v2/credits/available", accessToken);
+}
+
+/**
+ * Charge credits after a successful agent interaction.
+ * Uses externalRef for idempotency to prevent double-charging.
+ */
+export async function chargeCredits(
+  accessToken: string,
+  params: { externalRef: string; credits?: number }
+): Promise<ChargeCreditsData> {
+  return calcomFetch<ChargeCreditsData>("/v2/credits/charge", accessToken, {
+    method: "POST",
+    body: JSON.stringify({
+      credits: params.credits ?? AI_AGENT_CREDITS_PER_MESSAGE,
+      creditFor: "AI_AGENT",
+      externalRef: params.externalRef,
+    }),
+  }, API_VERSION, 0);
+}

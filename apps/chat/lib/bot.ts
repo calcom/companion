@@ -25,9 +25,10 @@ import {
   NotImplementedError,
   RateLimitError,
 } from "chat";
+import { createHash } from "node:crypto";
 import type { LookupPlatformUserFn, UserContext } from "./agent";
 import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
-import { CalcomApiError } from "./calcom/client";
+import { CalcomApiError, checkCredits, chargeCredits } from "./calcom/client";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
 import { formatForTelegram } from "./format-for-telegram";
@@ -35,7 +36,7 @@ import { registerSlackHandlers } from "./handlers/slack";
 import { handleTelegramCommand, registerTelegramHandlers, TELEGRAM_COMMAND_RE } from "./handlers/telegram";
 import { logger as botLogger } from "./logger";
 import { helpCard, telegramHelpCard } from "./notifications";
-import { getLinkedUser, getValidAccessToken, getToolContext, setToolContext, isOrgPlanUser, type ToolContextEntry } from "./user-linking";
+import { getLinkedUser, getValidAccessToken, getToolContext, setToolContext, type ToolContextEntry } from "./user-linking";
 
 validateRequiredEnv();
 
@@ -879,17 +880,24 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
   // Re-read in case token refresh synced org fields from /v2/me
   linked = await getLinkedUser(opts.ctx.teamId, opts.ctx.userId) ?? linked;
 
-  if (!isOrgPlanUser(linked)) {
-    log.info("Agentic blocked — not on org plan", { userId: opts.ctx.userId });
-    const upgradeMsg = opts.ctx.platform === "slack"
-      ? "The AI assistant is available on the Cal.com Organizations plan. Use `/cal help` to see available slash commands, or upgrade at <https://cal.com/pricing|cal.com/pricing>."
-      : "The AI assistant is available on the Cal.com Organizations plan. Use /help to see available commands, or upgrade at [cal.com/pricing](https://cal.com/pricing).";
-    if (opts.ctx.platform === "slack") {
-      await withSlackToken(opts.ctx.teamId, () => opts.thread.post(upgradeMsg));
-    } else {
-      await opts.thread.post(upgradeMsg);
+  try {
+    const credits = await checkCredits(token);
+    if (!credits.hasCredits) {
+      log.info("Agentic blocked — no credits", { userId: opts.ctx.userId });
+      const noCreditsMsg = opts.ctx.platform === "slack"
+        ? "You've run out of AI credits. Use `/cal help` to see available slash commands, or purchase more credits at <https://cal.com/pricing|cal.com/pricing>."
+        : "You've run out of AI credits. Use /help to see available commands, or purchase more credits at [cal.com/pricing](https://cal.com/pricing).";
+      if (opts.ctx.platform === "slack") {
+        await withSlackToken(opts.ctx.teamId, () => opts.thread.post(noCreditsMsg));
+      } else {
+        await opts.thread.post(noCreditsMsg);
+      }
+      return;
     }
-    return;
+  } catch (err) {
+    // If credits endpoint is unavailable, allow the request through
+    // so existing org-plan users aren't blocked during rollout.
+    log.warn("Credits check failed, allowing request", { userId: opts.ctx.userId, error: String(err) });
   }
 
   if (await opts.shouldSubscribe()) {
@@ -933,6 +941,32 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
     await postAgentStream(opts.thread, result, opts.ctx, {
       onErrorRef: opts.lastStreamErrorRef,
     });
+
+    // Charge credits after successful agent completion
+    const msgHash = createHash("sha256").update(opts.userMessage).digest("hex").slice(0, 12);
+    const externalRef = `agent-${opts.ctx.platform}-${opts.thread.id}-${msgHash}`;
+    try {
+      const chargeResult = await chargeCredits(token, { externalRef });
+      log.info("Credits charged", { userId: opts.ctx.userId, externalRef, remaining: chargeResult.remainingBalance });
+
+      // Warn if balance is running low
+      if (chargeResult.remainingBalance) {
+        const remaining = chargeResult.remainingBalance.monthlyRemaining + chargeResult.remainingBalance.additional;
+        if (remaining < 10) {
+          const lowBalanceMsg = opts.ctx.platform === "slack"
+            ? `_Your AI credits are running low (${remaining} remaining). Visit <https://cal.com/settings/billing|cal.com/settings/billing> to purchase more._`
+            : `_Your AI credits are running low (${remaining} remaining). Visit [cal.com/settings/billing](https://cal.com/settings/billing) to purchase more._`;
+          if (opts.ctx.platform === "slack") {
+            await withSlackToken(opts.ctx.teamId, () => opts.thread.post(lowBalanceMsg));
+          } else {
+            await opts.thread.post(lowBalanceMsg);
+          }
+        }
+      }
+    } catch (err) {
+      // Don't fail the interaction if charging fails — log and continue
+      log.warn("Failed to charge credits", { userId: opts.ctx.userId, externalRef, error: String(err) });
+    }
   });
 }
 
