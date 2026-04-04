@@ -768,7 +768,9 @@ export function registerSlackHandlers(
             await safeChannelPost(event, result.textStream);
 
             // Charge credits after successful agent completion
-            const externalRef = `agent-slack-${teamId}-${userId}-slash`;
+            const { createHash } = await import("node:crypto");
+            const msgHash = createHash("sha256").update(naturalQuery).digest("hex").slice(0, 12);
+            const externalRef = `agent-slack-${teamId}-${userId}-${msgHash}`;
             try {
               const { chargeCredits } = await import("../calcom/client");
               await chargeCredits(accessTokenForAgent, { externalRef });

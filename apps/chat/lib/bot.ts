@@ -25,6 +25,7 @@ import {
   NotImplementedError,
   RateLimitError,
 } from "chat";
+import { createHash } from "node:crypto";
 import type { LookupPlatformUserFn, UserContext } from "./agent";
 import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
 import { CalcomApiError, checkCredits, chargeCredits } from "./calcom/client";
@@ -942,7 +943,8 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
     });
 
     // Charge credits after successful agent completion
-    const externalRef = `agent-${opts.ctx.platform}-${opts.thread.id}`;
+    const msgHash = createHash("sha256").update(opts.userMessage).digest("hex").slice(0, 12);
+    const externalRef = `agent-${opts.ctx.platform}-${opts.thread.id}-${msgHash}`;
     try {
       const chargeResult = await chargeCredits(token, { externalRef });
       log.info("Credits charged", { userId: opts.ctx.userId, externalRef, remaining: chargeResult.remainingBalance });
