@@ -44,7 +44,31 @@ export async function getBooking(params: { bookingUid: string }) {
 }
 
 export const createBookingSchema = {
-  eventTypeId: z.number().int().describe("The ID of the event type to book"),
+  eventTypeId: z
+    .number()
+    .int()
+    .optional()
+    .describe(
+      "The ID of the event type to book. Required unless eventTypeSlug + username (or teamSlug) are provided instead.",
+    ),
+  eventTypeSlug: z
+    .string()
+    .optional()
+    .describe(
+      "The slug of the event type (e.g. '15min'). Use together with username or teamSlug as an alternative to eventTypeId.",
+    ),
+  username: z
+    .string()
+    .optional()
+    .describe("The username of the event owner. Required together with eventTypeSlug for individual event types."),
+  teamSlug: z
+    .string()
+    .optional()
+    .describe("Team slug that owns the event type. Required together with eventTypeSlug for team event types."),
+  organizationSlug: z
+    .string()
+    .optional()
+    .describe("Organization slug. Optional, only used with eventTypeSlug + username or eventTypeSlug + teamSlug."),
   start: z.string().describe("Start time in ISO 8601 format (e.g. 2024-08-13T09:00:00Z)"),
   attendee: z
     .object({
@@ -57,17 +81,25 @@ export const createBookingSchema = {
 };
 
 export async function createBooking(params: {
-  eventTypeId: number;
+  eventTypeId?: number;
+  eventTypeSlug?: string;
+  username?: string;
+  teamSlug?: string;
+  organizationSlug?: string;
   start: string;
   attendee: { name: string; email: string; timeZone: string };
   metadata?: Record<string, unknown>;
 }) {
   try {
     const body: Record<string, unknown> = {
-      eventTypeId: params.eventTypeId,
       start: params.start,
       attendee: params.attendee,
     };
+    if (params.eventTypeId !== undefined) body.eventTypeId = params.eventTypeId;
+    if (params.eventTypeSlug !== undefined) body.eventTypeSlug = params.eventTypeSlug;
+    if (params.username !== undefined) body.username = params.username;
+    if (params.teamSlug !== undefined) body.teamSlug = params.teamSlug;
+    if (params.organizationSlug !== undefined) body.organizationSlug = params.organizationSlug;
     if (params.metadata) body.metadata = params.metadata;
     const data = await calApi("bookings", { method: "POST", body });
     return ok(data);

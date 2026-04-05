@@ -254,6 +254,62 @@ describe("calApi", () => {
     expect(options.headers["cal-api-version"]).toBe("2024-09-04");
   });
 
+  it("overrides cal-api-version for /v2/event-types via path map", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ eventTypes: [] }),
+    });
+
+    await calApi("event-types");
+
+    const [, options] = mockFetch.mock.calls[0];
+    expect(options.headers["cal-api-version"]).toBe("2024-06-14");
+  });
+
+  it("overrides cal-api-version for /v2/event-types/:id sub-paths", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ id: 42 }),
+    });
+
+    await calApi("event-types/42");
+
+    const [, options] = mockFetch.mock.calls[0];
+    expect(options.headers["cal-api-version"]).toBe("2024-06-14");
+  });
+
+  it("overrides cal-api-version for /v2/schedules via path map", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ schedules: [] }),
+    });
+
+    await calApi("schedules");
+
+    const [, options] = mockFetch.mock.calls[0];
+    expect(options.headers["cal-api-version"]).toBe("2024-06-11");
+  });
+
+  it("overrides cal-api-version for /v2/schedules/:id sub-paths", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({ id: 1 }),
+    });
+
+    await calApi("schedules/1");
+
+    const [, options] = mockFetch.mock.calls[0];
+    expect(options.headers["cal-api-version"]).toBe("2024-06-11");
+  });
+
   it("uses explicit apiVersionOverride over path map", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -268,7 +324,7 @@ describe("calApi", () => {
     expect(options.headers["cal-api-version"]).toBe("2025-01-01");
   });
 
-  it("does not override cal-api-version for non-slots paths", async () => {
+  it("does not override cal-api-version for paths without overrides", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,

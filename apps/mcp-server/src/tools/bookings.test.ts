@@ -47,8 +47,12 @@ describe("bookings schemas", () => {
     expect(getBookingSchema.bookingUid).toBeDefined();
   });
 
-  it("exports createBookingSchema with required fields", () => {
+  it("exports createBookingSchema with eventTypeId and slug-based alternatives", () => {
     expect(createBookingSchema.eventTypeId).toBeDefined();
+    expect(createBookingSchema.eventTypeSlug).toBeDefined();
+    expect(createBookingSchema.username).toBeDefined();
+    expect(createBookingSchema.teamSlug).toBeDefined();
+    expect(createBookingSchema.organizationSlug).toBeDefined();
     expect(createBookingSchema.start).toBeDefined();
     expect(createBookingSchema.attendee).toBeDefined();
   });
@@ -170,6 +174,47 @@ describe("createBooking", () => {
 
     const [, opts] = mockCalApi.mock.calls[0];
     expect((opts as { body: Record<string, unknown> }).body).toHaveProperty("metadata", { source: "mcp" });
+  });
+
+  it("supports booking by eventTypeSlug + username instead of eventTypeId", async () => {
+    mockCalApi.mockResolvedValueOnce({ uid: "slug-booking" });
+
+    const result = await createBooking({
+      eventTypeSlug: "15min",
+      username: "alice",
+      start: "2024-08-13T09:00:00Z",
+      attendee: { name: "Bob", email: "bob@example.com", timeZone: "UTC" },
+    });
+
+    expect(mockCalApi).toHaveBeenCalledWith("bookings", {
+      method: "POST",
+      body: {
+        eventTypeSlug: "15min",
+        username: "alice",
+        start: "2024-08-13T09:00:00Z",
+        attendee: { name: "Bob", email: "bob@example.com", timeZone: "UTC" },
+      },
+    });
+    expect(JSON.parse(result.content[0].text)).toEqual({ uid: "slug-booking" });
+  });
+
+  it("supports booking by eventTypeSlug + teamSlug + organizationSlug", async () => {
+    mockCalApi.mockResolvedValueOnce({ uid: "team-booking" });
+
+    await createBooking({
+      eventTypeSlug: "standup",
+      teamSlug: "engineering",
+      organizationSlug: "acme",
+      start: "2024-08-13T09:00:00Z",
+      attendee: { name: "Carol", email: "carol@example.com", timeZone: "America/New_York" },
+    });
+
+    const [, opts] = mockCalApi.mock.calls[0];
+    const body = (opts as { body: Record<string, unknown> }).body;
+    expect(body).toHaveProperty("eventTypeSlug", "standup");
+    expect(body).toHaveProperty("teamSlug", "engineering");
+    expect(body).toHaveProperty("organizationSlug", "acme");
+    expect(body).not.toHaveProperty("eventTypeId");
   });
 });
 
