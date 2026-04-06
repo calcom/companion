@@ -96,6 +96,9 @@ export const createEventTypeSchema = {
   hidden: z.boolean().optional().describe("Whether the event type is hidden from the public profile."),
   offsetStart: z.number().int().optional().describe("Offset timeslots shown to bookers by a specified number of minutes."),
   onlyShowFirstAvailableSlot: z.boolean().optional().describe("Limit availability to one slot per day (the earliest available)."),
+  bookingLimitsCount: z.record(z.number().int()).optional().describe("Limit how many times this event can be booked per period. Keys are PER_DAY, PER_WEEK, PER_MONTH, or PER_YEAR with integer values (e.g. {PER_DAY: 2, PER_WEEK: 5})."),
+  bookingWindow: z.record(z.unknown()).optional().describe("Rolling or fixed date range for when bookings can be made. Example: {type: 'calendarDays', value: 30, rolling: true} allows bookings up to 30 calendar days ahead."),
+  destinationCalendar: z.record(z.unknown()).optional().describe("Which external calendar new bookings are added to. Object with integration (e.g. 'google_calendar'), externalId (calendar ID), and optionally credentialId. Important for users with multiple calendars."),
 };
 
 export async function createEventType(params: {
@@ -123,6 +126,9 @@ export async function createEventType(params: {
   hidden?: boolean;
   offsetStart?: number;
   onlyShowFirstAvailableSlot?: boolean;
+  bookingLimitsCount?: Record<string, number>;
+  bookingWindow?: Record<string, unknown>;
+  destinationCalendar?: Record<string, unknown>;
 }) {
   try {
     const body: Record<string, unknown> = {
@@ -151,6 +157,9 @@ export async function createEventType(params: {
     if (params.hidden !== undefined) body.hidden = params.hidden;
     if (params.offsetStart !== undefined) body.offsetStart = params.offsetStart;
     if (params.onlyShowFirstAvailableSlot !== undefined) body.onlyShowFirstAvailableSlot = params.onlyShowFirstAvailableSlot;
+    if (params.bookingLimitsCount !== undefined) body.bookingLimitsCount = params.bookingLimitsCount;
+    if (params.bookingWindow !== undefined) body.bookingWindow = params.bookingWindow;
+    if (params.destinationCalendar !== undefined) body.destinationCalendar = params.destinationCalendar;
     const data = await calApi("event-types", { method: "POST", body });
     return ok(data);
   } catch (err) {
@@ -190,6 +199,9 @@ export const updateEventTypeSchema = {
   hidden: z.boolean().optional().describe("Whether the event type is hidden."),
   offsetStart: z.number().int().optional().describe("Offset timeslots by specified minutes."),
   onlyShowFirstAvailableSlot: z.boolean().optional().describe("Show only the earliest available slot per day."),
+  bookingLimitsCount: z.record(z.number().int()).optional().describe("Limit how many times this event can be booked per period. Keys are PER_DAY, PER_WEEK, PER_MONTH, or PER_YEAR with integer values (e.g. {PER_DAY: 2, PER_WEEK: 5})."),
+  bookingWindow: z.record(z.unknown()).optional().describe("Rolling or fixed date range for when bookings can be made. Example: {type: 'calendarDays', value: 30, rolling: true} allows bookings up to 30 calendar days ahead."),
+  destinationCalendar: z.record(z.unknown()).optional().describe("Which external calendar new bookings are added to. Object with integration (e.g. 'google_calendar'), externalId (calendar ID), and optionally credentialId. Important for users with multiple calendars."),
 };
 
 export async function updateEventType(params: {
@@ -218,6 +230,9 @@ export async function updateEventType(params: {
   hidden?: boolean;
   offsetStart?: number;
   onlyShowFirstAvailableSlot?: boolean;
+  bookingLimitsCount?: Record<string, number>;
+  bookingWindow?: Record<string, unknown>;
+  destinationCalendar?: Record<string, unknown>;
 }) {
   try {
     const body: Record<string, unknown> = {};
@@ -245,6 +260,9 @@ export async function updateEventType(params: {
     if (params.hidden !== undefined) body.hidden = params.hidden;
     if (params.offsetStart !== undefined) body.offsetStart = params.offsetStart;
     if (params.onlyShowFirstAvailableSlot !== undefined) body.onlyShowFirstAvailableSlot = params.onlyShowFirstAvailableSlot;
+    if (params.bookingLimitsCount !== undefined) body.bookingLimitsCount = params.bookingLimitsCount;
+    if (params.bookingWindow !== undefined) body.bookingWindow = params.bookingWindow;
+    if (params.destinationCalendar !== undefined) body.destinationCalendar = params.destinationCalendar;
     const data = await calApi(`event-types/${params.eventTypeId}`, { method: "PATCH", body });
     return ok(data);
   } catch (err) {

@@ -112,6 +112,8 @@ export const createBookingSchema = {
   bookingFieldsResponses: z.record(z.unknown()).optional().describe("Custom booking field responses as {slug: value} pairs"),
   metadata: z.record(z.unknown()).optional().describe("Metadata key-value pairs (max 50 keys, keys ≤40 chars, string values ≤500 chars)"),
   location: z.union([z.string(), z.record(z.unknown())]).optional().describe("Meeting location override. Can be a URL string or a location object matching one of the event type's configured locations."),
+  allowConflicts: z.boolean().optional().describe("If true, allow booking even if it overlaps with existing calendar events. Useful for hosts who need to force-book."),
+  allowBookingOutOfBounds: z.boolean().optional().describe("If true, allow booking outside the event type's configured availability window (e.g. before minimumBookingNotice or beyond the booking window)."),
 };
 
 export async function createBooking(params: {
@@ -127,6 +129,8 @@ export async function createBooking(params: {
   bookingFieldsResponses?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
   location?: string | Record<string, unknown>;
+  allowConflicts?: boolean;
+  allowBookingOutOfBounds?: boolean;
 }) {
   try {
     const body: Record<string, unknown> = {
@@ -143,6 +147,8 @@ export async function createBooking(params: {
     if (params.bookingFieldsResponses !== undefined) body.bookingFieldsResponses = params.bookingFieldsResponses;
     if (params.metadata) body.metadata = params.metadata;
     if (params.location !== undefined) body.location = params.location;
+    if (params.allowConflicts !== undefined) body.allowConflicts = params.allowConflicts;
+    if (params.allowBookingOutOfBounds !== undefined) body.allowBookingOutOfBounds = params.allowBookingOutOfBounds;
     const data = await calApi("bookings", { method: "POST", body });
     return ok(data);
   } catch (err) {
