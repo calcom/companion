@@ -60,6 +60,7 @@ export const createEventTypeSchema = {
   title: z.string().describe("Event type title"),
   slug: z.string().describe("URL-friendly slug (e.g. '30min')"),
   lengthInMinutes: z.number().int().positive().describe("Duration in minutes"),
+  lengthInMinutesOptions: z.array(z.number().int().positive()).optional().describe("Multiple duration options the attendee can choose from (e.g. [15, 30, 60]). If provided, the booker picks their preferred duration."),
   description: z.string().optional().describe("Description shown on the booking page"),
   locations: z
     .array(z.record(z.unknown()))
@@ -101,6 +102,7 @@ export async function createEventType(params: {
   title: string;
   slug: string;
   lengthInMinutes: number;
+  lengthInMinutesOptions?: number[];
   description?: string;
   locations?: Record<string, unknown>[];
   bookingFields?: Record<string, unknown>[];
@@ -128,6 +130,7 @@ export async function createEventType(params: {
       slug: params.slug,
       lengthInMinutes: params.lengthInMinutes,
     };
+    if (params.lengthInMinutesOptions !== undefined) body.lengthInMinutesOptions = params.lengthInMinutesOptions;
     if (params.description !== undefined) body.description = params.description;
     if (params.locations !== undefined) body.locations = params.locations;
     if (params.bookingFields !== undefined) body.bookingFields = params.bookingFields;
@@ -160,6 +163,7 @@ export const updateEventTypeSchema = {
   title: z.string().optional().describe("New title"),
   slug: z.string().optional().describe("New URL-friendly slug"),
   lengthInMinutes: z.number().int().positive().optional().describe("New duration in minutes"),
+  lengthInMinutesOptions: z.array(z.number().int().positive()).optional().describe("Multiple duration options the attendee can choose from (e.g. [15, 30, 60]). If provided, the booker picks their preferred duration."),
   description: z.string().optional().describe("New description"),
   locations: z
     .array(z.record(z.unknown()))
@@ -193,6 +197,7 @@ export async function updateEventType(params: {
   title?: string;
   slug?: string;
   lengthInMinutes?: number;
+  lengthInMinutesOptions?: number[];
   description?: string;
   locations?: Record<string, unknown>[];
   bookingFields?: Record<string, unknown>[];
@@ -219,6 +224,7 @@ export async function updateEventType(params: {
     if (params.title !== undefined) body.title = params.title;
     if (params.slug !== undefined) body.slug = params.slug;
     if (params.lengthInMinutes !== undefined) body.lengthInMinutes = params.lengthInMinutes;
+    if (params.lengthInMinutesOptions !== undefined) body.lengthInMinutesOptions = params.lengthInMinutesOptions;
     if (params.description !== undefined) body.description = params.description;
     if (params.locations !== undefined) body.locations = params.locations;
     if (params.bookingFields !== undefined) body.bookingFields = params.bookingFields;

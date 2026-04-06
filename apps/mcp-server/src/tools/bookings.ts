@@ -179,13 +179,15 @@ export const cancelBookingSchema = {
   bookingUid: z.string().describe("Booking UID"),
   cancellationReason: z.string().optional().describe("Reason for cancellation"),
   cancelSubsequentBookings: z.boolean().optional().describe("For recurring non-seated bookings only: if true, also cancels all subsequent recurrences after this one."),
+  seatUid: z.string().optional().describe("UID of the specific seat to cancel within a seated booking. Required when cancelling an individual seat instead of the entire booking."),
 };
 
-export async function cancelBooking(params: { bookingUid: string; cancellationReason?: string; cancelSubsequentBookings?: boolean }) {
+export async function cancelBooking(params: { bookingUid: string; cancellationReason?: string; cancelSubsequentBookings?: boolean; seatUid?: string }) {
   try {
     const body: Record<string, unknown> = {};
     if (params.cancellationReason) body.cancellationReason = params.cancellationReason;
     if (params.cancelSubsequentBookings !== undefined) body.cancelSubsequentBookings = params.cancelSubsequentBookings;
+    if (params.seatUid !== undefined) body.seatUid = params.seatUid;
     const uid = sanitizePathSegment(params.bookingUid);
     const data = await calApi(`bookings/${uid}/cancel`, { method: "POST", body });
     return ok(data);
