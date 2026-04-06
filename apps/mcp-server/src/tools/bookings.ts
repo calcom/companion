@@ -154,7 +154,7 @@ export const rescheduleBookingSchema = {
   bookingUid: z.string().describe("Booking UID"),
   start: z.string().describe("New start time in UTC, ISO 8601 (e.g. 2024-08-13T09:00:00Z)"),
   reschedulingReason: z.string().optional().describe("Reason for rescheduling"),
-  rescheduledBy: z.string().optional().describe("Email of person rescheduling. If event owner email is provided the rescheduled booking is auto-confirmed; otherwise the owner must confirm."),
+  rescheduledBy: z.string().optional().describe("Email of the person rescheduling. If the event owner's email is provided, the rescheduled booking is auto-confirmed; otherwise the owner must confirm. Use get_me to get the authenticated user's email — never fabricate."),
 };
 
 export async function rescheduleBooking(params: {
@@ -215,9 +215,9 @@ export const markBookingAbsentSchema = {
   bookingUid: z.string().describe("Booking UID"),
   host: z.boolean().optional().describe("Whether the host was absent"),
   attendees: z.array(z.object({
-    email: z.string(),
+    email: z.string().describe("Attendee email from the booking — use get_booking_attendees to look up real emails"),
     absent: z.boolean(),
-  })).optional().describe("Attendees with absent status"),
+  })).optional().describe("Attendees with absent status. Use real attendee emails from the booking."),
 };
 
 export async function markBookingAbsent(params: {
@@ -259,7 +259,7 @@ export const addBookingAttendeeSchema = {
   timeZone: z.string().describe("IANA time zone"),
   phoneNumber: z.string().optional().describe("Phone in international format"),
   language: z.string().optional().describe("ISO 639-1 language code (e.g. 'en')"),
-  email: z.string().email().describe("Attendee email"),
+  email: z.string().email().describe("Attendee email address. Must be a real, known email — never guess or fabricate."),
 };
 
 export async function addBookingAttendee(params: {

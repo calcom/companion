@@ -3,8 +3,8 @@ import { calApi } from "../utils/api-client.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
 const calendarToLoadSchema = z.object({
-  credentialId: z.number().describe("The credential ID of the calendar integration"),
-  externalId: z.string().describe("The external calendar ID (e.g. email address for Google Calendar)"),
+  credentialId: z.number().describe("The credential ID of the calendar integration. Obtain from the API — never guess."),
+  externalId: z.string().describe("The external calendar ID (e.g. the email address for Google Calendar). Obtain from the API — never guess."),
 });
 
 export const getBusyTimesSchema = {

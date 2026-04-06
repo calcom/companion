@@ -6,7 +6,7 @@ export const getEventTypesSchema = {
   username: z
     .string()
     .optional()
-    .describe("Get event types for a specific username. If only username is provided, returns all their event types."),
+    .describe("Username of the person whose event types you want to list. Omit to list the authenticated user's event types."),
   eventSlug: z
     .string()
     .optional()

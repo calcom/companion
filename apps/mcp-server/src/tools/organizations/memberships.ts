@@ -26,7 +26,7 @@ export async function getOrgMemberships(params: {
 
 export const createOrgMembershipSchema = {
   orgId: z.number().int().describe("Organization ID"),
-  userId: z.number().describe("User ID"),
+  userId: z.number().describe("User ID of the person to add. Must be a real user ID from the system — never guess."),
   accepted: z.boolean().optional().describe("Whether accepted"),
   role: z.enum(["MEMBER", "OWNER", "ADMIN"]).describe("Role (managed users: MEMBER only)"),
   disableImpersonation: z.boolean().optional().describe("Disable impersonation"),

@@ -8,7 +8,7 @@ export const getAvailabilitySchema = {
   timeZone: z.string().optional().describe("IANA time zone for returned slots (e.g. America/New_York). Defaults to UTC."),
   eventTypeId: z.number().int().optional().describe("Event type ID. Use this OR (eventTypeSlug + username) OR (eventTypeSlug + teamSlug)."),
   eventTypeSlug: z.string().optional().describe("Event type slug. Must be combined with username (individual) or teamSlug (team)."),
-  username: z.string().optional().describe("Username of the event type owner. Required with eventTypeSlug for individual event types."),
+  username: z.string().optional().describe("Username of the host whose availability you are checking. Required with eventTypeSlug for individual event types."),
   teamSlug: z.string().optional().describe("Team slug. Required with eventTypeSlug for team event types."),
   organizationSlug: z.string().optional().describe("Organization slug, needed when the user/team is within an organization."),
   usernames: z
