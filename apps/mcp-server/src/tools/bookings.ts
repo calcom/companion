@@ -94,7 +94,7 @@ export async function getBooking(params: { bookingUid: string }) {
 export const createBookingSchema = {
   eventTypeId: z.number().int().optional().describe("Event type ID. Required unless eventTypeSlug + username (or teamSlug) are provided."),
   eventTypeSlug: z.string().optional().describe("Event type slug (e.g. '15min'). Must be combined with username (for individual) or teamSlug (for team)."),
-  username: z.string().optional().describe("Username of the event type owner. Required with eventTypeSlug for individual event types."),
+  username: z.string().optional().describe("Username of the host whose calendar you are booking on. Required with eventTypeSlug for individual event types."),
   teamSlug: z.string().optional().describe("Team slug. Required with eventTypeSlug for team event types."),
   organizationSlug: z.string().optional().describe("Organization slug, needed when the user/team is within an organization."),
   start: z.string().describe("Start time in UTC, ISO 8601 (e.g. 2024-08-13T09:00:00Z). Must be UTC."),
@@ -106,7 +106,7 @@ export const createBookingSchema = {
       phoneNumber: z.string().optional().describe("Phone in international format (e.g. +19876543210). Required when event type has SMS reminders."),
       language: z.string().optional().describe("ISO 639-1 language code (e.g. 'en')"),
     })
-    .describe("Attendee details — the person booking, not the host"),
+    .describe("Attendee details — the person making the booking (the guest/caller), NOT the host. To book another user's calendar, set their username in the 'username' field and put YOUR (the caller's) details here. NEVER guess or fabricate email addresses — ask the user if unknown."),
   guests: z.array(z.string().email()).optional().describe("Additional guest emails to include"),
   lengthInMinutes: z.number().int().optional().describe("Desired booking length for variable-duration event types. Uses event type default if omitted."),
   bookingFieldsResponses: z.record(z.unknown()).optional().describe("Custom booking field responses as {slug: value} pairs"),
