@@ -59,16 +59,16 @@ export function startHttpServer(
   config: HttpServerConfig,
 ): void {
   const { port, oauthConfig } = config;
-  const maxSessions = config.maxSessions ?? Number(process.env.MAX_SESSIONS) || 10_000;
-  const sessionIdleTimeoutMs = config.sessionIdleTimeoutMs ?? Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60 * 1000;
-  const maxRegisteredClients = config.maxRegisteredClients ?? Number(process.env.MAX_REGISTERED_CLIENTS) || 10_000;
+  const maxSessions = config.maxSessions ?? (Number(process.env.MAX_SESSIONS) || 10_000);
+  const sessionIdleTimeoutMs = config.sessionIdleTimeoutMs ?? (Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60 * 1000);
+  const maxRegisteredClients = config.maxRegisteredClients ?? (Number(process.env.MAX_REGISTERED_CLIENTS) || 10_000);
   const corsOrigin = config.corsOrigin ?? process.env.CORS_ORIGIN;
-  const shutdownTimeoutMs = config.shutdownTimeoutMs ?? Number(process.env.SHUTDOWN_TIMEOUT_MS) || 10_000;
+  const shutdownTimeoutMs = config.shutdownTimeoutMs ?? (Number(process.env.SHUTDOWN_TIMEOUT_MS) || 10_000);
 
   getDb();
 
-  const rateLimitWindowMs = config.rateLimitWindowMs ?? Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000;
-  const rateLimitMax = config.rateLimitMax ?? Number(process.env.RATE_LIMIT_MAX) || 30;
+  const rateLimitWindowMs = config.rateLimitWindowMs ?? (Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000);
+  const rateLimitMax = config.rateLimitMax ?? (Number(process.env.RATE_LIMIT_MAX) || 30);
   const oauthRateLimiter = new RateLimiter({ windowMs: rateLimitWindowMs, max: rateLimitMax });
   oauthRateLimiter.startGc();
   const mcpRateLimiter = new RateLimiter({ windowMs: rateLimitWindowMs, max: rateLimitMax * 3 });
