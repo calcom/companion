@@ -4,17 +4,17 @@ import { sanitizePathSegment } from "../../utils/path-sanitizer.js";
 import { handleError, ok } from "../../utils/tool-helpers.js";
 
 export const getOrgRoutingFormsSchema = {
-  orgId: z.number().int().describe("orgId"),
-  skip: z.number().describe("Number of responses to skip").optional(),
-  take: z.number().describe("Number of responses to take").optional(),
-  sortCreatedAt: z.enum(["asc", "desc"]).describe("Sort by creation time").optional(),
-  sortUpdatedAt: z.enum(["asc", "desc"]).describe("Sort by update time").optional(),
-  afterCreatedAt: z.string().describe("Filter by responses created after this date").optional(),
-  beforeCreatedAt: z.string().describe("Filter by responses created before this date").optional(),
-  afterUpdatedAt: z.string().describe("Filter by responses created after this date").optional(),
-  beforeUpdatedAt: z.string().describe("Filter by responses updated before this date").optional(),
-  routedToBookingUid: z.string().describe("Filter by responses routed to a specific booking").optional(),
-  teamIds: z.array(z.number()).describe("Filter by teamIds. Team ids must be separated by a comma.").optional(),
+  orgId: z.number().int().describe("Organization ID"),
+  skip: z.number().optional().describe("Results to skip"),
+  take: z.number().optional().describe("Max results"),
+  sortCreatedAt: z.enum(["asc", "desc"]).optional().describe("Sort by created"),
+  sortUpdatedAt: z.enum(["asc", "desc"]).optional().describe("Sort by updated"),
+  afterCreatedAt: z.string().optional().describe("Created after (ISO 8601)"),
+  beforeCreatedAt: z.string().optional().describe("Created before (ISO 8601)"),
+  afterUpdatedAt: z.string().optional().describe("Updated after (ISO 8601)"),
+  beforeUpdatedAt: z.string().optional().describe("Updated before (ISO 8601)"),
+  routedToBookingUid: z.string().optional().describe("Filter by routed booking UID"),
+  teamIds: z.array(z.number()).optional().describe("Filter by team IDs"),
 };
 
 export async function getOrgRoutingForms(params: {
@@ -50,17 +50,17 @@ export async function getOrgRoutingForms(params: {
 }
 
 export const getOrgRoutingFormResponsesSchema = {
-  orgId: z.number().int().describe("orgId"),
-  routingFormId: z.string().describe("routingFormId"),
-  skip: z.number().describe("Number of responses to skip").optional(),
-  take: z.number().describe("Number of responses to take").optional(),
-  sortCreatedAt: z.enum(["asc", "desc"]).describe("Sort by creation time").optional(),
-  sortUpdatedAt: z.enum(["asc", "desc"]).describe("Sort by update time").optional(),
-  afterCreatedAt: z.string().describe("Filter by responses created after this date").optional(),
-  beforeCreatedAt: z.string().describe("Filter by responses created before this date").optional(),
-  afterUpdatedAt: z.string().describe("Filter by responses created after this date").optional(),
-  beforeUpdatedAt: z.string().describe("Filter by responses updated before this date").optional(),
-  routedToBookingUid: z.string().describe("Filter by responses routed to a specific booking").optional(),
+  orgId: z.number().int().describe("Organization ID"),
+  routingFormId: z.string().describe("Routing form ID"),
+  skip: z.number().optional().describe("Results to skip"),
+  take: z.number().optional().describe("Max results"),
+  sortCreatedAt: z.enum(["asc", "desc"]).optional().describe("Sort by created"),
+  sortUpdatedAt: z.enum(["asc", "desc"]).optional().describe("Sort by updated"),
+  afterCreatedAt: z.string().optional().describe("Created after (ISO 8601)"),
+  beforeCreatedAt: z.string().optional().describe("Created before (ISO 8601)"),
+  afterUpdatedAt: z.string().optional().describe("Updated after (ISO 8601)"),
+  beforeUpdatedAt: z.string().optional().describe("Updated before (ISO 8601)"),
+  routedToBookingUid: z.string().optional().describe("Filter by routed booking UID"),
 };
 
 export async function getOrgRoutingFormResponses(params: {

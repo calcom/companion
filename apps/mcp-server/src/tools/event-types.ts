@@ -14,7 +14,7 @@ export async function getEventTypes() {
 }
 
 export const getEventTypeSchema = {
-  eventTypeId: z.number().int().describe("The ID of the event type"),
+  eventTypeId: z.number().int().describe("Event type ID"),
 };
 
 export async function getEventType(params: { eventTypeId: number }) {
@@ -27,10 +27,10 @@ export async function getEventType(params: { eventTypeId: number }) {
 }
 
 export const createEventTypeSchema = {
-  title: z.string().describe("Title of the event type"),
-  slug: z.string().describe("URL-friendly slug for the event type"),
+  title: z.string().describe("Event type title"),
+  slug: z.string().describe("URL-friendly slug"),
   lengthInMinutes: z.number().int().positive().describe("Duration in minutes"),
-  description: z.string().optional().describe("Description of the event type"),
+  description: z.string().optional().describe("Description"),
 };
 
 export async function createEventType(params: {
@@ -54,11 +54,11 @@ export async function createEventType(params: {
 }
 
 export const updateEventTypeSchema = {
-  eventTypeId: z.number().int().describe("The ID of the event type to update"),
-  title: z.string().optional().describe("Updated title"),
-  slug: z.string().optional().describe("Updated slug"),
-  lengthInMinutes: z.number().int().positive().optional().describe("Updated duration in minutes"),
-  description: z.string().optional().describe("Updated description"),
+  eventTypeId: z.number().int().describe("Event type ID"),
+  title: z.string().optional().describe("New title"),
+  slug: z.string().optional().describe("New slug"),
+  lengthInMinutes: z.number().int().positive().optional().describe("New duration in minutes"),
+  description: z.string().optional().describe("New description"),
 };
 
 export async function updateEventType(params: {
@@ -82,7 +82,7 @@ export async function updateEventType(params: {
 }
 
 export const deleteEventTypeSchema = {
-  eventTypeId: z.number().int().describe("The ID of the event type to delete"),
+  eventTypeId: z.number().int().describe("Event type ID"),
 };
 
 export async function deleteEventType(params: { eventTypeId: number }) {

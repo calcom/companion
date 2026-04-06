@@ -5,7 +5,7 @@ import { logger } from "./logger.js";
  * Shared helper to format a successful tool response.
  */
 export function ok(data: unknown): { content: { type: "text"; text: string }[] } {
-  return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+  return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 
 /**

@@ -3,25 +3,21 @@ import { calApi } from "../utils/api-client.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
 export const getAvailabilitySchema = {
-  start: z
-    .string()
-    .describe("Start of the time range (ISO 8601 date or datetime, e.g. 2024-08-13 or 2024-08-13T00:00:00Z)"),
-  end: z
-    .string()
-    .describe("End of the time range (ISO 8601 date or datetime, e.g. 2024-08-14 or 2024-08-14T00:00:00Z)"),
-  timeZone: z.string().optional().describe("IANA time zone for the results (e.g. America/New_York)"),
-  eventTypeId: z.number().int().optional().describe("Filter by event type ID"),
-  eventTypeSlug: z.string().optional().describe("Filter by event type slug"),
-  username: z.string().optional().describe("Filter by a single username"),
-  teamSlug: z.string().optional().describe("Filter by team slug"),
-  organizationSlug: z.string().optional().describe("Filter by organization slug"),
+  start: z.string().describe("Range start, ISO 8601 (e.g. 2024-08-13)"),
+  end: z.string().describe("Range end, ISO 8601 (e.g. 2024-08-14)"),
+  timeZone: z.string().optional().describe("IANA time zone (e.g. America/New_York)"),
+  eventTypeId: z.number().int().optional().describe("Event type ID"),
+  eventTypeSlug: z.string().optional().describe("Event type slug"),
+  username: z.string().optional().describe("Username"),
+  teamSlug: z.string().optional().describe("Team slug"),
+  organizationSlug: z.string().optional().describe("Organization slug"),
   usernames: z
     .union([z.string(), z.array(z.string())])
     .optional()
-    .describe("Comma-separated string or array of usernames"),
+    .describe("Comma-separated or array of usernames"),
   duration: z.number().int().optional().describe("Slot duration in minutes"),
   format: z.string().optional().describe("Response format"),
-  bookingUidToReschedule: z.string().optional().describe("Booking UID to reschedule (shows slots that would otherwise be busy)"),
+  bookingUidToReschedule: z.string().optional().describe("Booking UID being rescheduled (unlocks its slot)"),
 };
 
 export async function getAvailability(params: {

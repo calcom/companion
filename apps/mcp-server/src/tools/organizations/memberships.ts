@@ -3,9 +3,9 @@ import { calApi } from "../../utils/api-client.js";
 import { handleError, ok } from "../../utils/tool-helpers.js";
 
 export const getOrgMembershipsSchema = {
-  orgId: z.number().int().describe("orgId"),
-  take: z.number().describe("Maximum number of items to return").optional(),
-  skip: z.number().describe("Number of items to skip").optional(),
+  orgId: z.number().int().describe("Organization ID"),
+  take: z.number().optional().describe("Max results to return"),
+  skip: z.number().optional().describe("Results to skip (offset)"),
 };
 
 export async function getOrgMemberships(params: {
@@ -25,11 +25,11 @@ export async function getOrgMemberships(params: {
 }
 
 export const createOrgMembershipSchema = {
-  orgId: z.number().int().describe("orgId"),
-  userId: z.number(),
-  accepted: z.boolean().optional(),
-  role: z.enum(["MEMBER", "OWNER", "ADMIN"]).describe("If you are platform customer then managed users should only have MEMBER role."),
-  disableImpersonation: z.boolean().optional(),
+  orgId: z.number().int().describe("Organization ID"),
+  userId: z.number().describe("User ID"),
+  accepted: z.boolean().optional().describe("Whether accepted"),
+  role: z.enum(["MEMBER", "OWNER", "ADMIN"]).describe("Role (managed users: MEMBER only)"),
+  disableImpersonation: z.boolean().optional().describe("Disable impersonation"),
 };
 
 export async function createOrgMembership(params: {
@@ -53,8 +53,8 @@ export async function createOrgMembership(params: {
 }
 
 export const getOrgMembershipSchema = {
-  orgId: z.number().int().describe("orgId"),
-  membershipId: z.number().int().describe("membershipId"),
+  orgId: z.number().int().describe("Organization ID"),
+  membershipId: z.number().int().describe("Membership ID"),
 };
 
 export async function getOrgMembership(params: {
@@ -70,8 +70,8 @@ export async function getOrgMembership(params: {
 }
 
 export const deleteOrgMembershipSchema = {
-  orgId: z.number().int().describe("orgId"),
-  membershipId: z.number().int().describe("membershipId"),
+  orgId: z.number().int().describe("Organization ID"),
+  membershipId: z.number().int().describe("Membership ID"),
 };
 
 export async function deleteOrgMembership(params: {
@@ -87,11 +87,11 @@ export async function deleteOrgMembership(params: {
 }
 
 export const updateOrgMembershipSchema = {
-  orgId: z.number().int().describe("orgId"),
-  membershipId: z.number().int().describe("membershipId"),
-  accepted: z.boolean().optional(),
-  role: z.enum(["MEMBER", "OWNER", "ADMIN"]).optional(),
-  disableImpersonation: z.boolean().optional(),
+  orgId: z.number().int().describe("Organization ID"),
+  membershipId: z.number().int().describe("Membership ID"),
+  accepted: z.boolean().optional().describe("Whether accepted"),
+  role: z.enum(["MEMBER", "OWNER", "ADMIN"]).optional().describe("New role"),
+  disableImpersonation: z.boolean().optional().describe("Disable impersonation"),
 };
 
 export async function updateOrgMembership(params: {

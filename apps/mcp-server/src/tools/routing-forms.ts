@@ -4,13 +4,13 @@ import { sanitizePathSegment } from "../utils/path-sanitizer.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
 export const calculateRoutingFormSlotsSchema = {
-  routingFormId: z.string().describe("routingFormId"),
-  start: z.string().describe("Time starting from which available slots should be checked.            Must be in UTC timezone as ISO 8601 datestring.              You can pass date without hours which defaults to start of day or sp"),
-  end: z.string().describe("Time until which available slots should be checked.              Must be in UTC timezone as ISO 8601 datestring.              You can pass date without hours which defaults to end of day or specify ho"),
-  timeZone: z.string().describe("Time zone in which the available slots should be returned. Defaults to UTC.").optional(),
-  duration: z.number().describe("If event type has multiple possible durations then you can specify the desired duration here. Also, if you are fetching slots for a dynamic event then you can specify the duration her which defaults t").optional(),
-  format: z.enum(["range", "time"]).describe("Format of slot times in response. Use 'range' to get start and end times.").optional(),
-  bookingUidToReschedule: z.string().describe("The unique identifier of the booking being rescheduled. When provided will ensure that the original booking time appears within the returned available slots when rescheduling.").optional(),
+  routingFormId: z.string().describe("Routing form ID"),
+  start: z.string().describe("Range start, UTC ISO 8601"),
+  end: z.string().describe("Range end, UTC ISO 8601"),
+  timeZone: z.string().optional().describe("Result time zone (default UTC)"),
+  duration: z.number().optional().describe("Desired slot duration in minutes"),
+  format: z.enum(["range", "time"]).optional().describe("Slot format: 'range' (start+end) or 'time'"),
+  bookingUidToReschedule: z.string().optional().describe("Booking UID being rescheduled (unlocks its slot)"),
 };
 
 export async function calculateRoutingFormSlots(params: {
