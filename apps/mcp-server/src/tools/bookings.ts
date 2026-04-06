@@ -4,14 +4,11 @@ import { sanitizePathSegment } from "../utils/path-sanitizer.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
 export const getBookingsSchema = {
-  status: z
-    .string()
-    .optional()
-    .describe("Filter by booking status (e.g. upcoming, past, cancelled)"),
-  attendeeEmail: z.string().email().optional().describe("Filter by attendee email address"),
+  status: z.string().optional().describe("Filter: upcoming, past, cancelled, etc."),
+  attendeeEmail: z.string().email().optional().describe("Filter by attendee email"),
   eventTypeId: z.number().int().optional().describe("Filter by event type ID"),
-  take: z.number().int().optional().describe("Number of results to return (pagination limit)"),
-  skip: z.number().int().optional().describe("Number of results to skip (pagination offset)"),
+  take: z.number().int().optional().describe("Max results to return"),
+  skip: z.number().int().optional().describe("Results to skip (offset)"),
 };
 
 export async function getBookings(params: {
@@ -30,7 +27,7 @@ export async function getBookings(params: {
 }
 
 export const getBookingSchema = {
-  bookingUid: z.string().describe("The unique identifier of the booking"),
+  bookingUid: z.string().describe("Booking UID"),
 };
 
 export async function getBooking(params: { bookingUid: string }) {
@@ -44,30 +41,42 @@ export async function getBooking(params: { bookingUid: string }) {
 }
 
 export const createBookingSchema = {
-  eventTypeId: z.number().int().describe("The ID of the event type to book"),
-  start: z.string().describe("Start time in ISO 8601 format (e.g. 2024-08-13T09:00:00Z)"),
+  eventTypeId: z.number().int().optional().describe("Event type ID. Required unless eventTypeSlug + username are provided."),
+  eventTypeSlug: z.string().optional().describe("Event type slug (e.g. '15min'). Use with username or teamSlug instead of eventTypeId."),
+  username: z.string().optional().describe("Event owner username. Use with eventTypeSlug."),
+  teamSlug: z.string().optional().describe("Team slug. Use with eventTypeSlug for team events."),
+  organizationSlug: z.string().optional().describe("Organization slug. Use with eventTypeSlug."),
+  start: z.string().describe("Start time, ISO 8601 (e.g. 2024-08-13T09:00:00Z)"),
   attendee: z
     .object({
-      name: z.string().describe("Attendee full name"),
-      email: z.string().email().describe("Attendee email address"),
-      timeZone: z.string().describe("Attendee IANA time zone (e.g. America/New_York)"),
+      name: z.string().describe("Full name"),
+      email: z.string().email().describe("Email address"),
+      timeZone: z.string().describe("IANA time zone (e.g. America/New_York)"),
     })
-    .describe("Attendee information"),
-  metadata: z.record(z.unknown()).optional().describe("Optional metadata key-value pairs"),
+    .describe("Attendee details"),
+  metadata: z.record(z.unknown()).optional().describe("Metadata key-value pairs"),
 };
 
 export async function createBooking(params: {
-  eventTypeId: number;
+  eventTypeId?: number;
+  eventTypeSlug?: string;
+  username?: string;
+  teamSlug?: string;
+  organizationSlug?: string;
   start: string;
   attendee: { name: string; email: string; timeZone: string };
   metadata?: Record<string, unknown>;
 }) {
   try {
     const body: Record<string, unknown> = {
-      eventTypeId: params.eventTypeId,
       start: params.start,
       attendee: params.attendee,
     };
+    if (params.eventTypeId !== undefined) body.eventTypeId = params.eventTypeId;
+    if (params.eventTypeSlug !== undefined) body.eventTypeSlug = params.eventTypeSlug;
+    if (params.username !== undefined) body.username = params.username;
+    if (params.teamSlug !== undefined) body.teamSlug = params.teamSlug;
+    if (params.organizationSlug !== undefined) body.organizationSlug = params.organizationSlug;
     if (params.metadata) body.metadata = params.metadata;
     const data = await calApi("bookings", { method: "POST", body });
     return ok(data);
@@ -77,8 +86,8 @@ export async function createBooking(params: {
 }
 
 export const rescheduleBookingSchema = {
-  bookingUid: z.string().describe("The unique identifier of the booking to reschedule"),
-  start: z.string().optional().describe("New start time in ISO 8601 format"),
+  bookingUid: z.string().describe("Booking UID"),
+  start: z.string().optional().describe("New start time, ISO 8601"),
   rescheduleReason: z.string().optional().describe("Reason for rescheduling"),
 };
 
@@ -100,7 +109,7 @@ export async function rescheduleBooking(params: {
 }
 
 export const cancelBookingSchema = {
-  bookingUid: z.string().describe("The unique identifier of the booking to cancel"),
+  bookingUid: z.string().describe("Booking UID"),
   cancellationReason: z.string().optional().describe("Reason for cancellation"),
 };
 
@@ -117,7 +126,7 @@ export async function cancelBooking(params: { bookingUid: string; cancellationRe
 }
 
 export const confirmBookingSchema = {
-  bookingUid: z.string().describe("The unique identifier of the booking to confirm"),
+  bookingUid: z.string().describe("Booking UID"),
 };
 
 export async function confirmBooking(params: { bookingUid: string }) {
@@ -134,12 +143,12 @@ export async function confirmBooking(params: { bookingUid: string }) {
 }
 
 export const markBookingAbsentSchema = {
-  bookingUid: z.string().describe("bookingUid"),
-  host: z.boolean().describe("Whether the host was absent").optional(),
+  bookingUid: z.string().describe("Booking UID"),
+  host: z.boolean().optional().describe("Whether the host was absent"),
   attendees: z.array(z.object({
     email: z.string(),
     absent: z.boolean(),
-  })).optional(),
+  })).optional().describe("Attendees with absent status"),
 };
 
 export async function markBookingAbsent(params: {
@@ -160,7 +169,7 @@ export async function markBookingAbsent(params: {
 }
 
 export const getBookingAttendeesSchema = {
-  bookingUid: z.string().describe("bookingUid"),
+  bookingUid: z.string().describe("Booking UID"),
 };
 
 export async function getBookingAttendees(params: {
@@ -176,12 +185,12 @@ export async function getBookingAttendees(params: {
 }
 
 export const addBookingAttendeeSchema = {
-  bookingUid: z.string().describe("bookingUid"),
-  name: z.string().describe("The name of the attendee."),
-  timeZone: z.string().describe("The time zone of the attendee."),
-  phoneNumber: z.string().describe("The phone number of the attendee in international format.").optional(),
-  language: z.enum(["ar", "ca", "de", "es", "eu", "he", "id", "ja", "lv", "pl", "ro", "sr", "th", "vi", "az", "cs", "el", "es-419", "fi", "hr", "it", "km", "nl", "pt", "ru", "sv", "tr", "zh-CN", "bg", "da", "en", "et", "fr", "hu", "iw", "ko", "no", "pt-BR", "sk", "ta", "uk", "zh-TW", "bn"]).describe("The preferred language of the attendee. Used for booking confirmation.").optional(),
-  email: z.string().email().describe("The email of the attendee."),
+  bookingUid: z.string().describe("Booking UID"),
+  name: z.string().describe("Attendee name"),
+  timeZone: z.string().describe("IANA time zone"),
+  phoneNumber: z.string().optional().describe("Phone in international format"),
+  language: z.string().optional().describe("ISO 639-1 language code (e.g. 'en')"),
+  email: z.string().email().describe("Attendee email"),
 };
 
 export async function addBookingAttendee(params: {
@@ -189,7 +198,7 @@ export async function addBookingAttendee(params: {
   name: string;
   timeZone: string;
   phoneNumber?: string;
-  language?: "ar" | "ca" | "de" | "es" | "eu" | "he" | "id" | "ja" | "lv" | "pl" | "ro" | "sr" | "th" | "vi" | "az" | "cs" | "el" | "es-419" | "fi" | "hr" | "it" | "km" | "nl" | "pt" | "ru" | "sv" | "tr" | "zh-CN" | "bg" | "da" | "en" | "et" | "fr" | "hu" | "iw" | "ko" | "no" | "pt-BR" | "sk" | "ta" | "uk" | "zh-TW" | "bn";
+  language?: string;
   email: string;
 }) {
   try {
@@ -208,8 +217,8 @@ export async function addBookingAttendee(params: {
 }
 
 export const getBookingAttendeeSchema = {
-  bookingUid: z.string().describe("bookingUid"),
-  attendeeId: z.number().int().describe("attendeeId"),
+  bookingUid: z.string().describe("Booking UID"),
+  attendeeId: z.number().int().describe("Attendee ID"),
 };
 
 export async function getBookingAttendee(params: {

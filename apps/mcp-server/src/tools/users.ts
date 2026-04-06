@@ -14,12 +14,12 @@ export async function getMe() {
 }
 
 export const updateMeSchema = {
-  name: z.string().optional().describe("Updated display name"),
-  email: z.string().email().optional().describe("Updated email address"),
-  bio: z.string().optional().describe("Updated bio / description"),
-  timeZone: z.string().optional().describe("Updated IANA time zone (e.g. America/New_York)"),
-  weekStart: z.string().optional().describe("Updated week start day (e.g. Monday)"),
-  timeFormat: z.number().int().optional().describe("Time format: 12 or 24"),
+  name: z.string().optional().describe("Display name"),
+  email: z.string().email().optional().describe("Email address"),
+  bio: z.string().optional().describe("Bio / description"),
+  timeZone: z.string().optional().describe("IANA time zone (e.g. America/New_York)"),
+  weekStart: z.string().optional().describe("Week start day (e.g. Monday)"),
+  timeFormat: z.number().int().optional().describe("12 or 24 hour format"),
   defaultScheduleId: z.number().int().optional().describe("Default schedule ID"),
 };
 

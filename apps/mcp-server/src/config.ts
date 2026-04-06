@@ -3,8 +3,27 @@ import { z } from "zod";
 /** Default Cal.com API version used across all requests. */
 export const CAL_API_VERSION = "2024-08-13";
 
-/** Per-path API version overrides (some endpoints require a newer version). */
+/**
+ * Per-path API version overrides.
+ *
+ * The Cal.com API v2 uses custom header-based versioning (`cal-api-version`).
+ * Each controller is pinned to a specific version and requests that carry the
+ * wrong version receive a 404 because NestJS cannot match the route.
+ *
+ * The default CAL_API_VERSION (2024-08-13) works for bookings, calendars,
+ * conferencing, me, and organization endpoints, but the following resource
+ * groups are pinned to different versions:
+ *
+ *   - event-types  → 2024-06-14
+ *   - schedules    → 2024-06-11
+ *   - slots        → 2024-09-04
+ *
+ * Entries are matched against the **first segment** of the request path
+ * (after stripping a leading slash) inside `buildRequestHeaders()`.
+ */
 export const CAL_API_VERSION_OVERRIDES: Record<string, string> = {
+  "event-types": "2024-06-14",
+  schedules: "2024-06-11",
   slots: "2024-09-04",
 };
 

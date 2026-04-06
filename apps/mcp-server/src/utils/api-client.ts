@@ -63,6 +63,17 @@ async function handleResponse(res: Response): Promise<unknown> {
 }
 
 /**
+ * Look up a cal-api-version override for the given path.
+ *
+ * Overrides are keyed by the first path segment (e.g. "event-types") so that
+ * both `event-types` and `event-types/123` resolve to the same version.
+ */
+function resolveVersionOverride(normalizedPath: string): string | undefined {
+  const firstSegment = normalizedPath.split("/")[0];
+  return CAL_API_VERSION_OVERRIDES[firstSegment];
+}
+
+/**
  * Build request headers with auth + any cal-api-version override.
  * In HTTP/OAuth mode, uses per-session Cal.com tokens from authContext.
  * In stdio mode, falls back to API key from env.
@@ -75,7 +86,7 @@ function buildRequestHeaders(
   const base = contextHeaders ?? getApiKeyHeaders();
 
   const versionOverride =
-    apiVersionOverride ?? CAL_API_VERSION_OVERRIDES[normalizedPath];
+    apiVersionOverride ?? resolveVersionOverride(normalizedPath);
   if (versionOverride) {
     return { ...base, "cal-api-version": versionOverride };
   }

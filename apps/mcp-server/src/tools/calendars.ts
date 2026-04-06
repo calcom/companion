@@ -3,11 +3,8 @@ import { calApi } from "../utils/api-client.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
 export const getBusyTimesSchema = {
-  dateFrom: z
-    .string()
-    .optional()
-    .describe("Start date in ISO 8601 format (e.g. 2024-08-13T00:00:00Z)"),
-  dateTo: z.string().optional().describe("End date in ISO 8601 format (e.g. 2024-08-14T00:00:00Z)"),
+  dateFrom: z.string().optional().describe("Start date, ISO 8601 (e.g. 2024-08-13T00:00:00Z)"),
+  dateTo: z.string().optional().describe("End date, ISO 8601 (e.g. 2024-08-14T00:00:00Z)"),
 };
 
 export async function getBusyTimes(params: { dateFrom?: string; dateTo?: string }) {

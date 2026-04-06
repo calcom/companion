@@ -3,9 +3,9 @@ import { calApi } from "../utils/api-client.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
 const availabilitySlotSchema = z.object({
-  day: z.string().describe("Day of the week (e.g. Monday)"),
-  startTime: z.string().describe("Start time in HH:mm format"),
-  endTime: z.string().describe("End time in HH:mm format"),
+  day: z.string().describe("Day of week (e.g. Monday)"),
+  startTime: z.string().describe("Start time HH:mm"),
+  endTime: z.string().describe("End time HH:mm"),
 });
 
 export const getSchedulesSchema = {};
@@ -20,7 +20,7 @@ export async function getSchedules() {
 }
 
 export const getScheduleSchema = {
-  scheduleId: z.number().int().describe("The ID of the schedule"),
+  scheduleId: z.number().int().describe("Schedule ID"),
 };
 
 export async function getSchedule(params: { scheduleId: number }) {
@@ -33,9 +33,9 @@ export async function getSchedule(params: { scheduleId: number }) {
 }
 
 export const createScheduleSchema = {
-  name: z.string().describe("Name of the schedule"),
+  name: z.string().describe("Schedule name"),
   timeZone: z.string().describe("IANA time zone (e.g. America/New_York)"),
-  availability: z.array(availabilitySlotSchema).describe("Array of availability slots"),
+  availability: z.array(availabilitySlotSchema).describe("Availability slots"),
 };
 
 export async function createSchedule(params: {
@@ -55,10 +55,10 @@ export async function createSchedule(params: {
 }
 
 export const updateScheduleSchema = {
-  scheduleId: z.number().int().describe("The ID of the schedule to update"),
-  name: z.string().optional().describe("Updated schedule name"),
-  timeZone: z.string().optional().describe("Updated IANA time zone"),
-  availability: z.array(availabilitySlotSchema).optional().describe("Updated availability slots"),
+  scheduleId: z.number().int().describe("Schedule ID"),
+  name: z.string().optional().describe("New name"),
+  timeZone: z.string().optional().describe("New IANA time zone"),
+  availability: z.array(availabilitySlotSchema).optional().describe("New availability slots"),
 };
 
 export async function updateSchedule(params: {
@@ -80,7 +80,7 @@ export async function updateSchedule(params: {
 }
 
 export const deleteScheduleSchema = {
-  scheduleId: z.number().int().describe("The ID of the schedule to delete"),
+  scheduleId: z.number().int().describe("Schedule ID"),
 };
 
 export async function deleteSchedule(params: { scheduleId: number }) {
