@@ -14,7 +14,7 @@ export const getAvailabilitySchema = {
   usernames: z
     .union([z.string(), z.array(z.string())])
     .optional()
-    .describe("Comma-separated or array of usernames for dynamic events (min 2). Also requires organizationSlug."),
+    .describe("Comma-separated or array of usernames for dynamic events (min 2). organizationSlug is needed only if users belong to an org."),
   duration: z.number().int().optional().describe("Desired slot duration in minutes (for variable-duration or dynamic events, defaults to 30)"),
   format: z.string().optional().describe("Response format: 'range' (start+end) or 'time' (start only)"),
   bookingUidToReschedule: z.string().optional().describe("Booking UID being rescheduled — ensures original time appears in available slots"),

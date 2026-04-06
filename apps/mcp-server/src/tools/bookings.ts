@@ -154,7 +154,7 @@ export const rescheduleBookingSchema = {
   bookingUid: z.string().describe("Booking UID"),
   start: z.string().describe("New start time in UTC, ISO 8601 (e.g. 2024-08-13T09:00:00Z)"),
   reschedulingReason: z.string().optional().describe("Reason for rescheduling"),
-  rescheduledBy: z.string().optional().describe("Email of the person rescheduling. If the event owner's email is provided, the rescheduled booking is auto-confirmed; otherwise the owner must confirm. Use get_me to get the authenticated user's email — never fabricate."),
+  rescheduledBy: z.string().optional().describe("Only needed when rescheduling a booking that requires confirmation. If the event owner's email is provided, the rescheduled booking is auto-confirmed; otherwise the owner must confirm. Use get_me to get the authenticated user's email — never fabricate."),
 };
 
 export async function rescheduleBooking(params: {
@@ -178,7 +178,7 @@ export async function rescheduleBooking(params: {
 export const cancelBookingSchema = {
   bookingUid: z.string().describe("Booking UID"),
   cancellationReason: z.string().optional().describe("Reason for cancellation"),
-  cancelSubsequentBookings: z.boolean().optional().describe("For recurring bookings: if true, also cancels all subsequent recurrences after this one."),
+  cancelSubsequentBookings: z.boolean().optional().describe("For recurring non-seated bookings only: if true, also cancels all subsequent recurrences after this one."),
 };
 
 export async function cancelBooking(params: { bookingUid: string; cancellationReason?: string; cancelSubsequentBookings?: boolean }) {

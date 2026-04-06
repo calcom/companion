@@ -64,7 +64,7 @@ export const createEventTypeSchema = {
   locations: z
     .array(z.record(z.unknown()))
     .optional()
-    .describe("Locations where the event takes place. If not provided, Cal Video is used. Each element is a location object (e.g. {type: 'inPerson', address: '...'})."),
+    .describe("Locations where the event takes place. If not provided, Cal Video is used. Each element is a location object (e.g. {type: 'inPerson', address: '...'}). Note: setting a conferencing app as location requires the app to already be installed."),
   bookingFields: z
     .array(z.record(z.unknown()))
     .optional()
@@ -168,7 +168,7 @@ export const updateEventTypeSchema = {
   bookingFields: z
     .array(z.record(z.unknown()))
     .optional()
-    .describe("Updated booking fields array. Replaces all existing booking fields."),
+    .describe("Updated booking fields array. Replaces ALL existing booking fields. To modify fields, first fetch the current event type with get_event_type, then include all desired fields here."),
   disableGuests: z.boolean().optional().describe("If true, bookers cannot add guest emails."),
   slotInterval: z.number().int().optional().describe("Length of each slot in minutes."),
   minimumBookingNotice: z.number().int().optional().describe("Minimum minutes before event that a booking can be made."),
