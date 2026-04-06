@@ -109,11 +109,11 @@ export function registerTools(server: McpServer): void {
   server.tool("delete_event_type", "Delete an event type.", deleteEventTypeSchema, deleteEventType);
 
   // ── Bookings (10) ──
-  server.tool("get_bookings", "List bookings with optional filters.", getBookingsSchema, getBookings);
+  server.tool("get_bookings", "List bookings. Supports filtering by status (upcoming, recurring, past, cancelled, unconfirmed), attendee, event type, team, date ranges, and sorting.", getBookingsSchema, getBookings);
   server.tool("get_booking", "Get a specific booking by UID.", getBookingSchema, getBooking);
-  server.tool("create_booking", "Create a new booking.", createBookingSchema, createBooking);
-  server.tool("reschedule_booking", "Reschedule a booking.", rescheduleBookingSchema, rescheduleBooking);
-  server.tool("cancel_booking", "Cancel a booking.", cancelBookingSchema, cancelBooking);
+  server.tool("create_booking", "Create a booking. Identify the event type by: (1) eventTypeId, OR (2) eventTypeSlug + username for individual events, OR (3) eventTypeSlug + teamSlug for team events. The 'start' time MUST be in UTC. The attendee is the person being booked, not the host.", createBookingSchema, createBooking);
+  server.tool("reschedule_booking", "Reschedule a booking to a new time. Provide the new start time in UTC. If rescheduledBy matches the event owner's email the rescheduled booking is auto-confirmed.", rescheduleBookingSchema, rescheduleBooking);
+  server.tool("cancel_booking", "Cancel a booking. For recurring bookings, set cancelSubsequentBookings=true to also cancel all future recurrences.", cancelBookingSchema, cancelBooking);
   server.tool("confirm_booking", "Confirm a pending booking.", confirmBookingSchema, confirmBooking);
   server.tool("mark_booking_absent", "Mark a booking absence.", markBookingAbsentSchema, markBookingAbsent);
   server.tool("get_booking_attendees", "Get all attendees for a booking.", getBookingAttendeesSchema, getBookingAttendees);
@@ -129,7 +129,7 @@ export function registerTools(server: McpServer): void {
   server.tool("get_default_schedule", "Get default schedule.", getDefaultScheduleSchema, getDefaultSchedule);
 
   // ── Availability / Slots (2) ──
-  server.tool("get_availability", "Get available time slots (GET /v2/slots). Uses cal-api-version 2024-09-04.", getAvailabilitySchema, getAvailability);
+  server.tool("get_availability", "Get available time slots. Identify slots by: (1) eventTypeId, (2) eventTypeSlug + username, (3) eventTypeSlug + teamSlug, or (4) usernames (comma-separated, for dynamic events). Start/end must be in UTC ISO 8601.", getAvailabilitySchema, getAvailability);
   server.tool("get_busy_times", "Get busy times from calendars.", getBusyTimesSchema, getBusyTimes);
 
   // ── Conferencing (1) ──
