@@ -5,16 +5,20 @@ import { handleError, ok } from "../utils/tool-helpers.js";
 
 export const calculateRoutingFormSlotsSchema = {
   routingFormId: z.string().describe("Routing form ID"),
-  start: z.string().describe("Range start, UTC ISO 8601"),
-  end: z.string().describe("Range end, UTC ISO 8601"),
-  timeZone: z.string().optional().describe("Result time zone (default UTC)"),
-  duration: z.number().optional().describe("Desired slot duration in minutes"),
-  format: z.enum(["range", "time"]).optional().describe("Slot format: 'range' (start+end) or 'time'"),
-  bookingUidToReschedule: z.string().optional().describe("Booking UID being rescheduled (unlocks its slot)"),
+  response: z
+    .record(z.unknown())
+    .describe("Routing form response object. Keys are routing form field IDs, values are the user's answers. Required to determine which event type / team member to route to."),
+  start: z.string().describe("Range start in UTC, ISO 8601 (e.g. '2024-08-13' or '2024-08-13T09:00:00Z')"),
+  end: z.string().describe("Range end in UTC, ISO 8601 (e.g. '2024-08-14' or '2024-08-14T18:00:00Z')"),
+  timeZone: z.string().optional().describe("IANA time zone for returned slots (default UTC)"),
+  duration: z.number().optional().describe("Desired slot duration in minutes (for variable-duration events)"),
+  format: z.enum(["range", "time"]).optional().describe("Slot format: 'range' returns start+end, 'time' returns start only"),
+  bookingUidToReschedule: z.string().optional().describe("Booking UID being rescheduled — ensures original time appears in available slots"),
 };
 
 export async function calculateRoutingFormSlots(params: {
   routingFormId: string;
+  response: Record<string, unknown>;
   start: string;
   end: string;
   timeZone?: string;
@@ -23,7 +27,11 @@ export async function calculateRoutingFormSlots(params: {
   bookingUidToReschedule?: string;
 }) {
   try {
-    const body: Record<string, unknown> = { start: params.start, end: params.end };
+    const body: Record<string, unknown> = {
+      response: params.response,
+      start: params.start,
+      end: params.end,
+    };
     if (params.timeZone !== undefined) body.timeZone = params.timeZone;
     if (params.duration !== undefined) body.duration = params.duration;
     if (params.format !== undefined) body.format = params.format;

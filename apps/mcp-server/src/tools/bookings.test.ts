@@ -41,6 +41,15 @@ describe("bookings schemas", () => {
     expect(getBookingsSchema.status).toBeDefined();
     expect(getBookingsSchema.take).toBeDefined();
     expect(getBookingsSchema.skip).toBeDefined();
+    expect(getBookingsSchema.attendeeName).toBeDefined();
+    expect(getBookingsSchema.eventTypeIds).toBeDefined();
+    expect(getBookingsSchema.teamId).toBeDefined();
+    expect(getBookingsSchema.teamsIds).toBeDefined();
+    expect(getBookingsSchema.afterStart).toBeDefined();
+    expect(getBookingsSchema.beforeEnd).toBeDefined();
+    expect(getBookingsSchema.sortStart).toBeDefined();
+    expect(getBookingsSchema.sortCreated).toBeDefined();
+    expect(getBookingsSchema.bookingUid).toBeDefined();
   });
 
   it("exports getBookingSchema with bookingUid", () => {
@@ -55,15 +64,22 @@ describe("bookings schemas", () => {
     expect(createBookingSchema.organizationSlug).toBeDefined();
     expect(createBookingSchema.start).toBeDefined();
     expect(createBookingSchema.attendee).toBeDefined();
+    expect(createBookingSchema.guests).toBeDefined();
+    expect(createBookingSchema.lengthInMinutes).toBeDefined();
+    expect(createBookingSchema.bookingFieldsResponses).toBeDefined();
+    expect(createBookingSchema.location).toBeDefined();
   });
 
   it("exports rescheduleBookingSchema", () => {
     expect(rescheduleBookingSchema.bookingUid).toBeDefined();
     expect(rescheduleBookingSchema.start).toBeDefined();
+    expect(rescheduleBookingSchema.reschedulingReason).toBeDefined();
+    expect(rescheduleBookingSchema.rescheduledBy).toBeDefined();
   });
 
   it("exports cancelBookingSchema", () => {
     expect(cancelBookingSchema.bookingUid).toBeDefined();
+    expect(cancelBookingSchema.cancelSubsequentBookings).toBeDefined();
   });
 
   it("exports confirmBookingSchema", () => {
@@ -97,12 +113,30 @@ describe("getBookings", () => {
     const result = await getBookings({ status: "upcoming" });
 
     expect(mockCalApi).toHaveBeenCalledWith("bookings", {
-      params: { status: "upcoming" },
+      params: expect.objectContaining({ status: "upcoming" }),
     });
     expect(result.content[0].type).toBe("text");
     expect(JSON.parse(result.content[0].text)).toEqual({
       bookings: [{ uid: "abc" }],
     });
+  });
+
+  it("passes date range and sort params", async () => {
+    mockCalApi.mockResolvedValueOnce({ bookings: [] });
+
+    await getBookings({
+      afterStart: "2024-08-01",
+      beforeEnd: "2024-08-31",
+      sortStart: "asc",
+      teamId: 5,
+    });
+
+    const [, opts] = mockCalApi.mock.calls[0];
+    const params = (opts as { params: Record<string, unknown> }).params;
+    expect(params).toHaveProperty("afterStart", "2024-08-01");
+    expect(params).toHaveProperty("beforeEnd", "2024-08-31");
+    expect(params).toHaveProperty("sortStart", "asc");
+    expect(params).toHaveProperty("teamId", 5);
   });
 
   it("returns error response on CalApiError", async () => {
@@ -176,6 +210,40 @@ describe("createBooking", () => {
     expect((opts as { body: Record<string, unknown> }).body).toHaveProperty("metadata", { source: "mcp" });
   });
 
+  it("includes guests and lengthInMinutes when provided", async () => {
+    mockCalApi.mockResolvedValueOnce({ uid: "with-guests" });
+
+    await createBooking({
+      eventTypeId: 1,
+      start: "2024-08-13T09:00:00Z",
+      attendee: { name: "Bob", email: "bob@example.com", timeZone: "UTC" },
+      guests: ["guest@example.com"],
+      lengthInMinutes: 30,
+    });
+
+    const [, opts] = mockCalApi.mock.calls[0];
+    const body = (opts as { body: Record<string, unknown> }).body;
+    expect(body).toHaveProperty("guests", ["guest@example.com"]);
+    expect(body).toHaveProperty("lengthInMinutes", 30);
+  });
+
+  it("includes location and bookingFieldsResponses when provided", async () => {
+    mockCalApi.mockResolvedValueOnce({ uid: "with-location" });
+
+    await createBooking({
+      eventTypeId: 1,
+      start: "2024-08-13T09:00:00Z",
+      attendee: { name: "Bob", email: "bob@example.com", timeZone: "UTC" },
+      location: "https://meet.google.com/abc",
+      bookingFieldsResponses: { company: "Acme" },
+    });
+
+    const [, opts] = mockCalApi.mock.calls[0];
+    const body = (opts as { body: Record<string, unknown> }).body;
+    expect(body).toHaveProperty("location", "https://meet.google.com/abc");
+    expect(body).toHaveProperty("bookingFieldsResponses", { company: "Acme" });
+  });
+
   it("supports booking by eventTypeSlug + username instead of eventTypeId", async () => {
     mockCalApi.mockResolvedValueOnce({ uid: "slug-booking" });
 
@@ -219,28 +287,41 @@ describe("createBooking", () => {
 });
 
 describe("rescheduleBooking", () => {
-  it("sends reschedule request with body", async () => {
+  it("sends reschedule request with reschedulingReason", async () => {
     mockCalApi.mockResolvedValueOnce({ uid: "rescheduled" });
 
     await rescheduleBooking({
       bookingUid: "abc",
       start: "2024-08-14T10:00:00Z",
-      rescheduleReason: "Conflict",
+      reschedulingReason: "Conflict",
     });
 
     expect(mockCalApi).toHaveBeenCalledWith("bookings/abc/reschedule", {
       method: "POST",
-      body: { start: "2024-08-14T10:00:00Z", rescheduleReason: "Conflict" },
+      body: { start: "2024-08-14T10:00:00Z", reschedulingReason: "Conflict" },
     });
   });
 
-  it("sends empty body when no optional params", async () => {
+  it("sends body with only start when no optional params", async () => {
     mockCalApi.mockResolvedValueOnce({});
 
-    await rescheduleBooking({ bookingUid: "abc" });
+    await rescheduleBooking({ bookingUid: "abc", start: "2024-08-14T10:00:00Z" });
 
     const [, opts] = mockCalApi.mock.calls[0];
-    expect((opts as { body: Record<string, unknown> }).body).toEqual({});
+    expect((opts as { body: Record<string, unknown> }).body).toEqual({ start: "2024-08-14T10:00:00Z" });
+  });
+
+  it("includes rescheduledBy when provided", async () => {
+    mockCalApi.mockResolvedValueOnce({ uid: "rescheduled" });
+
+    await rescheduleBooking({
+      bookingUid: "abc",
+      start: "2024-08-14T10:00:00Z",
+      rescheduledBy: "owner@example.com",
+    });
+
+    const [, opts] = mockCalApi.mock.calls[0];
+    expect((opts as { body: Record<string, unknown> }).body).toHaveProperty("rescheduledBy", "owner@example.com");
   });
 });
 
@@ -254,6 +335,15 @@ describe("cancelBooking", () => {
       method: "POST",
       body: { cancellationReason: "Changed plans" },
     });
+  });
+
+  it("includes cancelSubsequentBookings for recurring bookings", async () => {
+    mockCalApi.mockResolvedValueOnce({});
+
+    await cancelBooking({ bookingUid: "xyz", cancelSubsequentBookings: true });
+
+    const [, opts] = mockCalApi.mock.calls[0];
+    expect((opts as { body: Record<string, unknown> }).body).toHaveProperty("cancelSubsequentBookings", true);
   });
 });
 

@@ -37,7 +37,9 @@ describe("schedules schemas", () => {
   it("exports createScheduleSchema with required fields", () => {
     expect(createScheduleSchema.name).toBeDefined();
     expect(createScheduleSchema.timeZone).toBeDefined();
+    expect(createScheduleSchema.isDefault).toBeDefined();
     expect(createScheduleSchema.availability).toBeDefined();
+    expect(createScheduleSchema.overrides).toBeDefined();
   });
 
   it("exports updateScheduleSchema", () => {
@@ -85,6 +87,7 @@ describe("createSchedule", () => {
     await createSchedule({
       name: "Office Hours",
       timeZone: "America/New_York",
+      isDefault: true,
       availability: [
         { day: "Monday", startTime: "09:00", endTime: "17:00" },
       ],
@@ -95,9 +98,26 @@ describe("createSchedule", () => {
       body: {
         name: "Office Hours",
         timeZone: "America/New_York",
+        isDefault: true,
         availability: [{ day: "Monday", startTime: "09:00", endTime: "17:00" }],
       },
     });
+  });
+
+  it("includes overrides when provided", async () => {
+    mockCalApi.mockResolvedValueOnce({ id: 11 });
+
+    await createSchedule({
+      name: "Holiday",
+      timeZone: "UTC",
+      isDefault: false,
+      overrides: [{ date: "2024-12-25" }],
+    });
+
+    const [, opts] = mockCalApi.mock.calls[0];
+    const body = (opts as { body: Record<string, unknown> }).body;
+    expect(body).toHaveProperty("overrides");
+    expect(body).not.toHaveProperty("availability");
   });
 });
 
