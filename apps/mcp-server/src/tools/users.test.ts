@@ -32,6 +32,9 @@ describe("users schemas", () => {
     expect(updateMeSchema.weekStart).toBeDefined();
     expect(updateMeSchema.timeFormat).toBeDefined();
     expect(updateMeSchema.defaultScheduleId).toBeDefined();
+    expect(updateMeSchema.locale).toBeDefined();
+    expect(updateMeSchema.avatarUrl).toBeDefined();
+    expect(updateMeSchema.metadata).toBeDefined();
   });
 });
 
@@ -107,11 +110,14 @@ describe("updateMe", () => {
       weekStart: "Monday",
       timeFormat: 24,
       defaultScheduleId: 1,
+      locale: "en",
+      avatarUrl: "https://example.com/avatar.png",
+      metadata: { key: "value" },
     });
 
     const [, opts] = mockCalApi.mock.calls[0];
     const body = (opts as { body: Record<string, unknown> }).body;
-    expect(Object.keys(body)).toHaveLength(7);
+    expect(Object.keys(body)).toHaveLength(10);
   });
 
   it("handles errors", async () => {

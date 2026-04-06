@@ -18,44 +18,57 @@ beforeEach(() => {
 });
 
 describe("calendars schemas", () => {
-  it("exports getBusyTimesSchema with optional date fields", () => {
+  it("exports getBusyTimesSchema with required fields", () => {
     expect(getBusyTimesSchema.dateFrom).toBeDefined();
     expect(getBusyTimesSchema.dateTo).toBeDefined();
+    expect(getBusyTimesSchema.calendarsToLoad).toBeDefined();
+    expect(getBusyTimesSchema.timeZone).toBeDefined();
   });
 });
 
 describe("getBusyTimes", () => {
-  it("sends date params", async () => {
+  it("sends date and calendar params", async () => {
     mockCalApi.mockResolvedValueOnce({ busyTimes: [] });
 
     const result = await getBusyTimes({
       dateFrom: "2024-08-13T00:00:00Z",
       dateTo: "2024-08-14T00:00:00Z",
+      calendarsToLoad: [{ credentialId: 1, externalId: "user@gmail.com" }],
     });
 
     expect(mockCalApi).toHaveBeenCalledWith("calendars/busy-times", {
-      params: {
+      params: expect.objectContaining({
         dateFrom: "2024-08-13T00:00:00Z",
         dateTo: "2024-08-14T00:00:00Z",
-      },
+        "calendarsToLoad[0][credentialId]": "1",
+        "calendarsToLoad[0][externalId]": "user@gmail.com",
+      }),
     });
     expect(JSON.parse(result.content[0].text)).toHaveProperty("busyTimes");
   });
 
-  it("works with no params", async () => {
+  it("includes timeZone when provided", async () => {
     mockCalApi.mockResolvedValueOnce({ busyTimes: [] });
 
-    await getBusyTimes({});
-
-    expect(mockCalApi).toHaveBeenCalledWith("calendars/busy-times", {
-      params: { dateFrom: undefined, dateTo: undefined },
+    await getBusyTimes({
+      dateFrom: "2024-08-13",
+      dateTo: "2024-08-14",
+      calendarsToLoad: [{ credentialId: 1, externalId: "cal@gmail.com" }],
+      timeZone: "America/New_York",
     });
+
+    const [, opts] = mockCalApi.mock.calls[0];
+    expect((opts as { params: Record<string, unknown> }).params).toHaveProperty("timeZone", "America/New_York");
   });
 
   it("handles errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(500, "Server error", {}));
 
-    const result = await getBusyTimes({});
+    const result = await getBusyTimes({
+      dateFrom: "2024-08-13",
+      dateTo: "2024-08-14",
+      calendarsToLoad: [{ credentialId: 1, externalId: "cal@gmail.com" }],
+    });
 
     expect(result).toHaveProperty("isError", true);
   });
