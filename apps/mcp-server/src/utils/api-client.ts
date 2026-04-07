@@ -43,7 +43,10 @@ function buildUrl(path: string, params?: RequestOptions["params"]): string {
       }
     }
   }
-  return url.toString();
+  // Decode bracket characters that URLSearchParams percent-encodes (%5B → [, %5D → ]).
+  // PHP/Rails-style nested params (e.g. calendarsToLoad[0][credentialId]) use literal
+  // brackets and most HTTP frameworks (including NestJS) expect them unencoded.
+  return url.toString().replace(/%5B/gi, "[").replace(/%5D/gi, "]");
 }
 
 async function handleResponse(res: Response): Promise<unknown> {
@@ -52,10 +55,15 @@ async function handleResponse(res: Response): Promise<unknown> {
   const body = isJson ? await res.json() : await res.text();
 
   if (!res.ok) {
-    const message =
-      typeof body === "object" && body !== null && "message" in body
-        ? String((body as Record<string, unknown>).message)
-        : `Cal.com API error (${res.status})`;
+    let message = `Cal.com API error (${res.status})`;
+    if (typeof body === "object" && body !== null) {
+      const b = body as Record<string, unknown>;
+      // Cal.com v2 returns error details in varying shapes — try common fields.
+      if (typeof b.message === "string") message = b.message;
+      else if (typeof b.error === "string") message = b.error;
+    } else if (typeof body === "string" && body.length > 0) {
+      message = body;
+    }
     throw new CalApiError(res.status, message, body);
   }
 

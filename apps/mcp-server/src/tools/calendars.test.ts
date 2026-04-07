@@ -76,8 +76,8 @@ describe("getBusyTimes", () => {
       params: expect.objectContaining({
         dateFrom: "2024-08-13T00:00:00Z",
         dateTo: "2024-08-14T00:00:00Z",
-        credentialId: 1,
-        externalId: "user@gmail.com",
+        "calendarsToLoad[0][credentialId]": 1,
+        "calendarsToLoad[0][externalId]": "user@gmail.com",
       }),
     });
     expect(JSON.parse(result.content[0].text)).toHaveProperty("busyTimes");

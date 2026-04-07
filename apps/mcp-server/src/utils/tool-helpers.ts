@@ -11,21 +11,19 @@ export function ok(data: unknown): { content: { type: "text"; text: string }[] }
 /**
  * Build a human-readable error string from a CalApiError.
  *
- * Includes the HTTP status, top-level message, and – when the API returns a
- * structured body with additional detail – the nested error array so that
- * callers (LLMs) can understand *why* a request was rejected without having
- * to guess.
+ * Includes the HTTP status, top-level message, and the full API response body
+ * so that callers (LLMs) can understand *why* a request was rejected without
+ * having to guess.  Cal.com v2 returns error details in various shapes
+ * (`errors` array, `error` string/object, flat `message`, etc.) so we surface
+ * the entire body rather than cherry-picking one format.
  */
 function formatApiError(err: CalApiError): string {
   const parts: string[] = [`Error ${err.status}: ${err.message}`];
 
-  if (typeof err.body === "object" && err.body !== null) {
-    const body = err.body as Record<string, unknown>;
-
-    // Many Cal.com v2 validation errors include an `errors` array.
-    if (Array.isArray(body.errors) && body.errors.length > 0) {
-      parts.push(`Details: ${JSON.stringify(body.errors)}`);
-    }
+  if (err.body !== undefined && err.body !== null) {
+    const bodyStr =
+      typeof err.body === "string" ? err.body : JSON.stringify(err.body);
+    parts.push(`Response body: ${bodyStr}`);
   }
 
   return parts.join("\n");

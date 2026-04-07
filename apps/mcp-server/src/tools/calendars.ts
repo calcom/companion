@@ -31,11 +31,13 @@ export async function getBusyTimes(params: {
   timeZone?: string;
 }) {
   try {
+    // The Cal.com v2 busy-times endpoint requires calendars in a nested array format:
+    // calendarsToLoad[0][credentialId]=...&calendarsToLoad[0][externalId]=...
     const qp: Record<string, string | number | undefined> = {
       dateFrom: params.dateFrom,
       dateTo: params.dateTo,
-      credentialId: params.credentialId,
-      externalId: params.externalId,
+      "calendarsToLoad[0][credentialId]": params.credentialId,
+      "calendarsToLoad[0][externalId]": params.externalId,
     };
     if (params.loggedInUsersTz !== undefined) qp.loggedInUsersTz = params.loggedInUsersTz;
     if (params.timeZone !== undefined) qp.timeZone = params.timeZone;

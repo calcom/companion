@@ -111,7 +111,7 @@ export const createBookingSchema = {
   lengthInMinutes: z.number().int().optional().describe("Desired booking length for variable-duration event types. Uses event type default if omitted."),
   bookingFieldsResponses: z.record(z.unknown()).optional().describe("Custom booking field responses as {slug: value} pairs"),
   metadata: z.record(z.unknown()).optional().describe("Metadata key-value pairs (max 50 keys, keys ≤40 chars, string values ≤500 chars)"),
-  location: z.union([z.string(), z.record(z.unknown())]).optional().describe("Meeting location override. Can be a URL string or a location object matching one of the event type's configured locations."),
+  location: z.record(z.unknown()).optional().describe("Meeting location override as an object. Must match one of the event type's configured location types: {type:'integration',integration:'cal-video'|'google-meet'|'zoom'|...}, {type:'attendeePhone',phone:'+...'}, {type:'attendeeAddress',address:'...'}, {type:'attendeeDefined',location:'...'}, {type:'address'}, {type:'link'}, {type:'phone'}, or {type:'organizersDefaultApp'} (team events only)."),
   allowConflicts: z.boolean().optional().describe("If true, allow booking even if it overlaps with existing calendar events. Useful for hosts who need to force-book."),
   allowBookingOutOfBounds: z.boolean().optional().describe("If true, allow booking outside the event type's configured availability window (e.g. before minimumBookingNotice or beyond the booking window)."),
 };
@@ -128,7 +128,7 @@ export async function createBooking(params: {
   lengthInMinutes?: number;
   bookingFieldsResponses?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
-  location?: string | Record<string, unknown>;
+  location?: Record<string, unknown>;
   allowConflicts?: boolean;
   allowBookingOutOfBounds?: boolean;
 }) {

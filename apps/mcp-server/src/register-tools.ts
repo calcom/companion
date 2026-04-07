@@ -135,7 +135,7 @@ export function registerTools(server: McpServer): void {
 
   // ── Calendars (2) ──
   server.tool("get_connected_calendars", "List all calendar integrations connected to the authenticated user's account. Returns each calendar's credentialId and externalId, which are required by get_busy_times. Also shows the user's destination calendar.", getConnectedCalendarsSchema, getConnectedCalendars);
-  server.tool("get_busy_times", "Get busy times from a connected calendar. WORKFLOW: Call get_connected_calendars first to obtain credentialId and externalId — NEVER guess these values. Required: dateFrom, dateTo (UTC ISO 8601), credentialId, and externalId.", getBusyTimesSchema, getBusyTimes);
+  server.tool("get_busy_times", "Get busy/blocked time blocks from a connected calendar (e.g. Google Calendar) between two dates. Returns a list of time ranges when the user is unavailable. Required: dateFrom, dateTo (YYYY-MM-DD), credentialId, and externalId. WORKFLOW: (1) Call get_connected_calendars first to get the real credentialId (number) and externalId (e.g. email) for the calendar — NEVER guess or fabricate these. (2) Provide dateFrom and dateTo as YYYY-MM-DD strings. (3) Optionally pass timeZone (IANA, e.g. 'America/New_York') to localise the results.", getBusyTimesSchema, getBusyTimes);
 
   // ── Conferencing (1) ──
   server.tool("get_conferencing_apps", "List all conferencing applications connected to the authenticated user's account (e.g. Zoom, Google Meet, Cal Video).", getConferencingAppsSchema, getConferencingApps);

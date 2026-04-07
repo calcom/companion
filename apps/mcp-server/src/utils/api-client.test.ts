@@ -91,6 +91,28 @@ describe("calApi", () => {
     expect(url).not.toContain("skip");
   });
 
+  it("keeps literal brackets in bracket-notation param keys (not percent-encoded)", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({}),
+    });
+
+    await calApi("calendars/busy-times", {
+      params: {
+        "calendarsToLoad[0][credentialId]": 123,
+        "calendarsToLoad[0][externalId]": "user@gmail.com",
+      },
+    });
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toContain("calendarsToLoad[0][credentialId]=123");
+    expect(url).toContain("calendarsToLoad[0][externalId]=");
+    expect(url).not.toContain("%5B");
+    expect(url).not.toContain("%5D");
+  });
+
   it("handles array params", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -139,7 +161,7 @@ describe("calApi", () => {
     await expect(calApi("bookings/xyz")).rejects.toThrow(CalApiError);
   });
 
-  it("throws CalApiError with generic message for non-JSON error", async () => {
+  it("uses text body as message for non-JSON error", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
@@ -149,7 +171,7 @@ describe("calApi", () => {
 
     await expect(calApi("me")).rejects.toSatisfy((err: unknown) => {
       const apiErr = err as CalApiError;
-      return apiErr.status === 500 && apiErr.message.includes("Cal.com API error (500)");
+      return apiErr.status === 500 && apiErr.message === "Internal Server Error";
     });
   });
 
