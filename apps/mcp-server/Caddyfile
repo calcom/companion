@@ -1,0 +1,3 @@
+{$DOMAIN:localhost} {
+	reverse_proxy mcp-server:3100
+}

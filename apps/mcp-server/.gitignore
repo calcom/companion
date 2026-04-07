@@ -1,0 +1,6 @@
+# SQLite database
+*.db
+data/
+
+# Environment
+.env

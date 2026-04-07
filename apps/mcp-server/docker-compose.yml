@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - MCP_TRANSPORT=http
+      - PORT=3100
+      - SERVER_URL=${SERVER_URL}
+      - CAL_OAUTH_CLIENT_ID=${CAL_OAUTH_CLIENT_ID}
+      - CAL_OAUTH_CLIENT_SECRET=${CAL_OAUTH_CLIENT_SECRET}
+      - TOKEN_ENCRYPTION_KEY=${TOKEN_ENCRYPTION_KEY}
+      - CAL_API_BASE_URL=${CAL_API_BASE_URL:-https://api.cal.com}
+      - CAL_APP_BASE_URL=${CAL_APP_BASE_URL:-https://app.cal.com}
+      - DATABASE_PATH=/data/mcp-server.db
+      - TRUST_PROXY=true
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./data:/data
+    expose:
+      - "3100"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3100/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:
