@@ -145,7 +145,7 @@ export async function createBooking(params: {
     if (params.guests !== undefined) body.guests = params.guests;
     if (params.lengthInMinutes !== undefined) body.lengthInMinutes = params.lengthInMinutes;
     if (params.bookingFieldsResponses !== undefined) body.bookingFieldsResponses = params.bookingFieldsResponses;
-    if (params.metadata) body.metadata = params.metadata;
+    if (params.metadata !== undefined) body.metadata = params.metadata;
     if (params.location !== undefined) body.location = params.location;
     if (params.allowConflicts !== undefined) body.allowConflicts = params.allowConflicts;
     if (params.allowBookingOutOfBounds !== undefined) body.allowBookingOutOfBounds = params.allowBookingOutOfBounds;
@@ -171,8 +171,8 @@ export async function rescheduleBooking(params: {
 }) {
   try {
     const body: Record<string, unknown> = { start: params.start };
-    if (params.reschedulingReason) body.reschedulingReason = params.reschedulingReason;
-    if (params.rescheduledBy) body.rescheduledBy = params.rescheduledBy;
+    if (params.reschedulingReason !== undefined) body.reschedulingReason = params.reschedulingReason;
+    if (params.rescheduledBy !== undefined) body.rescheduledBy = params.rescheduledBy;
     const uid = sanitizePathSegment(params.bookingUid);
     const data = await calApi(`bookings/${uid}/reschedule`, { method: "POST", body });
     return ok(data);
@@ -191,7 +191,7 @@ export const cancelBookingSchema = {
 export async function cancelBooking(params: { bookingUid: string; cancellationReason?: string; cancelSubsequentBookings?: boolean; seatUid?: string }) {
   try {
     const body: Record<string, unknown> = {};
-    if (params.cancellationReason) body.cancellationReason = params.cancellationReason;
+    if (params.cancellationReason !== undefined) body.cancellationReason = params.cancellationReason;
     if (params.cancelSubsequentBookings !== undefined) body.cancelSubsequentBookings = params.cancelSubsequentBookings;
     if (params.seatUid !== undefined) body.seatUid = params.seatUid;
     const uid = sanitizePathSegment(params.bookingUid);

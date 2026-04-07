@@ -27,17 +27,16 @@ export async function calculateRoutingFormSlots(params: {
   bookingUidToReschedule?: string;
 }) {
   try {
-    const body: Record<string, unknown> = {
-      response: params.response,
+    const qp: Record<string, string | number | undefined> = {
       start: params.start,
       end: params.end,
     };
-    if (params.timeZone !== undefined) body.timeZone = params.timeZone;
-    if (params.duration !== undefined) body.duration = params.duration;
-    if (params.format !== undefined) body.format = params.format;
-    if (params.bookingUidToReschedule !== undefined) body.bookingUidToReschedule = params.bookingUidToReschedule;
+    if (params.timeZone !== undefined) qp.timeZone = params.timeZone;
+    if (params.duration !== undefined) qp.duration = params.duration;
+    if (params.format !== undefined) qp.format = params.format;
+    if (params.bookingUidToReschedule !== undefined) qp.bookingUidToReschedule = params.bookingUidToReschedule;
     const formId = sanitizePathSegment(params.routingFormId);
-    const data = await calApi(`routing-forms/${formId}/calculate-slots`, { method: "POST", body });
+    const data = await calApi(`routing-forms/${formId}/calculate-slots`, { method: "POST", body: { response: params.response }, params: qp });
     return ok(data);
   } catch (err) {
     return handleError("calculate_routing_form_slots", err);

@@ -132,7 +132,7 @@ export function registerTools(server: McpServer): void {
 
   // ── Availability / Slots (2) ──
   server.tool("get_availability", "Get available time slots for a host. 'username' is the host whose availability you are checking. Identify slots by: (1) eventTypeId, (2) eventTypeSlug + username, (3) eventTypeSlug + teamSlug, or (4) usernames (comma-separated, min 2, for dynamic events). Start/end must be in UTC ISO 8601.", getAvailabilitySchema, getAvailability);
-  server.tool("get_busy_times", "Get busy times from connected calendars. Required: dateFrom, dateTo, and calendarsToLoad (array of {credentialId, externalId} objects). Obtain credentialId and externalId from the API — never guess these values.", getBusyTimesSchema, getBusyTimes);
+  server.tool("get_busy_times", "Get busy times from a connected calendar. Required: dateFrom, dateTo, credentialId, and externalId. Obtain credentialId and externalId from the API — never guess these values.", getBusyTimesSchema, getBusyTimes);
 
   // ── Conferencing (1) ──
   server.tool("get_conferencing_apps", "List all conferencing applications connected to the authenticated user's account (e.g. Zoom, Google Meet, Cal Video).", getConferencingAppsSchema, getConferencingApps);
