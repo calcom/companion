@@ -4,10 +4,10 @@ import { sanitizePathSegment } from "../utils/path-sanitizer.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
 export const calculateRoutingFormSlotsSchema = {
-  routingFormId: z.string().describe("Routing form ID"),
+  routingFormId: z.string().describe("Routing form ID. Use get_org_routing_forms to find this — never guess."),
   response: z
     .record(z.unknown())
-    .describe("Routing form response object. Keys are routing form field IDs, values are the user's answers. Required to determine which event type / team member to route to."),
+    .describe("Routing form response object. Keys are routing form field IDs, values are the user's answers. Use get_org_routing_forms to discover the form's fields and their IDs. Ask the user for the answer values — never fabricate."),
   start: z.string().describe("Range start in UTC, ISO 8601 (e.g. '2024-08-13' or '2024-08-13T09:00:00Z')"),
   end: z.string().describe("Range end in UTC, ISO 8601 (e.g. '2024-08-14' or '2024-08-14T18:00:00Z')"),
   timeZone: z.string().optional().describe("IANA time zone for returned slots (default UTC)"),

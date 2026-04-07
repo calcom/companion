@@ -51,7 +51,7 @@ export async function getOrgRoutingForms(params: {
 
 export const getOrgRoutingFormResponsesSchema = {
   orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
-  routingFormId: z.string().describe("Routing form ID"),
+  routingFormId: z.string().describe("Routing form ID. Use get_org_routing_forms to find this — never guess."),
   skip: z.number().optional().describe("Results to skip"),
   take: z.number().optional().describe("Max results"),
   sortCreatedAt: z.enum(["asc", "desc"]).optional().describe("Sort by created"),

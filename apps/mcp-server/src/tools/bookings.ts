@@ -100,14 +100,14 @@ export const createBookingSchema = {
   start: z.string().describe("Start time in UTC, ISO 8601 (e.g. 2024-08-13T09:00:00Z). Must be UTC."),
   attendee: z
     .object({
-      name: z.string().describe("Full name"),
-      email: z.string().email().optional().describe("Email address (required unless phoneNumber is provided)"),
-      timeZone: z.string().describe("IANA time zone (e.g. America/New_York)"),
-      phoneNumber: z.string().optional().describe("Phone in international format (e.g. +19876543210). Required when event type has SMS reminders."),
+      name: z.string().describe("Full name. Use get_me if booking for yourself, otherwise ask the user — never guess."),
+      email: z.string().email().optional().describe("Email address (required unless phoneNumber is provided). Use get_me if booking for yourself, otherwise ask the user — never fabricate."),
+      timeZone: z.string().describe("IANA time zone (e.g. America/New_York). Use get_me if booking for yourself, otherwise ask the user — never guess."),
+      phoneNumber: z.string().optional().describe("Phone in international format (e.g. +19876543210). Required when event type has SMS reminders. Ask the user — never guess."),
       language: z.string().optional().describe("ISO 639-1 language code (e.g. 'en')"),
     })
     .describe("Attendee details — the person making the booking (the guest/caller), NOT the host. To book another user's calendar, set their username in the 'username' field and put YOUR (the caller's) details here. NEVER guess or fabricate email addresses — ask the user if unknown."),
-  guests: z.array(z.string().email()).optional().describe("Additional guest emails to include"),
+  guests: z.array(z.string().email()).optional().describe("Additional guest emails to include. Ask the user for guest emails — never guess or fabricate."),
   lengthInMinutes: z.number().int().optional().describe("Desired booking length for variable-duration event types. Uses event type default if omitted."),
   bookingFieldsResponses: z.record(z.unknown()).optional().describe("Custom booking field responses as {slug: value} pairs"),
   metadata: z.record(z.unknown()).optional().describe("Metadata key-value pairs (max 50 keys, keys ≤40 chars, string values ≤500 chars)"),
@@ -263,11 +263,11 @@ export async function getBookingAttendees(params: {
 
 export const addBookingAttendeeSchema = {
   bookingUid: z.string().describe("Booking UID"),
-  name: z.string().describe("Attendee name"),
-  timeZone: z.string().describe("IANA time zone"),
-  phoneNumber: z.string().optional().describe("Phone in international format"),
+  name: z.string().describe("Attendee name. Ask the user — never guess."),
+  timeZone: z.string().describe("IANA time zone. Ask the user — never guess."),
+  phoneNumber: z.string().optional().describe("Phone in international format. Ask the user — never guess."),
   language: z.string().optional().describe("ISO 639-1 language code (e.g. 'en')"),
-  email: z.string().email().describe("Attendee email address. Must be a real, known email — never guess or fabricate."),
+  email: z.string().email().describe("Attendee email address. Ask the user — never guess or fabricate."),
 };
 
 export async function addBookingAttendee(params: {
