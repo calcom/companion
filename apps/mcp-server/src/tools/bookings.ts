@@ -295,7 +295,7 @@ export async function addBookingAttendee(params: {
 
 export const getBookingAttendeeSchema = {
   bookingUid: z.string().describe("Booking UID"),
-  attendeeId: z.number().int().describe("Attendee ID"),
+  attendeeId: z.number().int().describe("Attendee ID. Use get_booking_attendees to find this."),
 };
 
 export async function getBookingAttendee(params: {
