@@ -85,7 +85,24 @@ export async function handleRegister(
     return;
   }
 
-  const redirectUris = body.redirect_uris as string[];
+  const redirectUris: string[] = [];
+  for (const uri of body.redirect_uris) {
+    if (typeof uri !== "string") {
+      jsonResponse(res, 400, { error: "invalid_request", error_description: "Each redirect_uri must be a string" });
+      return;
+    }
+    try {
+      const parsed = new URL(uri);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        jsonResponse(res, 400, { error: "invalid_request", error_description: `Invalid redirect_uri scheme: ${parsed.protocol} — only http and https are allowed` });
+        return;
+      }
+      redirectUris.push(uri);
+    } catch {
+      jsonResponse(res, 400, { error: "invalid_request", error_description: `Invalid redirect_uri: not a valid URL` });
+      return;
+    }
+  }
   const clientName = typeof body.client_name === "string" ? body.client_name : undefined;
 
   const client = createRegisteredClient(redirectUris, clientName);
@@ -228,8 +245,8 @@ export async function handleCallback(
   });
 
   if (!exchangeRes.ok) {
-    const body = await exchangeRes.text();
-    logger.error("Cal.com token exchange failed", { status: exchangeRes.status, body });
+    // Do not log response body — it may contain sensitive Cal.com error details
+    logger.error("Cal.com token exchange failed", { status: exchangeRes.status });
     deletePendingAuth(state);
     jsonResponse(res, 502, { error: "server_error", error_description: "Token exchange with Cal.com failed" });
     return;
