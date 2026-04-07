@@ -7,6 +7,8 @@ vi.mock("../utils/api-client.js", () => ({
 
 import { calApi } from "../utils/api-client.js";
 import {
+  getConnectedCalendars,
+  getConnectedCalendarsSchema,
   getBusyTimes,
   getBusyTimesSchema,
 } from "./calendars.js";
@@ -18,12 +20,44 @@ beforeEach(() => {
 });
 
 describe("calendars schemas", () => {
+  it("exports getConnectedCalendarsSchema", () => {
+    expect(getConnectedCalendarsSchema).toBeDefined();
+  });
+
   it("exports getBusyTimesSchema with required fields", () => {
     expect(getBusyTimesSchema.dateFrom).toBeDefined();
     expect(getBusyTimesSchema.dateTo).toBeDefined();
     expect(getBusyTimesSchema.credentialId).toBeDefined();
     expect(getBusyTimesSchema.externalId).toBeDefined();
     expect(getBusyTimesSchema.timeZone).toBeDefined();
+  });
+});
+
+describe("getConnectedCalendars", () => {
+  it("calls GET /calendars and returns data", async () => {
+    const mockData = {
+      connectedCalendars: [
+        { credentialId: 123, calendars: [{ externalId: "user@gmail.com", name: "Personal" }] },
+      ],
+      destinationCalendar: { externalId: "user@gmail.com" },
+    };
+    mockCalApi.mockResolvedValueOnce(mockData);
+
+    const result = await getConnectedCalendars();
+
+    expect(mockCalApi).toHaveBeenCalledWith("calendars");
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.connectedCalendars).toHaveLength(1);
+    expect(parsed.connectedCalendars[0].credentialId).toBe(123);
+  });
+
+  it("handles errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(401, "Unauthorized", {}));
+
+    const result = await getConnectedCalendars();
+
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("401");
   });
 });
 

@@ -2,11 +2,22 @@ import { z } from "zod";
 import { calApi } from "../utils/api-client.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
+export const getConnectedCalendarsSchema = {};
+
+export async function getConnectedCalendars() {
+  try {
+    const data = await calApi("calendars");
+    return ok(data);
+  } catch (err) {
+    return handleError("get_connected_calendars", err);
+  }
+}
+
 export const getBusyTimesSchema = {
   dateFrom: z.string().describe("Start date for the query (e.g. '2024-08-13'). Required."),
   dateTo: z.string().describe("End date for the query (e.g. '2024-08-14'). Required."),
-  credentialId: z.number().describe("The credential ID of the calendar integration. Obtain from the API (e.g. via get_conferencing_apps or calendar endpoints) — never guess."),
-  externalId: z.string().describe("The external calendar ID (e.g. the email address for Google Calendar). Obtain from the API — never guess."),
+  credentialId: z.number().describe("The credential ID of the calendar integration. Use get_connected_calendars to obtain this — never guess."),
+  externalId: z.string().describe("The external calendar ID (e.g. the email address for Google Calendar). Use get_connected_calendars to obtain this — never guess."),
   loggedInUsersTz: z.string().optional().describe("IANA time zone of the logged-in user (e.g. 'America/New_York'). Used to interpret date boundaries."),
   timeZone: z.string().optional().describe("IANA time zone for the query (e.g. 'America/New_York'). Defaults to UTC."),
 };
