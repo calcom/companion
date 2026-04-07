@@ -8,13 +8,13 @@ export const getAvailabilitySchema = {
   timeZone: z.string().optional().describe("IANA time zone for returned slots (e.g. America/New_York). Defaults to UTC."),
   eventTypeId: z.number().int().optional().describe("Event type ID. Use this OR (eventTypeSlug + username) OR (eventTypeSlug + teamSlug)."),
   eventTypeSlug: z.string().optional().describe("Event type slug. Must be combined with username (individual) or teamSlug (team)."),
-  username: z.string().optional().describe("Username of the event type owner. Required with eventTypeSlug for individual event types."),
+  username: z.string().optional().describe("Username of the host whose availability you are checking. Required with eventTypeSlug for individual event types."),
   teamSlug: z.string().optional().describe("Team slug. Required with eventTypeSlug for team event types."),
   organizationSlug: z.string().optional().describe("Organization slug, needed when the user/team is within an organization."),
   usernames: z
     .union([z.string(), z.array(z.string())])
     .optional()
-    .describe("Comma-separated or array of usernames for dynamic events (min 2). Also requires organizationSlug."),
+    .describe("Comma-separated or array of usernames for dynamic events (min 2). organizationSlug is needed only if users belong to an org."),
   duration: z.number().int().optional().describe("Desired slot duration in minutes (for variable-duration or dynamic events, defaults to 30)"),
   format: z.string().optional().describe("Response format: 'range' (start+end) or 'time' (start only)"),
   bookingUidToReschedule: z.string().optional().describe("Booking UID being rescheduled — ensures original time appears in available slots"),

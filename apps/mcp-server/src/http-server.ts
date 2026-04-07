@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { authContext } from "./auth/context.js";
+import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
@@ -298,10 +299,15 @@ export function startHttpServer(
           sessionIdGenerator: () => randomUUID(),
         });
 
-        const server = new McpServer({
-          name: "calcom-mcp-server",
-          version: "0.1.0",
-        });
+        const server = new McpServer(
+          {
+            name: "calcom-mcp-server",
+            version: "0.1.0",
+          },
+          {
+            instructions: SERVER_INSTRUCTIONS,
+          },
+        );
 
         registerTools(server);
 

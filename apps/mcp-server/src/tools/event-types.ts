@@ -6,7 +6,7 @@ export const getEventTypesSchema = {
   username: z
     .string()
     .optional()
-    .describe("Get event types for a specific username. If only username is provided, returns all their event types."),
+    .describe("Username of the person whose event types you want to list. Omit to list the authenticated user's event types."),
   eventSlug: z
     .string()
     .optional()
@@ -44,7 +44,7 @@ export async function getEventTypes(params: {
 }
 
 export const getEventTypeSchema = {
-  eventTypeId: z.number().int().describe("Event type ID"),
+  eventTypeId: z.number().int().describe("Event type ID. Use get_event_types to find this."),
 };
 
 export async function getEventType(params: { eventTypeId: number }) {
@@ -60,11 +60,12 @@ export const createEventTypeSchema = {
   title: z.string().describe("Event type title"),
   slug: z.string().describe("URL-friendly slug (e.g. '30min')"),
   lengthInMinutes: z.number().int().positive().describe("Duration in minutes"),
+  lengthInMinutesOptions: z.array(z.number().int().positive()).optional().describe("Multiple duration options the attendee can choose from (e.g. [15, 30, 60]). If provided, the booker picks their preferred duration."),
   description: z.string().optional().describe("Description shown on the booking page"),
   locations: z
     .array(z.record(z.unknown()))
     .optional()
-    .describe("Locations where the event takes place. If not provided, Cal Video is used. Each element is a location object (e.g. {type: 'inPerson', address: '...'})."),
+    .describe("Locations where the event takes place. If not provided, Cal Video is used. Each element is a location object (e.g. {type: 'inPerson', address: '...'}). Note: setting a conferencing app as location requires the app to already be installed."),
   bookingFields: z
     .array(z.record(z.unknown()))
     .optional()
@@ -74,7 +75,7 @@ export const createEventTypeSchema = {
   minimumBookingNotice: z.number().int().optional().describe("Minimum minutes before the event that a booking can be made."),
   beforeEventBuffer: z.number().int().optional().describe("Minutes blocked on calendar before the meeting starts."),
   afterEventBuffer: z.number().int().optional().describe("Minutes blocked on calendar after the meeting ends."),
-  scheduleId: z.number().int().optional().describe("Use a specific schedule instead of the user's default."),
+  scheduleId: z.number().int().optional().describe("Use a specific schedule instead of the user's default. Use get_schedules to find schedule IDs."),
   recurrence: z
     .record(z.unknown())
     .optional()
@@ -95,12 +96,16 @@ export const createEventTypeSchema = {
   hidden: z.boolean().optional().describe("Whether the event type is hidden from the public profile."),
   offsetStart: z.number().int().optional().describe("Offset timeslots shown to bookers by a specified number of minutes."),
   onlyShowFirstAvailableSlot: z.boolean().optional().describe("Limit availability to one slot per day (the earliest available)."),
+  bookingLimitsCount: z.record(z.number().int()).optional().describe("Limit how many times this event can be booked per period. Keys are PER_DAY, PER_WEEK, PER_MONTH, or PER_YEAR with integer values (e.g. {PER_DAY: 2, PER_WEEK: 5})."),
+  bookingWindow: z.record(z.unknown()).optional().describe("Rolling or fixed date range for when bookings can be made. Example: {type: 'calendarDays', value: 30, rolling: true} allows bookings up to 30 calendar days ahead."),
+  destinationCalendar: z.record(z.unknown()).optional().describe("Which external calendar new bookings are added to. Object with integration (e.g. 'google_calendar'), externalId (calendar ID), and optionally credentialId. Use get_connected_calendars to obtain these values."),
 };
 
 export async function createEventType(params: {
   title: string;
   slug: string;
   lengthInMinutes: number;
+  lengthInMinutesOptions?: number[];
   description?: string;
   locations?: Record<string, unknown>[];
   bookingFields?: Record<string, unknown>[];
@@ -121,6 +126,9 @@ export async function createEventType(params: {
   hidden?: boolean;
   offsetStart?: number;
   onlyShowFirstAvailableSlot?: boolean;
+  bookingLimitsCount?: Record<string, number>;
+  bookingWindow?: Record<string, unknown>;
+  destinationCalendar?: Record<string, unknown>;
 }) {
   try {
     const body: Record<string, unknown> = {
@@ -128,6 +136,7 @@ export async function createEventType(params: {
       slug: params.slug,
       lengthInMinutes: params.lengthInMinutes,
     };
+    if (params.lengthInMinutesOptions !== undefined) body.lengthInMinutesOptions = params.lengthInMinutesOptions;
     if (params.description !== undefined) body.description = params.description;
     if (params.locations !== undefined) body.locations = params.locations;
     if (params.bookingFields !== undefined) body.bookingFields = params.bookingFields;
@@ -148,6 +157,9 @@ export async function createEventType(params: {
     if (params.hidden !== undefined) body.hidden = params.hidden;
     if (params.offsetStart !== undefined) body.offsetStart = params.offsetStart;
     if (params.onlyShowFirstAvailableSlot !== undefined) body.onlyShowFirstAvailableSlot = params.onlyShowFirstAvailableSlot;
+    if (params.bookingLimitsCount !== undefined) body.bookingLimitsCount = params.bookingLimitsCount;
+    if (params.bookingWindow !== undefined) body.bookingWindow = params.bookingWindow;
+    if (params.destinationCalendar !== undefined) body.destinationCalendar = params.destinationCalendar;
     const data = await calApi("event-types", { method: "POST", body });
     return ok(data);
   } catch (err) {
@@ -156,10 +168,11 @@ export async function createEventType(params: {
 }
 
 export const updateEventTypeSchema = {
-  eventTypeId: z.number().int().describe("Event type ID to update"),
+  eventTypeId: z.number().int().describe("Event type ID to update. Use get_event_types to find this."),
   title: z.string().optional().describe("New title"),
   slug: z.string().optional().describe("New URL-friendly slug"),
   lengthInMinutes: z.number().int().positive().optional().describe("New duration in minutes"),
+  lengthInMinutesOptions: z.array(z.number().int().positive()).optional().describe("Multiple duration options the attendee can choose from (e.g. [15, 30, 60]). If provided, the booker picks their preferred duration."),
   description: z.string().optional().describe("New description"),
   locations: z
     .array(z.record(z.unknown()))
@@ -168,13 +181,13 @@ export const updateEventTypeSchema = {
   bookingFields: z
     .array(z.record(z.unknown()))
     .optional()
-    .describe("Updated booking fields array. Replaces all existing booking fields."),
+    .describe("Updated booking fields array. Replaces ALL existing booking fields. To modify fields, first fetch the current event type with get_event_type, then include all desired fields here."),
   disableGuests: z.boolean().optional().describe("If true, bookers cannot add guest emails."),
   slotInterval: z.number().int().optional().describe("Length of each slot in minutes."),
   minimumBookingNotice: z.number().int().optional().describe("Minimum minutes before event that a booking can be made."),
   beforeEventBuffer: z.number().int().optional().describe("Minutes blocked on calendar before the meeting."),
   afterEventBuffer: z.number().int().optional().describe("Minutes blocked on calendar after the meeting."),
-  scheduleId: z.number().int().optional().describe("Schedule ID to use instead of default."),
+  scheduleId: z.number().int().optional().describe("Schedule ID to use instead of default. Use get_schedules to find schedule IDs."),
   recurrence: z.record(z.unknown()).optional().describe("Recurrence settings (e.g. {frequency: 'weekly', interval: 1, count: 12})."),
   confirmationPolicy: z.record(z.unknown()).optional().describe("Manual confirmation policy settings."),
   requiresBookerEmailVerification: z.boolean().optional().describe("Whether booker must verify their email."),
@@ -186,6 +199,9 @@ export const updateEventTypeSchema = {
   hidden: z.boolean().optional().describe("Whether the event type is hidden."),
   offsetStart: z.number().int().optional().describe("Offset timeslots by specified minutes."),
   onlyShowFirstAvailableSlot: z.boolean().optional().describe("Show only the earliest available slot per day."),
+  bookingLimitsCount: z.record(z.number().int()).optional().describe("Limit how many times this event can be booked per period. Keys are PER_DAY, PER_WEEK, PER_MONTH, or PER_YEAR with integer values (e.g. {PER_DAY: 2, PER_WEEK: 5})."),
+  bookingWindow: z.record(z.unknown()).optional().describe("Rolling or fixed date range for when bookings can be made. Example: {type: 'calendarDays', value: 30, rolling: true} allows bookings up to 30 calendar days ahead."),
+  destinationCalendar: z.record(z.unknown()).optional().describe("Which external calendar new bookings are added to. Object with integration (e.g. 'google_calendar'), externalId (calendar ID), and optionally credentialId. Use get_connected_calendars to obtain these values."),
 };
 
 export async function updateEventType(params: {
@@ -193,6 +209,7 @@ export async function updateEventType(params: {
   title?: string;
   slug?: string;
   lengthInMinutes?: number;
+  lengthInMinutesOptions?: number[];
   description?: string;
   locations?: Record<string, unknown>[];
   bookingFields?: Record<string, unknown>[];
@@ -213,12 +230,16 @@ export async function updateEventType(params: {
   hidden?: boolean;
   offsetStart?: number;
   onlyShowFirstAvailableSlot?: boolean;
+  bookingLimitsCount?: Record<string, number>;
+  bookingWindow?: Record<string, unknown>;
+  destinationCalendar?: Record<string, unknown>;
 }) {
   try {
     const body: Record<string, unknown> = {};
     if (params.title !== undefined) body.title = params.title;
     if (params.slug !== undefined) body.slug = params.slug;
     if (params.lengthInMinutes !== undefined) body.lengthInMinutes = params.lengthInMinutes;
+    if (params.lengthInMinutesOptions !== undefined) body.lengthInMinutesOptions = params.lengthInMinutesOptions;
     if (params.description !== undefined) body.description = params.description;
     if (params.locations !== undefined) body.locations = params.locations;
     if (params.bookingFields !== undefined) body.bookingFields = params.bookingFields;
@@ -239,6 +260,9 @@ export async function updateEventType(params: {
     if (params.hidden !== undefined) body.hidden = params.hidden;
     if (params.offsetStart !== undefined) body.offsetStart = params.offsetStart;
     if (params.onlyShowFirstAvailableSlot !== undefined) body.onlyShowFirstAvailableSlot = params.onlyShowFirstAvailableSlot;
+    if (params.bookingLimitsCount !== undefined) body.bookingLimitsCount = params.bookingLimitsCount;
+    if (params.bookingWindow !== undefined) body.bookingWindow = params.bookingWindow;
+    if (params.destinationCalendar !== undefined) body.destinationCalendar = params.destinationCalendar;
     const data = await calApi(`event-types/${params.eventTypeId}`, { method: "PATCH", body });
     return ok(data);
   } catch (err) {
@@ -247,7 +271,7 @@ export async function updateEventType(params: {
 }
 
 export const deleteEventTypeSchema = {
-  eventTypeId: z.number().int().describe("Event type ID to delete"),
+  eventTypeId: z.number().int().describe("Event type ID to delete. Use get_event_types to find this."),
 };
 
 export async function deleteEventType(params: { eventTypeId: number }) {

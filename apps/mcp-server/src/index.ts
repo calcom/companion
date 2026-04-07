@@ -6,6 +6,7 @@ import { getApiKeyHeaders } from "./auth.js";
 import { loadConfig } from "./config.js";
 import type { HttpConfig, StdioConfig } from "./config.js";
 import { registerTools } from "./register-tools.js";
+import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import { startHttpServer } from "./http-server.js";
 import { logger, setLogLevel } from "./utils/logger.js";
 
@@ -40,10 +41,15 @@ async function main(): Promise<void> {
     process.env.CAL_API_KEY = stdioConfig.calApiKey;
     getApiKeyHeaders();
 
-    const server = new McpServer({
-      name: "calcom-mcp-server",
-      version: "0.1.0",
-    });
+    const server = new McpServer(
+      {
+        name: "calcom-mcp-server",
+        version: "0.1.0",
+      },
+      {
+        instructions: SERVER_INSTRUCTIONS,
+      },
+    );
 
     registerTools(server);
 

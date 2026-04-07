@@ -3,7 +3,7 @@ import { calApi } from "../../utils/api-client.js";
 import { handleError, ok } from "../../utils/tool-helpers.js";
 
 export const getOrgMembershipsSchema = {
-  orgId: z.number().int().describe("Organization ID"),
+  orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
   take: z.number().optional().describe("Max results to return"),
   skip: z.number().optional().describe("Results to skip (offset)"),
 };
@@ -25,8 +25,8 @@ export async function getOrgMemberships(params: {
 }
 
 export const createOrgMembershipSchema = {
-  orgId: z.number().int().describe("Organization ID"),
-  userId: z.number().describe("User ID"),
+  orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
+  userId: z.number().describe("User ID of the person to add. Must be a real user ID — ask the user for this, never guess."),
   accepted: z.boolean().optional().describe("Whether accepted"),
   role: z.enum(["MEMBER", "OWNER", "ADMIN"]).describe("Role (managed users: MEMBER only)"),
   disableImpersonation: z.boolean().optional().describe("Disable impersonation"),
@@ -53,8 +53,8 @@ export async function createOrgMembership(params: {
 }
 
 export const getOrgMembershipSchema = {
-  orgId: z.number().int().describe("Organization ID"),
-  membershipId: z.number().int().describe("Membership ID"),
+  orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
+  membershipId: z.number().int().describe("Membership ID. Use get_org_memberships to find this."),
 };
 
 export async function getOrgMembership(params: {
@@ -70,8 +70,8 @@ export async function getOrgMembership(params: {
 }
 
 export const deleteOrgMembershipSchema = {
-  orgId: z.number().int().describe("Organization ID"),
-  membershipId: z.number().int().describe("Membership ID"),
+  orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
+  membershipId: z.number().int().describe("Membership ID. Use get_org_memberships to find this."),
 };
 
 export async function deleteOrgMembership(params: {
@@ -87,8 +87,8 @@ export async function deleteOrgMembership(params: {
 }
 
 export const updateOrgMembershipSchema = {
-  orgId: z.number().int().describe("Organization ID"),
-  membershipId: z.number().int().describe("Membership ID"),
+  orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
+  membershipId: z.number().int().describe("Membership ID. Use get_org_memberships to find this."),
   accepted: z.boolean().optional().describe("Whether accepted"),
   role: z.enum(["MEMBER", "OWNER", "ADMIN"]).optional().describe("New role"),
   disableImpersonation: z.boolean().optional().describe("Disable impersonation"),

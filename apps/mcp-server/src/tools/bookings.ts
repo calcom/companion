@@ -94,24 +94,26 @@ export async function getBooking(params: { bookingUid: string }) {
 export const createBookingSchema = {
   eventTypeId: z.number().int().optional().describe("Event type ID. Required unless eventTypeSlug + username (or teamSlug) are provided."),
   eventTypeSlug: z.string().optional().describe("Event type slug (e.g. '15min'). Must be combined with username (for individual) or teamSlug (for team)."),
-  username: z.string().optional().describe("Username of the event type owner. Required with eventTypeSlug for individual event types."),
+  username: z.string().optional().describe("Username of the host whose calendar you are booking on. Required with eventTypeSlug for individual event types."),
   teamSlug: z.string().optional().describe("Team slug. Required with eventTypeSlug for team event types."),
   organizationSlug: z.string().optional().describe("Organization slug, needed when the user/team is within an organization."),
   start: z.string().describe("Start time in UTC, ISO 8601 (e.g. 2024-08-13T09:00:00Z). Must be UTC."),
   attendee: z
     .object({
-      name: z.string().describe("Full name"),
-      email: z.string().email().optional().describe("Email address (required unless phoneNumber is provided)"),
-      timeZone: z.string().describe("IANA time zone (e.g. America/New_York)"),
-      phoneNumber: z.string().optional().describe("Phone in international format (e.g. +19876543210). Required when event type has SMS reminders."),
+      name: z.string().describe("Full name. Use get_me if booking for yourself, otherwise ask the user — never guess."),
+      email: z.string().email().optional().describe("Email address (required unless phoneNumber is provided). Use get_me if booking for yourself, otherwise ask the user — never fabricate."),
+      timeZone: z.string().describe("IANA time zone (e.g. America/New_York). Use get_me if booking for yourself, otherwise ask the user — never guess."),
+      phoneNumber: z.string().optional().describe("Phone in international format (e.g. +19876543210). Required when event type has SMS reminders. Ask the user — never guess."),
       language: z.string().optional().describe("ISO 639-1 language code (e.g. 'en')"),
     })
-    .describe("Attendee details — the person booking, not the host"),
-  guests: z.array(z.string().email()).optional().describe("Additional guest emails to include"),
+    .describe("Attendee details — the person making the booking (the guest/caller), NOT the host. To book another user's calendar, set their username in the 'username' field and put YOUR (the caller's) details here. NEVER guess or fabricate email addresses — ask the user if unknown."),
+  guests: z.array(z.string().email()).optional().describe("Additional guest emails to include. Ask the user for guest emails — never guess or fabricate."),
   lengthInMinutes: z.number().int().optional().describe("Desired booking length for variable-duration event types. Uses event type default if omitted."),
   bookingFieldsResponses: z.record(z.unknown()).optional().describe("Custom booking field responses as {slug: value} pairs"),
   metadata: z.record(z.unknown()).optional().describe("Metadata key-value pairs (max 50 keys, keys ≤40 chars, string values ≤500 chars)"),
   location: z.union([z.string(), z.record(z.unknown())]).optional().describe("Meeting location override. Can be a URL string or a location object matching one of the event type's configured locations."),
+  allowConflicts: z.boolean().optional().describe("If true, allow booking even if it overlaps with existing calendar events. Useful for hosts who need to force-book."),
+  allowBookingOutOfBounds: z.boolean().optional().describe("If true, allow booking outside the event type's configured availability window (e.g. before minimumBookingNotice or beyond the booking window)."),
 };
 
 export async function createBooking(params: {
@@ -127,6 +129,8 @@ export async function createBooking(params: {
   bookingFieldsResponses?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
   location?: string | Record<string, unknown>;
+  allowConflicts?: boolean;
+  allowBookingOutOfBounds?: boolean;
 }) {
   try {
     const body: Record<string, unknown> = {
@@ -141,8 +145,10 @@ export async function createBooking(params: {
     if (params.guests !== undefined) body.guests = params.guests;
     if (params.lengthInMinutes !== undefined) body.lengthInMinutes = params.lengthInMinutes;
     if (params.bookingFieldsResponses !== undefined) body.bookingFieldsResponses = params.bookingFieldsResponses;
-    if (params.metadata) body.metadata = params.metadata;
+    if (params.metadata !== undefined) body.metadata = params.metadata;
     if (params.location !== undefined) body.location = params.location;
+    if (params.allowConflicts !== undefined) body.allowConflicts = params.allowConflicts;
+    if (params.allowBookingOutOfBounds !== undefined) body.allowBookingOutOfBounds = params.allowBookingOutOfBounds;
     const data = await calApi("bookings", { method: "POST", body });
     return ok(data);
   } catch (err) {
@@ -154,7 +160,7 @@ export const rescheduleBookingSchema = {
   bookingUid: z.string().describe("Booking UID"),
   start: z.string().describe("New start time in UTC, ISO 8601 (e.g. 2024-08-13T09:00:00Z)"),
   reschedulingReason: z.string().optional().describe("Reason for rescheduling"),
-  rescheduledBy: z.string().optional().describe("Email of person rescheduling. If event owner email is provided the rescheduled booking is auto-confirmed; otherwise the owner must confirm."),
+  rescheduledBy: z.string().optional().describe("Only needed when rescheduling a booking that requires confirmation. If the event owner's email is provided, the rescheduled booking is auto-confirmed; otherwise the owner must confirm. Use get_me to get the authenticated user's email — never fabricate."),
 };
 
 export async function rescheduleBooking(params: {
@@ -165,8 +171,8 @@ export async function rescheduleBooking(params: {
 }) {
   try {
     const body: Record<string, unknown> = { start: params.start };
-    if (params.reschedulingReason) body.reschedulingReason = params.reschedulingReason;
-    if (params.rescheduledBy) body.rescheduledBy = params.rescheduledBy;
+    if (params.reschedulingReason !== undefined) body.reschedulingReason = params.reschedulingReason;
+    if (params.rescheduledBy !== undefined) body.rescheduledBy = params.rescheduledBy;
     const uid = sanitizePathSegment(params.bookingUid);
     const data = await calApi(`bookings/${uid}/reschedule`, { method: "POST", body });
     return ok(data);
@@ -178,14 +184,16 @@ export async function rescheduleBooking(params: {
 export const cancelBookingSchema = {
   bookingUid: z.string().describe("Booking UID"),
   cancellationReason: z.string().optional().describe("Reason for cancellation"),
-  cancelSubsequentBookings: z.boolean().optional().describe("For recurring bookings: if true, also cancels all subsequent recurrences after this one."),
+  cancelSubsequentBookings: z.boolean().optional().describe("For recurring non-seated bookings only: if true, also cancels all subsequent recurrences after this one."),
+  seatUid: z.string().optional().describe("UID of the specific seat to cancel within a seated booking. Required when cancelling an individual seat instead of the entire booking."),
 };
 
-export async function cancelBooking(params: { bookingUid: string; cancellationReason?: string; cancelSubsequentBookings?: boolean }) {
+export async function cancelBooking(params: { bookingUid: string; cancellationReason?: string; cancelSubsequentBookings?: boolean; seatUid?: string }) {
   try {
     const body: Record<string, unknown> = {};
-    if (params.cancellationReason) body.cancellationReason = params.cancellationReason;
+    if (params.cancellationReason !== undefined) body.cancellationReason = params.cancellationReason;
     if (params.cancelSubsequentBookings !== undefined) body.cancelSubsequentBookings = params.cancelSubsequentBookings;
+    if (params.seatUid !== undefined) body.seatUid = params.seatUid;
     const uid = sanitizePathSegment(params.bookingUid);
     const data = await calApi(`bookings/${uid}/cancel`, { method: "POST", body });
     return ok(data);
@@ -215,9 +223,9 @@ export const markBookingAbsentSchema = {
   bookingUid: z.string().describe("Booking UID"),
   host: z.boolean().optional().describe("Whether the host was absent"),
   attendees: z.array(z.object({
-    email: z.string(),
+    email: z.string().describe("Attendee email from the booking — use get_booking_attendees to look up real emails"),
     absent: z.boolean(),
-  })).optional().describe("Attendees with absent status"),
+  })).optional().describe("Attendees with absent status. Use real attendee emails from the booking."),
 };
 
 export async function markBookingAbsent(params: {
@@ -255,11 +263,11 @@ export async function getBookingAttendees(params: {
 
 export const addBookingAttendeeSchema = {
   bookingUid: z.string().describe("Booking UID"),
-  name: z.string().describe("Attendee name"),
-  timeZone: z.string().describe("IANA time zone"),
-  phoneNumber: z.string().optional().describe("Phone in international format"),
+  name: z.string().describe("Attendee name. Ask the user — never guess."),
+  timeZone: z.string().describe("IANA time zone. Ask the user — never guess."),
+  phoneNumber: z.string().optional().describe("Phone in international format. Ask the user — never guess."),
   language: z.string().optional().describe("ISO 639-1 language code (e.g. 'en')"),
-  email: z.string().email().describe("Attendee email"),
+  email: z.string().email().describe("Attendee email address. Ask the user — never guess or fabricate."),
 };
 
 export async function addBookingAttendee(params: {
@@ -287,7 +295,7 @@ export async function addBookingAttendee(params: {
 
 export const getBookingAttendeeSchema = {
   bookingUid: z.string().describe("Booking UID"),
-  attendeeId: z.number().int().describe("Attendee ID"),
+  attendeeId: z.number().int().describe("Attendee ID. Use get_booking_attendees to find this."),
 };
 
 export async function getBookingAttendee(params: {
