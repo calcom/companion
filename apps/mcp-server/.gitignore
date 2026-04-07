@@ -4,3 +4,6 @@ data/
 
 # Environment
 .env
+
+# Local docs
+DEPLOYMENT.md
