@@ -27,7 +27,7 @@ describe("calculateRoutingFormSlots", () => {
     });
     expect(mockCalApi).toHaveBeenCalledWith("routing-forms/test-id/calculate-slots", {
       method: "POST",
-      body: { response: { field1: "answer1" } },
+      body: { field1: "answer1" },
       params: expect.objectContaining({
         start: "2024-08-13",
         end: "2024-08-14",
