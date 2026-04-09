@@ -79,7 +79,7 @@ export const createEventTypeSchema = {
   recurrence: z
     .record(z.unknown())
     .optional()
-    .describe("Recurrence settings to create a recurring event type (e.g. {frequency: 'weekly', interval: 1, count: 12})."),
+    .describe("Recurrence settings to create a recurring event type (e.g. {frequency: 'weekly', interval: 1, occurrences: 12})."),
   confirmationPolicy: z
     .record(z.unknown())
     .optional()
@@ -96,9 +96,21 @@ export const createEventTypeSchema = {
   hidden: z.boolean().optional().describe("Whether the event type is hidden from the public profile."),
   offsetStart: z.number().int().optional().describe("Offset timeslots shown to bookers by a specified number of minutes."),
   onlyShowFirstAvailableSlot: z.boolean().optional().describe("Limit availability to one slot per day (the earliest available)."),
-  bookingLimitsCount: z.record(z.number().int()).optional().describe("Limit how many times this event can be booked per period. Keys are PER_DAY, PER_WEEK, PER_MONTH, or PER_YEAR with integer values (e.g. {PER_DAY: 2, PER_WEEK: 5})."),
-  bookingWindow: z.record(z.unknown()).optional().describe("Rolling or fixed date range for when bookings can be made. Example: {type: 'calendarDays', value: 30, rolling: true} allows bookings up to 30 calendar days ahead."),
-  destinationCalendar: z.record(z.unknown()).optional().describe("Which external calendar new bookings are added to. Object with integration (e.g. 'google_calendar'), externalId (calendar ID), and optionally credentialId. Use get_connected_calendars to obtain these values."),
+  bookingLimitsCount: z.object({
+    day: z.number().int().min(1).optional().describe("Max bookings per day"),
+    week: z.number().int().min(1).optional().describe("Max bookings per week"),
+    month: z.number().int().min(1).optional().describe("Max bookings per month"),
+    year: z.number().int().min(1).optional().describe("Max bookings per year"),
+  }).optional().describe("Limit how many times this event can be booked per period (e.g. {day: 2, week: 5})."),
+  bookingWindow: z.object({
+    type: z.enum(["businessDays", "calendarDays", "range"]).describe("Window type"),
+    value: z.union([z.number(), z.array(z.string())]).describe("Number of days (for businessDays/calendarDays) or date range array ['2030-09-05', '2030-09-09'] (for range)"),
+    rolling: z.boolean().optional().describe("If true the window rolls forward keeping 'value' days available. Only for businessDays/calendarDays."),
+  }).optional().describe("Limit how far in the future this event can be booked."),
+  destinationCalendar: z.object({
+    integration: z.string().describe("Integration type (e.g. 'google_calendar'). Use get_connected_calendars to find this."),
+    externalId: z.string().describe("External calendar ID (e.g. email for Google Calendar). Use get_connected_calendars to find this."),
+  }).optional().describe("Which external calendar new bookings are added to."),
 };
 
 export async function createEventType(params: {
@@ -126,9 +138,9 @@ export async function createEventType(params: {
   hidden?: boolean;
   offsetStart?: number;
   onlyShowFirstAvailableSlot?: boolean;
-  bookingLimitsCount?: Record<string, number>;
-  bookingWindow?: Record<string, unknown>;
-  destinationCalendar?: Record<string, unknown>;
+  bookingLimitsCount?: { day?: number; week?: number; month?: number; year?: number };
+  bookingWindow?: { type: string; value: number | string[]; rolling?: boolean };
+  destinationCalendar?: { integration: string; externalId: string };
 }) {
   try {
     const body: Record<string, unknown> = {
@@ -188,7 +200,7 @@ export const updateEventTypeSchema = {
   beforeEventBuffer: z.number().int().optional().describe("Minutes blocked on calendar before the meeting."),
   afterEventBuffer: z.number().int().optional().describe("Minutes blocked on calendar after the meeting."),
   scheduleId: z.number().int().optional().describe("Schedule ID to use instead of default. Use get_schedules to find schedule IDs."),
-  recurrence: z.record(z.unknown()).optional().describe("Recurrence settings (e.g. {frequency: 'weekly', interval: 1, count: 12})."),
+  recurrence: z.record(z.unknown()).optional().describe("Recurrence settings (e.g. {frequency: 'weekly', interval: 1, occurrences: 12})."),
   confirmationPolicy: z.record(z.unknown()).optional().describe("Manual confirmation policy settings."),
   requiresBookerEmailVerification: z.boolean().optional().describe("Whether booker must verify their email."),
   hideCalendarNotes: z.boolean().optional().describe("Hide calendar notes."),
@@ -199,9 +211,21 @@ export const updateEventTypeSchema = {
   hidden: z.boolean().optional().describe("Whether the event type is hidden."),
   offsetStart: z.number().int().optional().describe("Offset timeslots by specified minutes."),
   onlyShowFirstAvailableSlot: z.boolean().optional().describe("Show only the earliest available slot per day."),
-  bookingLimitsCount: z.record(z.number().int()).optional().describe("Limit how many times this event can be booked per period. Keys are PER_DAY, PER_WEEK, PER_MONTH, or PER_YEAR with integer values (e.g. {PER_DAY: 2, PER_WEEK: 5})."),
-  bookingWindow: z.record(z.unknown()).optional().describe("Rolling or fixed date range for when bookings can be made. Example: {type: 'calendarDays', value: 30, rolling: true} allows bookings up to 30 calendar days ahead."),
-  destinationCalendar: z.record(z.unknown()).optional().describe("Which external calendar new bookings are added to. Object with integration (e.g. 'google_calendar'), externalId (calendar ID), and optionally credentialId. Use get_connected_calendars to obtain these values."),
+  bookingLimitsCount: z.object({
+    day: z.number().int().min(1).optional().describe("Max bookings per day"),
+    week: z.number().int().min(1).optional().describe("Max bookings per week"),
+    month: z.number().int().min(1).optional().describe("Max bookings per month"),
+    year: z.number().int().min(1).optional().describe("Max bookings per year"),
+  }).optional().describe("Limit how many times this event can be booked per period (e.g. {day: 2, week: 5})."),
+  bookingWindow: z.object({
+    type: z.enum(["businessDays", "calendarDays", "range"]).describe("Window type"),
+    value: z.union([z.number(), z.array(z.string())]).describe("Number of days (for businessDays/calendarDays) or date range array ['2030-09-05', '2030-09-09'] (for range)"),
+    rolling: z.boolean().optional().describe("If true the window rolls forward keeping 'value' days available. Only for businessDays/calendarDays."),
+  }).optional().describe("Limit how far in the future this event can be booked."),
+  destinationCalendar: z.object({
+    integration: z.string().describe("Integration type (e.g. 'google_calendar'). Use get_connected_calendars to find this."),
+    externalId: z.string().describe("External calendar ID (e.g. email for Google Calendar). Use get_connected_calendars to find this."),
+  }).optional().describe("Which external calendar new bookings are added to."),
 };
 
 export async function updateEventType(params: {
@@ -230,9 +254,9 @@ export async function updateEventType(params: {
   hidden?: boolean;
   offsetStart?: number;
   onlyShowFirstAvailableSlot?: boolean;
-  bookingLimitsCount?: Record<string, number>;
-  bookingWindow?: Record<string, unknown>;
-  destinationCalendar?: Record<string, unknown>;
+  bookingLimitsCount?: { day?: number; week?: number; month?: number; year?: number };
+  bookingWindow?: { type: string; value: number | string[]; rolling?: boolean };
+  destinationCalendar?: { integration: string; externalId: string };
 }) {
   try {
     const body: Record<string, unknown> = {};
