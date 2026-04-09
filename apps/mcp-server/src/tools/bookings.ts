@@ -112,8 +112,8 @@ export const createBookingSchema = {
   bookingFieldsResponses: z.record(z.unknown()).optional().describe("Custom booking field responses as {slug: value} pairs"),
   metadata: z.record(z.unknown()).optional().describe("Metadata key-value pairs (max 50 keys, keys ≤40 chars, string values ≤500 chars)"),
   location: z.record(z.unknown()).optional().describe("Meeting location override as an object. Must match one of the event type's configured location types: {type:'integration',integration:'cal-video'|'google-meet'|'zoom'|...}, {type:'attendeePhone',phone:'+...'}, {type:'attendeeAddress',address:'...'}, {type:'attendeeDefined',location:'...'}, {type:'address'}, {type:'link'}, {type:'phone'}, or {type:'organizersDefaultApp'} (team events only)."),
-  allowConflicts: z.boolean().optional().describe("If true, allow booking even if it overlaps with existing calendar events. Useful for hosts who need to force-book."),
-  allowBookingOutOfBounds: z.boolean().optional().describe("If true, allow booking outside the event type's configured availability window (e.g. before minimumBookingNotice or beyond the booking window)."),
+  allowConflicts: z.boolean().optional().describe("If true and the authenticated user is a host, skip availability conflict checks. Ignored for non-hosts."),
+  allowBookingOutOfBounds: z.boolean().optional().describe("If true and the authenticated user is a host, allow booking outside the configured scheduling window (e.g. before minimumBookingNotice or beyond the booking window). Ignored for non-hosts."),
 };
 
 export async function createBooking(params: {

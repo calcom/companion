@@ -3,15 +3,17 @@ import { calApi } from "../utils/api-client.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
 const availabilitySlotSchema = z.object({
-  day: z.string().describe("Day of week (e.g. Monday)"),
+  days: z
+    .array(z.enum(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]))
+    .describe("Days of week this slot applies to (e.g. [\"Monday\", \"Tuesday\"])"),
   startTime: z.string().describe("Start time in HH:mm format (e.g. '09:00')"),
   endTime: z.string().describe("End time in HH:mm format (e.g. '17:00')"),
 });
 
 const overrideSchema = z.object({
   date: z.string().describe("Date of the override in YYYY-MM-DD format"),
-  startTime: z.string().optional().describe("Start time in HH:mm format. Omit startTime and endTime to mark the date as unavailable."),
-  endTime: z.string().optional().describe("End time in HH:mm format."),
+  startTime: z.string().describe("Start time in HH:mm format (e.g. '09:00'). To mark a date as unavailable, set both startTime and endTime to '00:00'."),
+  endTime: z.string().describe("End time in HH:mm format (e.g. '17:00'). To mark a date as unavailable, set both startTime and endTime to '00:00'."),
 });
 
 export const getSchedulesSchema = {};
@@ -56,8 +58,8 @@ export async function createSchedule(params: {
   name: string;
   timeZone: string;
   isDefault: boolean;
-  availability?: { day: string; startTime: string; endTime: string }[];
-  overrides?: { date: string; startTime?: string; endTime?: string }[];
+  availability?: { days: string[]; startTime: string; endTime: string }[];
+  overrides?: { date: string; startTime: string; endTime: string }[];
 }) {
   try {
     const body: Record<string, unknown> = {
@@ -94,8 +96,8 @@ export async function updateSchedule(params: {
   name?: string;
   timeZone?: string;
   isDefault?: boolean;
-  availability?: { day: string; startTime: string; endTime: string }[];
-  overrides?: { date: string; startTime?: string; endTime?: string }[];
+  availability?: { days: string[]; startTime: string; endTime: string }[];
+  overrides?: { date: string; startTime: string; endTime: string }[];
 }) {
   try {
     const body: Record<string, unknown> = {};

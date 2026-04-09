@@ -89,7 +89,7 @@ describe("createSchedule", () => {
       timeZone: "America/New_York",
       isDefault: true,
       availability: [
-        { day: "Monday", startTime: "09:00", endTime: "17:00" },
+        { days: ["Monday"], startTime: "09:00", endTime: "17:00" },
       ],
     });
 
@@ -99,7 +99,7 @@ describe("createSchedule", () => {
         name: "Office Hours",
         timeZone: "America/New_York",
         isDefault: true,
-        availability: [{ day: "Monday", startTime: "09:00", endTime: "17:00" }],
+        availability: [{ days: ["Monday"], startTime: "09:00", endTime: "17:00" }],
       },
     });
   });
@@ -111,7 +111,7 @@ describe("createSchedule", () => {
       name: "Holiday",
       timeZone: "UTC",
       isDefault: false,
-      overrides: [{ date: "2024-12-25" }],
+      overrides: [{ date: "2024-12-25", startTime: "00:00", endTime: "00:00" }],
     });
 
     const [, opts] = mockCalApi.mock.calls[0];
@@ -138,7 +138,7 @@ describe("updateSchedule", () => {
 
     await updateSchedule({
       scheduleId: 5,
-      availability: [{ day: "Tuesday", startTime: "10:00", endTime: "16:00" }],
+      availability: [{ days: ["Tuesday"], startTime: "10:00", endTime: "16:00" }],
     });
 
     const [, opts] = mockCalApi.mock.calls[0];
