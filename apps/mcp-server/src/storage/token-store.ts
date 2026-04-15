@@ -115,13 +115,14 @@ export async function createAuthCode(params: {
 }
 
 export async function consumeAuthCode(code: string): Promise<AuthCode | undefined> {
+  // Atomic single-use consumption: UPDATE...RETURNING ensures only one concurrent
+  // caller can successfully consume the code (RFC 6749 §10.5).
   const { rows } = await sql`
-    SELECT * FROM auth_codes
+    UPDATE auth_codes SET used = 1
     WHERE code = ${code} AND expires_at > EXTRACT(EPOCH FROM NOW())::INTEGER AND used = 0
+    RETURNING *
   `;
   if (rows.length === 0) return undefined;
-
-  await sql`UPDATE auth_codes SET used = 1 WHERE code = ${code}`;
 
   const row = rows[0];
   return {

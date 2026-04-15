@@ -155,14 +155,13 @@ describe("auth codes", () => {
     expect(consumed?.clientId).toBe("client-1");
     expect(consumed?.calAccessToken).toBe("cal-access-token");
     expect(consumed?.calRefreshToken).toBe("cal-refresh-token");
-    // SELECT + UPDATE
-    expect(mockSql).toHaveBeenCalledTimes(2);
+    // Single atomic UPDATE...RETURNING
+    expect(mockSql).toHaveBeenCalledTimes(1);
   });
 
   it("returns undefined when code not found", async () => {
     const result = await tokenStore.consumeAuthCode("nonexistent");
     expect(result).toBeUndefined();
-    // Only the SELECT query
     expect(mockSql).toHaveBeenCalledTimes(1);
   });
 });
