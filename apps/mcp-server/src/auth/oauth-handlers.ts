@@ -274,7 +274,7 @@ export async function handleCallback(
     calTokenExpiresAt,
   });
 
-  deletePendingAuth(state);
+  await deletePendingAuth(state);
 
   const clientRedirect = new URL(pending.clientRedirectUri);
   clientRedirect.searchParams.set("code", authCode);
