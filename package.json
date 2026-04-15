@@ -37,5 +37,8 @@
     "**/*.{js,jsx,ts,tsx,json,css,md}": [
       "biome format --write"
     ]
+  },
+  "overrides": {
+    "axios": "^1.15.0"
   }
 }
