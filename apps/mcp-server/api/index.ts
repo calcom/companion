@@ -44,7 +44,12 @@ function getConfig(): HttpConfig {
 
 let dbInitPromise: Promise<void> | undefined;
 function ensureDb(): Promise<void> {
-  if (!dbInitPromise) dbInitPromise = initDb();
+  if (!dbInitPromise) {
+    dbInitPromise = initDb().catch((err) => {
+      dbInitPromise = undefined;
+      throw err;
+    });
+  }
   return dbInitPromise;
 }
 
