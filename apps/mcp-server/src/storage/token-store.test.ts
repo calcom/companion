@@ -8,9 +8,11 @@ let mockSql: ReturnType<typeof vi.fn>;
 
 vi.mock("@vercel/postgres", () => {
   mockSql = vi.fn(async () => ({ rows: mockRows, rowCount: mockRows.length }));
+  const pool = { sql: mockSql, end: vi.fn() };
   return {
+    createPool: () => pool,
     sql: mockSql,
-    db: { end: vi.fn() },
+    db: pool,
   };
 });
 

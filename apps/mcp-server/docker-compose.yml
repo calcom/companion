@@ -32,7 +32,7 @@ services:
       - TOKEN_ENCRYPTION_KEY=${TOKEN_ENCRYPTION_KEY}
       - CAL_API_BASE_URL=${CAL_API_BASE_URL:-https://api.cal.com}
       - CAL_APP_BASE_URL=${CAL_APP_BASE_URL:-https://app.cal.com}
-      - POSTGRES_URL=postgres://mcp:mcp@postgres:5432/mcp
+      - DATABASE_URL=postgres://mcp:mcp@postgres:5432/mcp
       - TRUST_PROXY=true
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
       - LOG_LEVEL=${LOG_LEVEL:-info}
