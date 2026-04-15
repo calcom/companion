@@ -49,7 +49,7 @@ const httpSchema = baseSchema.extend({
     .length(64, "TOKEN_ENCRYPTION_KEY must be a 64-character hex string (32 bytes)")
     .regex(/^[0-9a-fA-F]+$/, "TOKEN_ENCRYPTION_KEY must be valid hex"),
   serverUrl: z.string().url("MCP_SERVER_URL must be a valid URL"),
-  databasePath: z.string().default("mcp-server.db"),
+  postgresUrl: z.string().min(1, "POSTGRES_URL is required for HTTP mode"),
   rateLimitWindowMs: z.coerce.number().int().positive().default(60_000),
   rateLimitMax: z.coerce.number().int().positive().default(30),
   maxSessions: z.coerce.number().int().positive().default(10_000),
@@ -83,7 +83,7 @@ function readEnv(): Record<string, unknown> {
     calOAuthClientSecret: process.env.CAL_OAUTH_CLIENT_SECRET || undefined,
     tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY || undefined,
     serverUrl: process.env.MCP_SERVER_URL || undefined,
-    databasePath: process.env.DATABASE_PATH || undefined,
+    postgresUrl: process.env.POSTGRES_URL || undefined,
     rateLimitWindowMs: process.env.RATE_LIMIT_WINDOW_MS || undefined,
     rateLimitMax: process.env.RATE_LIMIT_MAX || undefined,
     maxSessions: process.env.MAX_SESSIONS || undefined,

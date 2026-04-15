@@ -17,7 +17,7 @@ import {
   resolveCalAuthHeaders,
 } from "./auth/oauth-handlers.js";
 import type { OAuthConfig } from "./auth/oauth-handlers.js";
-import { getDb, closeDb } from "./storage/db.js";
+import { initDb, endPool, sql } from "./storage/db.js";
 import { cleanupExpired, countRegisteredClients } from "./storage/token-store.js";
 import { logger, withLogContext } from "./utils/logger.js";
 import { RateLimiter, getClientIp, sendRateLimited } from "./utils/rate-limiter.js";
@@ -55,10 +55,10 @@ export interface HttpServerConfig {
  */
 const startedAt = Date.now();
 
-export function startHttpServer(
+export async function startHttpServer(
   registerTools: (server: McpServer) => void,
   config: HttpServerConfig,
-): void {
+): Promise<void> {
   const { port, oauthConfig } = config;
   const maxSessions = config.maxSessions ?? (Number(process.env.MAX_SESSIONS) || 10_000);
   const sessionIdleTimeoutMs = config.sessionIdleTimeoutMs ?? (Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60 * 1000);
@@ -66,7 +66,7 @@ export function startHttpServer(
   const corsOrigin = config.corsOrigin ?? process.env.CORS_ORIGIN;
   const shutdownTimeoutMs = config.shutdownTimeoutMs ?? (Number(process.env.SHUTDOWN_TIMEOUT_MS) || 10_000);
 
-  getDb();
+  await initDb();
 
   const rateLimitWindowMs = config.rateLimitWindowMs ?? (Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000);
   const rateLimitMax = config.rateLimitMax ?? (Number(process.env.RATE_LIMIT_MAX) || 30);
@@ -76,11 +76,9 @@ export function startHttpServer(
   mcpRateLimiter.startGc();
 
   const cleanupInterval = setInterval(() => {
-    try {
-      cleanupExpired();
-    } catch (err) {
+    cleanupExpired().catch((err) => {
       logger.error("Cleanup error", { error: String(err) });
-    }
+    });
   }, 5 * 60 * 1000);
 
   const sessions = new Map<
@@ -137,8 +135,7 @@ export function startHttpServer(
     if (url.pathname === "/health") {
       let dbOk = false;
       try {
-        const db = getDb();
-        db.prepare("SELECT 1").get();
+        await sql`SELECT 1`;
         dbOk = true;
       } catch { /* db not healthy */ }
       const status = dbOk ? "ok" : "degraded";
@@ -176,7 +173,7 @@ export function startHttpServer(
 
       if (url.pathname === "/oauth/register") {
         // Enforce max registered clients limit
-        const currentCount = countRegisteredClients();
+        const currentCount = await countRegisteredClients();
         if (currentCount >= maxRegisteredClients) {
           res.writeHead(503, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "server_error", error_description: "Maximum number of registered clients reached" }));
@@ -186,7 +183,7 @@ export function startHttpServer(
         return;
       }
       if (url.pathname === "/oauth/authorize" && req.method === "GET") {
-        handleAuthorize(req, res, oauthConfig);
+        await handleAuthorize(req, res, oauthConfig);
         return;
       }
       if (url.pathname === "/oauth/callback" && req.method === "GET") {
@@ -378,8 +375,8 @@ export function startHttpServer(
     const timeout = new Promise<void>((resolve) => setTimeout(resolve, shutdownTimeoutMs));
     await Promise.race([drainPromise, timeout]);
 
-    // 4. Close database
-    closeDb();
+    // 4. Close database pool
+    await endPool();
     logger.info("Shutdown complete");
   };
 

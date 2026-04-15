@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { getDb } from "./db.js";
+import { sql } from "./db.js";
 import { encrypt, decrypt } from "./encryption.js";
 
 // ── Registered Clients ──
@@ -10,27 +10,29 @@ export interface RegisteredClient {
   clientName: string | null;
 }
 
-export function createRegisteredClient(redirectUris: string[], clientName?: string): RegisteredClient {
+export async function createRegisteredClient(redirectUris: string[], clientName?: string): Promise<RegisteredClient> {
   const clientId = randomUUID();
-  const db = getDb();
-  db.prepare(
-    "INSERT INTO registered_clients (client_id, redirect_uris, client_name) VALUES (?, ?, ?)",
-  ).run(clientId, JSON.stringify(redirectUris), clientName ?? null);
-  return { clientId, redirectUris, clientName: clientName ?? null };
+  const name = clientName ?? null;
+  await sql`
+    INSERT INTO registered_clients (client_id, redirect_uris, client_name)
+    VALUES (${clientId}, ${JSON.stringify(redirectUris)}, ${name})
+  `;
+  return { clientId, redirectUris, clientName: name };
 }
 
-export function countRegisteredClients(): number {
-  const db = getDb();
-  const row = db.prepare("SELECT COUNT(*) as count FROM registered_clients").get() as { count: number };
-  return row.count;
+export async function countRegisteredClients(): Promise<number> {
+  const { rows } = await sql`SELECT COUNT(*) as count FROM registered_clients`;
+  return Number(rows[0].count);
 }
 
-export function getRegisteredClient(clientId: string): RegisteredClient | undefined {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT client_id, redirect_uris, client_name FROM registered_clients WHERE client_id = ?")
-    .get(clientId) as { client_id: string; redirect_uris: string; client_name: string | null } | undefined;
-  if (!row) return undefined;
+export async function getRegisteredClient(clientId: string): Promise<RegisteredClient | undefined> {
+  const { rows } = await sql`
+    SELECT client_id, redirect_uris, client_name
+    FROM registered_clients
+    WHERE client_id = ${clientId}
+  `;
+  if (rows.length === 0) return undefined;
+  const row = rows[0];
   return {
     clientId: row.client_id,
     redirectUris: JSON.parse(row.redirect_uris) as string[],
@@ -50,37 +52,22 @@ export interface PendingAuth {
   expiresAt: number;
 }
 
-export function createPendingAuth(params: Omit<PendingAuth, "expiresAt"> & { ttlSeconds?: number }): void {
-  const db = getDb();
+export async function createPendingAuth(params: Omit<PendingAuth, "expiresAt"> & { ttlSeconds?: number }): Promise<void> {
   const expiresAt = Math.floor(Date.now() / 1000) + (params.ttlSeconds ?? 600); // 10 min default
-  db.prepare(
-    `INSERT INTO pending_auths (state, client_id, client_redirect_uri, client_state, client_code_challenge, cal_code_verifier, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    params.state,
-    params.clientId,
-    params.clientRedirectUri,
-    params.clientState,
-    params.clientCodeChallenge,
-    params.calCodeVerifier,
-    expiresAt,
-  );
+  const calCodeVerifier = params.calCodeVerifier ?? null;
+  await sql`
+    INSERT INTO pending_auths (state, client_id, client_redirect_uri, client_state, client_code_challenge, cal_code_verifier, expires_at)
+    VALUES (${params.state}, ${params.clientId}, ${params.clientRedirectUri}, ${params.clientState}, ${params.clientCodeChallenge}, ${calCodeVerifier}, ${expiresAt})
+  `;
 }
 
-export function getPendingAuth(state: string): PendingAuth | undefined {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM pending_auths WHERE state = ? AND expires_at > unixepoch()")
-    .get(state) as {
-    state: string;
-    client_id: string;
-    client_redirect_uri: string;
-    client_state: string;
-    client_code_challenge: string;
-    cal_code_verifier: string | null;
-    expires_at: number;
-  } | undefined;
-  if (!row) return undefined;
+export async function getPendingAuth(state: string): Promise<PendingAuth | undefined> {
+  const { rows } = await sql`
+    SELECT * FROM pending_auths
+    WHERE state = ${state} AND expires_at > EXTRACT(EPOCH FROM NOW())::INTEGER
+  `;
+  if (rows.length === 0) return undefined;
+  const row = rows[0];
   return {
     state: row.state,
     clientId: row.client_id,
@@ -92,9 +79,8 @@ export function getPendingAuth(state: string): PendingAuth | undefined {
   };
 }
 
-export function deletePendingAuth(state: string): void {
-  const db = getDb();
-  db.prepare("DELETE FROM pending_auths WHERE state = ?").run(state);
+export async function deletePendingAuth(state: string): Promise<void> {
+  await sql`DELETE FROM pending_auths WHERE state = ${state}`;
 }
 
 // ── Auth Codes ──
@@ -111,51 +97,33 @@ export interface AuthCode {
   used: boolean;
 }
 
-export function createAuthCode(params: {
+export async function createAuthCode(params: {
   clientId: string;
   redirectUri: string;
   codeChallenge: string;
   calAccessToken: string;
   calRefreshToken: string;
   calTokenExpiresAt: number;
-}): string {
+}): Promise<string> {
   const code = randomUUID();
-  const db = getDb();
   const expiresAt = Math.floor(Date.now() / 1000) + 300; // 5 min
-  db.prepare(
-    `INSERT INTO auth_codes (code, client_id, redirect_uri, code_challenge, cal_access_token_enc, cal_refresh_token_enc, cal_token_expires_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    code,
-    params.clientId,
-    params.redirectUri,
-    params.codeChallenge,
-    encrypt(params.calAccessToken),
-    encrypt(params.calRefreshToken),
-    params.calTokenExpiresAt,
-    expiresAt,
-  );
+  await sql`
+    INSERT INTO auth_codes (code, client_id, redirect_uri, code_challenge, cal_access_token_enc, cal_refresh_token_enc, cal_token_expires_at, expires_at)
+    VALUES (${code}, ${params.clientId}, ${params.redirectUri}, ${params.codeChallenge}, ${encrypt(params.calAccessToken)}, ${encrypt(params.calRefreshToken)}, ${params.calTokenExpiresAt}, ${expiresAt})
+  `;
   return code;
 }
 
-export function consumeAuthCode(code: string): AuthCode | undefined {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM auth_codes WHERE code = ? AND expires_at > unixepoch() AND used = 0")
-    .get(code) as {
-    code: string;
-    client_id: string;
-    redirect_uri: string;
-    code_challenge: string;
-    cal_access_token_enc: string;
-    cal_refresh_token_enc: string;
-    cal_token_expires_at: number;
-    expires_at: number;
-  } | undefined;
-  if (!row) return undefined;
+export async function consumeAuthCode(code: string): Promise<AuthCode | undefined> {
+  const { rows } = await sql`
+    SELECT * FROM auth_codes
+    WHERE code = ${code} AND expires_at > EXTRACT(EPOCH FROM NOW())::INTEGER AND used = 0
+  `;
+  if (rows.length === 0) return undefined;
 
-  db.prepare("UPDATE auth_codes SET used = 1 WHERE code = ?").run(code);
+  await sql`UPDATE auth_codes SET used = 1 WHERE code = ${code}`;
 
+  const row = rows[0];
   return {
     code: row.code,
     clientId: row.client_id,
@@ -181,47 +149,31 @@ export interface AccessTokenRecord {
   expiresAt: number;
 }
 
-export function createAccessToken(params: {
+export async function createAccessToken(params: {
   clientId: string;
   calAccessToken: string;
   calRefreshToken: string;
   calTokenExpiresAt: number;
   ttlSeconds?: number;
-}): { accessToken: string; refreshToken: string; expiresIn: number } {
+}): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
   const token = randomUUID();
   const refreshToken = randomUUID();
   const ttl = params.ttlSeconds ?? 3600; // 1 hour default
   const expiresAt = Math.floor(Date.now() / 1000) + ttl;
-  const db = getDb();
-  db.prepare(
-    `INSERT INTO access_tokens (token, refresh_token, client_id, cal_access_token_enc, cal_refresh_token_enc, cal_token_expires_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    token,
-    refreshToken,
-    params.clientId,
-    encrypt(params.calAccessToken),
-    encrypt(params.calRefreshToken),
-    params.calTokenExpiresAt,
-    expiresAt,
-  );
+  await sql`
+    INSERT INTO access_tokens (token, refresh_token, client_id, cal_access_token_enc, cal_refresh_token_enc, cal_token_expires_at, expires_at)
+    VALUES (${token}, ${refreshToken}, ${params.clientId}, ${encrypt(params.calAccessToken)}, ${encrypt(params.calRefreshToken)}, ${params.calTokenExpiresAt}, ${expiresAt})
+  `;
   return { accessToken: token, refreshToken, expiresIn: ttl };
 }
 
-export function getAccessToken(token: string): AccessTokenRecord | undefined {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM access_tokens WHERE token = ? AND expires_at > unixepoch()")
-    .get(token) as {
-    token: string;
-    refresh_token: string;
-    client_id: string;
-    cal_access_token_enc: string;
-    cal_refresh_token_enc: string;
-    cal_token_expires_at: number;
-    expires_at: number;
-  } | undefined;
-  if (!row) return undefined;
+export async function getAccessToken(token: string): Promise<AccessTokenRecord | undefined> {
+  const { rows } = await sql`
+    SELECT * FROM access_tokens
+    WHERE token = ${token} AND expires_at > EXTRACT(EPOCH FROM NOW())::INTEGER
+  `;
+  if (rows.length === 0) return undefined;
+  const row = rows[0];
   return {
     token: row.token,
     refreshToken: row.refresh_token,
@@ -233,20 +185,12 @@ export function getAccessToken(token: string): AccessTokenRecord | undefined {
   };
 }
 
-export function getAccessTokenByRefresh(refreshToken: string): AccessTokenRecord | undefined {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM access_tokens WHERE refresh_token = ?")
-    .get(refreshToken) as {
-    token: string;
-    refresh_token: string;
-    client_id: string;
-    cal_access_token_enc: string;
-    cal_refresh_token_enc: string;
-    cal_token_expires_at: number;
-    expires_at: number;
-  } | undefined;
-  if (!row) return undefined;
+export async function getAccessTokenByRefresh(refreshToken: string): Promise<AccessTokenRecord | undefined> {
+  const { rows } = await sql`
+    SELECT * FROM access_tokens WHERE refresh_token = ${refreshToken}
+  `;
+  if (rows.length === 0) return undefined;
+  const row = rows[0];
   return {
     token: row.token,
     refreshToken: row.refresh_token,
@@ -261,59 +205,66 @@ export function getAccessTokenByRefresh(refreshToken: string): AccessTokenRecord
 /**
  * Update the Cal.com tokens for an existing access token (e.g. after refresh).
  */
-export function updateCalTokens(
+export async function updateCalTokens(
   token: string,
   calAccessToken: string,
   calRefreshToken: string,
   calTokenExpiresAt: number,
-): void {
-  const db = getDb();
-  db.prepare(
-    `UPDATE access_tokens SET cal_access_token_enc = ?, cal_refresh_token_enc = ?, cal_token_expires_at = ?
-     WHERE token = ?`,
-  ).run(encrypt(calAccessToken), encrypt(calRefreshToken), calTokenExpiresAt, token);
+): Promise<void> {
+  await sql`
+    UPDATE access_tokens
+    SET cal_access_token_enc = ${encrypt(calAccessToken)},
+        cal_refresh_token_enc = ${encrypt(calRefreshToken)},
+        cal_token_expires_at = ${calTokenExpiresAt}
+    WHERE token = ${token}
+  `;
 }
 
 /**
  * Delete an access token (revocation).
  */
-export function deleteAccessToken(token: string): void {
-  const db = getDb();
-  db.prepare("DELETE FROM access_tokens WHERE token = ?").run(token);
+export async function deleteAccessToken(token: string): Promise<void> {
+  await sql`DELETE FROM access_tokens WHERE token = ${token}`;
 }
 
 /**
  * Delete an access token by its refresh token (for RFC 7009 revocation).
  */
-export function deleteAccessTokenByRefresh(refreshToken: string): void {
-  const db = getDb();
-  db.prepare("DELETE FROM access_tokens WHERE refresh_token = ?").run(refreshToken);
+export async function deleteAccessTokenByRefresh(refreshToken: string): Promise<void> {
+  await sql`DELETE FROM access_tokens WHERE refresh_token = ${refreshToken}`;
 }
 
 /**
  * Rotate: delete old token, issue new one with same Cal.com creds.
- * Wrapped in a transaction so that if createAccessToken fails, the old token is not lost.
+ * Wrapped in a transaction so that if the insert fails, the old token is not lost.
  */
-export function rotateAccessToken(oldRefreshToken: string): {
+export async function rotateAccessToken(oldRefreshToken: string): Promise<{
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
-} | undefined {
-  const existing = getAccessTokenByRefresh(oldRefreshToken);
+} | undefined> {
+  const existing = await getAccessTokenByRefresh(oldRefreshToken);
   if (!existing) return undefined;
 
-  const db = getDb();
-  const rotate = db.transaction(() => {
-    deleteAccessToken(existing.token);
-    return createAccessToken({
-      clientId: existing.clientId,
-      calAccessToken: existing.calAccessToken,
-      calRefreshToken: existing.calRefreshToken,
-      calTokenExpiresAt: existing.calTokenExpiresAt,
-    });
-  });
+  const token = randomUUID();
+  const refreshToken = randomUUID();
+  const ttl = 3600;
+  const expiresAt = Math.floor(Date.now() / 1000) + ttl;
 
-  return rotate();
+  await sql`BEGIN`;
+  try {
+    await sql`DELETE FROM access_tokens WHERE token = ${existing.token}`;
+    await sql`
+      INSERT INTO access_tokens (token, refresh_token, client_id, cal_access_token_enc, cal_refresh_token_enc, cal_token_expires_at, expires_at)
+      VALUES (${token}, ${refreshToken}, ${existing.clientId}, ${encrypt(existing.calAccessToken)}, ${encrypt(existing.calRefreshToken)}, ${existing.calTokenExpiresAt}, ${expiresAt})
+    `;
+    await sql`COMMIT`;
+  } catch (err) {
+    await sql`ROLLBACK`;
+    throw err;
+  }
+
+  return { accessToken: token, refreshToken, expiresIn: ttl };
 }
 
 // ── Cleanup ──
@@ -321,9 +272,8 @@ export function rotateAccessToken(oldRefreshToken: string): {
 /**
  * Remove expired rows from all tables.
  */
-export function cleanupExpired(): void {
-  const db = getDb();
-  db.prepare("DELETE FROM pending_auths WHERE expires_at <= unixepoch()").run();
-  db.prepare("DELETE FROM auth_codes WHERE expires_at <= unixepoch()").run();
-  db.prepare("DELETE FROM access_tokens WHERE expires_at <= unixepoch()").run();
+export async function cleanupExpired(): Promise<void> {
+  await sql`DELETE FROM pending_auths WHERE expires_at <= EXTRACT(EPOCH FROM NOW())::INTEGER`;
+  await sql`DELETE FROM auth_codes WHERE expires_at <= EXTRACT(EPOCH FROM NOW())::INTEGER`;
+  await sql`DELETE FROM access_tokens WHERE expires_at <= EXTRACT(EPOCH FROM NOW())::INTEGER`;
 }
