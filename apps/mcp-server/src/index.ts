@@ -18,7 +18,7 @@ async function main(): Promise<void> {
 
   if (config.transport === "http") {
     const httpConfig = config as HttpConfig;
-    startHttpServer(registerTools, {
+    await startHttpServer(registerTools, {
       port: httpConfig.port,
       oauthConfig: {
         serverUrl: httpConfig.serverUrl,

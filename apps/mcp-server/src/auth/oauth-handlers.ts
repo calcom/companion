@@ -15,6 +15,7 @@ import {
   deleteAccessToken,
   deleteAccessTokenByRefresh,
   getAccessToken,
+  updateCalTokens,
 } from "../storage/token-store.js";
 
 export interface OAuthConfig {
@@ -105,7 +106,7 @@ export async function handleRegister(
   }
   const clientName = typeof body.client_name === "string" ? body.client_name : undefined;
 
-  const client = createRegisteredClient(redirectUris, clientName);
+  const client = await createRegisteredClient(redirectUris, clientName);
 
   jsonResponse(res, 201, {
     client_id: client.clientId,
@@ -116,11 +117,11 @@ export async function handleRegister(
 
 // ── Authorization (GET /oauth/authorize) ──
 
-export function handleAuthorize(
+export async function handleAuthorize(
   req: IncomingMessage,
   res: ServerResponse,
   config: OAuthConfig,
-): void {
+): Promise<void> {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 
   const responseType = url.searchParams.get("response_type");
@@ -146,7 +147,7 @@ export function handleAuthorize(
     return;
   }
 
-  const client = getRegisteredClient(clientId);
+  const client = await getRegisteredClient(clientId);
   if (!client) {
     jsonResponse(res, 400, { error: "invalid_client", error_description: "Unknown client_id" });
     return;
@@ -165,7 +166,7 @@ export function handleAuthorize(
   const calCodeVerifier = useCalPkce ? generateCodeVerifier() : undefined;
   const calCodeChallenge = calCodeVerifier ? generateCodeChallenge(calCodeVerifier) : undefined;
 
-  createPendingAuth({
+  await createPendingAuth({
     state: internalState,
     clientId,
     clientRedirectUri: redirectUri,
@@ -216,7 +217,7 @@ export async function handleCallback(
     return;
   }
 
-  const pending = getPendingAuth(state);
+  const pending = await getPendingAuth(state);
   if (!pending) {
     jsonResponse(res, 400, { error: "invalid_request", error_description: "Unknown or expired state parameter" });
     return;
@@ -247,7 +248,7 @@ export async function handleCallback(
   if (!exchangeRes.ok) {
     // Do not log response body — it may contain sensitive Cal.com error details
     logger.error("Cal.com token exchange failed", { status: exchangeRes.status });
-    deletePendingAuth(state);
+    await deletePendingAuth(state);
     jsonResponse(res, 502, { error: "server_error", error_description: "Token exchange with Cal.com failed" });
     return;
   }
@@ -264,7 +265,7 @@ export async function handleCallback(
   const calRefreshToken = tokens.refresh_token;
   const calTokenExpiresAt = Math.floor(Date.now() / 1000) + (tokens.expires_in ?? 3600);
 
-  const authCode = createAuthCode({
+  const authCode = await createAuthCode({
     clientId: pending.clientId,
     redirectUri: pending.clientRedirectUri,
     codeChallenge: pending.clientCodeChallenge,
@@ -273,7 +274,7 @@ export async function handleCallback(
     calTokenExpiresAt,
   });
 
-  deletePendingAuth(state);
+  await deletePendingAuth(state);
 
   const clientRedirect = new URL(pending.clientRedirectUri);
   clientRedirect.searchParams.set("code", authCode);
@@ -309,7 +310,7 @@ export async function handleToken(
   jsonResponse(res, 400, { error: "unsupported_grant_type" });
 }
 
-function handleAuthorizationCodeGrant(params: URLSearchParams, res: ServerResponse): void {
+async function handleAuthorizationCodeGrant(params: URLSearchParams, res: ServerResponse): Promise<void> {
   const code = params.get("code");
   const redirectUri = params.get("redirect_uri");
   const codeVerifier = params.get("code_verifier");
@@ -323,7 +324,7 @@ function handleAuthorizationCodeGrant(params: URLSearchParams, res: ServerRespon
     return;
   }
 
-  const authCode = consumeAuthCode(code);
+  const authCode = await consumeAuthCode(code);
   if (!authCode) {
     jsonResponse(res, 400, { error: "invalid_grant", error_description: "Invalid, expired, or already-used authorization code" });
     return;
@@ -339,7 +340,7 @@ function handleAuthorizationCodeGrant(params: URLSearchParams, res: ServerRespon
     return;
   }
 
-  const result = createAccessToken({
+  const result = await createAccessToken({
     clientId: authCode.clientId,
     calAccessToken: authCode.calAccessToken,
     calRefreshToken: authCode.calRefreshToken,
@@ -354,14 +355,14 @@ function handleAuthorizationCodeGrant(params: URLSearchParams, res: ServerRespon
   });
 }
 
-function handleRefreshTokenGrant(params: URLSearchParams, res: ServerResponse): void {
+async function handleRefreshTokenGrant(params: URLSearchParams, res: ServerResponse): Promise<void> {
   const refreshToken = params.get("refresh_token");
   if (!refreshToken) {
     jsonResponse(res, 400, { error: "invalid_request", error_description: "Missing refresh_token" });
     return;
   }
 
-  const result = rotateAccessToken(refreshToken);
+  const result = await rotateAccessToken(refreshToken);
   if (!result) {
     jsonResponse(res, 400, { error: "invalid_grant", error_description: "Invalid refresh token" });
     return;
@@ -391,8 +392,8 @@ export async function handleRevoke(
   const token = params.get("token");
 
   if (token) {
-    deleteAccessToken(token);
-    deleteAccessTokenByRefresh(token);
+    await deleteAccessToken(token);
+    await deleteAccessTokenByRefresh(token);
   }
 
   jsonResponse(res, 200, {});
@@ -437,13 +438,11 @@ export async function refreshCalTokens(
     scope?: string;
   };
 
-  const { updateCalTokens } = await import("../storage/token-store.js");
-
   const newCalAccessToken = data.access_token;
   const newCalRefreshToken = data.refresh_token;
   const newCalTokenExpiresAt = Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600);
 
-  updateCalTokens(accessTokenValue, newCalAccessToken, newCalRefreshToken, newCalTokenExpiresAt);
+  await updateCalTokens(accessTokenValue, newCalAccessToken, newCalRefreshToken, newCalTokenExpiresAt);
 
   return {
     calAccessToken: newCalAccessToken,
@@ -461,7 +460,7 @@ export async function resolveCalAuthHeaders(
   bearerToken: string,
   config: OAuthConfig,
 ): Promise<Record<string, string> | undefined> {
-  const record = getAccessToken(bearerToken);
+  const record = await getAccessToken(bearerToken);
   if (!record) return undefined;
 
   let { calAccessToken } = record;

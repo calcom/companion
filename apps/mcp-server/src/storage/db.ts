@@ -1,74 +1,82 @@
-import Database from "better-sqlite3";
+import { createPool } from "@vercel/postgres";
 
-let db: Database.Database | null = null;
+export const pool = createPool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export const sql = pool.sql;
+
+let initialized = false;
 
 /**
- * Get or initialize the SQLite database for OAuth token storage.
- * Uses WAL mode for better concurrent read performance.
+ * Initialize the Postgres database schema.
+ * Creates tables and indexes if they do not already exist. Safe to call
+ * multiple times. Identifiers are double-quoted so Postgres preserves case
+ * (PascalCase tables, camelCase columns).
  */
-export function getDb(): Database.Database {
-  if (db) return db;
+export async function initDb(): Promise<void> {
+  if (initialized) return;
 
-  const dbPath = process.env.DATABASE_PATH || "mcp-server.db";
-  const instance = new Database(dbPath);
+  await sql`
+    CREATE TABLE IF NOT EXISTS "RegisteredClient" (
+      "clientId" TEXT PRIMARY KEY,
+      "redirectUris" TEXT NOT NULL,
+      "clientName" TEXT,
+      "createdAt" INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER
+    )
+  `;
 
-  instance.pragma("journal_mode = WAL");
-  instance.pragma("foreign_keys = ON");
+  await sql`
+    CREATE TABLE IF NOT EXISTS "PendingAuth" (
+      "state" TEXT PRIMARY KEY,
+      "clientId" TEXT NOT NULL,
+      "clientRedirectUri" TEXT NOT NULL,
+      "clientState" TEXT NOT NULL,
+      "clientCodeChallenge" TEXT NOT NULL,
+      "calCodeVerifier" TEXT,
+      "createdAt" INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER,
+      "expiresAt" INTEGER NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS "PendingAuth_expiresAt_idx" ON "PendingAuth" ("expiresAt")`;
 
-  instance.exec(`
-    CREATE TABLE IF NOT EXISTS registered_clients (
-      client_id TEXT PRIMARY KEY,
-      redirect_uris TEXT NOT NULL,
-      client_name TEXT,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch())
-    );
+  await sql`
+    CREATE TABLE IF NOT EXISTS "AuthCode" (
+      "code" TEXT PRIMARY KEY,
+      "clientId" TEXT NOT NULL,
+      "redirectUri" TEXT NOT NULL,
+      "codeChallenge" TEXT NOT NULL,
+      "calAccessTokenEnc" TEXT NOT NULL,
+      "calRefreshTokenEnc" TEXT NOT NULL,
+      "calTokenExpiresAt" INTEGER NOT NULL,
+      "createdAt" INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER,
+      "expiresAt" INTEGER NOT NULL,
+      "used" INTEGER NOT NULL DEFAULT 0
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS "AuthCode_expiresAt_idx" ON "AuthCode" ("expiresAt")`;
 
-    CREATE TABLE IF NOT EXISTS pending_auths (
-      state TEXT PRIMARY KEY,
-      client_id TEXT NOT NULL,
-      client_redirect_uri TEXT NOT NULL,
-      client_state TEXT NOT NULL,
-      client_code_challenge TEXT NOT NULL,
-      cal_code_verifier TEXT,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      expires_at INTEGER NOT NULL
-    );
+  await sql`
+    CREATE TABLE IF NOT EXISTS "AccessToken" (
+      "token" TEXT PRIMARY KEY,
+      "refreshToken" TEXT NOT NULL UNIQUE,
+      "clientId" TEXT NOT NULL,
+      "calAccessTokenEnc" TEXT NOT NULL,
+      "calRefreshTokenEnc" TEXT NOT NULL,
+      "calTokenExpiresAt" INTEGER NOT NULL,
+      "createdAt" INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER,
+      "expiresAt" INTEGER NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS "AccessToken_expiresAt_idx" ON "AccessToken" ("expiresAt")`;
 
-    CREATE TABLE IF NOT EXISTS auth_codes (
-      code TEXT PRIMARY KEY,
-      client_id TEXT NOT NULL,
-      redirect_uri TEXT NOT NULL,
-      code_challenge TEXT NOT NULL,
-      cal_access_token_enc TEXT NOT NULL,
-      cal_refresh_token_enc TEXT NOT NULL,
-      cal_token_expires_at INTEGER NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      expires_at INTEGER NOT NULL,
-      used INTEGER NOT NULL DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS access_tokens (
-      token TEXT PRIMARY KEY,
-      refresh_token TEXT NOT NULL UNIQUE,
-      client_id TEXT NOT NULL,
-      cal_access_token_enc TEXT NOT NULL,
-      cal_refresh_token_enc TEXT NOT NULL,
-      cal_token_expires_at INTEGER NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      expires_at INTEGER NOT NULL
-    );
-  `);
-
-  db = instance;
-  return db;
+  initialized = true;
 }
 
 /**
- * Close the database connection (for graceful shutdown).
+ * End the connection pool (for graceful shutdown).
  */
-export function closeDb(): void {
-  if (db) {
-    db.close();
-    db = null;
-  }
+export async function endPool(): Promise<void> {
+  await pool.end();
+  initialized = false;
 }

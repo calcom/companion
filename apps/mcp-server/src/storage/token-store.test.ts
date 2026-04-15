@@ -1,62 +1,77 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import * as dbModule from "./db.js";
-import {
-  createRegisteredClient,
-  getRegisteredClient,
-  createPendingAuth,
-  getPendingAuth,
-  deletePendingAuth,
-  createAuthCode,
-  consumeAuthCode,
-  createAccessToken,
-  getAccessToken,
-  getAccessTokenByRefresh,
-  rotateAccessToken,
-  deleteAccessToken,
-  cleanupExpired,
-} from "./token-store.js";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const TEST_KEY = "a".repeat(64);
-const originalEnv = process.env;
 
-beforeEach(() => {
-  process.env = { ...originalEnv };
-  process.env.TOKEN_ENCRYPTION_KEY = TEST_KEY;
-  // Use in-memory SQLite for tests
-  process.env.DATABASE_PATH = ":memory:";
-  // Reset the db singleton by re-initializing
-  const db = dbModule.getDb();
-  // Clean all tables
-  db.exec("DELETE FROM registered_clients");
-  db.exec("DELETE FROM pending_auths");
-  db.exec("DELETE FROM auth_codes");
-  db.exec("DELETE FROM access_tokens");
+// Mock @vercel/postgres before importing modules that use it
+const mockRows: Record<string, unknown>[] = [];
+let mockSql: ReturnType<typeof vi.fn>;
+
+vi.mock("@vercel/postgres", () => {
+  mockSql = vi.fn(async () => ({ rows: mockRows, rowCount: mockRows.length }));
+  const client = { sql: mockSql, release: vi.fn() };
+  const pool = {
+    sql: mockSql,
+    connect: vi.fn(async () => client),
+    end: vi.fn(),
+  };
+  return {
+    createPool: () => pool,
+    sql: mockSql,
+    db: pool,
+  };
 });
 
-afterEach(() => {
-  dbModule.closeDb();
-  process.env = originalEnv;
+// Set encryption key before imports
+process.env.TOKEN_ENCRYPTION_KEY = TEST_KEY;
+
+const tokenStore = await import("./token-store.js");
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockRows.length = 0;
 });
 
 describe("registered clients", () => {
-  it("creates and retrieves a client", () => {
-    const client = createRegisteredClient(["http://localhost:3000/callback"], "Test Client");
+  it("creates a client with correct SQL", async () => {
+    const client = await tokenStore.createRegisteredClient(["http://localhost:3000/callback"], "Test Client");
+
     expect(client.clientId).toBeTruthy();
     expect(client.redirectUris).toEqual(["http://localhost:3000/callback"]);
     expect(client.clientName).toBe("Test Client");
-
-    const retrieved = getRegisteredClient(client.clientId);
-    expect(retrieved).toEqual(client);
+    expect(mockSql).toHaveBeenCalledTimes(1);
   });
 
-  it("returns undefined for unknown client", () => {
-    expect(getRegisteredClient("nonexistent")).toBeUndefined();
+  it("returns undefined for unknown client", async () => {
+    // mockRows is empty by default
+    const result = await tokenStore.getRegisteredClient("nonexistent");
+    expect(result).toBeUndefined();
+  });
+
+  it("retrieves a client when rows are returned", async () => {
+    mockRows.push({
+      clientId: "test-id",
+      redirectUris: JSON.stringify(["http://localhost/cb"]),
+      clientName: "Test",
+    });
+
+    const result = await tokenStore.getRegisteredClient("test-id");
+    expect(result).toEqual({
+      clientId: "test-id",
+      redirectUris: ["http://localhost/cb"],
+      clientName: "Test",
+    });
+  });
+
+  it("counts registered clients", async () => {
+    mockRows.push({ count: 5 });
+    const count = await tokenStore.countRegisteredClients();
+    expect(count).toBe(5);
   });
 });
 
 describe("pending auths", () => {
-  it("creates and retrieves a pending auth", () => {
-    createPendingAuth({
+  it("creates a pending auth", async () => {
+    await tokenStore.createPendingAuth({
       state: "test-state",
       clientId: "client-1",
       clientRedirectUri: "http://localhost/cb",
@@ -65,45 +80,56 @@ describe("pending auths", () => {
       calCodeVerifier: "verifier-123",
     });
 
-    const auth = getPendingAuth("test-state");
+    expect(mockSql).toHaveBeenCalledTimes(1);
+  });
+
+  it("retrieves a pending auth", async () => {
+    mockRows.push({
+      state: "test-state",
+      clientId: "client-1",
+      clientRedirectUri: "http://localhost/cb",
+      clientState: "client-state-abc",
+      clientCodeChallenge: "challenge-xyz",
+      calCodeVerifier: "verifier-123",
+      expiresAt: Math.floor(Date.now() / 1000) + 600,
+    });
+
+    const auth = await tokenStore.getPendingAuth("test-state");
     expect(auth).toBeDefined();
     expect(auth?.clientId).toBe("client-1");
     expect(auth?.clientState).toBe("client-state-abc");
     expect(auth?.calCodeVerifier).toBe("verifier-123");
   });
 
-  it("returns undefined for expired pending auth", () => {
-    createPendingAuth({
-      state: "expired-state",
-      clientId: "client-1",
-      clientRedirectUri: "http://localhost/cb",
-      clientState: "cs",
-      clientCodeChallenge: "cc",
-      calCodeVerifier: "cv",
-      ttlSeconds: -1, // Already expired
-    });
-
-    expect(getPendingAuth("expired-state")).toBeUndefined();
+  it("returns undefined when no rows", async () => {
+    const result = await tokenStore.getPendingAuth("nonexistent");
+    expect(result).toBeUndefined();
   });
 
-  it("deletes a pending auth", () => {
-    createPendingAuth({
-      state: "delete-me",
-      clientId: "client-1",
+  it("handles null calCodeVerifier", async () => {
+    mockRows.push({
+      state: "s",
+      clientId: "c",
       clientRedirectUri: "http://localhost/cb",
       clientState: "cs",
       clientCodeChallenge: "cc",
-      calCodeVerifier: "cv",
+      calCodeVerifier: null,
+      expiresAt: Math.floor(Date.now() / 1000) + 600,
     });
 
-    deletePendingAuth("delete-me");
-    expect(getPendingAuth("delete-me")).toBeUndefined();
+    const auth = await tokenStore.getPendingAuth("s");
+    expect(auth?.calCodeVerifier).toBeUndefined();
+  });
+
+  it("deletes a pending auth", async () => {
+    await tokenStore.deletePendingAuth("delete-me");
+    expect(mockSql).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("auth codes", () => {
-  it("creates and consumes an auth code", () => {
-    const code = createAuthCode({
+  it("creates an auth code", async () => {
+    const code = await tokenStore.createAuthCode({
       clientId: "client-1",
       redirectUri: "http://localhost/cb",
       codeChallenge: "challenge-xyz",
@@ -113,32 +139,41 @@ describe("auth codes", () => {
     });
 
     expect(code).toBeTruthy();
+    expect(mockSql).toHaveBeenCalledTimes(1);
+  });
 
-    const consumed = consumeAuthCode(code);
+  it("consumes an auth code", async () => {
+    const { encrypt } = await import("./encryption.js");
+    mockRows.push({
+      code: "test-code",
+      clientId: "client-1",
+      redirectUri: "http://localhost/cb",
+      codeChallenge: "cc",
+      calAccessTokenEnc: encrypt("cal-access-token"),
+      calRefreshTokenEnc: encrypt("cal-refresh-token"),
+      calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+    });
+
+    const consumed = await tokenStore.consumeAuthCode("test-code");
     expect(consumed).toBeDefined();
     expect(consumed?.clientId).toBe("client-1");
     expect(consumed?.calAccessToken).toBe("cal-access-token");
     expect(consumed?.calRefreshToken).toBe("cal-refresh-token");
+    // Single atomic UPDATE...RETURNING
+    expect(mockSql).toHaveBeenCalledTimes(1);
   });
 
-  it("cannot consume the same code twice", () => {
-    const code = createAuthCode({
-      clientId: "client-1",
-      redirectUri: "http://localhost/cb",
-      codeChallenge: "cc",
-      calAccessToken: "at",
-      calRefreshToken: "rt",
-      calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
-    });
-
-    expect(consumeAuthCode(code)).toBeDefined();
-    expect(consumeAuthCode(code)).toBeUndefined();
+  it("returns undefined when code not found", async () => {
+    const result = await tokenStore.consumeAuthCode("nonexistent");
+    expect(result).toBeUndefined();
+    expect(mockSql).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("access tokens", () => {
-  it("creates and retrieves an access token", () => {
-    const result = createAccessToken({
+  it("creates an access token", async () => {
+    const result = await tokenStore.createAccessToken({
       clientId: "client-1",
       calAccessToken: "cal-at",
       calRefreshToken: "cal-rt",
@@ -148,79 +183,96 @@ describe("access tokens", () => {
     expect(result.accessToken).toBeTruthy();
     expect(result.refreshToken).toBeTruthy();
     expect(result.expiresIn).toBe(3600);
+  });
 
-    const record = getAccessToken(result.accessToken);
+  it("retrieves an access token", async () => {
+    const { encrypt } = await import("./encryption.js");
+    mockRows.push({
+      token: "test-token",
+      refreshToken: "test-refresh",
+      clientId: "client-1",
+      calAccessTokenEnc: encrypt("cal-at"),
+      calRefreshTokenEnc: encrypt("cal-rt"),
+      calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+      expiresAt: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    const record = await tokenStore.getAccessToken("test-token");
     expect(record).toBeDefined();
     expect(record?.calAccessToken).toBe("cal-at");
     expect(record?.calRefreshToken).toBe("cal-rt");
   });
 
-  it("retrieves by refresh token", () => {
-    const result = createAccessToken({
+  it("retrieves by refresh token", async () => {
+    const { encrypt } = await import("./encryption.js");
+    mockRows.push({
+      token: "test-token",
+      refreshToken: "test-refresh",
       clientId: "client-1",
-      calAccessToken: "cal-at",
-      calRefreshToken: "cal-rt",
+      calAccessTokenEnc: encrypt("cal-at"),
+      calRefreshTokenEnc: encrypt("cal-rt"),
       calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+      expiresAt: Math.floor(Date.now() / 1000) + 3600,
     });
 
-    const record = getAccessTokenByRefresh(result.refreshToken);
+    const record = await tokenStore.getAccessTokenByRefresh("test-refresh");
     expect(record).toBeDefined();
-    expect(record?.token).toBe(result.accessToken);
+    expect(record?.token).toBe("test-token");
   });
 
-  it("deletes an access token", () => {
-    const result = createAccessToken({
-      clientId: "client-1",
-      calAccessToken: "cal-at",
-      calRefreshToken: "cal-rt",
-      calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
-    });
-
-    deleteAccessToken(result.accessToken);
-    expect(getAccessToken(result.accessToken)).toBeUndefined();
+  it("deletes an access token", async () => {
+    await tokenStore.deleteAccessToken("test-token");
+    expect(mockSql).toHaveBeenCalledTimes(1);
   });
 
-  it("rotates an access token", () => {
-    const original = createAccessToken({
-      clientId: "client-1",
-      calAccessToken: "cal-at",
-      calRefreshToken: "cal-rt",
-      calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
-    });
+  it("rotates an access token", async () => {
+    const { encrypt } = await import("./encryption.js");
 
-    const rotated = rotateAccessToken(original.refreshToken);
+    // First call: getAccessTokenByRefresh SELECT
+    mockSql.mockResolvedValueOnce({
+      rows: [{
+        token: "old-token",
+        refreshToken: "old-refresh",
+        clientId: "client-1",
+        calAccessTokenEnc: encrypt("cal-at"),
+        calRefreshTokenEnc: encrypt("cal-rt"),
+        calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+        expiresAt: Math.floor(Date.now() / 1000) + 3600,
+      }],
+      rowCount: 1,
+    });
+    // BEGIN
+    mockSql.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    // DELETE
+    mockSql.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    // INSERT
+    mockSql.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    // COMMIT
+    mockSql.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    const rotated = await tokenStore.rotateAccessToken("old-refresh");
     expect(rotated).toBeDefined();
-    expect(rotated?.accessToken).not.toBe(original.accessToken);
-    expect(rotated?.refreshToken).not.toBe(original.refreshToken);
-
-    // Old token should be gone
-    expect(getAccessToken(original.accessToken)).toBeUndefined();
-
-    // New token should work and have same Cal.com creds
-    const record = getAccessToken(rotated?.accessToken ?? "");
-    expect(record?.calAccessToken).toBe("cal-at");
+    expect(rotated?.accessToken).toBeTruthy();
+    expect(rotated?.refreshToken).toBeTruthy();
+    // getAccessTokenByRefresh + BEGIN + DELETE + INSERT + COMMIT
+    expect(mockSql).toHaveBeenCalledTimes(5);
   });
 
-  it("returns undefined when rotating unknown refresh token", () => {
-    expect(rotateAccessToken("nonexistent")).toBeUndefined();
+  it("returns undefined when rotating unknown refresh token", async () => {
+    const result = await tokenStore.rotateAccessToken("nonexistent");
+    expect(result).toBeUndefined();
+  });
+
+  it("updates Cal.com tokens", async () => {
+    await tokenStore.updateCalTokens("token", "new-cal-at", "new-cal-rt", 999);
+    expect(mockSql).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("cleanupExpired", () => {
-  it("removes expired rows without error", () => {
-    // Create some records that are not expired
-    createPendingAuth({
-      state: "valid-state",
-      clientId: "client-1",
-      clientRedirectUri: "http://localhost/cb",
-      clientState: "cs",
-      clientCodeChallenge: "cc",
-      calCodeVerifier: "cv",
-    });
-
-    expect(() => cleanupExpired()).not.toThrow();
-
-    // Valid record should still exist
-    expect(getPendingAuth("valid-state")).toBeDefined();
+  it("runs cleanup queries without error", async () => {
+    await tokenStore.cleanupExpired();
+    // 3 DELETE queries (PendingAuth, AuthCode, AccessToken)
+    expect(mockSql).toHaveBeenCalledTimes(3);
   });
 });

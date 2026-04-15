@@ -1,6 +1,23 @@
 version: "3.8"
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mcp
+      POSTGRES_USER: mcp
+      POSTGRES_PASSWORD: mcp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcp"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   mcp-server:
     build:
       context: .
@@ -15,14 +32,15 @@ services:
       - TOKEN_ENCRYPTION_KEY=${TOKEN_ENCRYPTION_KEY}
       - CAL_API_BASE_URL=${CAL_API_BASE_URL:-https://api.cal.com}
       - CAL_APP_BASE_URL=${CAL_APP_BASE_URL:-https://app.cal.com}
-      - DATABASE_PATH=/data/mcp-server.db
+      - DATABASE_URL=postgres://mcp:mcp@postgres:5432/mcp
       - TRUST_PROXY=true
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
       - LOG_LEVEL=${LOG_LEVEL:-info}
-    volumes:
-      - ./data:/data
     expose:
       - "3100"
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3100/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s
@@ -45,5 +63,6 @@ services:
         condition: service_healthy
 
 volumes:
+  pgdata:
   caddy_data:
   caddy_config:
