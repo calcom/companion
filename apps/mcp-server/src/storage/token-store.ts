@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { sql } from "./db.js";
+import { sql, pool } from "./db.js";
 import { encrypt, decrypt } from "./encryption.js";
 
 // ── Registered Clients ──
@@ -252,17 +252,23 @@ export async function rotateAccessToken(oldRefreshToken: string): Promise<{
   const ttl = 3600;
   const expiresAt = Math.floor(Date.now() / 1000) + ttl;
 
-  await sql`BEGIN`;
+  // Dedicated client so BEGIN/DELETE/INSERT/COMMIT share one connection.
+  // The `sql` tagged template pulls a fresh pooled connection per call, which
+  // would make the transaction a no-op.
+  const client = await pool.connect();
   try {
-    await sql`DELETE FROM access_tokens WHERE token = ${existing.token}`;
-    await sql`
+    await client.sql`BEGIN`;
+    await client.sql`DELETE FROM access_tokens WHERE token = ${existing.token}`;
+    await client.sql`
       INSERT INTO access_tokens (token, refresh_token, client_id, cal_access_token_enc, cal_refresh_token_enc, cal_token_expires_at, expires_at)
       VALUES (${token}, ${refreshToken}, ${existing.clientId}, ${encrypt(existing.calAccessToken)}, ${encrypt(existing.calRefreshToken)}, ${existing.calTokenExpiresAt}, ${expiresAt})
     `;
-    await sql`COMMIT`;
+    await client.sql`COMMIT`;
   } catch (err) {
-    await sql`ROLLBACK`;
+    await client.sql`ROLLBACK`;
     throw err;
+  } finally {
+    client.release();
   }
 
   return { accessToken: token, refreshToken, expiresIn: ttl };
