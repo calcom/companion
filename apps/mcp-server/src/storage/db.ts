@@ -10,60 +10,65 @@ let initialized = false;
 
 /**
  * Initialize the Postgres database schema.
- * Creates tables if they do not already exist. Safe to call multiple times.
+ * Creates tables and indexes if they do not already exist. Safe to call
+ * multiple times. Identifiers are double-quoted so Postgres preserves case
+ * (PascalCase tables, camelCase columns).
  */
 export async function initDb(): Promise<void> {
   if (initialized) return;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS registered_clients (
-      client_id TEXT PRIMARY KEY,
-      redirect_uris TEXT NOT NULL,
-      client_name TEXT,
-      created_at INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER
+    CREATE TABLE IF NOT EXISTS "RegisteredClient" (
+      "clientId" TEXT PRIMARY KEY,
+      "redirectUris" TEXT NOT NULL,
+      "clientName" TEXT,
+      "createdAt" INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER
     )
   `;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS pending_auths (
-      state TEXT PRIMARY KEY,
-      client_id TEXT NOT NULL,
-      client_redirect_uri TEXT NOT NULL,
-      client_state TEXT NOT NULL,
-      client_code_challenge TEXT NOT NULL,
-      cal_code_verifier TEXT,
-      created_at INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER,
-      expires_at INTEGER NOT NULL
+    CREATE TABLE IF NOT EXISTS "PendingAuth" (
+      "state" TEXT PRIMARY KEY,
+      "clientId" TEXT NOT NULL,
+      "clientRedirectUri" TEXT NOT NULL,
+      "clientState" TEXT NOT NULL,
+      "clientCodeChallenge" TEXT NOT NULL,
+      "calCodeVerifier" TEXT,
+      "createdAt" INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER,
+      "expiresAt" INTEGER NOT NULL
     )
   `;
+  await sql`CREATE INDEX IF NOT EXISTS "PendingAuth_expiresAt_idx" ON "PendingAuth" ("expiresAt")`;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS auth_codes (
-      code TEXT PRIMARY KEY,
-      client_id TEXT NOT NULL,
-      redirect_uri TEXT NOT NULL,
-      code_challenge TEXT NOT NULL,
-      cal_access_token_enc TEXT NOT NULL,
-      cal_refresh_token_enc TEXT NOT NULL,
-      cal_token_expires_at INTEGER NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER,
-      expires_at INTEGER NOT NULL,
-      used INTEGER NOT NULL DEFAULT 0
+    CREATE TABLE IF NOT EXISTS "AuthCode" (
+      "code" TEXT PRIMARY KEY,
+      "clientId" TEXT NOT NULL,
+      "redirectUri" TEXT NOT NULL,
+      "codeChallenge" TEXT NOT NULL,
+      "calAccessTokenEnc" TEXT NOT NULL,
+      "calRefreshTokenEnc" TEXT NOT NULL,
+      "calTokenExpiresAt" INTEGER NOT NULL,
+      "createdAt" INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER,
+      "expiresAt" INTEGER NOT NULL,
+      "used" INTEGER NOT NULL DEFAULT 0
     )
   `;
+  await sql`CREATE INDEX IF NOT EXISTS "AuthCode_expiresAt_idx" ON "AuthCode" ("expiresAt")`;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS access_tokens (
-      token TEXT PRIMARY KEY,
-      refresh_token TEXT NOT NULL UNIQUE,
-      client_id TEXT NOT NULL,
-      cal_access_token_enc TEXT NOT NULL,
-      cal_refresh_token_enc TEXT NOT NULL,
-      cal_token_expires_at INTEGER NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER,
-      expires_at INTEGER NOT NULL
+    CREATE TABLE IF NOT EXISTS "AccessToken" (
+      "token" TEXT PRIMARY KEY,
+      "refreshToken" TEXT NOT NULL UNIQUE,
+      "clientId" TEXT NOT NULL,
+      "calAccessTokenEnc" TEXT NOT NULL,
+      "calRefreshTokenEnc" TEXT NOT NULL,
+      "calTokenExpiresAt" INTEGER NOT NULL,
+      "createdAt" INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER,
+      "expiresAt" INTEGER NOT NULL
     )
   `;
+  await sql`CREATE INDEX IF NOT EXISTS "AccessToken_expiresAt_idx" ON "AccessToken" ("expiresAt")`;
 
   initialized = true;
 }

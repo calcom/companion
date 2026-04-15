@@ -49,9 +49,9 @@ describe("registered clients", () => {
 
   it("retrieves a client when rows are returned", async () => {
     mockRows.push({
-      client_id: "test-id",
-      redirect_uris: JSON.stringify(["http://localhost/cb"]),
-      client_name: "Test",
+      clientId: "test-id",
+      redirectUris: JSON.stringify(["http://localhost/cb"]),
+      clientName: "Test",
     });
 
     const result = await tokenStore.getRegisteredClient("test-id");
@@ -86,12 +86,12 @@ describe("pending auths", () => {
   it("retrieves a pending auth", async () => {
     mockRows.push({
       state: "test-state",
-      client_id: "client-1",
-      client_redirect_uri: "http://localhost/cb",
-      client_state: "client-state-abc",
-      client_code_challenge: "challenge-xyz",
-      cal_code_verifier: "verifier-123",
-      expires_at: Math.floor(Date.now() / 1000) + 600,
+      clientId: "client-1",
+      clientRedirectUri: "http://localhost/cb",
+      clientState: "client-state-abc",
+      clientCodeChallenge: "challenge-xyz",
+      calCodeVerifier: "verifier-123",
+      expiresAt: Math.floor(Date.now() / 1000) + 600,
     });
 
     const auth = await tokenStore.getPendingAuth("test-state");
@@ -109,12 +109,12 @@ describe("pending auths", () => {
   it("handles null calCodeVerifier", async () => {
     mockRows.push({
       state: "s",
-      client_id: "c",
-      client_redirect_uri: "http://localhost/cb",
-      client_state: "cs",
-      client_code_challenge: "cc",
-      cal_code_verifier: null,
-      expires_at: Math.floor(Date.now() / 1000) + 600,
+      clientId: "c",
+      clientRedirectUri: "http://localhost/cb",
+      clientState: "cs",
+      clientCodeChallenge: "cc",
+      calCodeVerifier: null,
+      expiresAt: Math.floor(Date.now() / 1000) + 600,
     });
 
     const auth = await tokenStore.getPendingAuth("s");
@@ -146,13 +146,13 @@ describe("auth codes", () => {
     const { encrypt } = await import("./encryption.js");
     mockRows.push({
       code: "test-code",
-      client_id: "client-1",
-      redirect_uri: "http://localhost/cb",
-      code_challenge: "cc",
-      cal_access_token_enc: encrypt("cal-access-token"),
-      cal_refresh_token_enc: encrypt("cal-refresh-token"),
-      cal_token_expires_at: Math.floor(Date.now() / 1000) + 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 300,
+      clientId: "client-1",
+      redirectUri: "http://localhost/cb",
+      codeChallenge: "cc",
+      calAccessTokenEnc: encrypt("cal-access-token"),
+      calRefreshTokenEnc: encrypt("cal-refresh-token"),
+      calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
     });
 
     const consumed = await tokenStore.consumeAuthCode("test-code");
@@ -189,12 +189,12 @@ describe("access tokens", () => {
     const { encrypt } = await import("./encryption.js");
     mockRows.push({
       token: "test-token",
-      refresh_token: "test-refresh",
-      client_id: "client-1",
-      cal_access_token_enc: encrypt("cal-at"),
-      cal_refresh_token_enc: encrypt("cal-rt"),
-      cal_token_expires_at: Math.floor(Date.now() / 1000) + 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      refreshToken: "test-refresh",
+      clientId: "client-1",
+      calAccessTokenEnc: encrypt("cal-at"),
+      calRefreshTokenEnc: encrypt("cal-rt"),
+      calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+      expiresAt: Math.floor(Date.now() / 1000) + 3600,
     });
 
     const record = await tokenStore.getAccessToken("test-token");
@@ -207,12 +207,12 @@ describe("access tokens", () => {
     const { encrypt } = await import("./encryption.js");
     mockRows.push({
       token: "test-token",
-      refresh_token: "test-refresh",
-      client_id: "client-1",
-      cal_access_token_enc: encrypt("cal-at"),
-      cal_refresh_token_enc: encrypt("cal-rt"),
-      cal_token_expires_at: Math.floor(Date.now() / 1000) + 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      refreshToken: "test-refresh",
+      clientId: "client-1",
+      calAccessTokenEnc: encrypt("cal-at"),
+      calRefreshTokenEnc: encrypt("cal-rt"),
+      calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+      expiresAt: Math.floor(Date.now() / 1000) + 3600,
     });
 
     const record = await tokenStore.getAccessTokenByRefresh("test-refresh");
@@ -232,12 +232,12 @@ describe("access tokens", () => {
     mockSql.mockResolvedValueOnce({
       rows: [{
         token: "old-token",
-        refresh_token: "old-refresh",
-        client_id: "client-1",
-        cal_access_token_enc: encrypt("cal-at"),
-        cal_refresh_token_enc: encrypt("cal-rt"),
-        cal_token_expires_at: Math.floor(Date.now() / 1000) + 3600,
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        refreshToken: "old-refresh",
+        clientId: "client-1",
+        calAccessTokenEnc: encrypt("cal-at"),
+        calRefreshTokenEnc: encrypt("cal-rt"),
+        calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+        expiresAt: Math.floor(Date.now() / 1000) + 3600,
       }],
       rowCount: 1,
     });
@@ -272,7 +272,7 @@ describe("access tokens", () => {
 describe("cleanupExpired", () => {
   it("runs cleanup queries without error", async () => {
     await tokenStore.cleanupExpired();
-    // 3 DELETE queries (pending_auths, auth_codes, access_tokens)
+    // 3 DELETE queries (PendingAuth, AuthCode, AccessToken)
     expect(mockSql).toHaveBeenCalledTimes(3);
   });
 });
