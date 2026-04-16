@@ -34,7 +34,9 @@ export function buildAuthorizationServerMetadata(config: OAuthServerConfig): Rec
 export function buildProtectedResourceMetadata(config: OAuthServerConfig): Record<string, unknown> {
   const serverUrl = config.serverUrl.replace(/\/+$/, "");
   return {
-    resource: serverUrl,
+    // resource MUST be the MCP endpoint URL so that OAuth clients (e.g. Claude.ai)
+    // that use this field to discover the endpoint send requests to /mcp, not the root.
+    resource: `${serverUrl}/mcp`,
     authorization_servers: [serverUrl],
     bearer_methods_supported: ["header"],
   };

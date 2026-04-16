@@ -165,14 +165,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   // ── MCP (stateless) ──
-  if (url.pathname === "/mcp") {
+  // Accept both /mcp (canonical) and / (base URL) so that Claude.ai works whether
+  // the user enters "https://mcp.cal.com" or "https://mcp.cal.com/mcp".
+  if (url.pathname === "/mcp" || url.pathname === "/") {
     const authHeader = req.headers.authorization;
     const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
 
     if (!bearerToken) {
       res.writeHead(401, {
         "Content-Type": "application/json",
-        "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
+        "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl.replace(/\/+$/, "")}/.well-known/oauth-protected-resource"`,
       });
       res.end(JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" }));
       return;
@@ -182,7 +184,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (!calAuthHeaders) {
       res.writeHead(401, {
         "Content-Type": "application/json",
-        "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
+        "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl.replace(/\/+$/, "")}/.well-known/oauth-protected-resource"`,
       });
       res.end(JSON.stringify({ error: "invalid_token", error_description: "Invalid or expired access token" }));
       return;
