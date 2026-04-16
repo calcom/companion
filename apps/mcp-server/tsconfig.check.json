@@ -3,5 +3,5 @@
   "compilerOptions": {
     "skipLibCheck": true
   },
-  "exclude": ["node_modules", "dist", "src/index.ts", "src/register-tools.ts", "src/http-server.ts", "src/**/*.test.ts"]
+  "exclude": ["node_modules", "dist", "src/index.ts", "src/register-tools.ts", "src/http-server.ts", "src/vercel-handler.ts", "src/**/*.test.ts"]
 }
