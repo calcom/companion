@@ -189,7 +189,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    // enableJsonResponse: true → transport returns a plain JSON response instead of keeping
+    // an SSE stream open. Vercel serverless functions cannot hold long-lived streams, so
+    // the default SSE mode times out after 60 s. JSON mode resolves as soon as the server
+    // finishes processing each JSON-RPC request, well within the function time limit.
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true,
+    });
     const server = new McpServer(
       { name: "calcom-mcp-server", version: "0.1.0" },
       { instructions: SERVER_INSTRUCTIONS },
