@@ -79,7 +79,13 @@ function setCorsHeaders(req: IncomingMessage, res: ServerResponse, corsOrigin: s
   const origin = corsOrigin ?? req.headers.origin ?? "*";
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id");
+  // Include mcp-protocol-version and last-event-id: the MCP client adds these custom
+  // headers on every request after initialization. Without them the browser's CORS
+  // preflight fails with "header not allowed".
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, Mcp-Session-Id, mcp-protocol-version, last-event-id",
+  );
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Vary", "Origin");
@@ -186,6 +192,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (req.method === "DELETE") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: "terminated" }));
+      return;
+    }
+
+    // GET opens a long-lived SSE stream for server-initiated messages. Vercel
+    // serverless functions cannot hold persistent connections, so we return 405.
+    // The MCP client treats 405 as "SSE not supported" and switches to POST-only
+    // mode — no error, it just skips the standalone stream.
+    if (req.method === "GET") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "method_not_allowed", error_description: "SSE stream not supported in serverless mode" }));
       return;
     }
 
