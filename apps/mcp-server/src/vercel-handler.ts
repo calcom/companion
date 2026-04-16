@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 
 import { authContext } from "./auth/context.js";
 import {
@@ -207,14 +208,73 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
-    // enableJsonResponse: true → transport returns a plain JSON response instead of keeping
-    // an SSE stream open. Vercel serverless functions cannot hold long-lived streams, so
-    // the default SSE mode times out after 60 s. JSON mode resolves as soon as the server
-    // finishes processing each JSON-RPC request, well within the function time limit.
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      enableJsonResponse: true,
+    // ── Minimal in-process JSON-RPC transport ──────────────────────────────────
+    //
+    // StreamableHTTPServerTransport uses @hono/node-server's getRequestListener
+    // under the hood. That adapter converts the Node.js IncomingMessage body to a
+    // Web ReadableStream and then awaits `reader.closed` before it considers the
+    // response done. On Vercel, that promise never resolves → 60 s timeout.
+    //
+    // We bypass all of that by:
+    //   1. Reading the raw body ourselves (pure Node.js streams — always works).
+    //   2. Wiring a trivial Transport object straight to McpServer.
+    //   3. Driving messages in → collecting responses out → writing JSON directly.
+    //   No ReadableStream, no Hono, no reader.closed, no SSE.
+
+    // -- 1. Read request body --------------------------------------------------
+    const bodyText = await new Promise<string>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+      req.on("error", reject);
     });
+
+    let rawMessage: unknown;
+    try {
+      rawMessage = JSON.parse(bodyText);
+    } catch {
+      jsonError(res, 400, "parse_error", "Request body is not valid JSON");
+      return;
+    }
+
+    const messages: JSONRPCMessage[] = (Array.isArray(rawMessage) ? rawMessage : [rawMessage]) as JSONRPCMessage[];
+
+    // JSON-RPC requests have an `id` field; notifications do not.
+    const requestIds = messages
+      .filter((m): m is JSONRPCMessage & { id: string | number } => "id" in m && m.id != null)
+      .map((m) => (m as { id: string | number }).id);
+
+    // If there are no requests (pure notifications batch), acknowledge with 202.
+    if (requestIds.length === 0) {
+      res.writeHead(202);
+      res.end();
+      return;
+    }
+
+    // -- 2. Build minimal Transport --------------------------------------------
+    const collectedResponses = new Map<string | number, JSONRPCMessage>();
+    let resolveAll!: () => void;
+    const allDone = new Promise<void>((r) => { resolveAll = r; });
+
+    const transport: Transport = {
+      // These callbacks are set by McpServer.connect() before start() returns.
+      onmessage: undefined,
+      onclose: undefined,
+      onerror: undefined,
+
+      async start() { /* nothing to set up */ },
+      async close() { transport.onclose?.(); },
+
+      async send(msg: JSONRPCMessage) {
+        // Only capture responses (they have `id`); ignore server-initiated requests.
+        if ("id" in msg && msg.id != null) {
+          collectedResponses.set((msg as { id: string | number }).id, msg);
+          if (collectedResponses.size >= requestIds.length) resolveAll();
+        }
+      },
+    };
+
+    // -- 3. Connect McpServer and drive messages --------------------------------
     const server = new McpServer(
       { name: "calcom-mcp-server", version: "0.1.0" },
       { instructions: SERVER_INSTRUCTIONS },
@@ -222,15 +282,33 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     registerTools(server);
     await server.connect(transport);
 
-    // Close the transport when the response finishes so the MCP server is
-    // garbage-collected with the function invocation.
-    res.on("close", () => {
-      transport.close().catch(() => {});
-    });
+    // 55 s gives a ~5 s buffer before Vercel's 60 s hard limit.
+    const timeoutMs = 55_000;
 
-    await authContext.run(calAuthHeaders, async () => {
-      await transport.handleRequest(req, res);
-    });
+    try {
+      await authContext.run(calAuthHeaders, async () => {
+        for (const msg of messages) {
+          transport.onmessage?.(msg, {});
+        }
+        await Promise.race([
+          allDone,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`MCP handler timed out after ${timeoutMs} ms`)), timeoutMs),
+          ),
+        ]);
+      });
+    } finally {
+      transport.close().catch(() => {});
+    }
+
+    // -- 4. Return JSON --------------------------------------------------------
+    const responsePayload =
+      requestIds.length === 1
+        ? collectedResponses.get(requestIds[0]) ?? null
+        : requestIds.map((id) => collectedResponses.get(id) ?? null);
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(responsePayload));
     return;
   }
 
