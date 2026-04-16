@@ -273,7 +273,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           if (collectedResponses.size >= requestIds.length) resolveAll();
         }
       },
-      },
     };
 
     // -- 3. Connect McpServer and drive messages --------------------------------
