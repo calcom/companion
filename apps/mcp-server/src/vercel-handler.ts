@@ -2,11 +2,11 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
-import { authContext } from "../src/auth/context.js";
+import { authContext } from "./auth/context.js";
 import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
-} from "../src/auth/oauth-metadata.js";
+} from "./auth/oauth-metadata.js";
 import {
   handleAuthorize,
   handleCallback,
@@ -15,12 +15,12 @@ import {
   handleToken,
   resolveCalAuthHeaders,
   type OAuthConfig,
-} from "../src/auth/oauth-handlers.js";
-import { loadConfig, type HttpConfig } from "../src/config.js";
-import { registerTools } from "../src/register-tools.js";
-import { SERVER_INSTRUCTIONS } from "../src/server-instructions.js";
-import { initDb, sql } from "../src/storage/db.js";
-import { countRegisteredClients } from "../src/storage/token-store.js";
+} from "./auth/oauth-handlers.js";
+import { loadConfig, type HttpConfig } from "./config.js";
+import { registerTools } from "./register-tools.js";
+import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
+import { initDb, sql } from "./storage/db.js";
+import { countRegisteredClients } from "./storage/token-store.js";
 
 /**
  * Vercel serverless entry point.
@@ -29,6 +29,12 @@ import { countRegisteredClients } from "../src/storage/token-store.js";
  * (`sessionIdGenerator: undefined`) and token/OAuth state lives in Postgres.
  * There are no setInterval loops, in-memory session maps, or graceful-shutdown
  * hooks because the runtime manages lifecycle for us.
+ *
+ * This module lives under `src/` (not `api/`) so it gets compiled by our
+ * `bun run build` step into `dist/vercel-handler.js`. The Vercel function
+ * at `api/index.js` is a thin JS wrapper re-exporting from the compiled
+ * output, which avoids @vercel/node having to run TypeScript over the
+ * heavy `@modelcontextprotocol/sdk` types (which OOMs in practice).
  */
 
 let cachedConfig: HttpConfig | undefined;
