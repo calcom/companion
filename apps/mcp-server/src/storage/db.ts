@@ -4,7 +4,10 @@ export const pool = createPool({
   connectionString: process.env.DATABASE_URL,
 });
 
-export const sql = pool.sql;
+// Bind so the tagged template keeps its `this` — destructuring `pool.sql`
+// loses the binding and @vercel/postgres then reads `connectionString` off
+// `undefined` at call time.
+export const sql = pool.sql.bind(pool);
 
 let initialized = false;
 
