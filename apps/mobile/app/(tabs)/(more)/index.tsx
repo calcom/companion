@@ -18,6 +18,7 @@ import { useQueryContext } from "@/contexts/QueryContext";
 import { type LandingPage, useUserPreferences } from "@/hooks/useUserPreferences";
 import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
+import { getCalAppUrl } from "@/utils/region";
 
 interface MoreMenuItem {
   name: string;
@@ -79,30 +80,31 @@ export default function More() {
     }
   };
 
+  const calAppUrl = getCalAppUrl();
   const menuItems: MoreMenuItem[] = [
     {
       name: "Apps",
       icon: "grid-outline",
       isExternal: true,
-      onPress: () => openInAppBrowser("https://app.cal.com/apps", "Apps page"),
+      onPress: () => openInAppBrowser(`${calAppUrl}/apps`, "Apps page"),
     },
     {
       name: "Routing",
       icon: "git-branch-outline",
       isExternal: true,
-      onPress: () => openInAppBrowser("https://app.cal.com/routing", "Routing page"),
+      onPress: () => openInAppBrowser(`${calAppUrl}/routing`, "Routing page"),
     },
     {
       name: "Workflows",
       icon: "flash-outline",
       isExternal: true,
-      onPress: () => openInAppBrowser("https://app.cal.com/workflows", "Workflows page"),
+      onPress: () => openInAppBrowser(`${calAppUrl}/workflows`, "Workflows page"),
     },
     {
       name: "Insights",
       icon: "bar-chart-outline",
       isExternal: true,
-      onPress: () => openInAppBrowser("https://app.cal.com/insights", "Insights page"),
+      onPress: () => openInAppBrowser(`${calAppUrl}/insights`, "Insights page"),
     },
     {
       name: "Support",
@@ -202,7 +204,7 @@ export default function More() {
         >
           <TouchableOpacity
             onPress={() =>
-              openInAppBrowser("https://app.cal.com/settings/my-account/profile", "Delete Account")
+              openInAppBrowser(`${getCalAppUrl()}/settings/my-account/profile`, "Delete Account")
             }
             className="flex-row items-center justify-between bg-white px-5 py-4 active:bg-red-50"
             style={{ backgroundColor: theme.backgroundSecondary }}
@@ -243,9 +245,9 @@ export default function More() {
           For advanced features, visit{" "}
           <Text
             style={{ color: theme.text }}
-            onPress={() => openInAppBrowser("https://app.cal.com", "Cal.com")}
+            onPress={() => openInAppBrowser(calAppUrl, "Cal.com")}
           >
-            app.cal.com
+            {calAppUrl.replace(/^https?:\/\//, "")}
           </Text>
         </Text>
       </ScrollView>

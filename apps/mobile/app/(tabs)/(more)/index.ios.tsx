@@ -22,6 +22,7 @@ import { type LandingPage, useUserPreferences } from "@/hooks/useUserPreferences
 import { showErrorAlert, showNotAvailableAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
+import { getCalAppUrl } from "@/utils/region";
 
 interface MoreMenuItem {
   name: string;
@@ -336,7 +337,9 @@ export default function More() {
         >
           The companion app is an extension of the web application.{"\n"}
           For advanced features, visit{" "}
-          <Text style={{ color: isDark ? "#D1D5DB" : "#1F2937" }}>app.cal.com</Text>
+          <Text style={{ color: isDark ? "#D1D5DB" : "#1F2937" }}>
+            {getCalAppUrl().replace(/^https?:\/\//, "")}
+          </Text>
         </Text>
       </ScrollView>
 

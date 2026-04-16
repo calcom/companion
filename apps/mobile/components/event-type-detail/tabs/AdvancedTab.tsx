@@ -21,6 +21,7 @@ import {
 import { getColors } from "@/constants/colors";
 import { showInfoAlert, showNotAvailableAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
+import { getCalAppUrl } from "@/utils/region";
 import { NavigationRow, SettingRow, SettingsGroup } from "../SettingsUI";
 
 // Interface language options matching API V2 enum
@@ -272,7 +273,7 @@ export function AdvancedTab(props: AdvancedTabProps) {
             isLast
             title="Locked Timezone"
             value={props.lockedTimezone || "Europe/London"}
-            onPress={() => openInAppBrowser("https://app.cal.com/event-types", "Select Timezone")}
+            onPress={() => openInAppBrowser(`${getCalAppUrl()}/event-types`, "Select Timezone")}
           />
         </SettingsGroup>
       ) : null}

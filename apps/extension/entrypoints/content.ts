@@ -160,7 +160,7 @@ export default defineContentScript({
           );
           return;
         }
-        handleTokenSyncRequest(event.data.tokens, iframe.contentWindow);
+        handleTokenSyncRequest(event.data.tokens, event.data.region, iframe.contentWindow);
       } else if (event.data.type === "cal-extension-clear-tokens") {
         if (!validateSessionToken(event.data.sessionToken)) {
           iframe.contentWindow?.postMessage(
@@ -281,9 +281,10 @@ export default defineContentScript({
 
     function handleTokenSyncRequest(
       tokens: { accessToken?: string; refreshToken?: string; expiresAt?: number },
+      region: "us" | "eu" | undefined,
       iframeWindow: Window | null
     ) {
-      chrome.runtime.sendMessage({ action: "sync-oauth-tokens", tokens }, (response) => {
+      chrome.runtime.sendMessage({ action: "sync-oauth-tokens", tokens, region }, (response) => {
         if (chrome.runtime.lastError) {
           devLog.error(
             "Failed to communicate with background script:",

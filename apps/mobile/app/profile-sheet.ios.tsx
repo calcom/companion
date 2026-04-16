@@ -18,6 +18,7 @@ import { useUserProfile } from "@/hooks";
 import { showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
+import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
 
 interface ProfileMenuItem {
   id: string;
@@ -57,23 +58,23 @@ export default function ProfileSheet() {
     avatarText: isDark ? "#FFFFFF" : "#4B5563",
   };
 
-  const publicPageUrl = userProfile?.username ? `https://cal.com/${userProfile.username}` : null;
+  const calAppUrl = getCalAppUrl();
+  const calWebUrl = getCalWebUrl();
+  const publicPageUrl = userProfile?.username ? `${calWebUrl}/${userProfile.username}` : null;
 
   const menuItems: ProfileMenuItem[] = [
     {
       id: "profile",
       label: "My Profile",
       icon: "person-outline",
-      onPress: () =>
-        openInAppBrowser("https://app.cal.com/settings/my-account/profile", "Profile page"),
+      onPress: () => openInAppBrowser(`${calAppUrl}/settings/my-account/profile`, "Profile page"),
       external: true,
     },
     {
       id: "settings",
       label: "My Settings",
       icon: "settings-outline",
-      onPress: () =>
-        openInAppBrowser("https://app.cal.com/settings/my-account/general", "Settings page"),
+      onPress: () => openInAppBrowser(`${calAppUrl}/settings/my-account/general`, "Settings page"),
       external: true,
     },
     {
@@ -81,10 +82,7 @@ export default function ProfileSheet() {
       label: "Out of Office",
       icon: "moon-outline",
       onPress: () =>
-        openInAppBrowser(
-          "https://app.cal.com/settings/my-account/out-of-office",
-          "Out of Office page"
-        ),
+        openInAppBrowser(`${calAppUrl}/settings/my-account/out-of-office`, "Out of Office page"),
       external: true,
     },
 
@@ -105,14 +103,14 @@ export default function ProfileSheet() {
       id: "roadmap",
       label: "Roadmap",
       icon: "map-outline",
-      onPress: () => openInAppBrowser("https://cal.com/roadmap", "Roadmap page"),
+      onPress: () => openInAppBrowser(`${calWebUrl}/roadmap`, "Roadmap page"),
       external: true,
     },
     {
       id: "help",
       label: "Help",
       icon: "help-circle-outline",
-      onPress: () => openInAppBrowser("https://cal.com/help", "Help page"),
+      onPress: () => openInAppBrowser(`${calWebUrl}/help`, "Help page"),
       external: true,
     },
   ];

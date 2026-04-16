@@ -6,6 +6,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 
 import { fetchWithTimeout } from "@/utils/network";
+import { type CalRegion, getCalAppUrl, getRegion } from "@/utils/region";
 import { safeLogWarn } from "@/utils/safeLogger";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -477,7 +478,7 @@ export class CalComOAuthService {
 
       window.addEventListener("message", messageHandler);
       window.parent.postMessage(
-        { type: EXTENSION_MESSAGE_TYPES.SYNC_TOKENS, tokens, sessionToken },
+        { type: EXTENSION_MESSAGE_TYPES.SYNC_TOKENS, tokens, sessionToken, region: getRegion() },
         "*"
       );
     });
@@ -597,13 +598,38 @@ function detectBrowserType(): BrowserType {
 }
 
 /**
- * Gets browser-specific OAuth configuration.
- * Falls back to default (Chrome) config if browser-specific config is not available.
+ * Resolve an OAuth env var with an optional EU-region suffix, falling back
+ * to the US/default value when the EU-specific value is not configured.
  */
-function getBrowserSpecificOAuthConfig(): { clientId: string; redirectUri: string } {
+function pickRegionalEnv(
+  baseValue: string | undefined,
+  euValue: string | undefined,
+  region: CalRegion
+): string {
+  if (region === "eu" && euValue) return euValue;
+  return baseValue || "";
+}
+
+/**
+ * Gets browser- and region-specific OAuth configuration.
+ * Falls back to default (Chrome/US) config if browser- or region-specific
+ * config is not available.
+ */
+function getBrowserSpecificOAuthConfig(region: CalRegion): {
+  clientId: string;
+  redirectUri: string;
+} {
   // Default values (Chrome/Brave)
-  const defaultClientId = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID || "";
-  const defaultRedirectUri = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI || "";
+  const defaultClientId = pickRegionalEnv(
+    process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID,
+    process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EU,
+    region
+  );
+  const defaultRedirectUri = pickRegionalEnv(
+    process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI,
+    process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EU,
+    region
+  );
 
   // For mobile apps, always use default config
   if (Platform.OS !== "web") {
@@ -615,21 +641,50 @@ function getBrowserSpecificOAuthConfig(): { clientId: string; redirectUri: strin
   switch (browserType) {
     case "firefox":
       return {
-        clientId: process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX || defaultClientId,
+        clientId:
+          pickRegionalEnv(
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX,
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX_EU,
+            region
+          ) || defaultClientId,
         redirectUri:
-          process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX || defaultRedirectUri,
+          pickRegionalEnv(
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX,
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX_EU,
+            region
+          ) || defaultRedirectUri,
       };
 
     case "safari":
       return {
-        clientId: process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI || defaultClientId,
-        redirectUri: process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI || defaultRedirectUri,
+        clientId:
+          pickRegionalEnv(
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI,
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI_EU,
+            region
+          ) || defaultClientId,
+        redirectUri:
+          pickRegionalEnv(
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI,
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI_EU,
+            region
+          ) || defaultRedirectUri,
       };
 
     case "edge":
       return {
-        clientId: process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE || defaultClientId,
-        redirectUri: process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE || defaultRedirectUri,
+        clientId:
+          pickRegionalEnv(
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE,
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE_EU,
+            region
+          ) || defaultClientId,
+        redirectUri:
+          pickRegionalEnv(
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE,
+            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE_EU,
+            region
+          ) || defaultRedirectUri,
       };
     default:
       // Chrome, Brave, and unknown browsers use the default configuration
@@ -638,13 +693,14 @@ function getBrowserSpecificOAuthConfig(): { clientId: string; redirectUri: strin
 }
 
 export function createCalComOAuthService(overrides: Partial<OAuthConfig> = {}): CalComOAuthService {
-  // Get browser-specific OAuth config
-  const browserConfig = getBrowserSpecificOAuthConfig();
+  const region = getRegion();
+  // Get browser- and region-specific OAuth config
+  const browserConfig = getBrowserSpecificOAuthConfig(region);
 
   const config: OAuthConfig = {
     clientId: browserConfig.clientId,
     redirectUri: browserConfig.redirectUri,
-    calcomBaseUrl: "https://app.cal.com",
+    calcomBaseUrl: getCalAppUrl(region),
     ...overrides,
   };
 

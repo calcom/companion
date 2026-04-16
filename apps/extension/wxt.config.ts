@@ -11,10 +11,15 @@ const browserTarget = process.env.BROWSER_TARGET || "chrome";
 /**
  * Get browser-specific OAuth configuration.
  * Falls back to default (Chrome) config if browser-specific config is not set.
+ *
+ * Returns both US (default) and EU values so the runtime can pick the right
+ * one based on the data region selected on the login screen.
  */
 function getOAuthConfig() {
   const defaultClientId = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID || "";
   const defaultRedirectUri = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI || "";
+  const defaultClientIdEu = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EU || "";
+  const defaultRedirectUriEu = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EU || "";
 
   switch (browserTarget) {
     case "firefox":
@@ -22,21 +27,32 @@ function getOAuthConfig() {
         clientId: process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX || defaultClientId,
         redirectUri:
           process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX || defaultRedirectUri,
+        clientIdEu: process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX_EU || defaultClientIdEu,
+        redirectUriEu:
+          process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX_EU || defaultRedirectUriEu,
       };
     case "safari":
       return {
         clientId: process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI || defaultClientId,
         redirectUri: process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI || defaultRedirectUri,
+        clientIdEu: process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI_EU || defaultClientIdEu,
+        redirectUriEu:
+          process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI_EU || defaultRedirectUriEu,
       };
     case "edge":
       return {
         clientId: process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE || defaultClientId,
         redirectUri: process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE || defaultRedirectUri,
+        clientIdEu: process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE_EU || defaultClientIdEu,
+        redirectUriEu:
+          process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE_EU || defaultRedirectUriEu,
       };
     default:
       return {
         clientId: defaultClientId,
         redirectUri: defaultRedirectUri,
+        clientIdEu: defaultClientIdEu,
+        redirectUriEu: defaultRedirectUriEu,
       };
   }
 }
@@ -71,6 +87,8 @@ export default defineConfig({
       "https://companion.cal.com/*",
       "https://api.cal.com/*",
       "https://app.cal.com/*",
+      "https://api.cal.eu/*",
+      "https://app.cal.eu/*",
       "https://mail.google.com/*",
       "https://calendar.google.com/*",
       // Include localhost permission for dev builds (needed for iframe to load)

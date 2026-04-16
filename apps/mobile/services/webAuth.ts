@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 
 import { fetchWithTimeout } from "@/utils/network";
+import { getCalAppUrl } from "@/utils/region";
 
 import type { UserProfile } from "./types/users.types";
 
@@ -76,9 +77,11 @@ async function validateWebSession(): Promise<WebSessionInfo> {
   }
 
   try {
+    const calAppUrl = getCalAppUrl();
+
     // First try to call the NextAuth session endpoint
     const sessionResponse = await fetchWithTimeout(
-      "https://app.cal.com/api/auth/session",
+      `${calAppUrl}/api/auth/session`,
       {
         method: "GET",
         credentials: "include", // Include cookies
@@ -103,7 +106,7 @@ async function validateWebSession(): Promise<WebSessionInfo> {
 
     // Try the internal Cal.com me endpoint (this might work with cookies)
     const meResponse = await fetchWithTimeout(
-      "https://app.cal.com/api/me",
+      `${calAppUrl}/api/me`,
       {
         method: "GET",
         credentials: "include",
@@ -127,7 +130,7 @@ async function validateWebSession(): Promise<WebSessionInfo> {
 
     // Try to check if user is logged in by attempting to access a protected page
     const dashboardResponse = await fetchWithTimeout(
-      "https://app.cal.com/api/trpc/viewer.me",
+      `${calAppUrl}/api/trpc/viewer.me`,
       {
         method: "GET",
         credentials: "include",
@@ -202,7 +205,7 @@ function redirectToWebLogin(): void {
 
   // For web, redirect directly to Cal.com login
   const currentUrl = window.location.href;
-  const loginUrl = `https://app.cal.com/auth/signin?callbackUrl=${encodeURIComponent(currentUrl)}`;
+  const loginUrl = `${getCalAppUrl()}/auth/signin?callbackUrl=${encodeURIComponent(currentUrl)}`;
 
   window.location.href = loginUrl;
 }

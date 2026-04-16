@@ -16,6 +16,7 @@ import type {
   ConferencingSession,
 } from "@/services/types/bookings.types";
 import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
+import { getCalAppUrl } from "@/utils/region";
 
 interface UseBookingActionModalsReturn {
   // Selected booking for actions
@@ -280,7 +281,7 @@ export function useBookingActionModals(): UseBookingActionModalsReturn {
   const handleRequestReschedule = useCallback((booking: Booking) => {
     // Request reschedule is a server-driven operation that requires the web app
     // We deep link to the booking detail page where the user can trigger it
-    const webUrl = `https://app.cal.com/booking/${booking.uid}`;
+    const webUrl = `${getCalAppUrl()}/booking/${booking.uid}`;
 
     Alert.alert(
       "Request Reschedule",

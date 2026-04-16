@@ -3,6 +3,7 @@
  */
 
 import { fetchWithTimeout } from "@/utils/network";
+import { getCalApiUrl } from "@/utils/region";
 import { safeLogError } from "@/utils/safeLogger";
 
 import {
@@ -15,7 +16,14 @@ import {
 } from "./auth";
 import { safeParseErrorJson, safeParseJson } from "./utils";
 
-export const API_BASE_URL = "https://api.cal.com/v2";
+/**
+ * Returns the region-aware Cal.com API base URL (e.g. `https://api.cal.eu/v2`
+ * when the user selected EU on the login screen).
+ */
+export function getApiBaseUrl(): string {
+  return `${getCalApiUrl()}/v2`;
+}
+
 export const REQUEST_TIMEOUT_MS = 30000;
 
 /**
@@ -23,7 +31,7 @@ export const REQUEST_TIMEOUT_MS = 30000;
  */
 export async function testRawBookingsAPI(): Promise<void> {
   try {
-    const url = `${API_BASE_URL}/bookings?status=upcoming&status=unconfirmed&limit=50`;
+    const url = `${getApiBaseUrl()}/bookings?status=upcoming&status=unconfirmed&limit=50`;
 
     const response = await fetchWithTimeout(
       url,
@@ -63,7 +71,7 @@ export async function makeRequest<T>(
   apiVersion: string = "2024-08-13",
   isRetry: boolean = false
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${getApiBaseUrl()}${endpoint}`;
 
   const response = await fetchWithTimeout(
     url,
@@ -109,7 +117,11 @@ export async function makeRequest<T>(
           }
 
           // Notify AuthContext to update stored tokens (including expiresAt for proactive refresh)
-          await tokenRefreshCallback(newTokens.accessToken, newTokens.refreshToken, newTokens.expiresAt);
+          await tokenRefreshCallback(
+            newTokens.accessToken,
+            newTokens.refreshToken,
+            newTokens.expiresAt
+          );
 
           // Retry the original request with the new token
           return makeRequest<T>(endpoint, options, apiVersion, true);
