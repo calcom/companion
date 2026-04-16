@@ -26,6 +26,7 @@ async function main(): Promise<void> {
         calOAuthClientSecret: httpConfig.calOAuthClientSecret,
         calApiBaseUrl: httpConfig.calApiBaseUrl,
         calAppBaseUrl: httpConfig.calAppBaseUrl,
+        calOAuthScopes: httpConfig.calOAuthScopes,
       },
       rateLimitWindowMs: httpConfig.rateLimitWindowMs,
       rateLimitMax: httpConfig.rateLimitMax,

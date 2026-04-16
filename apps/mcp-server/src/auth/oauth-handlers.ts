@@ -29,6 +29,8 @@ export interface OAuthConfig {
   calApiBaseUrl: string;
   /** Cal.com app base URL for authorize redirect (default: https://app.cal.com) */
   calAppBaseUrl?: string;
+  /** Space-separated Cal.com OAuth scopes (e.g. "BOOKING_READ BOOKING_WRITE") */
+  calOAuthScopes?: string;
 }
 
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MB
@@ -186,6 +188,9 @@ export async function handleAuthorize(
     calAuthUrl.searchParams.set("code_challenge_method", "S256");
   }
   calAuthUrl.searchParams.set("response_type", "code");
+  if (config.calOAuthScopes) {
+    calAuthUrl.searchParams.set("scope", config.calOAuthScopes);
+  }
 
   res.writeHead(302, { Location: calAuthUrl.toString() });
   res.end();

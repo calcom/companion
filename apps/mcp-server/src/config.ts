@@ -50,6 +50,11 @@ const httpSchema = baseSchema.extend({
     .regex(/^[0-9a-fA-F]+$/, "TOKEN_ENCRYPTION_KEY must be valid hex"),
   serverUrl: z.string().url("MCP_SERVER_URL must be a valid URL"),
   databaseUrl: z.string().min(1, "DATABASE_URL is required for HTTP mode"),
+  calOAuthScopes: z
+    .string()
+    .default(
+      "EVENT_TYPE_READ EVENT_TYPE_WRITE BOOKING_READ BOOKING_WRITE SCHEDULE_READ SCHEDULE_WRITE APPS_READ APPS_WRITE PROFILE_READ PROFILE_WRITE",
+    ),
   rateLimitWindowMs: z.coerce.number().int().positive().default(60_000),
   rateLimitMax: z.coerce.number().int().positive().default(30),
   maxSessions: z.coerce.number().int().positive().default(10_000),
@@ -84,6 +89,7 @@ function readEnv(): Record<string, unknown> {
     tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY || undefined,
     serverUrl: process.env.MCP_SERVER_URL || undefined,
     databaseUrl: process.env.DATABASE_URL || undefined,
+    calOAuthScopes: process.env.CAL_OAUTH_SCOPES || undefined,
     rateLimitWindowMs: process.env.RATE_LIMIT_WINDOW_MS || undefined,
     rateLimitMax: process.env.RATE_LIMIT_MAX || undefined,
     maxSessions: process.env.MAX_SESSIONS || undefined,

@@ -69,6 +69,7 @@ function oauthConfigFromHttpConfig(config: HttpConfig): OAuthConfig {
     calOAuthClientSecret: config.calOAuthClientSecret,
     calApiBaseUrl: config.calApiBaseUrl,
     calAppBaseUrl: config.calAppBaseUrl,
+    calOAuthScopes: config.calOAuthScopes,
   };
 }
 
