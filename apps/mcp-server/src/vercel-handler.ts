@@ -40,6 +40,9 @@ import { countRegisteredClients } from "./storage/token-store.js";
 let cachedConfig: HttpConfig | undefined;
 function getConfig(): HttpConfig {
   if (cachedConfig) return cachedConfig;
+  // This handler only runs on Vercel, which is always HTTP mode. Force the
+  // transport so operators do not have to remember to set MCP_TRANSPORT=http.
+  process.env.MCP_TRANSPORT = "http";
   const config = loadConfig();
   if (config.transport !== "http") {
     throw new Error("MCP_TRANSPORT must be 'http' on Vercel");
