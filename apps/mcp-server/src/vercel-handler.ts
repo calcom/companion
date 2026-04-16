@@ -73,13 +73,16 @@ function oauthConfigFromHttpConfig(config: HttpConfig): OAuthConfig {
   };
 }
 
-function setCorsHeaders(res: ServerResponse, corsOrigin: string | undefined): void {
-  const origin = corsOrigin ?? "*";
+function setCorsHeaders(req: IncomingMessage, res: ServerResponse, corsOrigin: string | undefined): void {
+  // Credentialed requests (Authorization header) require an explicit origin,
+  // not "*". Fall back to echoing the request's Origin header.
+  const origin = corsOrigin ?? req.headers.origin ?? "*";
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id");
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
-  if (origin !== "*") res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Vary", "Origin");
 }
 
 function jsonError(res: ServerResponse, status: number, error: string, description?: string): void {
@@ -92,7 +95,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const oauthConfig = oauthConfigFromHttpConfig(config);
   await ensureDb();
 
-  setCorsHeaders(res, config.corsOrigin);
+  setCorsHeaders(req, res, config.corsOrigin);
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
