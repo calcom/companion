@@ -266,11 +266,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       async close() { transport.onclose?.(); },
 
       async send(msg: JSONRPCMessage) {
-        // Only capture responses (they have `id`); ignore server-initiated requests.
-        if ("id" in msg && msg.id != null) {
+        // Only capture responses (they have `id` + `result`/`error`, but no `method`);
+        // ignore server-initiated requests (which have `method` + `id`).
+        if ("id" in msg && msg.id != null && !("method" in msg)) {
           collectedResponses.set((msg as { id: string | number }).id, msg);
           if (collectedResponses.size >= requestIds.length) resolveAll();
         }
+      },
       },
     };
 
@@ -302,10 +304,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
 
     // -- 4. Return JSON --------------------------------------------------------
-    const responsePayload =
-      requestIds.length === 1
-        ? collectedResponses.get(requestIds[0]) ?? null
-        : requestIds.map((id) => collectedResponses.get(id) ?? null);
+    const responsePayload = Array.isArray(rawMessage)
+      ? requestIds.map((id) => collectedResponses.get(id) ?? null)
+      : collectedResponses.get(requestIds[0]) ?? null;
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(responsePayload));
