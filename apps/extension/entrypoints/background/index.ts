@@ -433,7 +433,7 @@ export default defineBackground(() => {
           return true;
         }
 
-        validateTokens(tokens)
+        validateTokens(tokens, region ?? undefined)
           .then((isValid) => {
             if (!isValid) {
               devLog.warn("Token sync rejected: invalid tokens");
@@ -895,9 +895,13 @@ async function getStoredRegion(): Promise<"us" | "eu"> {
   }
 }
 
+function apiBaseUrlForRegion(region: "us" | "eu"): string {
+  return region === "eu" ? "https://api.cal.eu/v2" : "https://api.cal.com/v2";
+}
+
 async function getApiBaseUrl(): Promise<string> {
   const region = await getStoredRegion();
-  return region === "eu" ? "https://api.cal.eu/v2" : "https://api.cal.com/v2";
+  return apiBaseUrlForRegion(region);
 }
 
 const tokenOperationTimestamps: number[] = [];
@@ -919,13 +923,18 @@ function recordTokenOperation(): void {
   tokenOperationTimestamps.push(Date.now());
 }
 
-async function validateTokens(tokens: OAuthTokens): Promise<boolean> {
+// Accepts an optional `region` so that sync-oauth-tokens can validate against
+// the region the message carries (the user may be switching regions and the
+// persisted `cal_region` in chrome.storage.local is still the old value until
+// the tokens pass validation). Callers that don't yet know the region (token
+// refresh, resume flows) pass nothing and fall back to the stored region.
+async function validateTokens(tokens: OAuthTokens, region?: "us" | "eu"): Promise<boolean> {
   if (!tokens.accessToken) {
     return false;
   }
 
   try {
-    const apiBaseUrl = await getApiBaseUrl();
+    const apiBaseUrl = region ? apiBaseUrlForRegion(region) : await getApiBaseUrl();
     const response = await fetchWithTimeout(`${apiBaseUrl}/me`, {
       headers: {
         Authorization: `Bearer ${tokens.accessToken}`,
