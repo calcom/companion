@@ -80,25 +80,20 @@ export async function setRegion(region: CalRegion): Promise<void> {
  * default. Intended for logout so the next user (who may belong to a different
  * region) is prompted via the login-screen picker instead of silently inheriting
  * the previous session's region.
+ *
+ * Writes go through `generalStorage` to stay symmetric with `setRegion()` — on
+ * web this happens to wrap `localStorage`, so clearing there is already covered.
+ * We always `notify()` because the persisted value may have diverged from the
+ * in-memory cache (e.g. called before `preloadRegion()` resolved).
  */
 export async function clearRegion(): Promise<void> {
-  const changed = currentRegion !== DEFAULT_REGION;
   currentRegion = DEFAULT_REGION;
   try {
     await generalStorage.removeItem(REGION_STORAGE_KEY);
   } catch {
     // Best-effort; the in-memory cache is already reset.
   }
-  if (Platform.OS === "web" && typeof localStorage !== "undefined") {
-    try {
-      localStorage.removeItem(REGION_STORAGE_KEY);
-    } catch {
-      // Ignore — best-effort clear of the synchronous localStorage mirror.
-    }
-  }
-  if (changed) {
-    notify();
-  }
+  notify();
 }
 
 export function subscribeRegion(listener: (region: CalRegion) => void): () => void {

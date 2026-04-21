@@ -9,7 +9,7 @@ import {
 import type { UserProfile } from "@/services/types/users.types";
 import { WebAuthService } from "@/services/webAuth";
 import { clearQueryCache } from "@/utils/queryPersister";
-import { clearRegion, preloadRegion, subscribeRegion } from "@/utils/region";
+import { clearRegion, getRegion, preloadRegion, subscribeRegion } from "@/utils/region";
 import { generalStorage, secureStorage } from "@/utils/storage";
 
 /**
@@ -63,29 +63,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [userInfo, setUserInfo] = useState<AuthUserInfo | null>(null);
   const [isWebSession, setIsWebSession] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [oauthService, setOauthService] = useState<CalComOAuthService | null>(null);
+  // Construct synchronously on first render so downstream hooks can rely on a
+  // non-null service immediately and mount-time configuration failures are
+  // logged right away. The effect below rebuilds only if `preloadRegion()`
+  // later reports a different region, so we don't double-init in the common
+  // case where the persisted region already matches the in-memory default.
+  const [oauthService, setOauthService] = useState<CalComOAuthService | null>(() => {
+    try {
+      return createCalComOAuthService();
+    } catch (error) {
+      console.warn("Failed to initialize OAuth service:", error);
+      return null;
+    }
+  });
 
-  // Build the OAuth service once the persisted region has been loaded, and
-  // rebuild it whenever the user changes data region on the login screen so
-  // subsequent authorization flows target the correct cal.{com|eu}.
   useEffect(() => {
     let cancelled = false;
-    const buildService = (context: "init" | "region-change") => {
+    const initialRegion = getRegion();
+    const rebuild = (reason: "region-change" | "preload-mismatch") => {
       try {
         setOauthService(createCalComOAuthService());
       } catch (error) {
-        const label =
-          context === "init"
-            ? "Failed to initialize OAuth service:"
-            : "Failed to re-initialize OAuth service after region change:";
-        console.warn(label, error);
+        if (reason === "preload-mismatch") {
+          console.warn("Failed to re-initialize OAuth service after preload:", error);
+        } else {
+          console.warn("Failed to re-initialize OAuth service after region change:", error);
+        }
       }
     };
-    preloadRegion().then(() => {
+    preloadRegion().then((region) => {
       if (cancelled) return;
-      buildService("init");
+      if (region !== initialRegion) {
+        rebuild("preload-mismatch");
+      }
     });
-    const unsubscribe = subscribeRegion(() => buildService("region-change"));
+    const unsubscribe = subscribeRegion(() => rebuild("region-change"));
     return () => {
       cancelled = true;
       unsubscribe();

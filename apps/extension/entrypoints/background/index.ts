@@ -19,6 +19,13 @@ const devLog = {
 const REQUEST_TIMEOUT_MS = 30000;
 
 /**
+ * Storage key for the user's selected Cal.com data region ("us" | "eu").
+ * Declared at the top of the module so handlers registered during `defineBackground`
+ * initialization can reference it without a temporal-dead-zone footgun.
+ */
+const REGION_STORAGE_KEY = "cal_region";
+
+/**
  * Fetch with timeout to prevent hanging requests
  */
 async function fetchWithTimeout(
@@ -471,7 +478,7 @@ export default defineBackground(() => {
 
         recordTokenOperation();
         if (storageAPI?.local) {
-          storageAPI.local.remove(["cal_oauth_tokens", "oauth_state", "cal_region"], () => {
+          storageAPI.local.remove(["cal_oauth_tokens", "oauth_state", REGION_STORAGE_KEY], () => {
             const runtime = getRuntimeAPI();
             if (runtime?.lastError) {
               devLog.error("Failed to clear OAuth tokens:", runtime.lastError.message);
@@ -875,8 +882,6 @@ async function validateOAuthState(state: string): Promise<void> {
     throw error;
   }
 }
-
-const REGION_STORAGE_KEY = "cal_region";
 
 async function getStoredRegion(): Promise<"us" | "eu"> {
   const storageAPI = getStorageAPI();
