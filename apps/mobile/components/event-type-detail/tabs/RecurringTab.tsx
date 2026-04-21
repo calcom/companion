@@ -2,6 +2,9 @@
  * RecurringTab Component
  *
  * iOS Settings style with grouped rows and section headers.
+ *
+ * TODO(eu-region): the `cal.com/help/*` URL here is intentionally left
+ * hard-coded pending a team decision on an EU help-docs mirror.
  */
 
 import { Ionicons } from "@expo/vector-icons";

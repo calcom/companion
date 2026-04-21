@@ -405,6 +405,15 @@ export default defineBackground(() => {
 
       if (message.action === "sync-oauth-tokens") {
         const tokens = message.tokens as OAuthTokens | null;
+        const rawRegion: unknown = message.region;
+        const region: "us" | "eu" | null =
+          rawRegion === "us" || rawRegion === "eu" ? rawRegion : null;
+
+        if (rawRegion !== undefined && rawRegion !== null && region === null) {
+          devLog.warn("Token sync rejected: invalid region value", rawRegion);
+          sendResponse({ success: false, error: "Invalid region" });
+          return true;
+        }
 
         if (isRateLimited()) {
           devLog.warn("Token sync rate limited");
@@ -427,7 +436,13 @@ export default defineBackground(() => {
 
             recordTokenOperation();
             if (storageAPI?.local) {
-              storageAPI.local.set({ cal_oauth_tokens: JSON.stringify(tokens) }, () => {
+              const payload: Record<string, string> = {
+                cal_oauth_tokens: JSON.stringify(tokens),
+              };
+              if (region) {
+                payload[REGION_STORAGE_KEY] = region;
+              }
+              storageAPI.local.set(payload, () => {
                 const runtime = getRuntimeAPI();
                 if (runtime?.lastError) {
                   devLog.error("Failed to sync OAuth tokens:", runtime.lastError.message);

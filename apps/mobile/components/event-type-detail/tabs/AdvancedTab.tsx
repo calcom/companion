@@ -3,6 +3,10 @@
  *
  * Unified Settings app style for iOS, Android, and Web.
  * Uses native iOS pickers via ContextMenu and grouped rows for consistency.
+ *
+ * TODO(eu-region): `cal.com/help/*` URLs in this file are intentionally left
+ * hard-coded until the team decides whether help docs get an EU mirror
+ * (`cal.eu/help/*`). Once that decision lands, swap them for `getCalWebUrl()`.
  */
 
 import { Ionicons } from "@expo/vector-icons";

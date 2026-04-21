@@ -24,8 +24,8 @@ export { openInAppBrowser, openInDefaultBrowser } from "./browser";
 export {
   type DefaultLocation,
   DefaultLocationType,
-  defaultLocations,
   getDefaultLocationIconUrl,
+  getDefaultLocations,
   isDefaultLocation,
 } from "./defaultLocations";
 // Event type parser utilities

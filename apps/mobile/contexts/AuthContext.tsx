@@ -9,7 +9,7 @@ import {
 import type { UserProfile } from "@/services/types/users.types";
 import { WebAuthService } from "@/services/webAuth";
 import { clearQueryCache } from "@/utils/queryPersister";
-import { preloadRegion, subscribeRegion } from "@/utils/region";
+import { clearRegion, preloadRegion, subscribeRegion } from "@/utils/region";
 import { generalStorage, secureStorage } from "@/utils/storage";
 
 /**
@@ -63,34 +63,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [userInfo, setUserInfo] = useState<AuthUserInfo | null>(null);
   const [isWebSession, setIsWebSession] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [oauthService, setOauthService] = useState<CalComOAuthService | null>(() => {
-    try {
-      return createCalComOAuthService();
-    } catch (error) {
-      console.warn("Failed to initialize OAuth service:", error);
-      return null;
-    }
-  });
+  const [oauthService, setOauthService] = useState<CalComOAuthService | null>(null);
 
-  // Recreate the OAuth service when the user changes data region on the login
-  // screen so subsequent authorization flows target the correct cal.{com|eu}.
+  // Build the OAuth service once the persisted region has been loaded, and
+  // rebuild it whenever the user changes data region on the login screen so
+  // subsequent authorization flows target the correct cal.{com|eu}.
   useEffect(() => {
     let cancelled = false;
+    const buildService = (context: "init" | "region-change") => {
+      try {
+        setOauthService(createCalComOAuthService());
+      } catch (error) {
+        const label =
+          context === "init"
+            ? "Failed to initialize OAuth service:"
+            : "Failed to re-initialize OAuth service after region change:";
+        console.warn(label, error);
+      }
+    };
     preloadRegion().then(() => {
       if (cancelled) return;
-      try {
-        setOauthService(createCalComOAuthService());
-      } catch (error) {
-        console.warn("Failed to initialize OAuth service:", error);
-      }
+      buildService("init");
     });
-    const unsubscribe = subscribeRegion(() => {
-      try {
-        setOauthService(createCalComOAuthService());
-      } catch (error) {
-        console.warn("Failed to re-initialize OAuth service after region change:", error);
-      }
-    });
+    const unsubscribe = subscribeRegion(() => buildService("region-change"));
     return () => {
       cancelled = true;
       unsubscribe();
@@ -177,6 +172,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await generalStorage.removeItem(USER_PREFERENCES_KEY);
       } catch (prefsError) {
         console.warn("Failed to clear user preferences during logout:", prefsError);
+      }
+      // Reset the persisted data region so the next user is prompted via the
+      // login-screen picker rather than silently inheriting this session's
+      // region (the extension background worker clears `cal_region` on logout
+      // too — keep the two surfaces in sync).
+      try {
+        await clearRegion();
+      } catch (regionError) {
+        console.warn("Failed to clear data region during logout:", regionError);
       }
       // Clear all cached queries to ensure fresh data on re-login
       try {

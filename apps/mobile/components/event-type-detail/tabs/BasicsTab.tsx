@@ -11,6 +11,7 @@ import { AddLocationTrigger, LocationsList } from "@/components/LocationsList";
 import { getColors } from "@/constants/colors";
 import type { LocationItem, LocationOptionGroup } from "@/types/locations";
 import { createLocationItemFromOption } from "@/utils/locationHelpers";
+import { getCalWebUrl } from "@/utils/region";
 import { slugify } from "@/utils/slugify";
 import { NavigationRow, SettingRow, SettingsGroup } from "../SettingsUI";
 
@@ -162,7 +163,9 @@ export const BasicsTab: React.FC<BasicsTabProps> = (props) => {
                       // fallback
                     }
                   }
-                  return `cal.com/${props.username}/`;
+                  // Fallback prefix derived from the current region (e.g., "cal.com/" or "cal.eu/").
+                  const fallbackHostname = new URL(getCalWebUrl()).hostname;
+                  return `${fallbackHostname}/${props.username}/`;
                 })()}
               </Text>
               <TextInput

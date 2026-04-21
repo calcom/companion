@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-const CAL_URL = "https://cal.com";
+import { getCalWebUrl } from "./region";
+
 const AVATAR_FALLBACK = "/avatar.png";
 
 /**
@@ -23,12 +24,14 @@ const BASE64_IMAGE_REGEX =
  * @example
  * getAvatarUrl("https://example.com/avatar.jpg") // "https://example.com/avatar.jpg"
  * getAvatarUrl("data:image/png;base64,iVBORw0KG...") // "data:image/png;base64,iVBORw0KG..."
- * getAvatarUrl("/api/avatar/123") // "https://cal.com/api/avatar/123"
- * getAvatarUrl(undefined) // "https://cal.com/avatar.png"
+ * getAvatarUrl("/api/avatar/123") // "https://cal.com/api/avatar/123" (or cal.eu in EU region)
+ * getAvatarUrl(undefined) // "https://cal.com/avatar.png" (or cal.eu in EU region)
  */
 export const getAvatarUrl = (avatarUrl: string | null | undefined): string => {
+  const calUrl = getCalWebUrl();
+
   if (!avatarUrl) {
-    return CAL_URL + AVATAR_FALLBACK;
+    return calUrl + AVATAR_FALLBACK;
   }
 
   // Check if it's a base64 data URL
@@ -42,8 +45,8 @@ export const getAvatarUrl = (avatarUrl: string | null | undefined): string => {
     return avatarUrl;
   }
 
-  // Treat as relative URL and prefix with CAL_URL
+  // Treat as relative URL and prefix with the region-aware Cal.com web URL
   // Ensure the relative URL starts with /
   const relativePath = avatarUrl.startsWith("/") ? avatarUrl : `/${avatarUrl}`;
-  return CAL_URL + relativePath;
+  return calUrl + relativePath;
 };
