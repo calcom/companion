@@ -34,6 +34,11 @@ const SESSION_TOKEN_TIMEOUT_MS = 5000;
 const DEFAULT_CALCOM_OAUTH_SCOPE =
   "EVENT_TYPE_READ EVENT_TYPE_WRITE BOOKING_READ BOOKING_WRITE PROFILE_READ PROFILE_WRITE SCHEDULE_READ SCHEDULE_WRITE";
 
+// Module-level flag so the EU->US OAuth credential fallback warning fires
+// exactly once per JS session even though `createCalComOAuthService()` may
+// be called multiple times (e.g. on region change, cold-start mismatch).
+let euFallbackWarned = false;
+
 async function getExtensionSessionToken(): Promise<string | null> {
   if (extensionSessionToken) {
     return extensionSessionToken;
@@ -626,75 +631,110 @@ function getBrowserSpecificOAuthConfig(region: CalRegion): {
   clientId: string;
   redirectUri: string;
 } {
+  const defaultEuClientId = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EU;
+  const defaultEuRedirectUri = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EU;
+
   // Default values (Chrome/Brave)
   const defaultClientId = pickRegionalEnv(
     process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID,
-    process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EU,
+    defaultEuClientId,
     region
   );
   const defaultRedirectUri = pickRegionalEnv(
     process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI,
-    process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EU,
+    defaultEuRedirectUri,
     region
   );
 
+  // Fires at most once per session; surfaces missing EU OAuth config in dev so
+  // we don't silently mint authorize URLs pointed at `app.cal.eu` while
+  // carrying US client credentials.
+  const maybeWarnEuFallback = (
+    browserType: string,
+    euClientId: string | undefined,
+    euRedirectUri: string | undefined
+  ) => {
+    if (region !== "eu" || !__DEV__ || euFallbackWarned) return;
+    if (!euClientId || !euRedirectUri) {
+      euFallbackWarned = true;
+      console.warn(
+        `[OAuth] EU region selected but EU client ID / redirect URI for ${browserType} is not configured; falling back to US credentials. Set EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EU (and per-browser _EU vars on web) in .env.`
+      );
+    }
+  };
+
   // For mobile apps, always use default config
   if (Platform.OS !== "web") {
+    maybeWarnEuFallback("native", defaultEuClientId, defaultEuRedirectUri);
     return { clientId: defaultClientId, redirectUri: defaultRedirectUri };
   }
 
   const browserType = detectBrowserType();
 
   switch (browserType) {
-    case "firefox":
+    case "firefox": {
+      const firefoxEuClientId = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX_EU;
+      const firefoxEuRedirectUri = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX_EU;
+      maybeWarnEuFallback("firefox", firefoxEuClientId, firefoxEuRedirectUri);
       return {
         clientId:
           pickRegionalEnv(
             process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX,
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX_EU,
+            firefoxEuClientId,
             region
           ) || defaultClientId,
         redirectUri:
           pickRegionalEnv(
             process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX,
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX_EU,
+            firefoxEuRedirectUri,
             region
           ) || defaultRedirectUri,
       };
+    }
 
-    case "safari":
+    case "safari": {
+      const safariEuClientId = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI_EU;
+      const safariEuRedirectUri = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI_EU;
+      maybeWarnEuFallback("safari", safariEuClientId, safariEuRedirectUri);
       return {
         clientId:
           pickRegionalEnv(
             process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI,
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI_EU,
+            safariEuClientId,
             region
           ) || defaultClientId,
         redirectUri:
           pickRegionalEnv(
             process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI,
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI_EU,
+            safariEuRedirectUri,
             region
           ) || defaultRedirectUri,
       };
+    }
 
-    case "edge":
+    case "edge": {
+      const edgeEuClientId = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE_EU;
+      const edgeEuRedirectUri = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE_EU;
+      maybeWarnEuFallback("edge", edgeEuClientId, edgeEuRedirectUri);
       return {
         clientId:
           pickRegionalEnv(
             process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE,
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE_EU,
+            edgeEuClientId,
             region
           ) || defaultClientId,
         redirectUri:
           pickRegionalEnv(
             process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE,
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE_EU,
+            edgeEuRedirectUri,
             region
           ) || defaultRedirectUri,
       };
+    }
+
     default:
       // Chrome, Brave, and unknown browsers use the default configuration
+      maybeWarnEuFallback(browserType, defaultEuClientId, defaultEuRedirectUri);
       return { clientId: defaultClientId, redirectUri: defaultRedirectUri };
   }
 }
