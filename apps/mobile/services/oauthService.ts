@@ -633,109 +633,100 @@ function getBrowserSpecificOAuthConfig(region: CalRegion): {
 } {
   const defaultEuClientId = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EU;
   const defaultEuRedirectUri = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EU;
+  const defaultUsClientId = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID || "";
+  const defaultUsRedirectUri = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI || "";
 
   // Default values (Chrome/Brave)
-  const defaultClientId = pickRegionalEnv(
-    process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID,
-    defaultEuClientId,
-    region
-  );
-  const defaultRedirectUri = pickRegionalEnv(
-    process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI,
-    defaultEuRedirectUri,
-    region
-  );
+  const defaultClientId = pickRegionalEnv(defaultUsClientId, defaultEuClientId, region);
+  const defaultRedirectUri = pickRegionalEnv(defaultUsRedirectUri, defaultEuRedirectUri, region);
 
-  // Fires at most once per session; surfaces missing EU OAuth config in dev so
-  // we don't silently mint authorize URLs pointed at `app.cal.eu` while
-  // carrying US client credentials.
+  // Outcome-based check: fires at most once per session when `region === "eu"`
+  // but the final resolved clientId/redirectUri pair matches what we would
+  // have resolved for the US region for this browser (i.e. a real fallback
+  // occurred). Stays quiet when only per-browser `_EU` vars are missing as
+  // long as the shared `_EU` vars carry EU credentials through.
   const maybeWarnEuFallback = (
     browserType: string,
-    euClientId: string | undefined,
-    euRedirectUri: string | undefined
+    resolved: { clientId: string; redirectUri: string },
+    usPair: { clientId: string; redirectUri: string }
   ) => {
     if (region !== "eu" || !__DEV__ || euFallbackWarned) return;
-    if (!euClientId || !euRedirectUri) {
+    if (resolved.clientId === usPair.clientId && resolved.redirectUri === usPair.redirectUri) {
       euFallbackWarned = true;
       console.warn(
-        `[OAuth] EU region selected but EU client ID / redirect URI for ${browserType} is not configured; falling back to US credentials. Set EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EU (and per-browser _EU vars on web) in .env.`
+        `[OAuth] EU region selected but the resolved client ID / redirect URI for ${browserType} matches the US pair; falling back to US credentials. Set EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EU (and per-browser _EU vars on web) in .env.`
       );
     }
   };
 
   // For mobile apps, always use default config
   if (Platform.OS !== "web") {
-    maybeWarnEuFallback("native", defaultEuClientId, defaultEuRedirectUri);
-    return { clientId: defaultClientId, redirectUri: defaultRedirectUri };
+    const resolved = { clientId: defaultClientId, redirectUri: defaultRedirectUri };
+    const usPair = { clientId: defaultUsClientId, redirectUri: defaultUsRedirectUri };
+    maybeWarnEuFallback("native", resolved, usPair);
+    return resolved;
   }
 
   const browserType = detectBrowserType();
 
+  const resolvePerBrowser = (
+    baseClientId: string | undefined,
+    euClientId: string | undefined,
+    baseRedirectUri: string | undefined,
+    euRedirectUri: string | undefined
+  ) => {
+    const resolved = {
+      clientId: pickRegionalEnv(baseClientId, euClientId, region) || defaultClientId,
+      redirectUri: pickRegionalEnv(baseRedirectUri, euRedirectUri, region) || defaultRedirectUri,
+    };
+    const usPair = {
+      clientId: baseClientId || defaultUsClientId,
+      redirectUri: baseRedirectUri || defaultUsRedirectUri,
+    };
+    return { resolved, usPair };
+  };
+
   switch (browserType) {
     case "firefox": {
-      const firefoxEuClientId = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX_EU;
-      const firefoxEuRedirectUri = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX_EU;
-      maybeWarnEuFallback("firefox", firefoxEuClientId, firefoxEuRedirectUri);
-      return {
-        clientId:
-          pickRegionalEnv(
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX,
-            firefoxEuClientId,
-            region
-          ) || defaultClientId,
-        redirectUri:
-          pickRegionalEnv(
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX,
-            firefoxEuRedirectUri,
-            region
-          ) || defaultRedirectUri,
-      };
+      const { resolved, usPair } = resolvePerBrowser(
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX,
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX_EU,
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX,
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX_EU
+      );
+      maybeWarnEuFallback("firefox", resolved, usPair);
+      return resolved;
     }
 
     case "safari": {
-      const safariEuClientId = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI_EU;
-      const safariEuRedirectUri = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI_EU;
-      maybeWarnEuFallback("safari", safariEuClientId, safariEuRedirectUri);
-      return {
-        clientId:
-          pickRegionalEnv(
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI,
-            safariEuClientId,
-            region
-          ) || defaultClientId,
-        redirectUri:
-          pickRegionalEnv(
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI,
-            safariEuRedirectUri,
-            region
-          ) || defaultRedirectUri,
-      };
+      const { resolved, usPair } = resolvePerBrowser(
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI,
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI_EU,
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI,
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI_EU
+      );
+      maybeWarnEuFallback("safari", resolved, usPair);
+      return resolved;
     }
 
     case "edge": {
-      const edgeEuClientId = process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE_EU;
-      const edgeEuRedirectUri = process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE_EU;
-      maybeWarnEuFallback("edge", edgeEuClientId, edgeEuRedirectUri);
-      return {
-        clientId:
-          pickRegionalEnv(
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE,
-            edgeEuClientId,
-            region
-          ) || defaultClientId,
-        redirectUri:
-          pickRegionalEnv(
-            process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE,
-            edgeEuRedirectUri,
-            region
-          ) || defaultRedirectUri,
-      };
+      const { resolved, usPair } = resolvePerBrowser(
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE,
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE_EU,
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE,
+        process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE_EU
+      );
+      maybeWarnEuFallback("edge", resolved, usPair);
+      return resolved;
     }
 
-    default:
+    default: {
       // Chrome, Brave, and unknown browsers use the default configuration
-      maybeWarnEuFallback(browserType, defaultEuClientId, defaultEuRedirectUri);
-      return { clientId: defaultClientId, redirectUri: defaultRedirectUri };
+      const resolved = { clientId: defaultClientId, redirectUri: defaultRedirectUri };
+      const usPair = { clientId: defaultUsClientId, redirectUri: defaultUsRedirectUri };
+      maybeWarnEuFallback(browserType, resolved, usPair);
+      return resolved;
+    }
   }
 }
 

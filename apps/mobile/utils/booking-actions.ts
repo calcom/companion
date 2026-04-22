@@ -135,7 +135,7 @@ export function normalizeBooking(booking: Booking): NormalizedBooking {
     startTime: new Date(startTimeStr),
     endTime: new Date(endTimeStr),
     location: booking.location,
-    meetingUrl: getMeetingUrl(booking),
+    meetingUrl: getMeetingUrl(booking) ?? undefined,
     isRecorded: (booking as { isRecorded?: boolean }).isRecorded,
     rescheduled: booking.rescheduled,
     fromReschedule: booking.fromReschedule,

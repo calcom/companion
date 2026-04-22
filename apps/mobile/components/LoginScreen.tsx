@@ -36,15 +36,21 @@ export function LoginScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const [region, setRegionState] = useState<CalRegion>(getRegion());
+  // Blocks the Continue CTA until the persisted region has been loaded, so
+  // a fast tap can't start an OAuth flow against the US default while the
+  // user's saved preference is still in flight.
+  const [regionPreloadPending, setRegionPreloadPending] = useState(true);
 
   useEffect(() => {
     preloadRegion().then((loaded) => {
       setRegionState(loaded);
+      setRegionPreloadPending(false);
     });
     return subscribeRegion(setRegionState);
   }, []);
 
   const handleOAuthLogin = async () => {
+    if (regionPreloadPending) return;
     try {
       await loginWithOAuth();
     } catch (error) {
@@ -118,20 +124,24 @@ export function LoginScreen() {
         {/* Primary CTA button */}
         <TouchableOpacity
           onPress={handleOAuthLogin}
-          disabled={loading}
+          disabled={loading || regionPreloadPending}
           className="flex-row items-center justify-center rounded-2xl py-[18px]"
           style={[
-            { backgroundColor: loading ? "#9CA3AF" : isDark ? "#FFFFFF" : "#000000" },
+            {
+              backgroundColor:
+                loading || regionPreloadPending ? "#9CA3AF" : isDark ? "#FFFFFF" : "#000000",
+            },
             Platform.select({
               web: {
-                boxShadow: loading ? "none" : "0 4px 12px rgba(0, 0, 0, 0.2)",
+                boxShadow:
+                  loading || regionPreloadPending ? "none" : "0 4px 12px rgba(0, 0, 0, 0.2)",
               },
               default: {
                 shadowColor: isDark ? "#FFF" : "#000",
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: loading ? 0 : 0.2,
+                shadowOpacity: loading || regionPreloadPending ? 0 : 0.2,
                 shadowRadius: 12,
-                elevation: loading ? 0 : 6,
+                elevation: loading || regionPreloadPending ? 0 : 6,
               },
             }),
           ]}
