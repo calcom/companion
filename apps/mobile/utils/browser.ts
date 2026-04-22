@@ -7,8 +7,8 @@
 
 import * as WebBrowser from "expo-web-browser";
 import { Linking, Platform } from "react-native";
-
 import { showErrorAlert } from "./alerts";
+import { CAL_APP_HOSTNAMES } from "./region";
 
 /**
  * Handle errors from browser functions in a consistent way.
@@ -42,12 +42,13 @@ export interface BrowserOptions {
 }
 
 /**
- * Appends ?standalone=true to app.cal.com URLs on iOS.
+ * Appends ?standalone=true to Cal.com app URLs on iOS.
  * This hides navigation elements when pages are opened in the in-app browser,
- * which is required for Apple App Store compliance.
+ * which is required for Apple App Store compliance. Applies to both regions
+ * (`app.cal.com` and `app.cal.eu`).
  *
  * @param url - The URL to process
- * @returns The URL with standalone=true appended if it's an app.cal.com URL on iOS
+ * @returns The URL with standalone=true appended if it's a Cal.com app URL on iOS
  */
 const appendStandaloneParam = (url: string): string => {
   // Only apply to iOS
@@ -58,8 +59,7 @@ const appendStandaloneParam = (url: string): string => {
   try {
     const urlObj = new URL(url);
 
-    // Only apply to app.cal.com URLs
-    if (urlObj.hostname !== "app.cal.com") {
+    if (!CAL_APP_HOSTNAMES.has(urlObj.hostname)) {
       return url;
     }
 

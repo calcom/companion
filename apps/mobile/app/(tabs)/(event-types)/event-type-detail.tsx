@@ -47,6 +47,7 @@ import {
   showSuccessAlert,
 } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
+import { getCalAppUrl } from "@/utils/region";
 import {
   buildLocationOptions,
   mapApiLocationToItem,
@@ -1526,7 +1527,10 @@ export default function EventTypeDetail() {
                       <Text className="mb-5 text-center text-[19px] font-bold text-black dark:text-white">
                         Select Available Durations
                       </Text>
-                      <ScrollView style={{ maxHeight: 400, marginBottom: 20 }} showsVerticalScrollIndicator={false}>
+                      <ScrollView
+                        style={{ maxHeight: 400, marginBottom: 20 }}
+                        showsVerticalScrollIndicator={false}
+                      >
                         {availableDurations.map((duration, index) => (
                           <TouchableOpacity
                             key={duration}
@@ -1571,7 +1575,10 @@ export default function EventTypeDetail() {
                     <Text className="mb-5 text-center text-[19px] font-bold text-[#333] dark:text-white">
                       Select Available Durations
                     </Text>
-                    <ScrollView style={{ maxHeight: 400, marginBottom: 20 }} showsVerticalScrollIndicator={false}>
+                    <ScrollView
+                      style={{ maxHeight: 400, marginBottom: 20 }}
+                      showsVerticalScrollIndicator={false}
+                    >
                       {availableDurations.map((duration, index) => (
                         <TouchableOpacity
                           key={duration}
@@ -2343,7 +2350,7 @@ export default function EventTypeDetail() {
                           showNotAvailableAlert();
                         } else {
                           openInAppBrowser(
-                            `https://app.cal.com/event-types/${id}?tabName=apps`,
+                            `${getCalAppUrl()}/event-types/${id}?tabName=apps`,
                             "Apps settings"
                           );
                         }
@@ -2378,7 +2385,7 @@ export default function EventTypeDetail() {
                           showNotAvailableAlert();
                         } else {
                           openInAppBrowser(
-                            `https://app.cal.com/event-types/${id}?tabName=workflows`,
+                            `${getCalAppUrl()}/event-types/${id}?tabName=workflows`,
                             "Workflows settings"
                           );
                         }
@@ -2413,7 +2420,7 @@ export default function EventTypeDetail() {
                           showNotAvailableAlert();
                         } else {
                           openInAppBrowser(
-                            `https://app.cal.com/event-types/${id}?tabName=webhooks`,
+                            `${getCalAppUrl()}/event-types/${id}?tabName=webhooks`,
                             "Webhooks settings"
                           );
                         }

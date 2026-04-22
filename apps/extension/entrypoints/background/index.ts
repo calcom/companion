@@ -456,7 +456,7 @@ export default defineBackground(() => {
 
         recordTokenOperation();
         if (storageAPI?.local) {
-          storageAPI.local.remove(["cal_oauth_tokens", "oauth_state"], () => {
+          storageAPI.local.remove(["cal_oauth_tokens", "oauth_state", "cal_region"], () => {
             const runtime = getRuntimeAPI();
             if (runtime?.lastError) {
               devLog.error("Failed to clear OAuth tokens:", runtime.lastError.message);
@@ -861,7 +861,24 @@ async function validateOAuthState(state: string): Promise<void> {
   }
 }
 
-const API_BASE_URL = "https://api.cal.com/v2";
+const REGION_STORAGE_KEY = "cal_region";
+
+async function getStoredRegion(): Promise<"us" | "eu"> {
+  const storageAPI = getStorageAPI();
+  if (!storageAPI?.local) return "us";
+  try {
+    const result = await storageAPI.local.get([REGION_STORAGE_KEY]);
+    const value = result[REGION_STORAGE_KEY];
+    return value === "eu" ? "eu" : "us";
+  } catch {
+    return "us";
+  }
+}
+
+async function getApiBaseUrl(): Promise<string> {
+  const region = await getStoredRegion();
+  return region === "eu" ? "https://api.cal.eu/v2" : "https://api.cal.com/v2";
+}
 
 const tokenOperationTimestamps: number[] = [];
 const TOKEN_RATE_LIMIT_WINDOW_MS = 60000;
@@ -888,7 +905,8 @@ async function validateTokens(tokens: OAuthTokens): Promise<boolean> {
   }
 
   try {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/me`, {
+    const apiBaseUrl = await getApiBaseUrl();
+    const response = await fetchWithTimeout(`${apiBaseUrl}/me`, {
       headers: {
         Authorization: `Bearer ${tokens.accessToken}`,
         "Content-Type": "application/json",
@@ -934,9 +952,10 @@ async function getAuthHeader(): Promise<string> {
 async function fetchEventTypes(): Promise<unknown[]> {
   const authHeader = await getAuthHeader();
 
+  const apiBaseUrl = await getApiBaseUrl();
   // For authenticated users, no username/orgSlug params needed - API uses auth token
   // This also ensures hidden event types are returned (they're filtered out when username is provided)
-  const response = await fetchWithTimeout(`${API_BASE_URL}/event-types`, {
+  const response = await fetchWithTimeout(`${apiBaseUrl}/event-types`, {
     headers: {
       Authorization: authHeader,
       "Content-Type": "application/json",
@@ -992,7 +1011,8 @@ async function checkAuthStatus(): Promise<boolean> {
 async function getBookingStatus(bookingUid: string): Promise<Booking> {
   const authHeader = await getAuthHeader();
 
-  const response = await fetchWithTimeout(`${API_BASE_URL}/bookings/${bookingUid}`, {
+  const apiBaseUrl = await getApiBaseUrl();
+  const response = await fetchWithTimeout(`${apiBaseUrl}/bookings/${bookingUid}`, {
     method: "GET",
     headers: {
       Authorization: authHeader,
@@ -1039,7 +1059,8 @@ async function markAttendeeNoShow(
 ): Promise<Booking> {
   const authHeader = await getAuthHeader();
 
-  const response = await fetchWithTimeout(`${API_BASE_URL}/bookings/${bookingUid}/mark-absent`, {
+  const apiBaseUrl = await getApiBaseUrl();
+  const response = await fetchWithTimeout(`${apiBaseUrl}/bookings/${bookingUid}/mark-absent`, {
     method: "POST",
     headers: {
       Authorization: authHeader,

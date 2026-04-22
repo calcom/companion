@@ -10,17 +10,13 @@ import * as WebBrowser from "expo-web-browser";
 import { Alert, Platform } from "react-native";
 
 import { showErrorAlert } from "@/utils/alerts";
-
-// Default Cal.com web URL - can be overridden for self-hosted instances
-const DEFAULT_CAL_WEB_URL = "https://app.cal.com";
+import { CAL_APP_HOSTNAMES, getCalAppUrl } from "@/utils/region";
 
 /**
- * Get the Cal.com web URL from environment or use default
+ * Get the Cal.com web URL for the currently selected region.
  */
 function getCalWebUrl(): string {
-  // In a real implementation, this would read from environment config
-  // For now, use the default Cal.com URL
-  return DEFAULT_CAL_WEB_URL;
+  return getCalAppUrl();
 }
 
 /**
@@ -40,8 +36,7 @@ function appendStandaloneParam(url: string): string {
   try {
     const urlObj = new URL(url);
 
-    // Only apply to app.cal.com URLs
-    if (urlObj.hostname !== "app.cal.com") {
+    if (!CAL_APP_HOSTNAMES.has(urlObj.hostname)) {
       return url;
     }
 

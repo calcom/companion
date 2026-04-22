@@ -9,6 +9,7 @@ import {
 import type { UserProfile } from "@/services/types/users.types";
 import { WebAuthService } from "@/services/webAuth";
 import { clearQueryCache } from "@/utils/queryPersister";
+import { preloadRegion, subscribeRegion } from "@/utils/region";
 import { generalStorage, secureStorage } from "@/utils/storage";
 
 /**
@@ -62,7 +63,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [userInfo, setUserInfo] = useState<AuthUserInfo | null>(null);
   const [isWebSession, setIsWebSession] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [oauthService] = useState(() => {
+  const [oauthService, setOauthService] = useState<CalComOAuthService | null>(() => {
     try {
       return createCalComOAuthService();
     } catch (error) {
@@ -70,6 +71,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return null;
     }
   });
+
+  // Recreate the OAuth service when the user changes data region on the login
+  // screen so subsequent authorization flows target the correct cal.{com|eu}.
+  useEffect(() => {
+    let cancelled = false;
+    preloadRegion().then(() => {
+      if (cancelled) return;
+      try {
+        setOauthService(createCalComOAuthService());
+      } catch (error) {
+        console.warn("Failed to initialize OAuth service:", error);
+      }
+    });
+    const unsubscribe = subscribeRegion(() => {
+      try {
+        setOauthService(createCalComOAuthService());
+      } catch (error) {
+        console.warn("Failed to re-initialize OAuth service after region change:", error);
+      }
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   // Setup refresh token function for OAuth
   const setupRefreshTokenFunction = useCallback((service: CalComOAuthService) => {
@@ -246,7 +272,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkAuthState();
 
     // Set up token refresh callback
-    const handleTokenRefresh = async (newAccessToken: string, newRefreshToken?: string, expiresAt?: number) => {
+    const handleTokenRefresh = async (
+      newAccessToken: string,
+      newRefreshToken?: string,
+      expiresAt?: number
+    ) => {
       try {
         const tokens: OAuthTokens = {
           accessToken: newAccessToken,

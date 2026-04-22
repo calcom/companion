@@ -1,15 +1,48 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
 import { Platform, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { showErrorAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
+import {
+  type CalRegion,
+  getCalAppUrl,
+  getRegion,
+  preloadRegion,
+  setRegion,
+  subscribeRegion,
+} from "@/utils/region";
 import { CalComLogo } from "./CalComLogo";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+
+const REGION_OPTIONS: { value: CalRegion; label: string }[] = [
+  { value: "us", label: "United States" },
+  { value: "eu", label: "European Union" },
+];
+
+function getRegionLabel(region: CalRegion): string {
+  return REGION_OPTIONS.find((option) => option.value === region)?.label ?? "United States";
+}
 
 export function LoginScreen() {
   const { loginWithOAuth, loading } = useAuth();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const [region, setRegionState] = useState<CalRegion>(getRegion());
+
+  useEffect(() => {
+    preloadRegion().then((loaded) => {
+      setRegionState(loaded);
+    });
+    return subscribeRegion(setRegionState);
+  }, []);
 
   const handleOAuthLogin = async () => {
     try {
@@ -26,7 +59,11 @@ export function LoginScreen() {
   };
 
   const handleSignUp = async () => {
-    await openInAppBrowser("https://app.cal.com/signup", "Sign up page");
+    await openInAppBrowser(`${getCalAppUrl(region)}/signup`, "Sign up page");
+  };
+
+  const handleRegionChange = async (next: CalRegion) => {
+    await setRegion(next);
   };
 
   return (
@@ -36,8 +73,48 @@ export function LoginScreen() {
         <CalComLogo width={180} height={40} color={isDark ? "#FFFFFF" : "#111827"} />
       </View>
 
-      {/* Bottom section with button */}
+      {/* Bottom section with region select + CTA */}
       <View className="px-6" style={{ paddingBottom: insets.bottom + 28 }}>
+        {/* Region picker */}
+        <View className="mb-4">
+          <Text
+            className="mb-2 text-[13px] font-medium"
+            style={{ color: isDark ? "#A3A3A3" : "#6B7280" }}
+          >
+            Data region
+          </Text>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <TouchableOpacity
+                className="flex-row items-center justify-between rounded-xl border px-4 py-3"
+                style={{
+                  borderColor: isDark ? "#4D4D4D" : "#E5E7EB",
+                  backgroundColor: isDark ? "#171717" : "#FFFFFF",
+                }}
+                activeOpacity={0.8}
+              >
+                <Text
+                  className="text-[15px] font-medium"
+                  style={{ color: isDark ? "#FFFFFF" : "#111827" }}
+                >
+                  {getRegionLabel(region)}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={isDark ? "#A3A3A3" : "#6B7280"} />
+              </TouchableOpacity>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64">
+              {REGION_OPTIONS.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  onPress={() => handleRegionChange(option.value)}
+                >
+                  <Text>{option.label}</Text>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </View>
+
         {/* Primary CTA button */}
         <TouchableOpacity
           onPress={handleOAuthLogin}
