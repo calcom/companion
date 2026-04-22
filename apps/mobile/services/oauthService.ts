@@ -31,6 +31,8 @@ let sessionTokenPromise: Promise<string> | null = null;
 const OAUTH_TIMEOUT_MS = 5 * 60 * 1000;
 const TOKEN_EXCHANGE_TIMEOUT_MS = 30 * 1000;
 const SESSION_TOKEN_TIMEOUT_MS = 5000;
+const DEFAULT_CALCOM_OAUTH_SCOPE =
+  "EVENT_TYPE_READ EVENT_TYPE_WRITE BOOKING_READ BOOKING_WRITE PROFILE_READ PROFILE_WRITE SCHEDULE_READ SCHEDULE_WRITE";
 
 async function getExtensionSessionToken(): Promise<string | null> {
   if (extensionSessionToken) {
@@ -88,6 +90,7 @@ export interface OAuthConfig {
   clientId: string;
   redirectUri: string;
   calcomBaseUrl: string;
+  scope?: string;
 }
 
 export class CalComOAuthService {
@@ -133,6 +136,10 @@ export class CalComOAuthService {
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
     });
+
+    if (this.config.scope) {
+      params.append("scope", this.config.scope);
+    }
 
     if (Platform.OS === "ios") {
       params.append("register", "false");
@@ -701,6 +708,7 @@ export function createCalComOAuthService(overrides: Partial<OAuthConfig> = {}): 
     clientId: browserConfig.clientId,
     redirectUri: browserConfig.redirectUri,
     calcomBaseUrl: getCalAppUrl(region),
+    scope: DEFAULT_CALCOM_OAUTH_SCOPE,
     ...overrides,
   };
 

@@ -1,4 +1,5 @@
 import { getAppIconUrl } from "./getAppIconUrl";
+import { isCalVideoMeetingUrl } from "./booking";
 
 // Helper to extract clean meeting URL from potentially wrapped URLs
 function extractMeetingUrl(location: string): string {
@@ -26,7 +27,7 @@ export const getMeetingInfo = (
   const cleanUrl = extractMeetingUrl(location);
 
   // Cal Video
-  if (lowerLocation.includes("cal.com/video") || lowerLocation.includes("cal.video")) {
+  if (isCalVideoMeetingUrl(cleanUrl)) {
     return {
       appId: "cal-video",
       label: "Join Cal Video",

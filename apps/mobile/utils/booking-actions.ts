@@ -13,6 +13,7 @@
  */
 import type { Booking, BookingStatus } from "@/services/types/bookings.types";
 import type { EventType } from "@/services/types/event-types.types";
+import { getMeetingUrl, isCalVideoMeetingUrl } from "./booking";
 
 // ============================================================================
 // Types
@@ -68,6 +69,7 @@ export interface NormalizedBooking {
   startTime: Date;
   endTime: Date;
   location?: string;
+  meetingUrl?: string;
   isRecorded?: boolean;
   rescheduled?: boolean;
   fromReschedule?: string;
@@ -133,6 +135,7 @@ export function normalizeBooking(booking: Booking): NormalizedBooking {
     startTime: new Date(startTimeStr),
     endTime: new Date(endTimeStr),
     location: booking.location,
+    meetingUrl: getMeetingUrl(booking),
     isRecorded: (booking as { isRecorded?: boolean }).isRecorded,
     rescheduled: booking.rescheduled,
     fromReschedule: booking.fromReschedule,
@@ -291,11 +294,14 @@ export function isSeatedBooking(booking: NormalizedBooking): boolean {
  */
 export function isCalVideoLocation(booking: NormalizedBooking): boolean {
   const location = booking.location;
+  const meetingUrl = booking.meetingUrl;
 
   if (!location) return true;
   if (location === "integrations:daily") return true;
   if (typeof location === "string" && location.trim() === "") return true;
-  if (location.includes("cal.com/video") || location.includes("cal-video")) return true;
+  if (location === "integrations:cal-video") return true;
+  if (meetingUrl && isCalVideoMeetingUrl(meetingUrl)) return true;
+  if (location.includes("cal-video")) return true;
 
   return false;
 }
