@@ -405,6 +405,7 @@ export default defineBackground(() => {
 
       if (message.action === "sync-oauth-tokens") {
         const tokens = message.tokens as OAuthTokens | null;
+        const region: "us" | "eu" = message.region === "eu" ? "eu" : "us";
 
         if (isRateLimited()) {
           devLog.warn("Token sync rate limited");
@@ -417,7 +418,13 @@ export default defineBackground(() => {
           return true;
         }
 
-        validateTokens(tokens)
+        const persistRegion = new Promise<void>((resolve) => {
+          if (!storageAPI?.local) return resolve();
+          storageAPI.local.set({ [REGION_STORAGE_KEY]: region }, () => resolve());
+        });
+
+        persistRegion
+          .then(() => validateTokens(tokens))
           .then((isValid) => {
             if (!isValid) {
               devLog.warn("Token sync rejected: invalid tokens");
