@@ -169,6 +169,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   // Accept both /mcp (canonical) and / (base URL) so that Claude.ai works whether
   // the user enters "https://mcp.cal.com" or "https://mcp.cal.com/mcp".
   if (url.pathname === "/mcp" || url.pathname === "/") {
+    // Redirect browsers visiting the root URL to the documentation page.
+    const accept = req.headers.accept ?? "";
+    if (req.method === "GET" && !req.headers.authorization && accept.includes("text/html")) {
+      res.writeHead(302, { Location: "https://cal.com/docs/mcp-server" });
+      res.end();
+      return;
+    }
+
     const authHeader = req.headers.authorization;
     const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
 
