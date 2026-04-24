@@ -10,9 +10,10 @@ import type {
   LocationOption,
   LocationOptionGroup,
 } from "@/types/locations";
-import { DefaultLocationType, defaultLocations } from "./defaultLocations";
+import { DefaultLocationType, getDefaultLocations } from "./defaultLocations";
 import { formatAppIdToDisplayName } from "./formatters";
 import { getAppIconUrl } from "./getAppIconUrl";
+import { getCalAppUrl } from "./region";
 
 // Re-export formatAppIdToDisplayName for backward compatibility
 export { formatAppIdToDisplayName } from "./formatters";
@@ -43,6 +44,8 @@ export function mapApiLocationToItem(apiLocation: ApiLocation): LocationItem {
     };
   }
 
+  const appUrl = getCalAppUrl();
+
   // Handle address type
   if (apiLocation.type === "address") {
     return {
@@ -50,7 +53,7 @@ export function mapApiLocationToItem(apiLocation: ApiLocation): LocationItem {
       type: "address",
       address: apiLocation.address || "",
       displayName: "In Person (Organizer Address)",
-      iconUrl: "https://app.cal.com/map-pin-dark.svg",
+      iconUrl: `${appUrl}/map-pin-dark.svg`,
       public: apiLocation.public,
     };
   }
@@ -61,7 +64,7 @@ export function mapApiLocationToItem(apiLocation: ApiLocation): LocationItem {
       id,
       type: "attendeeAddress",
       displayName: "In Person (Attendee Address)",
-      iconUrl: "https://app.cal.com/map-pin-dark.svg",
+      iconUrl: `${appUrl}/map-pin-dark.svg`,
     };
   }
 
@@ -72,7 +75,7 @@ export function mapApiLocationToItem(apiLocation: ApiLocation): LocationItem {
       type: "link",
       link: apiLocation.link || "",
       displayName: "Link Meeting",
-      iconUrl: "https://app.cal.com/link.svg",
+      iconUrl: `${appUrl}/link.svg`,
       public: apiLocation.public,
     };
   }
@@ -84,7 +87,7 @@ export function mapApiLocationToItem(apiLocation: ApiLocation): LocationItem {
       type: "phone",
       phone: apiLocation.phone || "",
       displayName: "Phone Call",
-      iconUrl: "https://app.cal.com/phone.svg",
+      iconUrl: `${appUrl}/phone.svg`,
       public: apiLocation.public,
     };
   }
@@ -95,7 +98,7 @@ export function mapApiLocationToItem(apiLocation: ApiLocation): LocationItem {
       id,
       type: "attendeePhone",
       displayName: "Attendee Phone Number",
-      iconUrl: "https://app.cal.com/phone.svg",
+      iconUrl: `${appUrl}/phone.svg`,
     };
   }
 
@@ -105,7 +108,7 @@ export function mapApiLocationToItem(apiLocation: ApiLocation): LocationItem {
       id,
       type: "attendeeDefined",
       displayName: "Custom Attendee Location",
-      iconUrl: "https://app.cal.com/message-pin.svg",
+      iconUrl: `${appUrl}/message-pin.svg`,
     };
   }
 
@@ -216,13 +219,14 @@ export function getLocationIconUrl(locationType: string, integration?: string): 
   }
 
   // Check default location icons
+  const appUrl = getCalAppUrl();
   const typeToIcon: Record<string, string> = {
-    address: "https://app.cal.com/map-pin-dark.svg",
-    attendeeAddress: "https://app.cal.com/map-pin-dark.svg",
-    link: "https://app.cal.com/link.svg",
-    phone: "https://app.cal.com/phone.svg",
-    attendeePhone: "https://app.cal.com/phone.svg",
-    attendeeDefined: "https://app.cal.com/message-pin.svg",
+    address: `${appUrl}/map-pin-dark.svg`,
+    attendeeAddress: `${appUrl}/map-pin-dark.svg`,
+    link: `${appUrl}/link.svg`,
+    phone: `${appUrl}/phone.svg`,
+    attendeePhone: `${appUrl}/phone.svg`,
+    attendeeDefined: `${appUrl}/message-pin.svg`,
   };
 
   return typeToIcon[locationType] || null;
@@ -250,7 +254,7 @@ export function createLocationItemFromOption(
   }
 
   // Handle default location types
-  const defaultLocation = defaultLocations.find((loc) => loc.type === optionValue);
+  const defaultLocation = getDefaultLocations().find((loc) => loc.type === optionValue);
   if (defaultLocation) {
     const item: LocationItem = {
       id,
@@ -435,7 +439,7 @@ export function buildLocationOptions(
   };
 
   // Add default locations by category
-  defaultLocations.forEach((location) => {
+  getDefaultLocations().forEach((location) => {
     const option: LocationOption = {
       label: location.label,
       iconUrl: location.iconUrl,

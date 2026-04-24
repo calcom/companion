@@ -278,7 +278,7 @@ export default function More() {
         >
           <TouchableOpacity
             onPress={() =>
-              openInAppBrowser("https://app.cal.com/settings/my-account/profile", "Delete Account")
+              openInAppBrowser(`${getCalAppUrl()}/settings/my-account/profile`, "Delete Account")
             }
             style={{
               flexDirection: "row",

@@ -1,4 +1,12 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { USER_PREFERENCES_KEY } from "@/hooks/useUserPreferences";
 import { CalComAPIService } from "@/services/calcom";
 import {
@@ -9,7 +17,7 @@ import {
 import type { UserProfile } from "@/services/types/users.types";
 import { WebAuthService } from "@/services/webAuth";
 import { clearQueryCache } from "@/utils/queryPersister";
-import { preloadRegion, subscribeRegion } from "@/utils/region";
+import { clearRegion, getRegion, preloadRegion, subscribeRegion } from "@/utils/region";
 import { generalStorage, secureStorage } from "@/utils/storage";
 
 /**
@@ -63,6 +71,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [userInfo, setUserInfo] = useState<AuthUserInfo | null>(null);
   const [isWebSession, setIsWebSession] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Construct synchronously on first render so downstream hooks can rely on a
+  // non-null service immediately and mount-time configuration failures are
+  // logged right away. The effect below rebuilds only if `preloadRegion()`
+  // later reports a different region, so we don't double-init in the common
+  // case where the persisted region already matches the in-memory default.
   const [oauthService, setOauthService] = useState<CalComOAuthService | null>(() => {
     try {
       return createCalComOAuthService();
@@ -71,31 +84,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return null;
     }
   });
-
-  // Recreate the OAuth service when the user changes data region on the login
-  // screen so subsequent authorization flows target the correct cal.{com|eu}.
-  useEffect(() => {
-    let cancelled = false;
-    preloadRegion().then(() => {
-      if (cancelled) return;
-      try {
-        setOauthService(createCalComOAuthService());
-      } catch (error) {
-        console.warn("Failed to initialize OAuth service:", error);
-      }
-    });
-    const unsubscribe = subscribeRegion(() => {
-      try {
-        setOauthService(createCalComOAuthService());
-      } catch (error) {
-        console.warn("Failed to re-initialize OAuth service after region change:", error);
-      }
-    });
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
 
   // Setup refresh token function for OAuth
   const setupRefreshTokenFunction = useCallback((service: CalComOAuthService) => {
@@ -130,21 +118,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
-  const saveOAuthTokens = useCallback(
-    async (tokens: OAuthTokens) => {
-      await storage.set(OAUTH_TOKENS_KEY, JSON.stringify(tokens));
-      await storage.set(AUTH_TYPE_KEY, "oauth");
+  // Plain async fn (no useCallback): identity doesn't need to be stable for
+  // memoization, and taking `service` explicitly lets cold-start callers pass
+  // a freshly-rebuilt service without waiting for the state update to settle.
+  const saveOAuthTokens = async (
+    tokens: OAuthTokens,
+    service: CalComOAuthService | null = oauthService
+  ) => {
+    await storage.set(OAUTH_TOKENS_KEY, JSON.stringify(tokens));
+    await storage.set(AUTH_TYPE_KEY, "oauth");
 
-      if (oauthService) {
-        try {
-          await oauthService.syncTokensToExtension(tokens);
-        } catch (error) {
-          console.warn("Failed to sync tokens to extension:", error);
-        }
+    if (service) {
+      try {
+        await service.syncTokensToExtension(tokens);
+      } catch (error) {
+        console.warn("Failed to sync tokens to extension:", error);
       }
-    },
-    [oauthService]
-  );
+    }
+  };
 
   const clearAuth = useCallback(async () => {
     await storage.removeAll([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, OAUTH_TOKENS_KEY, AUTH_TYPE_KEY]);
@@ -178,6 +169,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } catch (prefsError) {
         console.warn("Failed to clear user preferences during logout:", prefsError);
       }
+      // Reset the persisted data region so the next user is prompted via the
+      // login-screen picker rather than silently inheriting this session's
+      // region (the extension background worker clears `cal_region` on logout
+      // too — keep the two surfaces in sync).
+      try {
+        await clearRegion();
+      } catch (regionError) {
+        console.warn("Failed to clear data region during logout:", regionError);
+      }
       // Clear all cached queries to ensure fresh data on re-login
       try {
         await clearQueryCache();
@@ -194,19 +194,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [clearAuth, resetAuthState]);
 
-  // Handle OAuth authentication
+  // Handle OAuth authentication. `service` is passed explicitly so the boot
+  // effect can hand in a freshly-rebuilt service on cold-start region
+  // mismatch without a re-render round-trip.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `saveOAuthTokens` is a plain async fn by design (see comment above its declaration). Listing it here would churn this callback's identity every render and provide no correctness benefit.
   const handleOAuthAuth = useCallback(
-    async (storedTokens: OAuthTokens) => {
-      if (!oauthService) return;
-
+    async (service: CalComOAuthService, storedTokens: OAuthTokens) => {
       // Refresh token if expired
       let tokens = storedTokens;
       let tokensWereRefreshed = false;
-      if (oauthService.isTokenExpired(storedTokens) && storedTokens.refreshToken) {
+      if (service.isTokenExpired(storedTokens) && storedTokens.refreshToken) {
         try {
           console.log("Access token expired, refreshing...");
-          tokens = await oauthService.refreshAccessToken(storedTokens.refreshToken);
-          await saveOAuthTokens(tokens);
+          tokens = await service.refreshAccessToken(storedTokens.refreshToken);
+          await saveOAuthTokens(tokens, service);
           tokensWereRefreshed = true;
         } catch (refreshError) {
           console.error("Failed to refresh token:", refreshError);
@@ -224,18 +225,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Setup API service and refresh function
       await setupAfterLogin(tokens.accessToken, tokens.refreshToken);
       if (tokens.refreshToken) {
-        setupRefreshTokenFunction(oauthService);
+        setupRefreshTokenFunction(service);
       }
 
       if (!tokensWereRefreshed) {
         try {
-          await oauthService.syncTokensToExtension(tokens);
+          await service.syncTokensToExtension(tokens);
         } catch (error) {
           console.warn("Failed to sync tokens to extension on init:", error);
         }
       }
     },
-    [oauthService, saveOAuthTokens, clearAuth, setupAfterLogin, setupRefreshTokenFunction]
+    [clearAuth, setupAfterLogin, setupRefreshTokenFunction]
   );
 
   // Handle web session authentication
@@ -243,35 +244,59 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsWebSession(true);
   }, []);
 
-  const checkAuthState = useCallback(async () => {
-    try {
-      const authType = (await storage.get(AUTH_TYPE_KEY)) as AuthType | null;
-      const storedOAuthTokens = await storage.get(OAUTH_TOKENS_KEY);
-      const storedTokens = storedOAuthTokens ? JSON.parse(storedOAuthTokens) : null;
+  const checkAuthState = useCallback(
+    async (service: CalComOAuthService | null) => {
+      try {
+        const authType = (await storage.get(AUTH_TYPE_KEY)) as AuthType | null;
+        const storedOAuthTokens = await storage.get(OAUTH_TOKENS_KEY);
+        const storedTokens = storedOAuthTokens ? JSON.parse(storedOAuthTokens) : null;
 
-      if (authType === "oauth" && storedTokens && oauthService) {
-        await handleOAuthAuth(storedTokens);
-      } else if (authType === "web_session") {
-        handleWebSessionAuth();
+        if (authType === "oauth" && storedTokens && service) {
+          await handleOAuthAuth(service, storedTokens);
+        } else if (authType === "web_session") {
+          handleWebSessionAuth();
+        }
+        setLoading(false);
+      } catch (error) {
+        const message = getErrorMessage(error);
+        console.error("Failed to check auth state", message);
+        if (__DEV__) {
+          console.debug("[AuthContext] checkAuthState failed", {
+            message,
+            stack: getErrorStack(error),
+          });
+        }
+        setLoading(false);
       }
-      setLoading(false);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      console.error("Failed to check auth state", message);
-      if (__DEV__) {
-        console.debug("[AuthContext] checkAuthState failed", {
-          message,
-          stack: getErrorStack(error),
-        });
-      }
-      setLoading(false);
-    }
-  }, [oauthService, handleOAuthAuth, handleWebSessionAuth]);
+    },
+    [handleOAuthAuth, handleWebSessionAuth]
+  );
+
+  // Stable refs so callbacks wired into the shared CalComAPIService below
+  // always hit the latest `logout` / `refreshToken`, even though the boot
+  // effect runs only once on mount.
+  const logoutRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const refreshTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    checkAuthState();
+    logoutRef.current = logout;
+  }, [logout]);
 
-    // Set up token refresh callback
+  useEffect(() => {
+    refreshTokenRef.current = refreshToken;
+  }, [refreshToken]);
+
+  // Mount-only by design. Refs (`logoutRef`, `refreshTokenRef`) handle live
+  // `logout` / `refreshToken` updates; `subscribeRegion` + the preload branch
+  // below rebind `oauthService` and `setupRefreshTokenFunction` when needed.
+  // Adding `checkAuthState`, `oauthService`, or `setupRefreshTokenFunction`
+  // to the dep list would re-run this boot sequence on every identity change
+  // and reintroduce the EU cold-start race this effect was collapsed to fix.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount-only boot effect; see comment above.
+  useEffect(() => {
+    let cancelled = false;
+    let activeService = oauthService;
+
     const handleTokenRefresh = async (
       newAccessToken: string,
       newRefreshToken?: string,
@@ -280,12 +305,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         const tokens: OAuthTokens = {
           accessToken: newAccessToken,
-          refreshToken: newRefreshToken || refreshToken || undefined,
+          refreshToken: newRefreshToken || refreshTokenRef.current || undefined,
           tokenType: "Bearer",
           expiresAt,
         };
 
-        await saveOAuthTokens(tokens);
+        await saveOAuthTokens(tokens, activeService);
         setAccessToken(newAccessToken);
         if (newRefreshToken) {
           setRefreshToken(newRefreshToken);
@@ -293,7 +318,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         CalComAPIService.setAccessToken(
           newAccessToken,
-          newRefreshToken || refreshToken || undefined
+          newRefreshToken || refreshTokenRef.current || undefined
         );
       } catch (error) {
         const message = getErrorMessage(error);
@@ -304,18 +329,53 @@ export function AuthProvider({ children }: AuthProviderProps) {
             stack: getErrorStack(error),
           });
         }
-        await logout();
+        await logoutRef.current();
       }
     };
 
     CalComAPIService.setTokenRefreshCallback(handleTokenRefresh);
-    CalComAPIService.setAuthFailureCallback(logout);
+    CalComAPIService.setAuthFailureCallback(() => logoutRef.current());
+
+    (async () => {
+      const initialRegion = getRegion();
+      const region = await preloadRegion();
+      if (cancelled) return;
+      if (region !== initialRegion) {
+        try {
+          const rebuilt = createCalComOAuthService();
+          activeService = rebuilt;
+          setOauthService(rebuilt);
+          if (rebuilt) {
+            setupRefreshTokenFunction(rebuilt);
+          }
+        } catch (error) {
+          console.warn("Failed to re-initialize OAuth service after preload:", error);
+        }
+      }
+      if (cancelled) return;
+      await checkAuthState(activeService);
+    })();
+
+    const unsubscribeRegion = subscribeRegion(() => {
+      try {
+        const next = createCalComOAuthService();
+        activeService = next;
+        setOauthService(next);
+        if (next) {
+          setupRefreshTokenFunction(next);
+        }
+      } catch (error) {
+        console.warn("Failed to re-initialize OAuth service after region change:", error);
+      }
+    });
 
     return () => {
+      cancelled = true;
+      unsubscribeRegion();
       CalComAPIService.setTokenRefreshCallback(() => Promise.resolve());
       CalComAPIService.setAuthFailureCallback(() => Promise.resolve());
     };
-  }, [refreshToken, checkAuthState, logout, saveOAuthTokens]);
+  }, []);
 
   const loginFromWebSession = async (sessionUserInfo: UserProfile) => {
     try {

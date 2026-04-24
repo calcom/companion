@@ -7,6 +7,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Platform, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 import { getColors } from "@/constants/colors";
+import { getCalHelpUrl } from "@/utils/region";
 import { SettingRow, SettingsGroup } from "../SettingsUI";
 import { RecurringTabIOSPicker } from "./RecurringTabIOSPicker";
 
@@ -54,7 +55,7 @@ export function RecurringTab({
           description="People can subscribe for recurring events. When enabled, you can set how often the event repeats and for how many occurrences."
           value={recurringEnabled}
           onValueChange={setRecurringEnabled}
-          learnMoreUrl="https://cal.com/help/event-types/recurring-events"
+          learnMoreUrl={getCalHelpUrl("event-types/recurring-events")}
           isLast
         />
       </SettingsGroup>

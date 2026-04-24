@@ -21,7 +21,7 @@ import {
 import { getColors } from "@/constants/colors";
 import { showInfoAlert, showNotAvailableAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
-import { getCalAppUrl } from "@/utils/region";
+import { getCalAppUrl, getCalHelpUrl } from "@/utils/region";
 import { NavigationRow, SettingRow, SettingsGroup } from "../SettingsUI";
 
 // Interface language options matching API V2 enum
@@ -142,7 +142,7 @@ export function AdvancedTab(props: AdvancedTabProps) {
           isFirst
           title="Requires confirmation"
           description="The booking needs to be manually confirmed before it is pushed to your calendar and a confirmation is sent."
-          learnMoreUrl="https://cal.com/help/event-types/how-to-requires"
+          learnMoreUrl={getCalHelpUrl("event-types/how-to-requires")}
           value={props.requiresConfirmation}
           onValueChange={(value) => {
             if (value && props.seatsEnabled) {
@@ -172,21 +172,21 @@ export function AdvancedTab(props: AdvancedTabProps) {
           description="Guests and organizer can no longer cancel the event with calendar invite or email."
           value={props.disableCancelling}
           onValueChange={props.setDisableCancelling}
-          learnMoreUrl="https://cal.com/help/event-types/disable-canceling-rescheduling#disable-cancelling"
+          learnMoreUrl={getCalHelpUrl("event-types/disable-canceling-rescheduling#disable-cancelling")}
         />
         <SettingRow
           title="Disable Rescheduling"
           description="Guests and Organizer can no longer reschedule the event with calendar invite or email."
           value={props.disableRescheduling}
           onValueChange={props.setDisableRescheduling}
-          learnMoreUrl="https://cal.com/help/event-types/disable-canceling-rescheduling#disable-rescheduling"
+          learnMoreUrl={getCalHelpUrl("event-types/disable-canceling-rescheduling#disable-rescheduling")}
         />
         <SettingRow
           title="Reschedule past events"
           description="Enabling this option allows for past events to be rescheduled."
           value={props.allowReschedulingPastEvents}
           onValueChange={props.setAllowReschedulingPastEvents}
-          learnMoreUrl="https://cal.com/help/event-types/allow-rescheduling"
+          learnMoreUrl={getCalHelpUrl("event-types/allow-rescheduling")}
         />
         <SettingRow
           title="Book via reschedule link"
@@ -205,7 +205,7 @@ export function AdvancedTab(props: AdvancedTabProps) {
           description="For privacy reasons, additional inputs and notes will be hidden in the calendar entry. They will still be sent to your email."
           value={props.hideCalendarNotes}
           onValueChange={props.setHideCalendarNotes}
-          learnMoreUrl="https://cal.com/help/event-types/hide-notes"
+          learnMoreUrl={getCalHelpUrl("event-types/hide-notes")}
         />
         <SettingRow
           title="Hide calendar event details"
@@ -218,7 +218,7 @@ export function AdvancedTab(props: AdvancedTabProps) {
           description="Hide organizer's email address from the booking screen, email notifications, and calendar events."
           value={props.hideOrganizerEmail}
           onValueChange={props.setHideOrganizerEmail}
-          learnMoreUrl="https://cal.com/help/event-types/hideorganizersemail#hide-organizers-email"
+          learnMoreUrl={getCalHelpUrl("event-types/hideorganizersemail#hide-organizers-email")}
           isLast
         />
       </SettingsGroup>
@@ -237,14 +237,14 @@ export function AdvancedTab(props: AdvancedTabProps) {
           description="Arrange time slots to optimize availability."
           value={props.showOptimizedSlots}
           onValueChange={props.setShowOptimizedSlots}
-          learnMoreUrl="https://cal.com/help/event-types/optimized-slots#optimized-slots"
+          learnMoreUrl={getCalHelpUrl("event-types/optimized-slots#optimized-slots")}
         />
         <SettingRow
           title="Lock timezone"
           description="To lock the timezone on booking page, useful for in-person events."
           value={props.lockTimezone}
           onValueChange={props.setLockTimezone}
-          learnMoreUrl="https://cal.com/help/event-types/lock-timezone"
+          learnMoreUrl={getCalHelpUrl("event-types/lock-timezone")}
         />
         <SettingRow
           title="Offer seats"
@@ -260,7 +260,7 @@ export function AdvancedTab(props: AdvancedTabProps) {
             }
             props.setSeatsEnabled(value);
           }}
-          learnMoreUrl="https://cal.com/help/event-types/offer-seats"
+          learnMoreUrl={getCalHelpUrl("event-types/offer-seats")}
           isLast
         />
       </SettingsGroup>

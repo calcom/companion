@@ -111,7 +111,7 @@ export const showInfoAlert = (title: string, message: string) => {
 export const showNotAvailableAlert = () => {
   Alert.alert(
     "Feature not available",
-    "This feature is not available on app yet. To use, please visit app.cal.com.",
+    "This feature is not available in the app yet. To use, please visit Cal.com.",
     [{ text: "OK", style: "cancel" }]
   );
 };

@@ -1,4 +1,5 @@
 import type { Booking } from "@/services/calcom";
+import { getMeetingUrl } from "@/utils/booking";
 import { getBookingPaymentStatus } from "@/utils/booking-payment-status";
 import { formatDate, formatTime, getHostAndAttendeesDisplay } from "@/utils/bookings-utils";
 import { getMeetingInfo } from "@/utils/meetings-utils";
@@ -31,7 +32,7 @@ export function useBookingListItemData(booking: Booking, userEmail?: string): Bo
   const isRejected = booking.status?.toLowerCase() === "rejected";
 
   const hostAndAttendeesDisplay = getHostAndAttendeesDisplay(booking, userEmail);
-  const meetingInfo = getMeetingInfo(booking.location);
+  const meetingInfo = getMeetingInfo(getMeetingUrl(booking) ?? booking.location);
 
   const { isPendingPayment } = getBookingPaymentStatus(booking);
 

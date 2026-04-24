@@ -18,7 +18,7 @@ import { useQueryContext } from "@/contexts/QueryContext";
 import { type LandingPage, useUserPreferences } from "@/hooks/useUserPreferences";
 import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
-import { getCalAppUrl } from "@/utils/region";
+import { getCalAppUrl, getCalSupportUrl } from "@/utils/region";
 
 interface MoreMenuItem {
   name: string;
@@ -110,7 +110,7 @@ export default function More() {
       name: "Support",
       icon: "help-circle-outline",
       isExternal: true,
-      onPress: () => openInAppBrowser("https://go.cal.com/support", "Support"),
+      onPress: () => openInAppBrowser(getCalSupportUrl(), "Support"),
     },
   ];
 

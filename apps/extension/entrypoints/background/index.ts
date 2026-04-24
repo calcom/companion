@@ -19,6 +19,13 @@ const devLog = {
 const REQUEST_TIMEOUT_MS = 30000;
 
 /**
+ * Storage key for the user's selected Cal.com data region ("us" | "eu").
+ * Declared at the top of the module so handlers registered during `defineBackground`
+ * initialization can reference it without a temporal-dead-zone footgun.
+ */
+const REGION_STORAGE_KEY = "cal_region";
+
+/**
  * Fetch with timeout to prevent hanging requests
  */
 async function fetchWithTimeout(
@@ -405,6 +412,15 @@ export default defineBackground(() => {
 
       if (message.action === "sync-oauth-tokens") {
         const tokens = message.tokens as OAuthTokens | null;
+        const rawRegion: unknown = message.region;
+        const region: "us" | "eu" | null =
+          rawRegion === "us" || rawRegion === "eu" ? rawRegion : null;
+
+        if (rawRegion !== undefined && rawRegion !== null && region === null) {
+          devLog.warn("Token sync rejected: invalid region value", rawRegion);
+          sendResponse({ success: false, error: "Invalid region" });
+          return true;
+        }
 
         if (isRateLimited()) {
           devLog.warn("Token sync rate limited");
@@ -417,7 +433,7 @@ export default defineBackground(() => {
           return true;
         }
 
-        validateTokens(tokens)
+        validateTokens(tokens, region ?? undefined)
           .then((isValid) => {
             if (!isValid) {
               devLog.warn("Token sync rejected: invalid tokens");
@@ -427,7 +443,13 @@ export default defineBackground(() => {
 
             recordTokenOperation();
             if (storageAPI?.local) {
-              storageAPI.local.set({ cal_oauth_tokens: JSON.stringify(tokens) }, () => {
+              const payload: Record<string, string> = {
+                cal_oauth_tokens: JSON.stringify(tokens),
+              };
+              if (region) {
+                payload[REGION_STORAGE_KEY] = region;
+              }
+              storageAPI.local.set(payload, () => {
                 const runtime = getRuntimeAPI();
                 if (runtime?.lastError) {
                   devLog.error("Failed to sync OAuth tokens:", runtime.lastError.message);
@@ -456,7 +478,7 @@ export default defineBackground(() => {
 
         recordTokenOperation();
         if (storageAPI?.local) {
-          storageAPI.local.remove(["cal_oauth_tokens", "oauth_state", "cal_region"], () => {
+          storageAPI.local.remove(["cal_oauth_tokens", "oauth_state", REGION_STORAGE_KEY], () => {
             const runtime = getRuntimeAPI();
             if (runtime?.lastError) {
               devLog.error("Failed to clear OAuth tokens:", runtime.lastError.message);
@@ -861,8 +883,6 @@ async function validateOAuthState(state: string): Promise<void> {
   }
 }
 
-const REGION_STORAGE_KEY = "cal_region";
-
 async function getStoredRegion(): Promise<"us" | "eu"> {
   const storageAPI = getStorageAPI();
   if (!storageAPI?.local) return "us";
@@ -875,9 +895,13 @@ async function getStoredRegion(): Promise<"us" | "eu"> {
   }
 }
 
+function apiBaseUrlForRegion(region: "us" | "eu"): string {
+  return region === "eu" ? "https://api.cal.eu/v2" : "https://api.cal.com/v2";
+}
+
 async function getApiBaseUrl(): Promise<string> {
   const region = await getStoredRegion();
-  return region === "eu" ? "https://api.cal.eu/v2" : "https://api.cal.com/v2";
+  return apiBaseUrlForRegion(region);
 }
 
 const tokenOperationTimestamps: number[] = [];
@@ -899,13 +923,18 @@ function recordTokenOperation(): void {
   tokenOperationTimestamps.push(Date.now());
 }
 
-async function validateTokens(tokens: OAuthTokens): Promise<boolean> {
+// Accepts an optional `region` so that sync-oauth-tokens can validate against
+// the region the message carries (the user may be switching regions and the
+// persisted `cal_region` in chrome.storage.local is still the old value until
+// the tokens pass validation). Callers that don't yet know the region (token
+// refresh, resume flows) pass nothing and fall back to the stored region.
+async function validateTokens(tokens: OAuthTokens, region?: "us" | "eu"): Promise<boolean> {
   if (!tokens.accessToken) {
     return false;
   }
 
   try {
-    const apiBaseUrl = await getApiBaseUrl();
+    const apiBaseUrl = region ? apiBaseUrlForRegion(region) : await getApiBaseUrl();
     const response = await fetchWithTimeout(`${apiBaseUrl}/me`, {
       headers: {
         Authorization: `Bearer ${tokens.accessToken}`,

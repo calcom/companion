@@ -1,7 +1,10 @@
 /**
  * Maps conferencing app types or appIds to their icon URLs.
- * Icons are publicly accessible at: https://app.cal.com/app-store/{dirName}/icon.svg
+ * Icons are publicly accessible at: `${getCalAppUrl()}/app-store/{dirName}/icon.svg`
+ * (region-aware — resolves to `app.cal.com` or `app.cal.eu`).
  */
+
+import { getCalAppUrl } from "./region";
 
 const APP_TYPE_TO_DIR_NAME: Record<string, string> = {
   // Video conferencing apps
@@ -80,7 +83,7 @@ const APP_ID_TO_DIR_NAME: Record<string, string> = {
 
 /**
  * Generates the icon URL for a conferencing app based on its type or appId.
- * Uses publicly available icons from https://app.cal.com/app-store/{dirName}/icon.svg
+ * Uses publicly available icons from `${getCalAppUrl()}/app-store/{dirName}/icon.svg`.
  * Special cases are handled (e.g., Google Meet uses logo.webp)
  *
  * @param type - The credential type (e.g., "zoom_video", "google_video")
@@ -119,5 +122,5 @@ export function getAppIconUrl(type: string, appId: string | null): string | null
     iconFileName = "icon-dark.svg";
   }
 
-  return `https://app.cal.com/app-store/${dirName}/${iconFileName}`;
+  return `${getCalAppUrl()}/app-store/${dirName}/${iconFileName}`;
 }

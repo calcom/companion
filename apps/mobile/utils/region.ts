@@ -7,6 +7,11 @@
  * Region is persisted in general storage and cached in memory for synchronous
  * access. Listeners are notified when the region changes so dependent modules
  * (API client, OAuth service) can refresh their base URLs.
+ *
+ * Link-construction rule: never inline literal `cal.com` / `cal.eu` hostnames
+ * elsewhere in `apps/mobile/**`. Use the getters exported here
+ * (`getCalAppUrl`, `getCalApiUrl`, `getCalWebUrl`, `getCalSupportUrl`,
+ * `getCalHelpUrl`). A CI grep (`bun run check:no-cal-hostnames`) enforces this.
  */
 
 import { Platform } from "react-native";
@@ -75,6 +80,27 @@ export async function setRegion(region: CalRegion): Promise<void> {
   }
 }
 
+/**
+ * Remove the persisted region selection and reset the in-memory cache to the
+ * default. Intended for logout so the next user (who may belong to a different
+ * region) is prompted via the login-screen picker instead of silently inheriting
+ * the previous session's region.
+ *
+ * Writes go through `generalStorage` to stay symmetric with `setRegion()` — on
+ * web this happens to wrap `localStorage`, so clearing there is already covered.
+ * We always `notify()` because the persisted value may have diverged from the
+ * in-memory cache (e.g. called before `preloadRegion()` resolved).
+ */
+export async function clearRegion(): Promise<void> {
+  currentRegion = DEFAULT_REGION;
+  try {
+    await generalStorage.removeItem(REGION_STORAGE_KEY);
+  } catch {
+    // Best-effort; the in-memory cache is already reset.
+  }
+  notify();
+}
+
 export function subscribeRegion(listener: (region: CalRegion) => void): () => void {
   listeners.add(listener);
   return () => {
@@ -105,6 +131,24 @@ export function getCalApiUrl(region: CalRegion = currentRegion): string {
 /** Fully-qualified origin of the Cal.com marketing site for the current region. */
 export function getCalWebUrl(region: CalRegion = currentRegion): string {
   return region === "eu" ? "https://cal.eu" : "https://cal.com";
+}
+
+/**
+ * Cal.com support shortlink. Stays global — `go.cal.eu` does not exist, so
+ * all regions currently point at the `go.cal.com` redirector.
+ */
+export function getCalSupportUrl(): string {
+  return "https://go.cal.com/support";
+}
+
+/**
+ * Cal.com help-docs URL. Stays global — `cal.eu/help` is not mirrored, so
+ * all regions currently point at `cal.com/help/*`. If Cal ever publishes an
+ * EU-mirrored docs site, flip the return here.
+ */
+export function getCalHelpUrl(slug: string): string {
+  const trimmed = slug.replace(/^\/+/, "");
+  return `https://cal.com/help/${trimmed}`;
 }
 
 /**
