@@ -32,6 +32,12 @@ export interface HttpServerConfig {
   maxRegisteredClients?: number;
   corsOrigin?: string;
   shutdownTimeoutMs?: number;
+  /**
+   * Token served at `/.well-known/openai-apps-challenge` for the OpenAI Apps
+   * domain verification flow. Falls back to `OPENAI_APPS_CHALLENGE_TOKEN`.
+   * When unset, the endpoint returns 404.
+   */
+  openaiAppsChallengeToken?: string;
 }
 
 /**
@@ -45,6 +51,7 @@ export interface HttpServerConfig {
  *   GET  /mcp   — SSE stream for server-initiated messages
  *   DELETE /mcp — Terminate a session
  *   GET  /health — Health check
+ *   GET  /.well-known/openai-apps-challenge — OpenAI Apps domain verification token
  *   GET  /.well-known/oauth-authorization-server — OAuth AS metadata
  *   GET  /.well-known/oauth-protected-resource — Protected resource metadata
  *   POST /oauth/register — Dynamic client registration
@@ -65,6 +72,7 @@ export async function startHttpServer(
   const maxRegisteredClients = config.maxRegisteredClients ?? (Number(process.env.MAX_REGISTERED_CLIENTS) || 10_000);
   const corsOrigin = config.corsOrigin ?? process.env.CORS_ORIGIN;
   const shutdownTimeoutMs = config.shutdownTimeoutMs ?? (Number(process.env.SHUTDOWN_TIMEOUT_MS) || 10_000);
+  const openaiAppsChallengeToken = config.openaiAppsChallengeToken ?? process.env.OPENAI_APPS_CHALLENGE_TOKEN;
 
   await initDb();
 
@@ -147,6 +155,23 @@ export async function startHttpServer(
         db: dbOk ? "ok" : "error",
         uptime: Math.floor((Date.now() - startedAt) / 1000),
       }));
+      return;
+    }
+
+    // ── OpenAI Apps domain verification ──
+    // Serves a static challenge token at the well-known URL so OpenAI can verify
+    // we control this hostname. No auth — OpenAI fetches it anonymously.
+    if (url.pathname === "/.well-known/openai-apps-challenge" && req.method === "GET") {
+      if (!openaiAppsChallengeToken) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "not_found" }));
+        return;
+      }
+      res.writeHead(200, {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "public, max-age=300",
+      });
+      res.end(openaiAppsChallengeToken);
       return;
     }
 

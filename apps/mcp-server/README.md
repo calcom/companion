@@ -60,6 +60,7 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 | `DATABASE_PATH` | No | `mcp-server.db` | SQLite database file path |
 | `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate limit window in ms (per IP) |
 | `RATE_LIMIT_MAX` | No | `30` | Max OAuth requests per window per IP |
+| `OPENAI_APPS_CHALLENGE_TOKEN` | No | — | Token served at `/.well-known/openai-apps-challenge` for OpenAI Apps domain verification. When unset, the endpoint returns 404. |
 
 ## Transport Modes
 
@@ -115,6 +116,7 @@ This starts a StreamableHTTP server with OAuth 2.1 authentication:
 
 **Other:**
 - `GET  /health` — Health check (returns `{ "status": "ok", "sessions": <count> }`)
+- `GET  /.well-known/openai-apps-challenge` — OpenAI Apps domain verification token (plain text). Returns 404 unless `OPENAI_APPS_CHALLENGE_TOKEN` is set.
 
 Each HTTP session gets its own `McpServer` instance with a unique session ID, so multiple clients can connect concurrently.
 

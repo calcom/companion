@@ -126,6 +126,24 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
+  // ── OpenAI Apps domain verification ──
+  // Serves a static challenge token at the well-known URL so OpenAI can verify
+  // we control this hostname. No auth — OpenAI fetches it anonymously.
+  // The token is provided via the OPENAI_APPS_CHALLENGE_TOKEN env var.
+  if (url.pathname === "/.well-known/openai-apps-challenge" && req.method === "GET") {
+    const token = config.openaiAppsChallengeToken;
+    if (!token) {
+      jsonError(res, 404, "not_found");
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "public, max-age=300",
+    });
+    res.end(token);
+    return;
+  }
+
   // ── OAuth metadata ──
   if (url.pathname === "/.well-known/oauth-authorization-server" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json" });
