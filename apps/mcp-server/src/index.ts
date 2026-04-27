@@ -35,6 +35,7 @@ async function main(): Promise<void> {
       maxRegisteredClients: httpConfig.maxRegisteredClients,
       corsOrigin: httpConfig.corsOrigin,
       shutdownTimeoutMs: httpConfig.shutdownTimeoutMs,
+      openaiAppsChallengeToken: httpConfig.openaiAppsChallengeToken,
     });
   } else {
     const stdioConfig = config as StdioConfig;

@@ -70,6 +70,12 @@ const httpSchema = baseSchema.extend({
   retryMaxAttempts: z.coerce.number().int().min(0).max(5).default(2),
   retryBaseDelayMs: z.coerce.number().int().positive().default(500),
   shutdownTimeoutMs: z.coerce.number().int().positive().default(10_000),
+  /**
+   * Verification token served at `/.well-known/openai-apps-challenge` for the
+   * OpenAI Apps domain verification flow. Optional — when unset the endpoint
+   * returns 404. Rotate by updating the env var; no code change required.
+   */
+  openaiAppsChallengeToken: z.string().min(1).optional(),
 });
 
 export type StdioConfig = z.infer<typeof stdioSchema>;
@@ -102,6 +108,7 @@ function readEnv(): Record<string, unknown> {
     retryMaxAttempts: process.env.RETRY_MAX_ATTEMPTS || undefined,
     retryBaseDelayMs: process.env.RETRY_BASE_DELAY_MS || undefined,
     shutdownTimeoutMs: process.env.SHUTDOWN_TIMEOUT_MS || undefined,
+    openaiAppsChallengeToken: process.env.OPENAI_APPS_CHALLENGE_TOKEN || undefined,
   };
 }
 
