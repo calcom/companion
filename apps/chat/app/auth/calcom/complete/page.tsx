@@ -13,6 +13,7 @@ function CompletePage() {
 
   const isSlack = platform === "slack";
   const isTelegram = platform === "telegram";
+  const isSendblue = platform === "sendblue";
   const telegramBot = searchParams.get("telegram_bot");
   const slackWebUrl = `https://app.slack.com/client/${teamId}`;
   const tmeFallback = telegramBot ? `https://t.me/${telegramBot}?start=link_success` : "";
@@ -71,7 +72,10 @@ function CompletePage() {
             )}
           </>
         )}
-        {success && !isSlack && !(isTelegram && telegramBot) && (
+        {success && isSendblue && (
+          <p style={styles.hint}>You can close this tab and return to Messages.</p>
+        )}
+        {success && !isSlack && !isSendblue && !(isTelegram && telegramBot) && (
           <p style={styles.hint}>
             You can close this tab and return to{" "}
             {platform.charAt(0).toUpperCase() + platform.slice(1)}.
@@ -87,7 +91,12 @@ function CompletePage() {
             Go back to Telegram and send <code style={styles.code}>/link</code> to try again.
           </p>
         )}
-        {!success && !isSlack && !isTelegram && (
+        {!success && isSendblue && (
+          <p style={styles.hint}>
+            Go back to Messages and send <code style={styles.code}>/link</code> to try again.
+          </p>
+        )}
+        {!success && !isSlack && !isTelegram && !isSendblue && (
           <p style={styles.hint}>
             {platform
               ? `Go back to ${platform.charAt(0).toUpperCase() + platform.slice(1)} and use the link command to try again.`

@@ -14,8 +14,8 @@ export interface CalcomEventType {
 }
 
 export interface BookingField {
-  name: string;       // slug used as key in bookingFieldsResponses
-  type: string;       // "text" | "phone" | "select" | "multiselect" | "radio" | "checkbox" | "boolean" | "number" | "address" | "url" | "textarea" | "multiemail" | ...
+  name: string; // slug used as key in bookingFieldsResponses
+  type: string; // "text" | "phone" | "select" | "multiselect" | "radio" | "checkbox" | "boolean" | "number" | "address" | "url" | "textarea" | "multiemail" | ...
   label?: string;
   required?: boolean;
   options?: string[]; // present for select, multiselect, radio, checkbox field types
@@ -107,6 +107,10 @@ export interface CalcomWebhookMetadata {
   slack_user_id?: string;
   /** Telegram chat ID for routing to Telegram */
   telegram_chat_id?: string;
+  /** Sendblue contact phone number in E.164 format for iMessage routing */
+  sendblue_phone?: string;
+  /** Fully encoded Sendblue thread ID for advanced routing */
+  sendblue_thread_id?: string;
 }
 
 export interface CalcomWebhookPayload {

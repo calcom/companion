@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   AdapterRateLimitError,
   AuthenticationError,
@@ -12,7 +13,7 @@ import { createMemoryState } from "@chat-adapter/state-memory";
 import { createRedisState } from "@chat-adapter/state-redis";
 import { createTelegramAdapter, type TelegramAdapter } from "@chat-adapter/telegram";
 import type { ModelMessage } from "ai";
-import type { Thread } from "chat";
+import type { Adapter, Thread } from "chat";
 import {
   Actions,
   Button,
@@ -25,18 +26,34 @@ import {
   NotImplementedError,
   RateLimitError,
 } from "chat";
-import { createHash } from "node:crypto";
+import { createSendblueAdapter, type SendblueAdapter } from "chat-adapter-sendblue";
 import type { LookupPlatformUserFn, UserContext } from "./agent";
 import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
-import { CalcomApiError, checkCredits, chargeCredits } from "./calcom/client";
+import { CalcomApiError, chargeCredits, checkCredits } from "./calcom/client";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
+import { truncateForSendblue } from "./format-for-sendblue";
 import { formatForTelegram } from "./format-for-telegram";
+import {
+  handleSendblueCommand,
+  handleSendblueFlowInput,
+  registerSendblueHandlers,
+} from "./handlers/sendblue";
 import { registerSlackHandlers } from "./handlers/slack";
-import { handleTelegramCommand, registerTelegramHandlers, TELEGRAM_COMMAND_RE } from "./handlers/telegram";
+import {
+  handleTelegramCommand,
+  registerTelegramHandlers,
+  TELEGRAM_COMMAND_RE,
+} from "./handlers/telegram";
 import { logger as botLogger } from "./logger";
 import { helpCard, telegramHelpCard } from "./notifications";
-import { getLinkedUser, getValidAccessToken, getToolContext, setToolContext, type ToolContextEntry } from "./user-linking";
+import {
+  getLinkedUser,
+  getToolContext,
+  getValidAccessToken,
+  setToolContext,
+  type ToolContextEntry,
+} from "./user-linking";
 
 validateRequiredEnv();
 
@@ -45,6 +62,14 @@ const MAX_THREAD_MESSAGES = 20;
 const MAX_TOOL_CONTEXT_ENTRIES = 10;
 const STREAMING_UPDATE_INTERVAL_MS = 400;
 const TELEGRAM_TYPING_REFRESH_MS = 4000;
+
+function isSendblueConfigured(): boolean {
+  return !!(
+    process.env.SENDBLUE_API_KEY &&
+    process.env.SENDBLUE_API_SECRET &&
+    process.env.SENDBLUE_FROM_NUMBER
+  );
+}
 
 // ─── Slack user lookup via users.info API ────────────────────────────────────
 
@@ -117,6 +142,24 @@ if (!globalForBot._chatBot) {
           apiBaseUrl: process.env.TELEGRAM_API_BASE_URL,
         }),
       }),
+    }),
+    ...(isSendblueConfigured() && {
+      // Published chat-adapter-sendblue@0.2.0 bundles newer Chat SDK types.
+      // Keep that version skew contained at the adapter boundary until upstream
+      // ships a peer-only Chat SDK dependency.
+      sendblue: createSendblueAdapter({
+        apiKey: process.env.SENDBLUE_API_KEY ?? "",
+        apiSecret: process.env.SENDBLUE_API_SECRET ?? "",
+        defaultFromNumber: process.env.SENDBLUE_FROM_NUMBER ?? "",
+        logger: botLogger,
+        ...(process.env.SENDBLUE_WEBHOOK_SECRET && {
+          webhookSecret: process.env.SENDBLUE_WEBHOOK_SECRET,
+          webhookSecretHeader: "sb-signing-secret",
+        }),
+        ...(process.env.SENDBLUE_STATUS_CALLBACK_URL && {
+          statusCallbackUrl: process.env.SENDBLUE_STATUS_CALLBACK_URL,
+        }),
+      }) as unknown as Adapter<unknown, unknown>,
     }),
   } as const;
 
@@ -276,7 +319,10 @@ function reconstructSlackMentions(raw: unknown): string | null {
   const parts: string[] = [];
   for (const block of blocks) {
     if (block.type !== "rich_text") continue;
-    const richBlock = block as { type: "rich_text"; elements: Array<{ type: string; elements?: SlackRichTextElement[] }> };
+    const richBlock = block as {
+      type: "rich_text";
+      elements: Array<{ type: string; elements?: SlackRichTextElement[] }>;
+    };
     for (const section of richBlock.elements) {
       if (!Array.isArray(section.elements)) continue;
       for (const el of section.elements) {
@@ -308,7 +354,10 @@ async function preResolveMentions(
   userMessage: string,
   teamId: string,
   logger: ReturnType<typeof bot.getLogger>
-): Promise<{ text: string; attendees: Array<{ uid: string; name: string; email: string | null }> }> {
+): Promise<{
+  text: string;
+  attendees: Array<{ uid: string; name: string; email: string | null }>;
+}> {
   const mentionPattern = /<@([A-Z0-9]+)>/g;
   const matches = [...userMessage.matchAll(mentionPattern)];
   if (matches.length === 0) return { text: userMessage, attendees: [] };
@@ -402,10 +451,7 @@ async function persistBookingContext(
 }
 
 // ─── Helper: build enriched user message with cached tool data ───────────────
-async function buildEnrichedMessage(
-  userMessage: string,
-  threadId: string
-): Promise<string> {
+async function buildEnrichedMessage(userMessage: string, threadId: string): Promise<string> {
   const entries = await getToolContext(threadId);
   if (entries.length === 0) return userMessage;
 
@@ -434,9 +480,8 @@ function isSlackAuthError(err: unknown): boolean {
 }
 
 function friendlyCalcomError(err: CalcomApiError, context?: string): string {
-  const apiDetail = err.message && !err.message.startsWith("Cal.com API error:")
-    ? ` (${err.message})`
-    : "";
+  const apiDetail =
+    err.message && !err.message.startsWith("Cal.com API error:") ? ` (${err.message})` : "";
 
   switch (err.statusCode) {
     case 400:
@@ -464,9 +509,9 @@ function friendlyCalcomError(err: CalcomApiError, context?: string): string {
   }
 }
 
-function agentStreamErrorMessage(
-  lastStreamErrorRef: { current: Error | null }
-): (err: unknown) => string | undefined {
+function agentStreamErrorMessage(lastStreamErrorRef: {
+  current: Error | null;
+}): (err: unknown) => string | undefined {
   return (err) => {
     if (!lastStreamErrorRef.current) return undefined;
     if (isAIRateLimitError(lastStreamErrorRef.current))
@@ -580,9 +625,7 @@ async function withBotErrorHandling(
     // callers like the booking modal can provide context-aware messages first)
     if (err instanceof CalcomApiError) {
       botLogger.warn("Cal.com API error", { statusCode: err.statusCode, message: err.message });
-      await options
-        .postError(friendlyCalcomError(err))
-        .catch(() => {});
+      await options.postError(friendlyCalcomError(err)).catch(() => {});
       return;
     }
     if (isSlackAuthError(err)) {
@@ -595,21 +638,23 @@ async function withBotErrorHandling(
       return;
     }
     botLogger.error(options.logContext ? `Error in ${options.logContext}` : "Error", err);
-    await options
-      .postError("Sorry, something went wrong. Please try again.")
-      .catch((postErr) => {
-        botLogger.error("Failed to post error message to user", { postErr, originalErr: err });
-      });
+    await options.postError("Sorry, something went wrong. Please try again.").catch((postErr) => {
+      botLogger.error("Failed to post error message to user", { postErr, originalErr: err });
+    });
   }
 }
 
 // ─── Helper: post OAuth link prompt ─────────────────────────────────────────
 
-function oauthLinkMessage(platform: string, teamId: string, userId: string, reason?: "expired" | "not_linked") {
+function oauthLinkMessage(
+  platform: string,
+  teamId: string,
+  userId: string,
+  reason?: "expired" | "not_linked"
+) {
   const authUrl = generateAuthUrl(platform, teamId, userId);
-  const title = reason === "expired"
-    ? "Your Cal.com Session Has Expired"
-    : "Connect Your Cal.com Account";
+  const title =
+    reason === "expired" ? "Your Cal.com Session Has Expired" : "Connect Your Cal.com Account";
   return Card({
     title,
     children: [
@@ -638,6 +683,13 @@ async function promptUserToLink(
     } else {
       await thread.post(card);
     }
+  } else if (ctx.platform === "sendblue") {
+    const authUrl = generateAuthUrl(ctx.platform, ctx.teamId, ctx.userId);
+    const title =
+      reason === "expired"
+        ? "Your Cal.com session has expired. Reconnect here:"
+        : "Connect your Cal.com account here:";
+    await thread.post(`${title}\n${authUrl}`);
   } else {
     // Ephemeral messages are unreliable in Slack assistant threads, so post as a
     // regular thread message. The OAuth URL is user-specific and safe to show.
@@ -656,6 +708,22 @@ export function getTelegramAdapter(): TelegramAdapter | null {
   return adapter ? (adapter as TelegramAdapter) : null;
 }
 
+export function getSendblueAdapter(): SendblueAdapter | null {
+  if (!isSendblueConfigured()) return null;
+  const adapter = bot.getAdapter("sendblue");
+  return adapter ? (adapter as SendblueAdapter) : null;
+}
+
+function isSendblueGroupThread(threadId: string): boolean {
+  const adapter = getSendblueAdapter();
+  if (!adapter) return false;
+  try {
+    return !!adapter.decodeThreadId(threadId).groupId;
+  } catch {
+    return false;
+  }
+}
+
 /** Telegram typing indicator lasts ~5s. Refresh it every 4s during long agent runs. */
 async function withTelegramTypingRefresh(
   thread: Thread,
@@ -665,7 +733,10 @@ async function withTelegramTypingRefresh(
   await thread.startTyping();
   if (platform !== "telegram") return fn();
   return (async () => {
-    const interval = setInterval(() => thread.startTyping().catch(() => {}), TELEGRAM_TYPING_REFRESH_MS);
+    const interval = setInterval(
+      () => thread.startTyping().catch(() => {}),
+      TELEGRAM_TYPING_REFRESH_MS
+    );
     try {
       await fn();
     } finally {
@@ -774,11 +845,27 @@ async function postAgentStream(
             Card({
               children: [
                 CardText(formatted),
-                ...(showRetry
-                  ? [Actions([Button({ id: "retry_response", label: "Retry" })])]
-                  : []),
+                ...(showRetry ? [Actions([Button({ id: "retry_response", label: "Retry" })])] : []),
               ],
             })
+          );
+        }
+      } else if (ctx.platform === "sendblue") {
+        const fullText = await agentResult.text;
+        const steps = agentResult.steps ? await agentResult.steps : undefined;
+        const showRetry = shouldShowRetry(options?.onErrorRef, steps);
+        const formatted = truncateForSendblue((fullText ?? "").trim());
+        if (!formatted) {
+          const fallbackMsg =
+            options?.onErrorRef?.current && isAIToolCallError(options.onErrorRef.current)
+              ? "I had trouble processing that request. Please try again, or be more specific."
+              : "Sorry, I couldn't generate a response. Please try again.";
+          await thread.post(`${fallbackMsg}\n\nSend the request again to retry.`);
+        } else {
+          await thread.post(
+            showRetry
+              ? `${formatted}\n\nIf this looks wrong, send the request again to retry.`
+              : formatted
           );
         }
       } else {
@@ -838,9 +925,7 @@ async function postAgentStream(
       log.warn("Slack auth error is secondary to stream error, re-throwing as generic", {
         streamError: options.onErrorRef.current.message,
       });
-      throw new Error(
-        `Agent stream failed: ${options.onErrorRef.current.message}`
-      );
+      throw new Error(`Agent stream failed: ${options.onErrorRef.current.message}`);
     }
     throw err;
   }
@@ -864,7 +949,11 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
   const log = bot.getLogger(opts.loggerName);
 
   let linked = await getLinkedUser(opts.ctx.teamId, opts.ctx.userId);
-  log.info("User link check", { userId: opts.ctx.userId, teamId: opts.ctx.teamId, linked: !!linked });
+  log.info("User link check", {
+    userId: opts.ctx.userId,
+    teamId: opts.ctx.teamId,
+    linked: !!linked,
+  });
   if (!linked) {
     await opts.promptIfNotLinked();
     return;
@@ -878,15 +967,18 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
   }
 
   // Re-read in case token refresh synced org fields from /v2/me
-  linked = await getLinkedUser(opts.ctx.teamId, opts.ctx.userId) ?? linked;
+  linked = (await getLinkedUser(opts.ctx.teamId, opts.ctx.userId)) ?? linked;
 
   try {
     const credits = await checkCredits(token);
     if (!credits.hasCredits) {
       log.info("Agentic blocked — no credits", { userId: opts.ctx.userId });
-      const noCreditsMsg = opts.ctx.platform === "slack"
-        ? "You've run out of AI credits. Use `/cal help` to see available slash commands, or purchase more credits at <https://cal.com/pricing|cal.com/pricing>."
-        : "You've run out of AI credits. Use /help to see available commands, or purchase more credits at [cal.com/pricing](https://cal.com/pricing).";
+      const noCreditsMsg =
+        opts.ctx.platform === "slack"
+          ? "You've run out of AI credits. Use `/cal help` to see available slash commands, or purchase more credits at <https://cal.com/pricing|cal.com/pricing>."
+          : opts.ctx.platform === "sendblue"
+            ? "You've run out of AI credits. Send /help to see available commands, or purchase more credits at https://cal.com/pricing."
+            : "You've run out of AI credits. Use /help to see available commands, or purchase more credits at [cal.com/pricing](https://cal.com/pricing).";
       if (opts.ctx.platform === "slack") {
         await withSlackToken(opts.ctx.teamId, () => opts.thread.post(noCreditsMsg));
       } else {
@@ -897,7 +989,10 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
   } catch (err) {
     // If credits endpoint is unavailable, allow the request through
     // so existing org-plan users aren't blocked during rollout.
-    log.warn("Credits check failed, allowing request", { userId: opts.ctx.userId, error: String(err) });
+    log.warn("Credits check failed, allowing request", {
+      userId: opts.ctx.userId,
+      error: String(err),
+    });
   }
 
   if (await opts.shouldSubscribe()) {
@@ -910,9 +1005,7 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
 
   let resolvedMessage = opts.userMessage;
   if (opts.resolveMentions && opts.ctx.platform === "slack") {
-    const { text, attendees } = await preResolveMentions(
-      opts.userMessage, opts.ctx.teamId, log
-    );
+    const { text, attendees } = await preResolveMentions(opts.userMessage, opts.ctx.teamId, log);
     resolvedMessage = text;
     if (opts.persistContext) {
       await persistBookingContext(opts.thread.id, opts.userMessage, attendees);
@@ -947,15 +1040,23 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
     const externalRef = `agent-${opts.ctx.platform}-${opts.thread.id}-${msgHash}`;
     try {
       const chargeResult = await chargeCredits(token, { externalRef });
-      log.info("Credits charged", { userId: opts.ctx.userId, externalRef, remaining: chargeResult.remainingBalance });
+      log.info("Credits charged", {
+        userId: opts.ctx.userId,
+        externalRef,
+        remaining: chargeResult.remainingBalance,
+      });
 
       // Warn if balance is running low
       if (chargeResult.remainingBalance) {
-        const remaining = chargeResult.remainingBalance.monthlyRemaining + chargeResult.remainingBalance.additional;
+        const remaining =
+          chargeResult.remainingBalance.monthlyRemaining + chargeResult.remainingBalance.additional;
         if (remaining < 10) {
-          const lowBalanceMsg = opts.ctx.platform === "slack"
-            ? `_Your AI credits are running low (${remaining} remaining). Visit <https://cal.com/settings/billing|cal.com/settings/billing> to purchase more._`
-            : `_Your AI credits are running low (${remaining} remaining). Visit [cal.com/settings/billing](https://cal.com/settings/billing) to purchase more._`;
+          const lowBalanceMsg =
+            opts.ctx.platform === "slack"
+              ? `_Your AI credits are running low (${remaining} remaining). Visit <https://cal.com/settings/billing|cal.com/settings/billing> to purchase more._`
+              : opts.ctx.platform === "sendblue"
+                ? `Your AI credits are running low (${remaining} remaining). Visit https://cal.com/settings/billing to purchase more.`
+                : `_Your AI credits are running low (${remaining} remaining). Visit [cal.com/settings/billing](https://cal.com/settings/billing) to purchase more._`;
           if (opts.ctx.platform === "slack") {
             await withSlackToken(opts.ctx.teamId, () => opts.thread.post(lowBalanceMsg));
           } else {
@@ -965,7 +1066,11 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
       }
     } catch (err) {
       // Don't fail the interaction if charging fails — log and continue
-      log.warn("Failed to charge credits", { userId: opts.ctx.userId, externalRef, error: String(err) });
+      log.warn("Failed to charge credits", {
+        userId: opts.ctx.userId,
+        externalRef,
+        error: String(err),
+      });
     }
   });
 }
@@ -977,49 +1082,64 @@ registerTelegramHandlers(bot, {
   extractContext,
 });
 
+registerSendblueHandlers(bot, {
+  withBotErrorHandling,
+  extractContext,
+});
+
 // ─── Telegram freeform messages (1:1 DM only) ───────────────────────────────
 // Only handles DMs. Group messages are handled by onNewMention (unsubscribed)
 // or onSubscribedMessage (subscribed). Even if the bot is a group admin and
 // receives all messages, we only want to respond to @mentions in groups.
 bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
-  if (thread.adapter.name !== "telegram") return;
+  if (thread.adapter.name !== "telegram" && thread.adapter.name !== "sendblue") return;
   if (message.author.isBot || message.author.isMe) return;
-  if (TELEGRAM_COMMAND_RE.test(message.text.trim()))
-    return;
+  if (thread.adapter.name === "telegram" && TELEGRAM_COMMAND_RE.test(message.text.trim())) return;
   if (isAsideMessage(message.text)) return;
 
+  if (thread.adapter.name === "sendblue") {
+    if (isSendblueGroupThread(thread.id)) return;
+    if (message.text.trim().startsWith("/")) return;
+    if (await handleSendblueFlowInput(thread, message, { withBotErrorHandling, extractContext }))
+      return;
+  }
+
   // Restrict to DMs only — group messages (subscribed or not) are handled elsewhere.
-  const isGroupThread = thread.id !== `telegram:${message.author.userId}`;
+  const isGroupThread =
+    thread.adapter.name === "telegram" && thread.id !== `telegram:${message.author.userId}`;
   if (isGroupThread) return;
 
   const ctx = extractContext(thread, message);
 
   bot
-    .getLogger("telegram-freeform")
-    .info("Telegram DM message", { userId: ctx.userId, text: message.text });
+    .getLogger(`${ctx.platform}-freeform`)
+    .info("DM message", { platform: ctx.platform, userId: ctx.userId, text: message.text });
 
   // Empty text means the user sent only "@botname" with no additional text. Show help.
   if (!message.text.trim()) {
-    await thread.post(telegramHelpCard());
+    await thread.post(
+      ctx.platform === "telegram" ? telegramHelpCard() : "Send /help to see available commands."
+    );
     return;
   }
 
   const lastStreamErrorRef = { current: null as Error | null };
   await withBotErrorHandling(
-    () => runAgentHandler({
-      thread,
-      ctx,
-      userMessage: message.text,
-      loggerName: "telegram-freeform",
-      lastStreamErrorRef,
-      promptIfNotLinked: async (reason) => { await thread.post(oauthLinkMessage(ctx.platform, ctx.teamId, ctx.userId, reason)); },
-      shouldSubscribe: () => true,
-      resolveMentions: false,
-      persistContext: true,
-    }),
+    () =>
+      runAgentHandler({
+        thread,
+        ctx,
+        userMessage: message.text,
+        loggerName: `${ctx.platform}-freeform`,
+        lastStreamErrorRef,
+        promptIfNotLinked: (reason) => promptUserToLink(thread, message.author, ctx, reason),
+        shouldSubscribe: () => true,
+        resolveMentions: false,
+        persistContext: true,
+      }),
     {
       postError: (msg) => thread.post(msg).catch(() => {}),
-      logContext: "telegram freeform",
+      logContext: `${ctx.platform} freeform`,
       getCustomErrorMessage: agentStreamErrorMessage(lastStreamErrorRef),
     }
   );
@@ -1037,6 +1157,14 @@ bot.onNewMention(async (thread, message) => {
 
   const ctx = extractContext(thread, message);
 
+  if (ctx.platform === "sendblue") {
+    if (isSendblueGroupThread(thread.id)) return;
+    if (await handleSendblueCommand(thread, message, { withBotErrorHandling, extractContext }))
+      return;
+    if (await handleSendblueFlowInput(thread, message, { withBotErrorHandling, extractContext }))
+      return;
+  }
+
   // For Slack: reconstruct <@USER_ID> mentions from raw blocks (the SDK resolves
   // them to display names in message.text, losing the user ID lookup_platform_user needs).
   // Also handles mailto: email links. Falls back to normalizeSlackText if no blocks.
@@ -1044,7 +1172,9 @@ bot.onNewMention(async (thread, message) => {
   const userMessage =
     ctx.platform === "telegram"
       ? message.text.replace(/^@\S+\s*/, "").trim()
-      : (reconstructSlackMentions(message.raw) ?? normalizeSlackText(message.text));
+      : ctx.platform === "sendblue"
+        ? message.text.trim()
+        : (reconstructSlackMentions(message.raw) ?? normalizeSlackText(message.text));
 
   bot.getLogger("mention").info("New mention", {
     platform: ctx.platform,
@@ -1062,15 +1192,17 @@ bot.onNewMention(async (thread, message) => {
   await withBotErrorHandling(
     async () => {
       // Telegram commands handled by onNewMessage (slash command handler)
-      if (
-        ctx.platform === "telegram" &&
-        TELEGRAM_COMMAND_RE.test(userMessage)
-      )
-        return;
+      if (ctx.platform === "telegram" && TELEGRAM_COMMAND_RE.test(userMessage)) return;
 
       // Empty text means user only sent "@botname" with no additional message — show help.
       if (!userMessage) {
-        await thread.post(ctx.platform === "telegram" ? telegramHelpCard() : helpCard());
+        await thread.post(
+          ctx.platform === "telegram"
+            ? telegramHelpCard()
+            : ctx.platform === "sendblue"
+              ? "Send /help to see available commands."
+              : helpCard()
+        );
         return;
       }
 
@@ -1119,6 +1251,14 @@ bot.onSubscribedMessage(async (thread, message) => {
     if (handled) return;
   }
 
+  if (ctx.platform === "sendblue") {
+    if (isSendblueGroupThread(thread.id)) return;
+    if (await handleSendblueCommand(thread, message, { withBotErrorHandling, extractContext }))
+      return;
+    if (await handleSendblueFlowInput(thread, message, { withBotErrorHandling, extractContext }))
+      return;
+  }
+
   // For Slack: reconstruct <@USER_ID> mentions from raw blocks (the SDK resolves
   // them to display names in message.text, losing the user ID lookup_platform_user needs).
   // Also handles mailto: email links. Falls back to normalizeSlackText if no blocks.
@@ -1126,7 +1266,9 @@ bot.onSubscribedMessage(async (thread, message) => {
   const userMessage =
     ctx.platform === "telegram"
       ? message.text.replace(/^@\S+\s*/, "").trim()
-      : (reconstructSlackMentions(message.raw) ?? normalizeSlackText(message.text));
+      : ctx.platform === "sendblue"
+        ? message.text.trim()
+        : (reconstructSlackMentions(message.raw) ?? normalizeSlackText(message.text));
 
   bot.getLogger("thread-follow-up").info("Thread follow-up", {
     platform: ctx.platform,
@@ -1143,17 +1285,18 @@ bot.onSubscribedMessage(async (thread, message) => {
       : thread.post(msg).catch(() => {});
 
   await withBotErrorHandling(
-    () => runAgentHandler({
-      thread,
-      ctx,
-      userMessage,
-      loggerName: "thread-follow-up",
-      lastStreamErrorRef,
-      promptIfNotLinked: (reason) => promptUserToLink(thread, message.author, ctx, reason),
-      shouldSubscribe: () => !!(message.isMention),
-      resolveMentions: true,
-      persistContext: false,
-    }),
+    () =>
+      runAgentHandler({
+        thread,
+        ctx,
+        userMessage,
+        loggerName: "thread-follow-up",
+        lastStreamErrorRef,
+        promptIfNotLinked: (reason) => promptUserToLink(thread, message.author, ctx, reason),
+        shouldSubscribe: () => !!message.isMention,
+        resolveMentions: true,
+        persistContext: false,
+      }),
     {
       postError: safePost,
       logContext: "thread follow-up",

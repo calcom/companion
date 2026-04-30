@@ -16,6 +16,23 @@ export function validateRequiredEnv(): void {
     missing.push("TELEGRAM_BOT_USERNAME (required when TELEGRAM_BOT_TOKEN is set)");
   }
 
+  const sendblueVars = [
+    process.env.SENDBLUE_API_KEY,
+    process.env.SENDBLUE_API_SECRET,
+    process.env.SENDBLUE_FROM_NUMBER,
+  ];
+  if (sendblueVars.some(Boolean)) {
+    if (!process.env.SENDBLUE_API_KEY) {
+      missing.push("SENDBLUE_API_KEY (required when Sendblue is enabled)");
+    }
+    if (!process.env.SENDBLUE_API_SECRET) {
+      missing.push("SENDBLUE_API_SECRET (required when Sendblue is enabled)");
+    }
+    if (!process.env.SENDBLUE_FROM_NUMBER) {
+      missing.push("SENDBLUE_FROM_NUMBER (required when Sendblue is enabled)");
+    }
+  }
+
   if (process.env.NODE_ENV === "production" && !process.env.REDIS_URL) {
     throw new Error(
       "REDIS_URL is required in production. The in-memory state adapter is not suitable for production (state is lost on restart, locks don't work across instances)."

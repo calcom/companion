@@ -13,6 +13,7 @@ import {
 } from "chat";
 import type { CalcomWebhookPayload, ScheduleAvailability } from "./calcom/types";
 import { formatBookingTime } from "./calcom/webhooks";
+import { formatAvailabilitySummary } from "./format-availability-summary";
 
 const CALCOM_APP_URL = process.env.CALCOM_APP_URL ?? "https://app.cal.com";
 
@@ -355,9 +356,7 @@ export function profileCard(linked: {
           : []),
       ]),
       Divider(),
-      Actions([
-        LinkButton({ url: CALCOM_APP_URL, label: "Open Cal.com" }),
-      ]),
+      Actions([LinkButton({ url: CALCOM_APP_URL, label: "Open Cal.com" })]),
       CardText("Use /unlink to disconnect your account."),
     ],
   });
@@ -366,7 +365,13 @@ export function profileCard(linked: {
 // ─── Event types list card ──────────────────────────────────────────────────
 
 export function eventTypesListCard(
-  eventTypes: Array<{ title: string; slug: string; length: number; hidden: boolean; bookingUrl?: string | null }>
+  eventTypes: Array<{
+    title: string;
+    slug: string;
+    length: number;
+    hidden: boolean;
+    bookingUrl?: string | null;
+  }>
 ) {
   if (eventTypes.length === 0) {
     return Card({
@@ -400,67 +405,6 @@ export function eventTypesListCard(
 }
 
 // ─── Schedules list card ────────────────────────────────────────────────────
-
-const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const DAY_SHORT: Record<string, string> = {
-  Monday: "Mon",
-  Tuesday: "Tue",
-  Wednesday: "Wed",
-  Thursday: "Thu",
-  Friday: "Fri",
-  Saturday: "Sat",
-  Sunday: "Sun",
-};
-
-export function formatAvailabilitySummary(availability: ScheduleAvailability[]): string {
-  if (availability.length === 0) return "No hours set";
-
-  // Build a map of timeRange -> sorted days
-  const rangeMap = new Map<string, string[]>();
-  for (const entry of availability) {
-    const range = `${entry.startTime}-${entry.endTime}`;
-    for (const day of entry.days) {
-      const existing = rangeMap.get(range) ?? [];
-      existing.push(day);
-      rangeMap.set(range, existing);
-    }
-  }
-
-  const parts: string[] = [];
-  for (const [range, days] of rangeMap.entries()) {
-    const sorted = days.sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
-    const dayStr = compressDays(sorted);
-    parts.push(`${dayStr} ${range}`);
-  }
-  return parts.join(", ");
-}
-
-function compressDays(sortedDays: string[]): string {
-  if (sortedDays.length === 0) return "";
-  if (sortedDays.length === 1) return DAY_SHORT[sortedDays[0]] ?? sortedDays[0];
-
-  const runs: string[][] = [];
-  let currentRun = [sortedDays[0]];
-
-  for (let i = 1; i < sortedDays.length; i++) {
-    const prevIdx = DAY_ORDER.indexOf(sortedDays[i - 1]);
-    const currIdx = DAY_ORDER.indexOf(sortedDays[i]);
-    if (currIdx === prevIdx + 1) {
-      currentRun.push(sortedDays[i]);
-    } else {
-      runs.push(currentRun);
-      currentRun = [sortedDays[i]];
-    }
-  }
-  runs.push(currentRun);
-
-  return runs
-    .map((run) => {
-      if (run.length <= 2) return run.map((d) => DAY_SHORT[d] ?? d).join(", ");
-      return `${DAY_SHORT[run[0]] ?? run[0]}-${DAY_SHORT[run[run.length - 1]] ?? run[run.length - 1]}`;
-    })
-    .join(", ");
-}
 
 export function schedulesListCard(
   schedules: Array<{
@@ -534,11 +478,7 @@ export function cancelBookingPickerCard(
   });
 }
 
-export function cancelConfirmCard(
-  title: string,
-  date: string,
-  isRecurring: boolean
-) {
+export function cancelConfirmCard(title: string, date: string, isRecurring: boolean) {
   const buttons = [
     Button({ id: "cancel_confirm", style: "danger" as const, label: "Cancel this booking" }),
   ];
@@ -552,10 +492,7 @@ export function cancelConfirmCard(
   return Card({
     title: "Confirm Cancellation",
     children: [
-      Fields([
-        Field({ label: "Booking", value: title }),
-        Field({ label: "When", value: date }),
-      ]),
+      Fields([Field({ label: "Booking", value: title }), Field({ label: "When", value: date })]),
       Divider(),
       Actions(buttons),
     ],
@@ -624,11 +561,7 @@ export function rescheduleSlotPickerCard(
   });
 }
 
-export function rescheduleConfirmCard(
-  bookingTitle: string,
-  oldTime: string,
-  newTime: string
-) {
+export function rescheduleConfirmCard(bookingTitle: string, oldTime: string, newTime: string) {
   return Card({
     title: "Confirm Reschedule",
     children: [
@@ -679,11 +612,9 @@ export function telegramSlotPickerCard(
     subtitle: eventTypeTitle,
     children: [
       CardText("Showing up to the first 5 soonest options."),
-      ...slots.slice(0, 5).map((s, i) =>
-        Actions([
-          Button({ id: `tg_book_slot_${i}`, label: s.label }),
-        ])
-      ),
+      ...slots
+        .slice(0, 5)
+        .map((s, i) => Actions([Button({ id: `tg_book_slot_${i}`, label: s.label })])),
       Actions([Button({ id: "tg_book_cancel", style: "danger" as const, label: "Cancel" })]),
     ],
   });
@@ -752,9 +683,11 @@ export function bookEventTypePickerCard(
             id: "select_book_event_type",
             label: "Event Type",
             placeholder: "Select an event type",
-            options: eventTypes.slice(0, 100).map((et) =>
-              SelectOption({ label: `${et.title} (${et.length}min)`, value: et.slug })
-            ),
+            options: eventTypes
+              .slice(0, 100)
+              .map((et) =>
+                SelectOption({ label: `${et.title} (${et.length}min)`, value: et.slug })
+              ),
           }),
         ]),
       ]),
@@ -790,9 +723,7 @@ export function bookSlotPickerCard(
             id: "select_book_slot",
             label: "Time",
             placeholder: "Select a time",
-            options: slots
-              .slice(0, 5)
-              .map((s) => SelectOption({ label: s.label, value: s.time })),
+            options: slots.slice(0, 5).map((s) => SelectOption({ label: s.label, value: s.time })),
           }),
         ]),
       ]),
@@ -800,11 +731,7 @@ export function bookSlotPickerCard(
   });
 }
 
-export function bookConfirmCard(
-  eventTypeTitle: string,
-  slotLabel: string,
-  targetUsername: string
-) {
+export function bookConfirmCard(eventTypeTitle: string, slotLabel: string, targetUsername: string) {
   return Card({
     title: "Confirm Booking",
     children: [
