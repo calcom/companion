@@ -15,7 +15,15 @@ interface RequireAgentCreditsParams {
   postNoCredits: (message: string) => Promise<unknown>;
 }
 
-export function agentNoCreditsMessage(platform: string): string {
+type AgentCreditsBlockReason = "no_credits" | "verification_failed";
+
+export function agentNoCreditsMessage(platform: string, reason: AgentCreditsBlockReason): string {
+  if (reason === "no_credits") {
+    return platform === "slack"
+      ? "You don't have AI credits available right now. Use `/cal help` to see the regular slash commands you can still use."
+      : "You don't have AI credits available right now. Use /help to see the regular commands you can still use.";
+  }
+
   return platform === "slack"
     ? "The AI assistant isn't available right now because we couldn't verify available AI credits for your account. Use `/cal help` to see the regular slash commands you can still use."
     : "The AI assistant isn't available right now because we couldn't verify available AI credits for your account. Use /help to see the regular commands you can still use.";
@@ -63,7 +71,7 @@ export async function requireAgentCredits({
         monthlyRemaining,
         additional,
       });
-      await postNoCredits(agentNoCreditsMessage(ctx.platform));
+      await postNoCredits(agentNoCreditsMessage(ctx.platform, "no_credits"));
       return false;
     }
 
@@ -89,7 +97,7 @@ export async function requireAgentCredits({
       statusCode: err instanceof CalcomApiError ? err.statusCode : undefined,
       code: err instanceof CalcomApiError ? err.code : undefined,
     });
-    await postNoCredits(agentNoCreditsMessage(ctx.platform));
+    await postNoCredits(agentNoCreditsMessage(ctx.platform, "verification_failed"));
     return false;
   }
 }

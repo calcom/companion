@@ -2,6 +2,7 @@ import type { SlackAdapter } from "@chat-adapter/slack";
 import { cardToBlockKit } from "@chat-adapter/slack";
 import type { ModelMessage } from "ai";
 import type { Chat, SlashCommandEvent, Thread } from "chat";
+import { createHash } from "node:crypto";
 import {
   Actions,
   Button,
@@ -22,6 +23,7 @@ import { requireAgentCredits } from "../agent-credits";
 import {
   CalcomApiError,
   cancelBooking,
+  chargeCredits,
   createBooking,
   createBookingPublic,
   getAvailableSlotsPublic,
@@ -1716,6 +1718,21 @@ export function registerSlackHandlers(
         await postAgentStream(thread, result, ctx, {
           onErrorRef: lastStreamErrorRef,
         });
+
+        const messageText = lastUserMessage.content as string;
+        const msgHash = createHash("sha256").update(messageText).digest("hex").slice(0, 12);
+        const externalRef = `agent-${event.adapter.name}-${thread.id}-${msgHash}`;
+        try {
+          await chargeCredits(accessToken, { externalRef });
+          logger.info("Credits charged for retry response", { userId, externalRef });
+        } catch (err) {
+          // Don't fail the interaction if charging fails after a successful retry.
+          logger.warn("Failed to charge credits for retry response", {
+            userId,
+            externalRef,
+            error: String(err),
+          });
+        }
       },
       {
         postError: (msg) => thread.post(msg).catch(() => {}),
