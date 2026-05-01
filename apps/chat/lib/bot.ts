@@ -28,7 +28,8 @@ import {
 import { createHash } from "node:crypto";
 import type { LookupPlatformUserFn, UserContext } from "./agent";
 import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
-import { CalcomApiError, checkCredits, chargeCredits } from "./calcom/client";
+import { requireAgentCredits } from "./agent-credits";
+import { CalcomApiError, chargeCredits } from "./calcom/client";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
 import { formatForTelegram } from "./format-for-telegram";
@@ -880,25 +881,17 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
   // Re-read in case token refresh synced org fields from /v2/me
   linked = await getLinkedUser(opts.ctx.teamId, opts.ctx.userId) ?? linked;
 
-  try {
-    const credits = await checkCredits(token);
-    if (!credits.hasCredits) {
-      log.info("Agentic blocked — no credits", { userId: opts.ctx.userId });
-      const noCreditsMsg = opts.ctx.platform === "slack"
-        ? "You've run out of AI credits. Use `/cal help` to see available slash commands, or purchase more credits at <https://cal.com/pricing|cal.com/pricing>."
-        : "You've run out of AI credits. Use /help to see available commands, or purchase more credits at [cal.com/pricing](https://cal.com/pricing).";
-      if (opts.ctx.platform === "slack") {
-        await withSlackToken(opts.ctx.teamId, () => opts.thread.post(noCreditsMsg));
-      } else {
-        await opts.thread.post(noCreditsMsg);
-      }
-      return;
-    }
-  } catch (err) {
-    // If credits endpoint is unavailable, allow the request through
-    // so existing org-plan users aren't blocked during rollout.
-    log.warn("Credits check failed, allowing request", { userId: opts.ctx.userId, error: String(err) });
-  }
+  const hasAgentCredits = await requireAgentCredits({
+    accessToken: token,
+    ctx: opts.ctx,
+    logger: log,
+    gateName: opts.loggerName,
+    postNoCredits: (message) =>
+      opts.ctx.platform === "slack"
+        ? withSlackToken(opts.ctx.teamId, () => opts.thread.post(message))
+        : opts.thread.post(message),
+  });
+  if (!hasAgentCredits) return;
 
   if (await opts.shouldSubscribe()) {
     if (!(await opts.thread.isSubscribed())) {

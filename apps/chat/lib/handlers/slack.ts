@@ -18,6 +18,7 @@ import {
 } from "chat";
 import type { LookupPlatformUserFn } from "../agent";
 import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "../agent";
+import { requireAgentCredits } from "../agent-credits";
 import {
   CalcomApiError,
   cancelBooking,
@@ -740,20 +741,15 @@ export function registerSlackHandlers(
               );
               return;
             }
-            try {
-              const { checkCredits } = await import("../calcom/client");
-              const credits = await checkCredits(accessTokenForAgent);
-              if (!credits.hasCredits) {
-                await event.channel.postEphemeral(
-                  event.user,
-                  "You've run out of AI credits. Use `/cal help` to see available slash commands, or purchase more credits at <https://cal.com/pricing|cal.com/pricing>.",
-                  { fallbackToDM: true }
-                );
-                return;
-              }
-            } catch {
-              // If credits check fails, allow the request through during rollout
-            }
+            const hasAgentCredits = await requireAgentCredits({
+              accessToken: accessTokenForAgent,
+              ctx: { platform: "slack", teamId, userId },
+              logger,
+              gateName: "/cal natural query",
+              postNoCredits: (message) =>
+                event.channel.postEphemeral(event.user, message, { fallbackToDM: true }),
+            });
+            if (!hasAgentCredits) return;
 
             const result = runAgentStream({
               teamId,
@@ -1683,6 +1679,21 @@ export function registerSlackHandlers(
       async () => {
         const linked = await getLinkedUser(teamId, userId);
         if (!linked) return;
+
+        const accessToken = await getValidAccessToken(teamId, userId);
+        if (!accessToken) {
+          await thread.post(oauthLinkMessage(event.adapter.name, teamId, userId));
+          return;
+        }
+
+        const hasAgentCredits = await requireAgentCredits({
+          accessToken,
+          ctx,
+          logger,
+          gateName: "retry_response",
+          postNoCredits: (message) => thread.post(message),
+        });
+        if (!hasAgentCredits) return;
 
         const history = await buildHistory(thread);
         const lastUserMessage = [...history].reverse().find((m) => m.role === "user");
