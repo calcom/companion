@@ -170,7 +170,7 @@ export async function POST(request: Request) {
   if (hasSendblueTarget && sendblueAdapter) {
     try {
       const threadId =
-        sendblueThreadId ??
+        sendblueThreadId ||
         sendblueAdapter.encodeThreadId({
           fromNumber: process.env.SENDBLUE_FROM_NUMBER ?? "",
           contactNumber: sendbluePhone,
