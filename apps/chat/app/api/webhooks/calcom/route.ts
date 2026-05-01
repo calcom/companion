@@ -41,19 +41,15 @@ export async function POST(request: Request) {
   let telegramChatId = metadata?.telegram_chat_id;
   let sendbluePhone = metadata?.sendblue_phone;
   const sendblueThreadId = metadata?.sendblue_thread_id;
-  const hasExplicitRouting = !!(
-    teamId ||
-    slackUserId ||
-    telegramChatId ||
-    sendbluePhone ||
-    sendblueThreadId
-  );
+  const needsLinkedUserRouting =
+    (!telegramChatId && !!process.env.TELEGRAM_BOT_TOKEN) ||
+    (!sendbluePhone && !sendblueThreadId && !!process.env.SENDBLUE_API_KEY);
 
-  if (!hasExplicitRouting && (process.env.TELEGRAM_BOT_TOKEN || process.env.SENDBLUE_API_KEY)) {
+  if (needsLinkedUserRouting) {
     const linkedByEmail = await getLinkedUserByEmail(webhook.payload.organizer.email);
-    if (linkedByEmail?.teamId === "telegram") {
+    if (!telegramChatId && linkedByEmail?.teamId === "telegram") {
       telegramChatId = linkedByEmail.userId;
-    } else if (linkedByEmail?.teamId === "sendblue") {
+    } else if (!sendbluePhone && !sendblueThreadId && linkedByEmail?.teamId === "sendblue") {
       sendbluePhone = linkedByEmail.userId;
     }
   }
