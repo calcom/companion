@@ -83,6 +83,27 @@ function isSlackAuthError(err: unknown): boolean {
   return false;
 }
 
+function getNestedString(value: unknown, path: string[]): string | undefined {
+  let current = value;
+  for (const key of path) {
+    if (!current || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[key];
+  }
+  return typeof current === "string" || typeof current === "number" ? String(current) : undefined;
+}
+
+function getRetryEventId(raw: unknown): string {
+  const stableId =
+    getNestedString(raw, ["callback_query", "id"]) ??
+    getNestedString(raw, ["id"]) ??
+    getNestedString(raw, ["trigger_id"]) ??
+    getNestedString(raw, ["actions", "0", "action_ts"]) ??
+    getNestedString(raw, ["container", "message_ts"]) ??
+    getNestedString(raw, ["message", "ts"]);
+
+  return stableId ?? `ts-${Date.now()}`;
+}
+
 export interface PlatformContext {
   platform: string;
   teamId: string;
@@ -1721,7 +1742,8 @@ export function registerSlackHandlers(
 
         const messageText = lastUserMessage.content as string;
         const msgHash = createHash("sha256").update(messageText).digest("hex").slice(0, 12);
-        const externalRef = `agent-${event.adapter.name}-${thread.id}-${msgHash}`;
+        const retryEventId = createHash("sha256").update(getRetryEventId(event.raw)).digest("hex").slice(0, 12);
+        const externalRef = `agent-${event.adapter.name}-${thread.id}-${msgHash}-retry-${retryEventId}`;
         try {
           await chargeCredits(accessToken, { externalRef });
           logger.info("Credits charged for retry response", { userId, externalRef });
