@@ -1,10 +1,8 @@
-import { slackAdapter } from "@/lib/bot";
-import { getLogger } from "@/lib/logger";
-
-const logger = getLogger("calcom-webhook");
-
+import { getSendblueAdapter, slackAdapter } from "@/lib/bot";
 import type { CalcomWebhookMetadata } from "@/lib/calcom/types";
 import { parseCalcomWebhook, verifyCalcomWebhook } from "@/lib/calcom/webhooks";
+import { formatCalcomWebhookForSendblue } from "@/lib/format-for-sendblue";
+import { getLogger } from "@/lib/logger";
 import {
   bookingCancelledCard,
   bookingConfirmedCard,
@@ -13,6 +11,8 @@ import {
   bookingRescheduledCard,
 } from "@/lib/notifications";
 import { getLinkedUserByEmail, getWorkspaceNotificationConfig } from "@/lib/user-linking";
+
+const logger = getLogger("calcom-webhook");
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -39,26 +39,44 @@ export async function POST(request: Request) {
   const teamId = metadata?.slack_team_id;
   const slackUserId = metadata?.slack_user_id;
   let telegramChatId = metadata?.telegram_chat_id;
+  let sendbluePhone = metadata?.sendblue_phone;
+  const sendblueThreadId = metadata?.sendblue_thread_id;
+  const hasExplicitRouting = !!(
+    teamId ||
+    slackUserId ||
+    telegramChatId ||
+    sendbluePhone ||
+    sendblueThreadId
+  );
+  const needsLinkedUserRouting =
+    !hasExplicitRouting &&
+    ((!telegramChatId && !!process.env.TELEGRAM_BOT_TOKEN) ||
+      (!sendbluePhone && !sendblueThreadId && !!process.env.SENDBLUE_API_KEY));
 
-  if (!telegramChatId && process.env.TELEGRAM_BOT_TOKEN) {
+  if (needsLinkedUserRouting) {
     const linkedByEmail = await getLinkedUserByEmail(webhook.payload.organizer.email);
-    if (linkedByEmail?.teamId === "telegram") {
+    if (!telegramChatId && linkedByEmail?.teamId === "telegram") {
       telegramChatId = linkedByEmail.userId;
+    } else if (!sendbluePhone && !sendblueThreadId && linkedByEmail?.teamId === "sendblue") {
+      sendbluePhone = linkedByEmail.userId;
     }
   }
 
+  const sendblueAdapter = getSendblueAdapter();
   const workspaceConfig = teamId ? await getWorkspaceNotificationConfig(teamId) : null;
   const hasSlackTarget = !!(teamId && (slackUserId || workspaceConfig?.defaultChannelId));
   const hasTelegramTarget = !!(telegramChatId && process.env.TELEGRAM_BOT_TOKEN);
+  const hasSendblueTarget = !!(sendblueAdapter && (sendbluePhone || sendblueThreadId));
 
   logger.info("Cal.com webhook", {
     event: webhook.triggerEvent,
     organizerEmail: webhook.payload.organizer.email,
     hasSlackTarget,
     hasTelegramTarget,
+    hasSendblueTarget,
   });
 
-  if (!hasSlackTarget && !hasTelegramTarget) {
+  if (!hasSlackTarget && !hasTelegramTarget && !hasSendblueTarget) {
     logger.info("Cal.com webhook skipped", { reason: "no_target", event: webhook.triggerEvent });
     return new Response("OK", { status: 200 });
   }
@@ -70,7 +88,8 @@ export async function POST(request: Request) {
     return true;
   };
 
-  if (!shouldNotify(webhook.triggerEvent)) {
+  const shouldNotifySlack = shouldNotify(webhook.triggerEvent);
+  if (!shouldNotifySlack && !hasTelegramTarget && !hasSendblueTarget) {
     logger.info("Cal.com webhook skipped", {
       reason: "workspace_config",
       event: webhook.triggerEvent,
@@ -101,7 +120,7 @@ export async function POST(request: Request) {
 
   const { bot } = await import("@/lib/bot");
 
-  if (hasSlackTarget && teamId) {
+  if (hasSlackTarget && teamId && shouldNotifySlack) {
     const targetChannelId = workspaceConfig?.defaultChannelId ?? null;
     // Channel ID format: Slack channel ID (C...) or user ID (U...) for DMs
     const channelId = targetChannelId ?? slackUserId ?? "";
@@ -143,6 +162,32 @@ export async function POST(request: Request) {
         err,
         target: "telegram",
         chatId: telegramChatId,
+        event: webhook.triggerEvent,
+      });
+    }
+  }
+
+  if (hasSendblueTarget && sendblueAdapter) {
+    try {
+      const threadId =
+        sendblueThreadId ||
+        sendblueAdapter.encodeThreadId({
+          fromNumber: process.env.SENDBLUE_FROM_NUMBER ?? "",
+          contactNumber: sendbluePhone,
+        });
+      const channel = bot.channel(threadId);
+      await channel.post(formatCalcomWebhookForSendblue(webhook));
+      logger.info("Cal.com notification sent", {
+        target: "sendblue",
+        threadId,
+        event: webhook.triggerEvent,
+      });
+    } catch (err) {
+      logger.error("Cal.com notification failed", {
+        err,
+        target: "sendblue",
+        phone: sendbluePhone,
+        threadId: sendblueThreadId,
         event: webhook.triggerEvent,
       });
     }

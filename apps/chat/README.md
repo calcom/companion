@@ -1,6 +1,6 @@
 # Cal.com Chat Bot
 
-A multi-platform chat bot for Cal.com built with [Chat SDK](https://chat-sdk.dev) and Next.js. Supports **Slack** and **Telegram**.
+A multi-platform chat bot for Cal.com built with [Chat SDK](https://chat-sdk.dev) and Next.js. Supports **Slack**, **Telegram**, and **Sendblue iMessage**.
 
 ## Features
 
@@ -19,12 +19,20 @@ A multi-platform chat bot for Cal.com built with [Chat SDK](https://chat-sdk.dev
 - **`/unlink`** — disconnect your Cal.com account
 - **@mention** — ask anything in natural language (AI-powered)
 
+### Sendblue iMessage
+- **`/bookings`** — view upcoming bookings
+- **`/availability`** — check your availability
+- **`/book <username>`** — book a public Cal.com event with numbered text prompts
+- **`/cancel` / `/reschedule`** — manage upcoming bookings with text confirmations
+- **`/link`** — connect your Cal.com account via OAuth
+- **Freeform message** — ask anything in natural language (AI-powered)
+
 ## Architecture
 
 ```
 app/
   api/
-    webhooks/[platform]/route.ts   # Chat SDK webhook handler (Slack + Telegram events)
+    webhooks/[platform]/route.ts   # Chat SDK webhook handler (Slack + Telegram + Sendblue events)
     webhooks/calcom/route.ts       # Cal.com webhook receiver (booking notifications)
     auth/slack/callback/route.ts   # Slack OAuth callback (workspace install)
     auth/calcom/callback/route.ts  # Cal.com OAuth callback (user account linking)
@@ -37,6 +45,7 @@ lib/
   notifications.ts                 # Booking notification card builders
   user-linking.ts                  # Redis: platform user <-> Cal.com account linking + token refresh
   format-for-telegram.ts           # Converts markdown/cards to Telegram-safe HTML
+  format-for-sendblue.ts           # Plain-text formatting for iMessage/SMS
   redis.ts                         # Redis client (Upstash / ioredis)
   logger.ts                        # Structured logger
   env.ts                           # Startup environment variable validation
@@ -48,6 +57,7 @@ lib/
   handlers/
     slack.ts                       # Slack-specific slash command + action handlers
     telegram.ts                    # Telegram-specific slash command handlers
+    sendblue.ts                    # Sendblue text command + numbered flow handlers
 slack-manifest.yml                 # Slack app manifest template
 vercel.json                        # Vercel deployment config (region: iad1)
 ```
@@ -57,6 +67,7 @@ vercel.json                        # Vercel deployment config (region: iad1)
 - Node.js 20.9+ / Bun
 - A Slack workspace (for Slack bot)
 - A Telegram account and BotFather access (for Telegram bot, optional)
+- A Sendblue account and registered iMessage-enabled phone number (for Sendblue, optional)
 - A Redis instance — [Upstash](https://upstash.com) recommended for Vercel (serverless-compatible)
 - A Cal.com account with OAuth client access
 
@@ -113,6 +124,11 @@ cp .env.example .env
 | `TELEGRAM_BOT_USERNAME`       | —        | Your bot's username (e.g. `CalcomBot`) — required when `TELEGRAM_BOT_TOKEN` is set |
 | `TELEGRAM_WEBHOOK_SECRET_TOKEN` | —      | Optional secret to verify incoming Telegram webhook requests                |
 | `TELEGRAM_API_BASE_URL`       | —        | Override Telegram API gateway (default: `https://api.telegram.org`)        |
+| `SENDBLUE_API_KEY`            | —        | Sendblue API key — required to enable Sendblue iMessage                    |
+| `SENDBLUE_API_SECRET`         | —        | Sendblue API secret — required when `SENDBLUE_API_KEY` is set              |
+| `SENDBLUE_FROM_NUMBER`        | —        | Registered Sendblue phone number in E.164 format                          |
+| `SENDBLUE_WEBHOOK_SECRET`     | —        | Optional secret checked from the `sb-signing-secret` webhook header        |
+| `SENDBLUE_STATUS_CALLBACK_URL` | —       | Optional outbound delivery status callback URL                             |
 | `REDIS_KEY_PREFIX`            | —        | Key prefix for Chat SDK state (default: `chat-sdk`). Changing this requires reinstalling the Slack app |
 | `REDIS_USE_IOREDIS`           | —        | Set `true` to use ioredis adapter (Redis Cluster / Sentinel support)        |
 | `LOG_LEVEL`                   | —        | `debug` \| `info` \| `warn` \| `error` \| `silent` (default: `info` in prod, `debug` in dev) |
@@ -141,7 +157,10 @@ docker run -p 6379:6379 redis
 2. Create a new webhook pointing to `https://your-domain.com/api/webhooks/calcom`
 3. Enable events: `BOOKING_CREATED`, `BOOKING_RESCHEDULED`, `BOOKING_CANCELLED`, `BOOKING_CONFIRMED`
 4. Add a signing secret and set it as `CALCOM_WEBHOOK_SECRET`
-5. (Optional) In the webhook metadata, include `slack_team_id` and `slack_user_id` to route notifications to specific users
+5. (Optional) In the webhook metadata, include routing fields:
+   - Slack: `slack_team_id` and `slack_user_id`
+   - Telegram: `telegram_chat_id`
+   - Sendblue: `sendblue_phone` or `sendblue_thread_id`
 
 ### Telegram (optional)
 
@@ -164,6 +183,26 @@ To enable the Telegram bot alongside Slack:
 **Group chat:** Add the bot to a group. It responds only to @mentions. The bot does not need to be an admin.
 
 **Limitations:** Streaming uses post+edit fallback (no native streaming). Modals are not supported. Button callback data is limited to 64 bytes — keep action IDs short.
+
+### Sendblue iMessage (optional)
+
+To enable Sendblue alongside Slack and Telegram:
+
+1. Create a Sendblue account and register an iMessage-capable sending number
+2. Add to `.env`:
+   - `SENDBLUE_API_KEY`
+   - `SENDBLUE_API_SECRET`
+   - `SENDBLUE_FROM_NUMBER`
+   - `SENDBLUE_WEBHOOK_SECRET` if you configure webhook verification
+3. Point Sendblue inbound webhooks to:
+   ```text
+   https://your-domain.com/api/webhooks/sendblue
+   ```
+4. If using webhook verification, configure Sendblue to send the same secret in the `sb-signing-secret` header.
+
+**Services:** The adapter accepts iMessage inbound messages by default. SMS/RCS are intentionally not enabled here.
+
+**Limitations:** Sendblue/iMessage has no message editing, modals, dropdowns, or buttons. The bot uses numbered text prompts for booking, cancellation, and rescheduling flows. Group iMessage threads are intentionally ignored.
 
 ### 7. Run locally
 
@@ -190,6 +229,12 @@ Remember to restore the production webhook URL (including the secret token if yo
 
 ```bash
 curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-production-domain.com/api/webhooks/telegram&secret_token=<YOUR_SECRET>"
+```
+
+If you are testing Sendblue locally, point the Sendblue inbound webhook at your tunnel:
+
+```text
+https://YOUR_NGROK_URL/api/webhooks/sendblue
 ```
 
 ### 8. Install the app to a workspace
@@ -221,6 +266,7 @@ After deploy, complete this checklist:
 3. **Update Cal.com OAuth** — Set redirect URI to `https://your-vercel-url.vercel.app/api/auth/calcom/callback`
 4. **Update Cal.com webhook** — Set webhook URL to `https://your-vercel-url.vercel.app/api/webhooks/calcom`
 5. **Update Telegram webhook** (if enabled) — Point to `https://your-vercel-url.vercel.app/api/webhooks/telegram`
+6. **Update Sendblue webhook** (if enabled) — Point to `https://your-vercel-url.vercel.app/api/webhooks/sendblue`
 
 > **Region:** `vercel.json` defaults to `iad1` (US East). Change the `regions` field to deploy closer to your users or your Upstash database region.
 
@@ -248,8 +294,26 @@ After deploy, complete this checklist:
 | `/help`          | Show help                       |
 | `@mention`       | Ask anything in natural language |
 
+### Sendblue
+
+| Command              | Description                     |
+| -------------------- | ------------------------------- |
+| `/link`              | Connect your Cal.com account    |
+| `/unlink`            | Disconnect your Cal.com account |
+| `/availability`      | Check your availability         |
+| `/book <username>`   | Book a meeting                  |
+| `/bookings`          | View upcoming bookings          |
+| `/cancel`            | Cancel a booking                |
+| `/reschedule`        | Reschedule a booking            |
+| `/eventtypes`        | List your event types           |
+| `/schedules`         | Show your working hours         |
+| `/profile`           | Show your linked profile        |
+| `/help`              | Show help                       |
+| Freeform text        | Ask anything in natural language |
+
 ## Next steps
 
 - [Chat SDK docs](https://chat-sdk.dev/docs) — Cards, Modals, Streaming, Actions
 - [Slack adapter](https://chat-sdk.dev/docs/adapters/slack) — Multi-workspace OAuth, token encryption
 - [Telegram adapter](https://chat-sdk.dev/docs/adapters/telegram) — Webhook setup, group bots
+- [Sendblue adapter](https://github.com/midday-ai/chat-adapter-sendblue) — iMessage adapter used here with SMS/RCS disabled

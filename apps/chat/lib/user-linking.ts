@@ -282,6 +282,53 @@ export interface RescheduleFlowState {
   selectedSlot?: string;
 }
 
+interface SendblueEventTypeOption {
+  id: number;
+  title: string;
+  slug: string;
+  length: number;
+}
+
+interface SendblueBookingOption {
+  uid: string;
+  title: string;
+  start: string;
+  end: string;
+  isRecurring: boolean;
+  eventTypeSlug?: string;
+  eventTypeId?: number;
+}
+
+interface SendblueSlotOption {
+  time: string;
+  label: string;
+}
+
+export type SendblueFlowState =
+  | {
+      type: "book";
+      targetUsername: string;
+      eventTypes: SendblueEventTypeOption[];
+      step: "awaiting_event_type" | "awaiting_slot" | "awaiting_confirmation";
+      selectedEventType?: SendblueEventTypeOption;
+      slots?: SendblueSlotOption[];
+      selectedSlot?: SendblueSlotOption;
+    }
+  | {
+      type: "cancel";
+      bookings: SendblueBookingOption[];
+      step: "awaiting_booking" | "awaiting_confirmation" | "awaiting_recurring_scope";
+      selectedBooking?: SendblueBookingOption;
+    }
+  | {
+      type: "reschedule";
+      bookings: SendblueBookingOption[];
+      step: "awaiting_booking" | "awaiting_slot" | "awaiting_confirmation";
+      selectedBooking?: SendblueBookingOption;
+      slots?: SendblueSlotOption[];
+      selectedSlot?: SendblueSlotOption;
+    };
+
 export async function setBookingFlow(
   teamId: string,
   userId: string,
@@ -376,6 +423,42 @@ export async function clearRescheduleFlow(teamId: string, userId: string): Promi
   await client.del(`calcom:reschedule_flow:${teamId}:${userId}`);
 }
 
+// ─── Sendblue text flow state ────────────────────────────────────────────────
+
+function sendblueFlowKey(teamId: string, userId: string): string {
+  return `calcom:sendblue_flow:${teamId}:${userId}`;
+}
+
+export async function setSendblueFlow(
+  teamId: string,
+  userId: string,
+  state: SendblueFlowState
+): Promise<void> {
+  const client = getRedisClient();
+  await client.set(sendblueFlowKey(teamId, userId), JSON.stringify(state), {
+    EX: BOOKING_FLOW_TTL_SECONDS,
+  });
+}
+
+export async function getSendblueFlow(
+  teamId: string,
+  userId: string
+): Promise<SendblueFlowState | null> {
+  const client = getRedisClient();
+  const raw = await client.get(sendblueFlowKey(teamId, userId));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as SendblueFlowState;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearSendblueFlow(teamId: string, userId: string): Promise<void> {
+  const client = getRedisClient();
+  await client.del(sendblueFlowKey(teamId, userId));
+}
+
 // ─── Tool context persistence (per-thread, survives across webhook invocations) ─
 
 export interface ToolContextEntry {
@@ -400,10 +483,7 @@ export async function getToolContext(threadId: string): Promise<ToolContextEntry
   }
 }
 
-export async function setToolContext(
-  threadId: string,
-  entries: ToolContextEntry[]
-): Promise<void> {
+export async function setToolContext(threadId: string, entries: ToolContextEntry[]): Promise<void> {
   const client = getRedisClient();
   await client.set(toolContextKey(threadId), encryptData(JSON.stringify(entries)), {
     EX: TOOL_CONTEXT_TTL_SECONDS,

@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   if (!payload) {
     return redirectWithError(
       request,
-      "Invalid or expired authorization link. Please try /cal link again."
+      "Invalid or expired authorization link. Please return to your chat app and run the link command again."
     );
   }
 
