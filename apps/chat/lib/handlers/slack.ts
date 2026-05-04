@@ -2,6 +2,7 @@ import type { SlackAdapter } from "@chat-adapter/slack";
 import { cardToBlockKit } from "@chat-adapter/slack";
 import type { ModelMessage } from "ai";
 import type { Chat, SlashCommandEvent, Thread } from "chat";
+import { createHash } from "node:crypto";
 import {
   Actions,
   Button,
@@ -18,9 +19,11 @@ import {
 } from "chat";
 import type { LookupPlatformUserFn } from "../agent";
 import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "../agent";
+import { requireAgentCredits } from "../agent-credits";
 import {
   CalcomApiError,
   cancelBooking,
+  chargeCredits,
   createBooking,
   createBookingPublic,
   getAvailableSlotsPublic,
@@ -78,6 +81,27 @@ function isSlackAuthError(err: unknown): boolean {
     return slackErr?.error === "not_authed" || slackErr?.error === "invalid_auth";
   }
   return false;
+}
+
+function getNestedString(value: unknown, path: string[]): string | undefined {
+  let current = value;
+  for (const key of path) {
+    if (!current || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[key];
+  }
+  return typeof current === "string" || typeof current === "number" ? String(current) : undefined;
+}
+
+function getRetryEventId(raw: unknown): string {
+  const stableId =
+    getNestedString(raw, ["callback_query", "id"]) ??
+    getNestedString(raw, ["id"]) ??
+    getNestedString(raw, ["trigger_id"]) ??
+    getNestedString(raw, ["actions", "0", "action_ts"]) ??
+    getNestedString(raw, ["container", "message_ts"]) ??
+    getNestedString(raw, ["message", "ts"]);
+
+  return stableId ?? `ts-${Date.now()}`;
 }
 
 export interface PlatformContext {
@@ -740,20 +764,15 @@ export function registerSlackHandlers(
               );
               return;
             }
-            try {
-              const { checkCredits } = await import("../calcom/client");
-              const credits = await checkCredits(accessTokenForAgent);
-              if (!credits.hasCredits) {
-                await event.channel.postEphemeral(
-                  event.user,
-                  "You've run out of AI credits. Use `/cal help` to see available slash commands, or purchase more credits at <https://cal.com/pricing|cal.com/pricing>.",
-                  { fallbackToDM: true }
-                );
-                return;
-              }
-            } catch {
-              // If credits check fails, allow the request through during rollout
-            }
+            const hasAgentCredits = await requireAgentCredits({
+              accessToken: accessTokenForAgent,
+              ctx: { platform: "slack", teamId, userId },
+              logger,
+              gateName: "/cal natural query",
+              postNoCredits: (message) =>
+                event.channel.postEphemeral(event.user, message, { fallbackToDM: true }),
+            });
+            if (!hasAgentCredits) return;
 
             const result = runAgentStream({
               teamId,
@@ -1684,6 +1703,21 @@ export function registerSlackHandlers(
         const linked = await getLinkedUser(teamId, userId);
         if (!linked) return;
 
+        const accessToken = await getValidAccessToken(teamId, userId);
+        if (!accessToken) {
+          await thread.post(oauthLinkMessage(event.adapter.name, teamId, userId));
+          return;
+        }
+
+        const hasAgentCredits = await requireAgentCredits({
+          accessToken,
+          ctx,
+          logger,
+          gateName: "retry_response",
+          postNoCredits: (message) => thread.post(message),
+        });
+        if (!hasAgentCredits) return;
+
         const history = await buildHistory(thread);
         const lastUserMessage = [...history].reverse().find((m) => m.role === "user");
         if (!lastUserMessage) return;
@@ -1705,6 +1739,22 @@ export function registerSlackHandlers(
         await postAgentStream(thread, result, ctx, {
           onErrorRef: lastStreamErrorRef,
         });
+
+        const messageText = lastUserMessage.content as string;
+        const msgHash = createHash("sha256").update(messageText).digest("hex").slice(0, 12);
+        const retryEventId = createHash("sha256").update(getRetryEventId(event.raw)).digest("hex").slice(0, 12);
+        const externalRef = `agent-${event.adapter.name}-${thread.id}-${msgHash}-retry-${retryEventId}`;
+        try {
+          await chargeCredits(accessToken, { externalRef });
+          logger.info("Credits charged for retry response", { userId, externalRef });
+        } catch (err) {
+          // Don't fail the interaction if charging fails after a successful retry.
+          logger.warn("Failed to charge credits for retry response", {
+            userId,
+            externalRef,
+            error: String(err),
+          });
+        }
       },
       {
         postError: (msg) => thread.post(msg).catch(() => {}),
