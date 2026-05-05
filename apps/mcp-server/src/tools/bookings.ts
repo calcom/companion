@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { calApi } from "../utils/api-client.js";
+import { extractCurrentUser, filterBookingsForCurrentUser } from "../utils/booking-participation.js";
 import { sanitizePathSegment } from "../utils/path-sanitizer.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
@@ -70,8 +71,9 @@ export async function getBookings(params: {
     if (params.sortUpdatedAt !== undefined) qp.sortUpdatedAt = params.sortUpdatedAt;
     if (params.take !== undefined) qp.take = params.take;
     if (params.skip !== undefined) qp.skip = params.skip;
+    const currentUser = extractCurrentUser(await calApi("me"));
     const data = await calApi("bookings", { params: qp });
-    return ok(data);
+    return ok(filterBookingsForCurrentUser(data, currentUser));
   } catch (err) {
     return handleError("get_bookings", err);
   }
