@@ -50,6 +50,7 @@ describe("bookings schemas", () => {
     expect(getBookingsSchema.sortStart).toBeDefined();
     expect(getBookingsSchema.sortCreated).toBeDefined();
     expect(getBookingsSchema.bookingUid).toBeDefined();
+    expect(getBookingsSchema.scope).toBeDefined();
   });
 
   it("exports getBookingSchema with bookingUid", () => {
@@ -164,6 +165,44 @@ describe("getBookings", () => {
         { uid: "attendee", hosts: [], attendees: [{ email: "ADMIN@example.com" }] },
         { uid: "organizer", user: { id: 1, email: "admin@example.com" }, hosts: [], attendees: [] },
       ],
+    });
+  });
+
+  it("scope='all' skips the me lookup and returns the unfiltered payload", async () => {
+    mockCalApi.mockResolvedValueOnce({
+      bookings: [
+        { uid: "host", hosts: [{ id: 1, email: "admin@example.com" }], attendees: [] },
+        { uid: "other", hosts: [{ id: 2, email: "other@example.com" }], attendees: [] },
+      ],
+    });
+
+    const result = await getBookings({ scope: "all" });
+
+    expect(mockCalApi).toHaveBeenCalledTimes(1);
+    expect(mockCalApi).toHaveBeenCalledWith("bookings", { params: expect.any(Object) });
+    expect(JSON.parse(result.content[0].text)).toEqual({
+      bookings: [
+        { uid: "host", hosts: [{ id: 1, email: "admin@example.com" }], attendees: [] },
+        { uid: "other", hosts: [{ id: 2, email: "other@example.com" }], attendees: [] },
+      ],
+    });
+  });
+
+  it("scope='mine' is the default and filters to the current user", async () => {
+    mockCalApi
+      .mockResolvedValueOnce({ id: 1, email: "admin@example.com" })
+      .mockResolvedValueOnce({
+        bookings: [
+          { uid: "host", hosts: [{ id: 1, email: "admin@example.com" }], attendees: [] },
+          { uid: "other", hosts: [{ id: 2, email: "other@example.com" }], attendees: [] },
+        ],
+      });
+
+    const result = await getBookings({ scope: "mine" });
+
+    expect(mockCalApi).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(result.content[0].text)).toEqual({
+      bookings: [{ uid: "host", hosts: [{ id: 1, email: "admin@example.com" }], attendees: [] }],
     });
   });
 
