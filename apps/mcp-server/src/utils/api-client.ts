@@ -116,6 +116,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Add jitter to exponential backoff to prevent thundering herd.
+ * Formula: baseDelay * 2^attempt * (1 + random(0-1))
+ */
+function calculateBackoffWithJitter(baseDelayMs: number, attempt: number): number {
+  const exponentialDelay = baseDelayMs * (2 ** (attempt - 1));
+  const jitter = Math.random(); // 0 to 1
+  return exponentialDelay * (1 + jitter);
+}
+
 export async function calApi<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, params, apiVersionOverride } = options;
   const url = buildUrl(path, params);
@@ -130,8 +140,8 @@ export async function calApi<T = unknown>(path: string, options: RequestOptions 
   for (let attempt = 0; attempt <= maxAttempts; attempt++) {
     try {
       if (attempt > 0) {
-        const delay = baseDelayMs * 2 ** (attempt - 1);
-        logger.warn("Retrying Cal.com API request", { path: normalizedPath, attempt, delay });
+        const delay = calculateBackoffWithJitter(baseDelayMs, attempt);
+        logger.warn("Retrying Cal.com API request", { path: normalizedPath, attempt, delay: Math.round(delay) });
         await sleep(delay);
       }
 

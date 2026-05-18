@@ -2,6 +2,7 @@ import { z } from "zod";
 import { calApi } from "../utils/api-client.js";
 import { sanitizePathSegment } from "../utils/path-sanitizer.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
+import { buildParams, buildBody } from "../utils/params-builder.js";
 
 export const getBookingsSchema = {
   status: z.string().optional().describe("Comma-separated statuses: upcoming, recurring, past, cancelled, unconfirmed"),
@@ -49,27 +50,7 @@ export async function getBookings(params: {
   skip?: number;
 }) {
   try {
-    const qp: Record<string, string | number | undefined> = {};
-    if (params.status !== undefined) qp.status = params.status;
-    if (params.attendeeEmail !== undefined) qp.attendeeEmail = params.attendeeEmail;
-    if (params.attendeeName !== undefined) qp.attendeeName = params.attendeeName;
-    if (params.eventTypeId !== undefined) qp.eventTypeId = params.eventTypeId;
-    if (params.eventTypeIds !== undefined) qp.eventTypeIds = params.eventTypeIds;
-    if (params.teamId !== undefined) qp.teamId = params.teamId;
-    if (params.teamsIds !== undefined) qp.teamsIds = params.teamsIds;
-    if (params.afterStart !== undefined) qp.afterStart = params.afterStart;
-    if (params.beforeEnd !== undefined) qp.beforeEnd = params.beforeEnd;
-    if (params.afterCreatedAt !== undefined) qp.afterCreatedAt = params.afterCreatedAt;
-    if (params.beforeCreatedAt !== undefined) qp.beforeCreatedAt = params.beforeCreatedAt;
-    if (params.afterUpdatedAt !== undefined) qp.afterUpdatedAt = params.afterUpdatedAt;
-    if (params.beforeUpdatedAt !== undefined) qp.beforeUpdatedAt = params.beforeUpdatedAt;
-    if (params.bookingUid !== undefined) qp.bookingUid = params.bookingUid;
-    if (params.sortStart !== undefined) qp.sortStart = params.sortStart;
-    if (params.sortEnd !== undefined) qp.sortEnd = params.sortEnd;
-    if (params.sortCreated !== undefined) qp.sortCreated = params.sortCreated;
-    if (params.sortUpdatedAt !== undefined) qp.sortUpdatedAt = params.sortUpdatedAt;
-    if (params.take !== undefined) qp.take = params.take;
-    if (params.skip !== undefined) qp.skip = params.skip;
+    const qp = buildParams(params);
     const data = await calApi("bookings", { params: qp });
     return ok(data);
   } catch (err) {
@@ -133,22 +114,26 @@ export async function createBooking(params: {
   allowBookingOutOfBounds?: boolean;
 }) {
   try {
-    const body: Record<string, unknown> = {
-      start: params.start,
-      attendee: params.attendee,
-    };
-    if (params.eventTypeId !== undefined) body.eventTypeId = params.eventTypeId;
-    if (params.eventTypeSlug !== undefined) body.eventTypeSlug = params.eventTypeSlug;
-    if (params.username !== undefined) body.username = params.username;
-    if (params.teamSlug !== undefined) body.teamSlug = params.teamSlug;
-    if (params.organizationSlug !== undefined) body.organizationSlug = params.organizationSlug;
-    if (params.guests !== undefined) body.guests = params.guests;
-    if (params.lengthInMinutes !== undefined) body.lengthInMinutes = params.lengthInMinutes;
-    if (params.bookingFieldsResponses !== undefined) body.bookingFieldsResponses = params.bookingFieldsResponses;
-    if (params.metadata !== undefined) body.metadata = params.metadata;
-    if (params.location !== undefined) body.location = params.location;
-    if (params.allowConflicts !== undefined) body.allowConflicts = params.allowConflicts;
-    if (params.allowBookingOutOfBounds !== undefined) body.allowBookingOutOfBounds = params.allowBookingOutOfBounds;
+    const body = buildBody(
+      {
+        start: params.start,
+        attendee: params.attendee,
+      },
+      {
+        eventTypeId: params.eventTypeId,
+        eventTypeSlug: params.eventTypeSlug,
+        username: params.username,
+        teamSlug: params.teamSlug,
+        organizationSlug: params.organizationSlug,
+        guests: params.guests,
+        lengthInMinutes: params.lengthInMinutes,
+        bookingFieldsResponses: params.bookingFieldsResponses,
+        metadata: params.metadata,
+        location: params.location,
+        allowConflicts: params.allowConflicts,
+        allowBookingOutOfBounds: params.allowBookingOutOfBounds,
+      }
+    );
     const data = await calApi("bookings", { method: "POST", body });
     return ok(data);
   } catch (err) {
@@ -170,9 +155,13 @@ export async function rescheduleBooking(params: {
   rescheduledBy?: string;
 }) {
   try {
-    const body: Record<string, unknown> = { start: params.start };
-    if (params.reschedulingReason !== undefined) body.reschedulingReason = params.reschedulingReason;
-    if (params.rescheduledBy !== undefined) body.rescheduledBy = params.rescheduledBy;
+    const body = buildBody(
+      { start: params.start },
+      {
+        reschedulingReason: params.reschedulingReason,
+        rescheduledBy: params.rescheduledBy,
+      }
+    );
     const uid = sanitizePathSegment(params.bookingUid);
     const data = await calApi(`bookings/${uid}/reschedule`, { method: "POST", body });
     return ok(data);
@@ -190,10 +179,11 @@ export const cancelBookingSchema = {
 
 export async function cancelBooking(params: { bookingUid: string; cancellationReason?: string; cancelSubsequentBookings?: boolean; seatUid?: string }) {
   try {
-    const body: Record<string, unknown> = {};
-    if (params.cancellationReason !== undefined) body.cancellationReason = params.cancellationReason;
-    if (params.cancelSubsequentBookings !== undefined) body.cancelSubsequentBookings = params.cancelSubsequentBookings;
-    if (params.seatUid !== undefined) body.seatUid = params.seatUid;
+    const body = buildBody({}, {
+      cancellationReason: params.cancellationReason,
+      cancelSubsequentBookings: params.cancelSubsequentBookings,
+      seatUid: params.seatUid,
+    });
     const uid = sanitizePathSegment(params.bookingUid);
     const data = await calApi(`bookings/${uid}/cancel`, { method: "POST", body });
     return ok(data);

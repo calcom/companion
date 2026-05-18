@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { calApi } from "../utils/api-client.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
+import { buildParams } from "../utils/params-builder.js";
 
 export const getAvailabilitySchema = {
   start: z.string().describe("Range start in UTC, ISO 8601 (e.g. '2024-08-13' or '2024-08-13T09:00:00Z')"),
@@ -35,24 +36,22 @@ export async function getAvailability(params: {
   bookingUidToReschedule?: string;
 }) {
   try {
-    const queryParams: Record<string, string | number | string[] | undefined> = {
+    const queryParams = buildParams({
       start: params.start,
       end: params.end,
-    };
-    if (params.timeZone) queryParams.timeZone = params.timeZone;
-    if (params.eventTypeId !== undefined) queryParams.eventTypeId = params.eventTypeId;
-    if (params.eventTypeSlug) queryParams.eventTypeSlug = params.eventTypeSlug;
-    if (params.username) queryParams.username = params.username;
-    if (params.teamSlug) queryParams.teamSlug = params.teamSlug;
-    if (params.organizationSlug) queryParams.organizationSlug = params.organizationSlug;
-    if (params.usernames !== undefined) {
-      queryParams.usernames = Array.isArray(params.usernames)
+      timeZone: params.timeZone,
+      eventTypeId: params.eventTypeId,
+      eventTypeSlug: params.eventTypeSlug,
+      username: params.username,
+      teamSlug: params.teamSlug,
+      organizationSlug: params.organizationSlug,
+      usernames: Array.isArray(params.usernames)
         ? params.usernames.join(",")
-        : params.usernames;
-    }
-    if (params.duration !== undefined) queryParams.duration = params.duration;
-    if (params.format) queryParams.format = params.format;
-    if (params.bookingUidToReschedule) queryParams.bookingUidToReschedule = params.bookingUidToReschedule;
+        : params.usernames,
+      duration: params.duration,
+      format: params.format,
+      bookingUidToReschedule: params.bookingUidToReschedule,
+    });
 
     const data = await calApi("slots", { params: queryParams });
     return ok(data);
