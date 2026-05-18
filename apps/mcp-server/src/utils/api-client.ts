@@ -141,8 +141,9 @@ export async function calApi<T = unknown>(path: string, options: RequestOptions 
     try {
       if (attempt > 0) {
         const delay = calculateBackoffWithJitter(baseDelayMs, attempt);
-        logger.warn("Retrying Cal.com API request", { path: normalizedPath, attempt, delay: Math.round(delay) });
-        await sleep(delay);
+        const roundedDelay = Math.round(delay);
+        logger.warn("Retrying Cal.com API request", { path: normalizedPath, attempt, delay: roundedDelay });
+        await sleep(roundedDelay);
       }
 
       const fetchOptions: RequestInit = {
