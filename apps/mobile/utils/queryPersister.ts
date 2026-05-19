@@ -8,6 +8,11 @@ import type { PersistedClient, Persister } from "@tanstack/react-query-persist-c
 import { CACHE_CONFIG } from "@/config/cache.config";
 import { safeLogWarn } from "./safeLogger";
 import { generalStorage } from "./storage";
+import { getRegion } from "./region";
+
+function getStorageKey(): string {
+  return `${CACHE_CONFIG.persistence.storageKey}-${getRegion()}`;
+}
 
 // Use the shared general storage adapter for cache persistence
 const storage = generalStorage;
@@ -22,7 +27,6 @@ const storage = generalStorage;
  * - Respects cache expiration (maxAge)
  */
 export const createQueryPersister = (): Persister => {
-  const storageKey = CACHE_CONFIG.persistence.storageKey;
   const maxAge = CACHE_CONFIG.persistence.maxAge;
 
   return {
@@ -32,7 +36,7 @@ export const createQueryPersister = (): Persister => {
     persistClient: async (client: PersistedClient): Promise<void> => {
       try {
         const serialized = JSON.stringify(client);
-        await storage.setItem(storageKey, serialized);
+        await storage.setItem(getStorageKey(), serialized);
       } catch (error) {
         safeLogWarn("[QueryPersister] Failed to persist client:", error);
         // Fail silently - persistence is a nice-to-have, not critical
@@ -44,7 +48,7 @@ export const createQueryPersister = (): Persister => {
      */
     restoreClient: async (): Promise<PersistedClient | undefined> => {
       try {
-        const serialized = await storage.getItem(storageKey);
+        const serialized = await storage.getItem(getStorageKey());
         if (!serialized) {
           return undefined;
         }
@@ -54,7 +58,7 @@ export const createQueryPersister = (): Persister => {
         // Validate timestamp exists and is a valid number
         if (typeof client.timestamp !== "number" || Number.isNaN(client.timestamp)) {
           safeLogWarn("[QueryPersister] Invalid or missing timestamp, discarding cache");
-          await storage.removeItem(storageKey);
+          await storage.removeItem(getStorageKey());
           return undefined;
         }
 
@@ -63,7 +67,7 @@ export const createQueryPersister = (): Persister => {
         const now = Date.now();
         if (now - persistedAt > maxAge) {
           // Cache is too old, discard it
-          await storage.removeItem(storageKey);
+          await storage.removeItem(getStorageKey());
           return undefined;
         }
 
@@ -80,7 +84,7 @@ export const createQueryPersister = (): Persister => {
      */
     removeClient: async (): Promise<void> => {
       try {
-        await storage.removeItem(storageKey);
+        await storage.removeItem(getStorageKey());
       } catch (error) {
         safeLogWarn("[QueryPersister] Failed to remove client:", error);
       }
@@ -99,7 +103,7 @@ export { storage };
  */
 export const clearQueryCache = async (): Promise<void> => {
   try {
-    await storage.removeItem(CACHE_CONFIG.persistence.storageKey);
+    await storage.removeItem(getStorageKey());
   } catch (error) {
     safeLogWarn("[QueryPersister] Failed to clear cache:", error);
   }
@@ -115,7 +119,7 @@ export const getCacheMetadata = async (): Promise<{
   isExpired?: boolean;
 } | null> => {
   try {
-    const serialized = await storage.getItem(CACHE_CONFIG.persistence.storageKey);
+    const serialized = await storage.getItem(getStorageKey());
     if (!serialized) {
       return { exists: false };
     }
