@@ -34,9 +34,10 @@ export const createQueryPersister = (): Persister => {
      * Persist the client state to storage
      */
     persistClient: async (client: PersistedClient): Promise<void> => {
+      const storageKey = getStorageKey();
       try {
         const serialized = JSON.stringify(client);
-        await storage.setItem(getStorageKey(), serialized);
+        await storage.setItem(storageKey, serialized);
       } catch (error) {
         safeLogWarn("[QueryPersister] Failed to persist client:", error);
         // Fail silently - persistence is a nice-to-have, not critical
@@ -47,8 +48,9 @@ export const createQueryPersister = (): Persister => {
      * Restore the client state from storage
      */
     restoreClient: async (): Promise<PersistedClient | undefined> => {
+      const storageKey = getStorageKey();
       try {
-        const serialized = await storage.getItem(getStorageKey());
+        const serialized = await storage.getItem(storageKey);
         if (!serialized) {
           return undefined;
         }
@@ -58,7 +60,7 @@ export const createQueryPersister = (): Persister => {
         // Validate timestamp exists and is a valid number
         if (typeof client.timestamp !== "number" || Number.isNaN(client.timestamp)) {
           safeLogWarn("[QueryPersister] Invalid or missing timestamp, discarding cache");
-          await storage.removeItem(getStorageKey());
+          await storage.removeItem(storageKey);
           return undefined;
         }
 
@@ -67,7 +69,7 @@ export const createQueryPersister = (): Persister => {
         const now = Date.now();
         if (now - persistedAt > maxAge) {
           // Cache is too old, discard it
-          await storage.removeItem(getStorageKey());
+          await storage.removeItem(storageKey);
           return undefined;
         }
 
@@ -83,8 +85,9 @@ export const createQueryPersister = (): Persister => {
      * Remove the persisted client state
      */
     removeClient: async (): Promise<void> => {
+      const storageKey = getStorageKey();
       try {
-        await storage.removeItem(getStorageKey());
+        await storage.removeItem(storageKey);
       } catch (error) {
         safeLogWarn("[QueryPersister] Failed to remove client:", error);
       }
