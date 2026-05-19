@@ -434,7 +434,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const tokens = await currentService.startAuthorizationFlow();
 
       // Save tokens
-      await saveOAuthTokens(tokens);
+      await saveOAuthTokens(tokens, currentService);
 
       // Update state
       setAccessToken(tokens.accessToken);
