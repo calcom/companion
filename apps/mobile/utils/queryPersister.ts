@@ -30,6 +30,10 @@ const storage = generalStorage;
 const OAUTH_TOKENS_KEY = "cal_oauth_tokens";
 const AUTH_TYPE_KEY = "cal_auth_type";
 
+// Pre-region-suffix key. Removed on every restore so pre-migration cache data
+// doesn't accumulate on disk; `removeItem` is a no-op once the key is gone.
+const LEGACY_STORAGE_KEY = CACHE_CONFIG.persistence.storageKey;
+
 /**
  * Create a React Query persister that works across all platforms
  *
@@ -65,6 +69,16 @@ export const createQueryPersister = (): Persister => {
       await regionPreloaded;
       const storageKey = getStorageKey();
       try {
+        // Sweep the pre-region-suffix key on every restore so legacy data
+        // doesn't survive the migration. No-op once the key is gone.
+        if (LEGACY_STORAGE_KEY !== storageKey) {
+          try {
+            await storage.removeItem(LEGACY_STORAGE_KEY);
+          } catch (legacyError) {
+            safeLogWarn("[QueryPersister] Failed to clean up legacy cache key:", legacyError);
+          }
+        }
+
         // Bail early if the user is logged out — never restore another user's
         // cache into an unauthenticated session. Wipe the orphaned cache too
         // so a stale logout (e.g. one where queryClient.clear() succeeded but
