@@ -17,6 +17,7 @@ import {
 import type { UserProfile } from "@/services/types/users.types";
 import { WebAuthService } from "@/services/webAuth";
 import { clearQueryCache } from "@/utils/queryPersister";
+import { safeLogWarn } from "@/utils/safeLogger";
 import { clearRegion, getRegion, preloadRegion, subscribeRegion } from "@/utils/region";
 import { generalStorage, secureStorage } from "@/utils/storage";
 
@@ -123,7 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // a freshly-rebuilt service without waiting for the state update to settle.
   const saveOAuthTokens = async (
     tokens: OAuthTokens,
-    service: CalComOAuthService | null = oauthService
+    service: CalComOAuthService | null
   ) => {
     await storage.set(OAUTH_TOKENS_KEY, JSON.stringify(tokens));
     await storage.set(AUTH_TYPE_KEY, "oauth");
@@ -169,6 +170,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } catch (prefsError) {
         console.warn("Failed to clear user preferences during logout:", prefsError);
       }
+      // Clear cache before region reset so getStorageKey() still returns the correct key.
+      try {
+        await clearQueryCache();
+      } catch (cacheError) {
+        safeLogWarn("Failed to clear query cache during logout:", cacheError);
+      }
       // Reset the persisted data region so the next user is prompted via the
       // login-screen picker rather than silently inheriting this session's
       // region (the extension background worker clears `cal_region` on logout
@@ -177,12 +184,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await clearRegion();
       } catch (regionError) {
         console.warn("Failed to clear data region during logout:", regionError);
-      }
-      // Clear all cached queries to ensure fresh data on re-login
-      try {
-        await clearQueryCache();
-      } catch (cacheError) {
-        console.warn("Failed to clear query cache during logout:", cacheError);
       }
       resetAuthState();
     } catch (error) {
@@ -410,16 +411,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const loginWithOAuth = async (): Promise<void> => {
-    if (!oauthService) {
+    // Build from current region at call time — oauthService state can lag behind a region change.
+    let currentService: CalComOAuthService | null;
+    try {
+      currentService = createCalComOAuthService();
+    } catch (serviceError) {
+      safeLogWarn("Failed to build OAuth service at login time, falling back to cached instance:", serviceError);
+      currentService = oauthService;
+    }
+    if (!currentService) {
       throw new Error("OAuth service not available. Please check your configuration.");
     }
 
     setLoading(true);
     try {
-      const tokens = await oauthService.startAuthorizationFlow();
+      try {
+        await clearQueryCache();
+      } catch (cacheError) {
+        safeLogWarn("Failed to clear query cache before login:", cacheError);
+      }
+      const tokens = await currentService.startAuthorizationFlow();
 
       // Save tokens
-      await saveOAuthTokens(tokens);
+      await saveOAuthTokens(tokens, currentService);
 
       // Update state
       setAccessToken(tokens.accessToken);
@@ -430,11 +444,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Setup API service and refresh function
       await setupAfterLogin(tokens.accessToken, tokens.refreshToken);
       if (tokens.refreshToken) {
-        setupRefreshTokenFunction(oauthService);
+        setupRefreshTokenFunction(currentService);
       }
 
       // Clear PKCE parameters
-      oauthService.clearPKCEParams();
+      currentService.clearPKCEParams();
       setLoading(false);
     } catch (error) {
       setLoading(false);

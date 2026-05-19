@@ -8,6 +8,11 @@ import type { PersistedClient, Persister } from "@tanstack/react-query-persist-c
 import { CACHE_CONFIG } from "@/config/cache.config";
 import { safeLogWarn } from "./safeLogger";
 import { generalStorage } from "./storage";
+import { getRegion, regionPreloaded } from "./region";
+
+function getStorageKey(): string {
+  return `${CACHE_CONFIG.persistence.storageKey}-${getRegion()}`;
+}
 
 // Use the shared general storage adapter for cache persistence
 const storage = generalStorage;
@@ -22,7 +27,6 @@ const storage = generalStorage;
  * - Respects cache expiration (maxAge)
  */
 export const createQueryPersister = (): Persister => {
-  const storageKey = CACHE_CONFIG.persistence.storageKey;
   const maxAge = CACHE_CONFIG.persistence.maxAge;
 
   return {
@@ -30,6 +34,7 @@ export const createQueryPersister = (): Persister => {
      * Persist the client state to storage
      */
     persistClient: async (client: PersistedClient): Promise<void> => {
+      const storageKey = getStorageKey();
       try {
         const serialized = JSON.stringify(client);
         await storage.setItem(storageKey, serialized);
@@ -43,6 +48,9 @@ export const createQueryPersister = (): Persister => {
      * Restore the client state from storage
      */
     restoreClient: async (): Promise<PersistedClient | undefined> => {
+      // Fires before AuthProvider.preloadRegion() resolves; wait for the correct region.
+      await regionPreloaded;
+      const storageKey = getStorageKey();
       try {
         const serialized = await storage.getItem(storageKey);
         if (!serialized) {
@@ -79,6 +87,7 @@ export const createQueryPersister = (): Persister => {
      * Remove the persisted client state
      */
     removeClient: async (): Promise<void> => {
+      const storageKey = getStorageKey();
       try {
         await storage.removeItem(storageKey);
       } catch (error) {
@@ -99,7 +108,7 @@ export { storage };
  */
 export const clearQueryCache = async (): Promise<void> => {
   try {
-    await storage.removeItem(CACHE_CONFIG.persistence.storageKey);
+    await storage.removeItem(getStorageKey());
   } catch (error) {
     safeLogWarn("[QueryPersister] Failed to clear cache:", error);
   }
@@ -115,7 +124,7 @@ export const getCacheMetadata = async (): Promise<{
   isExpired?: boolean;
 } | null> => {
   try {
-    const serialized = await storage.getItem(CACHE_CONFIG.persistence.storageKey);
+    const serialized = await storage.getItem(getStorageKey());
     if (!serialized) {
       return { exists: false };
     }
