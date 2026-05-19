@@ -8,7 +8,7 @@ import type { PersistedClient, Persister } from "@tanstack/react-query-persist-c
 import { CACHE_CONFIG } from "@/config/cache.config";
 import { safeLogWarn } from "./safeLogger";
 import { generalStorage } from "./storage";
-import { getRegion } from "./region";
+import { getRegion, regionReady } from "./region";
 
 function getStorageKey(): string {
   return `${CACHE_CONFIG.persistence.storageKey}-${getRegion()}`;
@@ -48,6 +48,8 @@ export const createQueryPersister = (): Persister => {
      * Restore the client state from storage
      */
     restoreClient: async (): Promise<PersistedClient | undefined> => {
+      // Fires before AuthProvider.preloadRegion() resolves; wait for the correct region.
+      await regionReady;
       const storageKey = getStorageKey();
       try {
         const serialized = await storage.getItem(storageKey);
