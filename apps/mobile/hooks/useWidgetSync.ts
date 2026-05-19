@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
 import { Platform } from "react-native";
 import { queryKeys } from "@/config/cache.config";
+import { useAuth } from "@/contexts/AuthContext";
 import { type Booking, CalComAPIService } from "@/services/calcom";
 import {
   clearWidgetBookings,
@@ -11,6 +12,7 @@ import {
 
 export function useWidgetSync() {
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
 
   const syncBookingsToWidget = useCallback(async () => {
     if (__DEV__) {
@@ -140,13 +142,19 @@ export function useWidgetSync() {
     if (Platform.OS === "web") {
       return;
     }
+    // Skip the initial sync (and the API fallback inside syncBookingsToWidget)
+    // until auth is verified — otherwise the hook fires on every cold start
+    // before tokens are loaded and triggers an unauthenticated /bookings request.
+    if (!isAuthenticated) {
+      return;
+    }
 
     syncBookingsToWidget();
 
     const cleanup = setupWidgetRefreshOnAppStateChange(syncBookingsToWidget);
 
     return cleanup;
-  }, [syncBookingsToWidget]);
+  }, [syncBookingsToWidget, isAuthenticated]);
 
   return {
     syncBookingsToWidget,

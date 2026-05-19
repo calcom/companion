@@ -6,9 +6,9 @@
 
 import type { PersistedClient, Persister } from "@tanstack/react-query-persist-client";
 import { CACHE_CONFIG } from "@/config/cache.config";
-import { safeLogWarn } from "./safeLogger";
-import { generalStorage } from "./storage";
 import { getRegion, regionPreloaded } from "./region";
+import { safeLogWarn } from "./safeLogger";
+import { generalStorage, secureStorage } from "./storage";
 
 function getStorageKey(): string {
   return `${CACHE_CONFIG.persistence.storageKey}-${getRegion()}`;
@@ -16,6 +16,23 @@ function getStorageKey(): string {
 
 // Use the shared general storage adapter for cache persistence
 const storage = generalStorage;
+
+// Duplicated from AuthContext to avoid a circular import; keep these in sync.
+// If a persisted cache is found but the user is logged out, don't rehydrate a
+// previous user's data into an unauthenticated session. We check BOTH keys
+// because OAuth and web-session logins use different storage shapes:
+//   - OAuth login writes `cal_oauth_tokens` AND `cal_auth_type = "oauth"`.
+//   - Web-session login writes ONLY `cal_auth_type = "web_session"` — no OAuth
+//     tokens. Checking `cal_oauth_tokens` alone would wipe web-session users'
+//     persisted cache on every cold start.
+// Both keys are cleared atomically by `clearAuth()` in AuthContext, so the
+// presence of either reliably indicates the user has not logged out.
+const OAUTH_TOKENS_KEY = "cal_oauth_tokens";
+const AUTH_TYPE_KEY = "cal_auth_type";
+
+// Pre-region-suffix key. Removed on every restore so pre-migration cache data
+// doesn't accumulate on disk; `removeItem` is a no-op once the key is gone.
+const LEGACY_STORAGE_KEY = CACHE_CONFIG.persistence.storageKey;
 
 /**
  * Create a React Query persister that works across all platforms
@@ -52,6 +69,38 @@ export const createQueryPersister = (): Persister => {
       await regionPreloaded;
       const storageKey = getStorageKey();
       try {
+        // Sweep the pre-region-suffix key on every restore so legacy data
+        // doesn't survive the migration. No-op once the key is gone.
+        if (LEGACY_STORAGE_KEY !== storageKey) {
+          try {
+            await storage.removeItem(LEGACY_STORAGE_KEY);
+          } catch (legacyError) {
+            safeLogWarn("[QueryPersister] Failed to clean up legacy cache key:", legacyError);
+          }
+        }
+
+        // Bail early if the user is logged out — never restore another user's
+        // cache into an unauthenticated session. Wipe the orphaned cache too
+        // so a stale logout (e.g. one where queryClient.clear() succeeded but
+        // the throttled disk persist ran later) doesn't survive a cold start.
+        let hasAuth = false;
+        try {
+          const [tokens, authType] = await Promise.all([
+            secureStorage.get(OAUTH_TOKENS_KEY),
+            secureStorage.get(AUTH_TYPE_KEY),
+          ]);
+          hasAuth = Boolean(tokens) || Boolean(authType);
+        } catch (tokenError) {
+          safeLogWarn(
+            "[QueryPersister] Failed to read auth state, treating as logged out:",
+            tokenError
+          );
+        }
+        if (!hasAuth) {
+          await storage.removeItem(storageKey);
+          return undefined;
+        }
+
         const serialized = await storage.getItem(storageKey);
         if (!serialized) {
           return undefined;
