@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
   type ReactNode,
@@ -7,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { queryKeys } from "@/config/cache.config";
 import { USER_PREFERENCES_KEY } from "@/hooks/useUserPreferences";
 import { CalComAPIService } from "@/services/calcom";
 import {
@@ -17,9 +19,10 @@ import {
 import type { UserProfile } from "@/services/types/users.types";
 import { WebAuthService } from "@/services/webAuth";
 import { clearQueryCache } from "@/utils/queryPersister";
-import { safeLogWarn } from "@/utils/safeLogger";
 import { clearRegion, getRegion, preloadRegion, subscribeRegion } from "@/utils/region";
+import { safeLogWarn } from "@/utils/safeLogger";
 import { generalStorage, secureStorage } from "@/utils/storage";
+import { clearWidgetBookings } from "@/utils/widgetStorage";
 
 /**
  * Simplified user info stored in auth context
@@ -72,6 +75,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [userInfo, setUserInfo] = useState<AuthUserInfo | null>(null);
   const [isWebSession, setIsWebSession] = useState(false);
   const [loading, setLoading] = useState(true);
+  // AuthProvider is mounted inside QueryProvider (see app/_layout.tsx), so
+  // useQueryClient() resolves the live client we need to wipe on logout and
+  // on cross-user cache rehydration.
+  const queryClient = useQueryClient();
   // Construct synchronously on first render so downstream hooks can rely on a
   // non-null service immediately and mount-time configuration failures are
   // logged right away. The effect below rebuilds only if `preloadRegion()`
@@ -99,33 +106,57 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   // Common post-login setup: configure API service and fetch user profile
-  const setupAfterLogin = useCallback(async (token: string, refreshToken?: string) => {
-    CalComAPIService.setAccessToken(token, refreshToken);
+  const setupAfterLogin = useCallback(
+    async (token: string, refreshToken?: string) => {
+      CalComAPIService.setAccessToken(token, refreshToken);
 
-    try {
-      const profile = await CalComAPIService.getUserProfile();
-      // Store user info for use in the app (e.g., to display "You" in bookings)
-      if (profile) {
-        setUserInfo({
-          email: profile.email,
-          name: profile.name,
-          id: profile.id,
-          username: profile.username,
-        });
+      try {
+        const profile = await CalComAPIService.getUserProfile();
+        // Store user info for use in the app (e.g., to display "You" in bookings)
+        if (profile) {
+          // If the persisted cache was rehydrated for a different user (cold
+          // start before logout fully ran, or a foreign cache that survived
+          // restore), wipe everything before the next fetch lands so no PII
+          // from the previous identity flashes onto screen.
+          const cachedProfile = queryClient.getQueryData<UserProfile>(
+            queryKeys.userProfile.current()
+          );
+          if (cachedProfile && cachedProfile.id !== profile.id) {
+            if (__DEV__) {
+              console.debug(
+                "[AuthContext] Rehydrated cache belonged to a different user; clearing"
+              );
+            }
+            try {
+              queryClient.clear();
+            } catch (clearError) {
+              console.warn("Failed to clear stale in-memory cache:", clearError);
+            }
+            try {
+              await clearQueryCache();
+            } catch (cacheError) {
+              console.warn("Failed to clear stale persisted cache:", cacheError);
+            }
+          }
+          setUserInfo({
+            email: profile.email,
+            name: profile.name,
+            id: profile.id,
+            username: profile.username,
+          });
+        }
+      } catch (profileError) {
+        console.error("Failed to fetch user profile:", profileError);
+        // Don't fail login if profile fetch fails
       }
-    } catch (profileError) {
-      console.error("Failed to fetch user profile:", profileError);
-      // Don't fail login if profile fetch fails
-    }
-  }, []);
+    },
+    [queryClient]
+  );
 
   // Plain async fn (no useCallback): identity doesn't need to be stable for
   // memoization, and taking `service` explicitly lets cold-start callers pass
   // a freshly-rebuilt service without waiting for the state update to settle.
-  const saveOAuthTokens = async (
-    tokens: OAuthTokens,
-    service: CalComOAuthService | null
-  ) => {
+  const saveOAuthTokens = async (tokens: OAuthTokens, service: CalComOAuthService | null) => {
     await storage.set(OAUTH_TOKENS_KEY, JSON.stringify(tokens));
     await storage.set(AUTH_TYPE_KEY, "oauth");
 
@@ -162,38 +193,64 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const logout = useCallback(async () => {
+    // Each cleanup step has its own try/catch so a failure in one does not
+    // skip the others. resetAuthState() always runs last to put the UI in a
+    // known logged-out state even if disk writes failed.
     try {
       await clearAuth();
-      // Clear user preferences to ensure fresh state for next user
-      try {
-        await generalStorage.removeItem(USER_PREFERENCES_KEY);
-      } catch (prefsError) {
-        console.warn("Failed to clear user preferences during logout:", prefsError);
-      }
-      // Clear cache before region reset so getStorageKey() still returns the correct key.
-      try {
-        await clearQueryCache();
-      } catch (cacheError) {
-        safeLogWarn("Failed to clear query cache during logout:", cacheError);
-      }
-      // Reset the persisted data region so the next user is prompted via the
-      // login-screen picker rather than silently inheriting this session's
-      // region (the extension background worker clears `cal_region` on logout
-      // too — keep the two surfaces in sync).
-      try {
-        await clearRegion();
-      } catch (regionError) {
-        console.warn("Failed to clear data region during logout:", regionError);
-      }
-      resetAuthState();
-    } catch (error) {
-      const message = getErrorMessage(error);
-      console.error("Failed to logout", message);
+    } catch (clearAuthError) {
+      const message = getErrorMessage(clearAuthError);
+      console.warn("Failed to clear auth tokens during logout:", message);
       if (__DEV__) {
-        console.debug("[AuthContext] logout failed", { message, stack: getErrorStack(error) });
+        console.debug("[AuthContext] clearAuth failed", {
+          message,
+          stack: getErrorStack(clearAuthError),
+        });
       }
     }
-  }, [clearAuth, resetAuthState]);
+    // Clear user preferences to ensure fresh state for next user
+    try {
+      await generalStorage.removeItem(USER_PREFERENCES_KEY);
+    } catch (prefsError) {
+      console.warn("Failed to clear user preferences during logout:", prefsError);
+    }
+    // Memory first, then disk. PersistQueryClient throttles persists
+    // (cache.config.ts: throttleTime = 1000ms); clearing the in-memory cache
+    // before the disk wipe prevents an in-flight persist from re-writing the
+    // previous user's data right after we erased it.
+    //
+    // IMPORTANT: both of these must run BEFORE clearRegion(). The persister's
+    // storage key is region-suffixed (`cal-companion-query-cache-{region}`),
+    // so if we reset the region first the disk wipe would target the
+    // default-US key and the user's actual region's cache would survive.
+    try {
+      queryClient.clear();
+    } catch (clearError) {
+      console.warn("Failed to clear in-memory query cache during logout:", clearError);
+    }
+    try {
+      await clearQueryCache();
+    } catch (cacheError) {
+      safeLogWarn("Failed to clear persisted query cache during logout:", cacheError);
+    }
+    // Reset the persisted data region so the next user is prompted via the
+    // login-screen picker rather than silently inheriting this session's
+    // region (the extension background worker clears `cal_region` on logout
+    // too — keep the two surfaces in sync).
+    try {
+      await clearRegion();
+    } catch (regionError) {
+      console.warn("Failed to clear data region during logout:", regionError);
+    }
+    // Wipe the home-screen widget so the previous user's meetings don't
+    // linger after sign-out (no-op on web).
+    try {
+      await clearWidgetBookings();
+    } catch (widgetError) {
+      console.warn("Failed to clear widget bookings during logout:", widgetError);
+    }
+    resetAuthState();
+  }, [clearAuth, resetAuthState, queryClient]);
 
   // Handle OAuth authentication. `service` is passed explicitly so the boot
   // effect can hand in a freshly-rebuilt service on cold-start region
@@ -416,7 +473,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       currentService = createCalComOAuthService();
     } catch (serviceError) {
-      safeLogWarn("Failed to build OAuth service at login time, falling back to cached instance:", serviceError);
+      safeLogWarn(
+        "Failed to build OAuth service at login time, falling back to cached instance:",
+        serviceError
+      );
       currentService = oauthService;
     }
     if (!currentService) {
