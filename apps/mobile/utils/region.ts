@@ -66,7 +66,7 @@ export async function preloadRegion(): Promise<CalRegion> {
 }
 
 // Await before calling getRegion() in async contexts that mount before AuthProvider.
-export const regionReady: Promise<CalRegion> = preloadRegion();
+export const regionPreloaded: Promise<CalRegion> = preloadRegion();
 
 export function getRegion(): CalRegion {
   return currentRegion;
