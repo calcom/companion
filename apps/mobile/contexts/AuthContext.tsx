@@ -17,7 +17,13 @@ import {
 import type { UserProfile } from "@/services/types/users.types";
 import { WebAuthService } from "@/services/webAuth";
 import { clearQueryCache } from "@/utils/queryPersister";
-import { clearRegion, getRegion, preloadRegion, subscribeRegion } from "@/utils/region";
+import {
+  clearRegion,
+  getRegion,
+  preloadRegion,
+  setRegion,
+  subscribeRegion,
+} from "@/utils/region";
 import { generalStorage, secureStorage } from "@/utils/storage";
 
 /**
@@ -49,6 +55,14 @@ const ACCESS_TOKEN_KEY = "cal_access_token";
 const REFRESH_TOKEN_KEY = "cal_refresh_token";
 const OAUTH_TOKENS_KEY = "cal_oauth_tokens";
 const AUTH_TYPE_KEY = "cal_auth_type";
+/**
+ * Region stored in secureStorage alongside OAuth tokens so the two can never
+ * get out of sync.  On iOS, SecureStore (Keychain) persists across app
+ * reinstalls whereas AsyncStorage does not — if the region were only in
+ * AsyncStorage, a reinstall would lose the region while keeping the tokens,
+ * defaulting to "us" and routing API calls to the wrong instance.
+ */
+const AUTH_REGION_KEY = "cal_auth_region";
 
 type AuthType = "oauth" | "web_session";
 
@@ -127,6 +141,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   ) => {
     await storage.set(OAUTH_TOKENS_KEY, JSON.stringify(tokens));
     await storage.set(AUTH_TYPE_KEY, "oauth");
+    await storage.set(AUTH_REGION_KEY, getRegion());
 
     if (service) {
       try {
@@ -138,7 +153,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const clearAuth = useCallback(async () => {
-    await storage.removeAll([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, OAUTH_TOKENS_KEY, AUTH_TYPE_KEY]);
+    await storage.removeAll([
+      ACCESS_TOKEN_KEY,
+      REFRESH_TOKEN_KEY,
+      OAUTH_TOKENS_KEY,
+      AUTH_TYPE_KEY,
+      AUTH_REGION_KEY,
+    ]);
 
     if (oauthService) {
       try {
@@ -337,6 +358,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     CalComAPIService.setAuthFailureCallback(() => logoutRef.current());
 
     (async () => {
+      // Restore the region from secureStorage first.  This is the
+      // authoritative source when tokens exist because secureStorage
+      // (iOS Keychain) persists across app reinstalls whereas
+      // generalStorage (AsyncStorage) does not.  Without this, a
+      // reinstall drops the region while keeping the tokens, defaulting
+      // to "us" and routing API calls to the wrong instance.
+      try {
+        const authRegion = await storage.get(AUTH_REGION_KEY);
+        if (authRegion === "us" || authRegion === "eu") {
+          await setRegion(authRegion);
+        }
+      } catch {
+        // Best-effort; fall through to preloadRegion.
+      }
+
       const initialRegion = getRegion();
       const region = await preloadRegion();
       if (cancelled) return;
@@ -388,6 +424,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsAuthenticated(true);
       setIsWebSession(true);
       await storage.set(AUTH_TYPE_KEY, "web_session");
+      await storage.set(AUTH_REGION_KEY, getRegion());
 
       // Try to get tokens from web session
       const tokens = await WebAuthService.getTokensFromWebSession();

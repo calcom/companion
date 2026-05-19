@@ -10,10 +10,11 @@
 
 import { onlineManager, QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import React, { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import React, { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { CACHE_CONFIG } from "@/config/cache.config";
 import { clearQueryCache, createQueryPersister } from "@/utils/queryPersister";
+import { getRegion, subscribeRegion } from "@/utils/region";
 
 /**
  * Create and configure the QueryClient instance
@@ -121,6 +122,18 @@ export function QueryProvider({ children }: QueryProviderProps) {
     // For now, assume online on mobile (React Query handles network errors gracefully)
     return undefined;
   }, []);
+
+  // Clear in-memory query cache when the data region changes so stale data
+  // from a different region is never served to the user.
+  const regionRef = useRef(getRegion());
+  useEffect(() => {
+    return subscribeRegion((newRegion) => {
+      if (newRegion !== regionRef.current) {
+        regionRef.current = newRegion;
+        queryClient.clear();
+      }
+    });
+  }, [queryClient]);
 
   // Listen for reload messages from extension
   useEffect(() => {
