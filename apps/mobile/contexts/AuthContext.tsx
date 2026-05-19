@@ -124,7 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // a freshly-rebuilt service without waiting for the state update to settle.
   const saveOAuthTokens = async (
     tokens: OAuthTokens,
-    service: CalComOAuthService | null = oauthService
+    service: CalComOAuthService | null
   ) => {
     await storage.set(OAUTH_TOKENS_KEY, JSON.stringify(tokens));
     await storage.set(AUTH_TYPE_KEY, "oauth");
@@ -170,12 +170,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } catch (prefsError) {
         console.warn("Failed to clear user preferences during logout:", prefsError);
       }
-      // Clear cached queries before resetting the region so getStorageKey()
-      // still returns the current region's key, not the default "us".
+      // Clear cache before region reset so getStorageKey() still returns the correct key.
       try {
         await clearQueryCache();
       } catch (cacheError) {
-        console.warn("Failed to clear query cache during logout:", cacheError);
+        safeLogWarn("Failed to clear query cache during logout:", cacheError);
       }
       // Reset the persisted data region so the next user is prompted via the
       // login-screen picker rather than silently inheriting this session's
