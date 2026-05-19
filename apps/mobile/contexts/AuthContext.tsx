@@ -109,6 +109,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const setupAfterLogin = useCallback(
     async (token: string, refreshToken?: string) => {
       CalComAPIService.setAccessToken(token, refreshToken);
+      // Drop any user-profile singleton left over from a previous in-memory
+      // session (e.g. an extension iframe that outlived a logout, or a future
+      // in-session account switch). getUserProfile() returns the cached
+      // singleton without an API call if one exists, so without this clear it
+      // could hand us the previous user's profile — the mismatch check
+      // downstream would then see two matching ids and silently pass.
+      CalComAPIService.clearUserProfile();
 
       try {
         const profile = await CalComAPIService.getUserProfile();
