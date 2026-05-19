@@ -170,6 +170,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } catch (prefsError) {
         console.warn("Failed to clear user preferences during logout:", prefsError);
       }
+      // Clear cached queries before resetting the region so getStorageKey()
+      // still returns the current region's key, not the default "us".
+      try {
+        await clearQueryCache();
+      } catch (cacheError) {
+        console.warn("Failed to clear query cache during logout:", cacheError);
+      }
       // Reset the persisted data region so the next user is prompted via the
       // login-screen picker rather than silently inheriting this session's
       // region (the extension background worker clears `cal_region` on logout
@@ -178,12 +185,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await clearRegion();
       } catch (regionError) {
         console.warn("Failed to clear data region during logout:", regionError);
-      }
-      // Clear all cached queries to ensure fresh data on re-login
-      try {
-        await clearQueryCache();
-      } catch (cacheError) {
-        console.warn("Failed to clear query cache during logout:", cacheError);
       }
       resetAuthState();
     } catch (error) {
@@ -415,7 +416,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     let currentService: CalComOAuthService | null;
     try {
       currentService = createCalComOAuthService();
-    } catch {
+    } catch (serviceError) {
+      safeLogWarn("Failed to build OAuth service at login time, falling back to cached instance:", serviceError);
       currentService = oauthService;
     }
     if (!currentService) {
