@@ -6,7 +6,7 @@ import { CalComAPIService } from "@/services/calcom";
 
 export type PushRegistrationResult =
   | { success: true; token: string }
-  | { success: false; reason: string };
+  | { success: false; reason: string; token?: string };
 
 function getDeviceId(): string {
   return Device.osBuildId ?? Device.osInternalBuildId ?? `${Device.modelId ?? "unknown"}-fallback`;
@@ -31,12 +31,20 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
     return { success: false, reason: "simulators-do-not-support-push-notifications" };
   }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
+  let finalStatus: Notifications.PermissionStatus;
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    finalStatus = existingStatus;
 
-  if (existingStatus !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+    if (existingStatus !== "granted") {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+  } catch (error) {
+    return {
+      success: false,
+      reason: error instanceof Error ? error.message : "permission-request-failed",
+    };
   }
 
   if (finalStatus !== "granted") {
@@ -71,6 +79,7 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
     return {
       success: false,
       reason: error instanceof Error ? error.message : "server-registration-failed",
+      token,
     };
   }
 

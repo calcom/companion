@@ -25,7 +25,7 @@ function handleNotificationUrl(url: string, router: ReturnType<typeof useRouter>
     const parsed = Linking.parse(url);
     const uid = typeof parsed.queryParams?.uid === "string" ? parsed.queryParams.uid : null;
     if (uid) {
-      router.push(`/(tabs)/(bookings)/booking-detail?uid=${uid}`);
+      router.push(`/(tabs)/(bookings)/booking-detail?uid=${encodeURIComponent(uid)}`);
     }
   } catch {
     // Malformed deep link — ignore.
@@ -47,6 +47,10 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
     void (async () => {
       const result = await requestAndRegisterPushToken();
       if (result.success) {
+        registeredTokenRef.current = result.token;
+      } else if (result.token) {
+        // Server registration failed but token was obtained — store it so
+        // we can still deregister on logout.
         registeredTokenRef.current = result.token;
       }
     })();
@@ -79,7 +83,10 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
   }, [router]);
 
   // Handle cold-start: app was killed, user tapped notification to launch.
+  // Wait for auth so the authenticated Stack is mounted before navigating.
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     void (async () => {
       const lastResponse = await Notifications.getLastNotificationResponseAsync();
       if (!lastResponse) return;
@@ -92,7 +99,7 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
         handleNotificationUrl(url, router);
       }
     })();
-  }, [router]);
+  }, [isAuthenticated, router]);
 
   return <>{children}</>;
 }
