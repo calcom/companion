@@ -31,11 +31,15 @@ function getPlatform(): "IOS" | "ANDROID" {
 
 export async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "Default",
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-    });
+    try {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "Default",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+      });
+    } catch {
+      // Best-effort; proceed without custom channel.
+    }
   }
 }
 
@@ -64,11 +68,7 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
     return { success: false, reason: "notification-permission-denied" };
   }
 
-  try {
-    await ensureAndroidChannel();
-  } catch {
-    // Best-effort; proceed without custom channel.
-  }
+  await ensureAndroidChannel();
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) {
@@ -86,11 +86,13 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
     };
   }
 
+  const deviceId = await getDeviceId();
+
   try {
     await CalComAPIService.registerAppPushSubscription({
       token,
       platform: getPlatform(),
-      deviceId: await getDeviceId(),
+      deviceId,
     });
   } catch (error) {
     return {
