@@ -9,9 +9,7 @@ export type PushRegistrationResult =
   | { success: false; reason: string };
 
 function getDeviceId(): string {
-  return (
-    Device.osBuildId ?? Device.osInternalBuildId ?? `${Device.modelId ?? "unknown"}-fallback`
-  );
+  return Device.osBuildId ?? Device.osInternalBuildId ?? `${Device.modelId ?? "unknown"}-fallback`;
 }
 
 function getPlatform(): "IOS" | "ANDROID" {
@@ -47,8 +45,7 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
 
   await ensureAndroidChannel();
 
-  const projectId =
-    Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) {
     return { success: false, reason: "missing-expo-project-id" };
   }

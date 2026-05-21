@@ -68,6 +68,7 @@ import {
   getEventTypes,
   updateEventType,
 } from "./event-types";
+import { registerAppPushSubscription, removeAppPushSubscription } from "./notifications";
 import {
   createEventTypePrivateLink,
   deleteEventTypePrivateLink,
@@ -100,10 +101,6 @@ import {
   updateEventTypeWebhook,
   updateWebhook,
 } from "./webhooks";
-import {
-  registerAppPushSubscription,
-  removeAppPushSubscription,
-} from "./notifications";
 
 // Re-export the booking participation helper for direct use
 export { getBookingParticipation };

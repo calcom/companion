@@ -15,9 +15,7 @@ export async function registerAppPushSubscription(
   });
 }
 
-export async function removeAppPushSubscription(
-  token: string
-): Promise<{ status: string }> {
+export async function removeAppPushSubscription(token: string): Promise<{ status: string }> {
   return makeRequest("/notifications/subscriptions/app-push", {
     method: "DELETE",
     body: JSON.stringify({ token }),

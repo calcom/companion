@@ -3,10 +3,7 @@ import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { type ReactNode, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  deregisterPushToken,
-  requestAndRegisterPushToken,
-} from "@/hooks/use-push-notifications";
+import { deregisterPushToken, requestAndRegisterPushToken } from "@/hooks/use-push-notifications";
 
 // Show notifications even when the app is in foreground.
 Notifications.setNotificationHandler({
