@@ -51,6 +51,14 @@
     "owner": "calcoms-organization",
     "plugins": [
       "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#000000",
+          "defaultChannel": "default"
+        }
+      ],
       "expo-secure-store",
       "expo-web-browser",
       "expo-image",
