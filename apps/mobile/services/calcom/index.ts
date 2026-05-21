@@ -100,6 +100,10 @@ import {
   updateEventTypeWebhook,
   updateWebhook,
 } from "./webhooks";
+import {
+  registerAppPushSubscription,
+  removeAppPushSubscription,
+} from "./notifications";
 
 // Re-export the booking participation helper for direct use
 export { getBookingParticipation };
@@ -171,4 +175,8 @@ export const CalComAPIService = {
   createEventTypePrivateLink,
   updateEventTypePrivateLink,
   deleteEventTypePrivateLink,
+
+  // Notifications
+  registerAppPushSubscription,
+  removeAppPushSubscription,
 };
