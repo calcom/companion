@@ -12,12 +12,16 @@ export type PushRegistrationResult =
   | { success: false; reason: string; token?: string };
 
 async function getDeviceId(): Promise<string> {
-  const stored = await secureStorage.get(DEVICE_ID_KEY);
-  if (stored) return stored;
+  try {
+    const stored = await secureStorage.get(DEVICE_ID_KEY);
+    if (stored) return stored;
 
-  const id = crypto.randomUUID();
-  await secureStorage.set(DEVICE_ID_KEY, id);
-  return id;
+    const id = crypto.randomUUID();
+    await secureStorage.set(DEVICE_ID_KEY, id);
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
 }
 
 function getPlatform(): "IOS" | "ANDROID" {

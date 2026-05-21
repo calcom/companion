@@ -37,6 +37,16 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
   const router = useRouter();
   const registeredTokenRef = useRef<string | null>(null);
   const coldStartHandledRef = useRef(false);
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  const routerRef = useRef(router);
+
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    routerRef.current = router;
+  }, [router]);
 
   // Register token on login.
   useEffect(() => {
@@ -69,21 +79,21 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
   }, [registerPreLogoutCallback]);
 
   // Handle notification taps (foreground + background).
+  // Registered once — reads auth and router from refs to avoid teardown gaps.
   useEffect(() => {
-    if (!isAuthenticated) return;
-
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      if (!isAuthenticatedRef.current) return;
       const data = response.notification.request.content.data as
         | Record<string, unknown>
         | undefined;
       const url = typeof data?.url === "string" ? data.url : undefined;
       if (url) {
-        handleNotificationUrl(url, router);
+        handleNotificationUrl(url, routerRef.current);
       }
     });
 
     return () => subscription.remove();
-  }, [isAuthenticated, router]);
+  }, []);
 
   // Handle cold-start: app was killed, user tapped notification to launch.
   // Wait for auth so the authenticated Stack is mounted before navigating.
