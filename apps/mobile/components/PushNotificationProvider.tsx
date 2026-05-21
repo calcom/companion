@@ -49,14 +49,17 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
   }, [router]);
 
   // Register token on login.
+  // Register token on login.
   useEffect(() => {
     if (!isAuthenticated) {
       registeredTokenRef.current = null;
       return;
     }
 
+    let cancelled = false;
     void (async () => {
       const result = await requestAndRegisterPushToken();
+      if (cancelled) return;
       if (result.success) {
         registeredTokenRef.current = result.token;
       } else if (result.token) {
@@ -65,6 +68,9 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
         registeredTokenRef.current = result.token;
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [isAuthenticated]);
 
   // Deregister token before auth is cleared — the pre-logout callback runs
