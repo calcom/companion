@@ -113,16 +113,23 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
     coldStartHandledRef.current = true;
 
     void (async () => {
-      const lastResponse = await Notifications.getLastNotificationResponseAsync();
+      const lastResponse = Notifications.getLastNotificationResponse();
       if (!lastResponse) return;
 
-      // Skip if this notification was already handled in a previous session.
-      // getLastNotificationResponseAsync() persists across launches, so without
-      // this check the same tap would re-navigate every time the app cold-starts.
+      // Two-layer guard against re-navigating to an already-handled notification:
+      // 1. AsyncStorage dedup — persists the handled ID across sessions so a
+      //    previously-tapped notification can't replay on a fresh cold start.
+      // 2. clearLastNotificationResponse() — clears the native cache so
+      //    subsequent cold starts receive null rather than the old response.
       const id = lastResponse.notification.request.identifier;
       const lastHandledId = await AsyncStorage.getItem(LAST_HANDLED_NOTIF_KEY);
       if (lastHandledId === id) return;
       await AsyncStorage.setItem(LAST_HANDLED_NOTIF_KEY, id);
+      try {
+        Notifications.clearLastNotificationResponse();
+      } catch {
+        // Native module unavailable in some environments — AsyncStorage dedup above covers this.
+      }
 
       const data = lastResponse.notification.request.content.data as
         | Record<string, unknown>
