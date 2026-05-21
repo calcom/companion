@@ -12,15 +12,16 @@ export type PushRegistrationResult =
   | { success: false; reason: string; token?: string };
 
 async function getDeviceId(): Promise<string> {
+  let id: string | undefined;
   try {
     const stored = await secureStorage.get(DEVICE_ID_KEY);
     if (stored) return stored;
 
-    const id = crypto.randomUUID();
+    id = crypto.randomUUID();
     await secureStorage.set(DEVICE_ID_KEY, id);
     return id;
   } catch {
-    return crypto.randomUUID();
+    return id ?? crypto.randomUUID();
   }
 }
 
@@ -63,7 +64,11 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
     return { success: false, reason: "notification-permission-denied" };
   }
 
-  await ensureAndroidChannel();
+  try {
+    await ensureAndroidChannel();
+  } catch {
+    // Best-effort; proceed without custom channel.
+  }
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) {
