@@ -33,17 +33,14 @@ function handleNotificationUrl(url: string, router: ReturnType<typeof useRouter>
 }
 
 export function PushNotificationProvider({ children }: PushNotificationProviderProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, registerPreLogoutCallback } = useAuth();
   const router = useRouter();
   const registeredTokenRef = useRef<string | null>(null);
 
-  // Register on login, deregister on logout.
+  // Register token on login.
   useEffect(() => {
     if (!isAuthenticated) {
-      if (registeredTokenRef.current) {
-        void deregisterPushToken(registeredTokenRef.current);
-        registeredTokenRef.current = null;
-      }
+      registeredTokenRef.current = null;
       return;
     }
 
@@ -54,6 +51,17 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
       }
     })();
   }, [isAuthenticated]);
+
+  // Deregister token before auth is cleared — the pre-logout callback runs
+  // while the Bearer token is still valid so the API call succeeds.
+  useEffect(() => {
+    return registerPreLogoutCallback(async () => {
+      if (registeredTokenRef.current) {
+        await deregisterPushToken(registeredTokenRef.current);
+        registeredTokenRef.current = null;
+      }
+    });
+  }, [registerPreLogoutCallback]);
 
   // Handle notification taps (foreground + background).
   useEffect(() => {
