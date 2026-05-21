@@ -36,7 +36,7 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
   const { isAuthenticated, registerPreLogoutCallback } = useAuth();
   const router = useRouter();
   const registeredTokenRef = useRef<string | null>(null);
-  const handledNotificationIdRef = useRef<string | null>(null);
+  const coldStartHandledRef = useRef(false);
 
   // Register token on login.
   useEffect(() => {
@@ -70,6 +70,8 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
 
   // Handle notification taps (foreground + background).
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as
         | Record<string, unknown>
@@ -81,26 +83,25 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
     });
 
     return () => subscription.remove();
-  }, [router]);
+  }, [isAuthenticated, router]);
 
   // Handle cold-start: app was killed, user tapped notification to launch.
   // Wait for auth so the authenticated Stack is mounted before navigating.
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    if (coldStartHandledRef.current) return;
+    coldStartHandledRef.current = true;
+
     void (async () => {
       const lastResponse = await Notifications.getLastNotificationResponseAsync();
       if (!lastResponse) return;
-
-      const notifId = lastResponse.notification.request.identifier;
-      if (notifId === handledNotificationIdRef.current) return;
 
       const data = lastResponse.notification.request.content.data as
         | Record<string, unknown>
         | undefined;
       const url = typeof data?.url === "string" ? data.url : undefined;
       if (url) {
-        handledNotificationIdRef.current = notifId;
         handleNotificationUrl(url, router);
       }
     })();

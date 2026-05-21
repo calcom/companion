@@ -14,6 +14,7 @@ export async function registerAppPushSubscription(
       "/notifications/subscriptions/app-push",
       {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       }
     );
@@ -27,6 +28,7 @@ export async function removeAppPushSubscription(token: string): Promise<{ status
   try {
     return await makeRequest<{ status: string }>("/notifications/subscriptions/app-push", {
       method: "DELETE",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
     });
   } catch (error) {
