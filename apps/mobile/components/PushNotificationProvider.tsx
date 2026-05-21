@@ -36,6 +36,7 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
   const { isAuthenticated, registerPreLogoutCallback } = useAuth();
   const router = useRouter();
   const registeredTokenRef = useRef<string | null>(null);
+  const handledNotificationIdRef = useRef<string | null>(null);
 
   // Register token on login.
   useEffect(() => {
@@ -91,11 +92,15 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
       const lastResponse = await Notifications.getLastNotificationResponseAsync();
       if (!lastResponse) return;
 
+      const notifId = lastResponse.notification.request.identifier;
+      if (notifId === handledNotificationIdRef.current) return;
+
       const data = lastResponse.notification.request.content.data as
         | Record<string, unknown>
         | undefined;
       const url = typeof data?.url === "string" ? data.url : undefined;
       if (url) {
+        handledNotificationIdRef.current = notifId;
         handleNotificationUrl(url, router);
       }
     })();

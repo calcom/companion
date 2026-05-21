@@ -3,13 +3,21 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { CalComAPIService } from "@/services/calcom";
+import { secureStorage } from "@/utils/storage";
+
+const DEVICE_ID_KEY = "calcom_push_device_id";
 
 export type PushRegistrationResult =
   | { success: true; token: string }
   | { success: false; reason: string; token?: string };
 
-function getDeviceId(): string {
-  return Device.osBuildId ?? Device.osInternalBuildId ?? `${Device.modelId ?? "unknown"}-fallback`;
+async function getDeviceId(): Promise<string> {
+  const stored = await secureStorage.get(DEVICE_ID_KEY);
+  if (stored) return stored;
+
+  const id = crypto.randomUUID();
+  await secureStorage.set(DEVICE_ID_KEY, id);
+  return id;
 }
 
 function getPlatform(): "IOS" | "ANDROID" {
@@ -73,7 +81,7 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
     await CalComAPIService.registerAppPushSubscription({
       token,
       platform: getPlatform(),
-      deviceId: getDeviceId(),
+      deviceId: await getDeviceId(),
     });
   } catch (error) {
     return {
