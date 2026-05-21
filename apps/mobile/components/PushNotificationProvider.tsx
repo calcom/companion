@@ -1,9 +1,12 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { type ReactNode, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { deregisterPushToken, requestAndRegisterPushToken } from "@/hooks/use-push-notifications";
+
+const LAST_HANDLED_NOTIF_KEY = "calcom_last_handled_notification_id";
 
 // Show notifications even when the app is in foreground.
 Notifications.setNotificationHandler({
@@ -112,6 +115,14 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
     void (async () => {
       const lastResponse = await Notifications.getLastNotificationResponseAsync();
       if (!lastResponse) return;
+
+      // Skip if this notification was already handled in a previous session.
+      // getLastNotificationResponseAsync() persists across launches, so without
+      // this check the same tap would re-navigate every time the app cold-starts.
+      const id = lastResponse.notification.request.identifier;
+      const lastHandledId = await AsyncStorage.getItem(LAST_HANDLED_NOTIF_KEY);
+      if (lastHandledId === id) return;
+      await AsyncStorage.setItem(LAST_HANDLED_NOTIF_KEY, id);
 
       const data = lastResponse.notification.request.content.data as
         | Record<string, unknown>
