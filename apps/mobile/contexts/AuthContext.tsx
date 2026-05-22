@@ -35,6 +35,8 @@ interface AuthUserInfo {
   username: string;
 }
 
+type PreLogoutCallback = () => Promise<void>;
+
 interface AuthContextType {
   isAuthenticated: boolean;
   accessToken: string | null;
@@ -44,6 +46,7 @@ interface AuthContextType {
   loginFromWebSession: (userInfo: UserProfile) => Promise<void>;
   loginWithOAuth: () => Promise<void>;
   logout: () => Promise<void>;
+  registerPreLogoutCallback: (callback: PreLogoutCallback) => () => void;
   loading: boolean;
 }
 
@@ -199,7 +202,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     CalComAPIService.clearUserProfile();
   }, []);
 
+  const preLogoutCallbacksRef = useRef<PreLogoutCallback[]>([]);
+
+  const registerPreLogoutCallback = useCallback((callback: PreLogoutCallback) => {
+    preLogoutCallbacksRef.current.push(callback);
+    return () => {
+      preLogoutCallbacksRef.current = preLogoutCallbacksRef.current.filter((cb) => cb !== callback);
+    };
+  }, []);
+
   const logout = useCallback(async () => {
+    // Run pre-logout callbacks while auth tokens are still valid (e.g. push
+    // token deregistration needs a valid Bearer token for the API call).
+    for (const callback of preLogoutCallbacksRef.current) {
+      try {
+        await callback();
+      } catch (callbackError) {
+        console.warn("Pre-logout callback failed:", getErrorMessage(callbackError));
+      }
+    }
     // Each cleanup step has its own try/catch so a failure in one does not
     // skip the others. resetAuthState() always runs last to put the UI in a
     // known logged-out state even if disk writes failed.
@@ -540,6 +561,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loginFromWebSession,
     loginWithOAuth,
     logout,
+    registerPreLogoutCallback,
     loading,
   };
 

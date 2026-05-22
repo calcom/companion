@@ -68,6 +68,7 @@ import {
   getEventTypes,
   updateEventType,
 } from "./event-types";
+import { registerAppPushSubscription, removeAppPushSubscription } from "./notifications";
 import {
   createEventTypePrivateLink,
   deleteEventTypePrivateLink,
@@ -171,4 +172,8 @@ export const CalComAPIService = {
   createEventTypePrivateLink,
   updateEventTypePrivateLink,
   deleteEventTypePrivateLink,
+
+  // Notifications
+  registerAppPushSubscription,
+  removeAppPushSubscription,
 };
