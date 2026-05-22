@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { calApi } from "../utils/api-client.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
+import { buildBody } from "../utils/params-builder.js";
 
 const availabilitySlotSchema = z.object({
   days: z
@@ -62,13 +63,17 @@ export async function createSchedule(params: {
   overrides?: { date: string; startTime: string; endTime: string }[];
 }) {
   try {
-    const body: Record<string, unknown> = {
-      name: params.name,
-      timeZone: params.timeZone,
-      isDefault: params.isDefault,
-    };
-    if (params.availability !== undefined) body.availability = params.availability;
-    if (params.overrides !== undefined) body.overrides = params.overrides;
+    const body = buildBody(
+      {
+        name: params.name,
+        timeZone: params.timeZone,
+        isDefault: params.isDefault,
+      },
+      {
+        availability: params.availability,
+        overrides: params.overrides,
+      }
+    );
     const data = await calApi("schedules", {
       method: "POST",
       body,
@@ -100,12 +105,13 @@ export async function updateSchedule(params: {
   overrides?: { date: string; startTime: string; endTime: string }[];
 }) {
   try {
-    const body: Record<string, unknown> = {};
-    if (params.name !== undefined) body.name = params.name;
-    if (params.timeZone !== undefined) body.timeZone = params.timeZone;
-    if (params.isDefault !== undefined) body.isDefault = params.isDefault;
-    if (params.availability !== undefined) body.availability = params.availability;
-    if (params.overrides !== undefined) body.overrides = params.overrides;
+    const body = buildBody({}, {
+      name: params.name,
+      timeZone: params.timeZone,
+      isDefault: params.isDefault,
+      availability: params.availability,
+      overrides: params.overrides,
+    });
     const data = await calApi(`schedules/${params.scheduleId}`, { method: "PATCH", body });
     return ok(data);
   } catch (err) {
