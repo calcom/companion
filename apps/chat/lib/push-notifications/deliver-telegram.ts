@@ -1,6 +1,6 @@
 import type { ChatElement } from "chat";
 import { bot } from "@/lib/bot";
-import type { DeliverResult } from "./deliver-slack";
+import type { DeliverResult } from "./types";
 
 const TELEGRAM_NOT_FOUND_PHRASES = [
   "chat not found",

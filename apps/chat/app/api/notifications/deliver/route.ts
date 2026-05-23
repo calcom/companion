@@ -1,13 +1,18 @@
 import crypto from "node:crypto";
 import { type DeliverRequest, deliverNotifications } from "@/lib/push-notifications/service";
 
+const secretHmac = process.env.CALCOM_DELIVERY_SECRET
+  ? crypto
+      .createHmac("sha256", "delivery-verify")
+      .update(process.env.CALCOM_DELIVERY_SECRET)
+      .digest()
+  : null;
+
 function verifyDeliverySecret(header: string | null): boolean {
-  const secret = process.env.CALCOM_DELIVERY_SECRET;
-  if (!secret || !header) return false;
+  if (!secretHmac || !header) return false;
   try {
-    const a = crypto.createHmac("sha256", "delivery-verify").update(header).digest();
-    const b = crypto.createHmac("sha256", "delivery-verify").update(secret).digest();
-    return crypto.timingSafeEqual(a, b);
+    const headerHmac = crypto.createHmac("sha256", "delivery-verify").update(header).digest();
+    return crypto.timingSafeEqual(headerHmac, secretHmac);
   } catch {
     return false;
   }
@@ -19,6 +24,18 @@ function parseDeliverRequest(body: unknown): DeliverRequest | null {
   if (b.platform !== "SLACK" && b.platform !== "TELEGRAM") return null;
   if (!Array.isArray(b.subscriptions) || b.subscriptions.length === 0) return null;
   if (typeof b.payload !== "object" || b.payload === null) return null;
+
+  if (b.platform === "SLACK") {
+    const valid = b.subscriptions.every(
+      (s: unknown) =>
+        typeof s === "object" &&
+        s !== null &&
+        typeof (s as Record<string, unknown>).identifier === "string" &&
+        typeof (s as Record<string, unknown>).teamId === "string"
+    );
+    if (!valid) return null;
+  }
+
   return body as DeliverRequest;
 }
 

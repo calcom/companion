@@ -430,12 +430,24 @@ export function registerSlackHandlers(
                 { fallbackToDM: true }
               );
             } else {
-              await removeSlackSubscription(notifyToken, { identifier: userId });
-              await event.channel.postEphemeral(
-                event.user,
-                "🔕 Booking push notifications turned off.",
-                { fallbackToDM: true }
-              );
+              try {
+                await removeSlackSubscription(notifyToken, { identifier: userId });
+                await event.channel.postEphemeral(
+                  event.user,
+                  "🔕 Booking push notifications turned off.",
+                  { fallbackToDM: true }
+                );
+              } catch (err) {
+                if (err instanceof CalcomApiError && err.statusCode === 404) {
+                  await event.channel.postEphemeral(
+                    event.user,
+                    "You don't have push notifications enabled.",
+                    { fallbackToDM: true }
+                  );
+                } else {
+                  throw err;
+                }
+              }
             }
             break;
           }

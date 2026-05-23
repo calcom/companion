@@ -1,11 +1,6 @@
 import type { ChatElement } from "chat";
 import { bot, slackAdapter } from "@/lib/bot";
-
-export type DeliverResult = {
-  identifier: string;
-  success: boolean;
-  invalidIdentifier?: boolean;
-};
+import type { DeliverResult } from "./types";
 
 const INVALID_SLACK_ERROR_CODES = new Set([
   "channel_not_found",
@@ -29,10 +24,16 @@ export async function deliverSlack(
     });
     return { identifier, success: true };
   } catch (err) {
-    const msg = String(err).toLowerCase();
-    const isInvalid = [...INVALID_SLACK_ERROR_CODES].some((code) => msg.includes(code));
-    if (isInvalid) {
-      return { identifier, success: false, invalidIdentifier: true };
+    if (
+      err instanceof Error &&
+      "code" in err &&
+      (err as Record<string, unknown>).code === "slack_webapi_platform_error"
+    ) {
+      const data = (err as Record<string, unknown>).data as Record<string, unknown> | undefined;
+      const slackError = typeof data?.error === "string" ? data.error : "";
+      if (INVALID_SLACK_ERROR_CODES.has(slackError)) {
+        return { identifier, success: false, invalidIdentifier: true };
+      }
     }
     return { identifier, success: false };
   }

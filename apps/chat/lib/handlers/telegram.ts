@@ -1,6 +1,7 @@
 import type { Chat, ChatElement, Message, Thread } from "chat";
 import { Actions, Button, Card, CardText, LinkButton } from "chat";
 import {
+  CalcomApiError,
   cancelBooking,
   createBookingPublic,
   getAvailableSlotsPublic,
@@ -219,15 +220,28 @@ export async function handleTelegramCommand(
             isGroup
           );
         } else {
-          await removeTelegramSubscription(auth.accessToken, {
-            identifier: ctx.userId,
-          });
-          await postPrivately(
-            thread,
-            message,
-            "🔕 Booking push notifications turned off.",
-            isGroup
-          );
+          try {
+            await removeTelegramSubscription(auth.accessToken, {
+              identifier: ctx.userId,
+            });
+            await postPrivately(
+              thread,
+              message,
+              "🔕 Booking push notifications turned off.",
+              isGroup
+            );
+          } catch (err) {
+            if (err instanceof CalcomApiError && err.statusCode === 404) {
+              await postPrivately(
+                thread,
+                message,
+                "You don't have push notifications enabled.",
+                isGroup
+              );
+            } else {
+              throw err;
+            }
+          }
         }
         return;
       }

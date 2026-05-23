@@ -32,6 +32,10 @@ const NOTIFICATION_BADGES: Record<ChatPushPayload["notificationType"], string> =
   BOOKING_REJECTED: "🚫 Booking Rejected",
 };
 
+function isHttpUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
 function formatPushTime(start: string, end: string, timeZone: string): string {
   const startDate = new Date(start);
   const endDate = new Date(end);
@@ -54,7 +58,8 @@ function formatPushTime(start: string, end: string, timeZone: string): string {
     minute: "2-digit",
     hour12: true,
   });
-  return `${dateFmt.format(startDate)} · ${startTimeFmt.format(startDate)}–${timeFmt.format(endDate)}`;
+  const datePart = dateFmt.format(startDate).replace(/,/g, "");
+  return `${datePart} · ${startTimeFmt.format(startDate)}–${timeFmt.format(endDate)}`;
 }
 
 function formatPeople(people: Array<{ name: string; email: string }>): string {
@@ -65,16 +70,23 @@ export function buildPushCard(payload: ChatPushPayload): ChatElement {
   const badge = NOTIFICATION_BADGES[payload.notificationType];
   const when = formatPushTime(payload.start, payload.end, payload.timeZone);
 
-  const meetingField = payload.meetingUrl
-    ? [Field({ label: "Meeting", value: `[Join](${payload.meetingUrl})` })]
-    : payload.location
-      ? [Field({ label: "Location", value: payload.location })]
-      : [];
+  const meetingField =
+    payload.meetingUrl && isHttpUrl(payload.meetingUrl)
+      ? [Field({ label: "Meeting", value: `[Join](${payload.meetingUrl})` })]
+      : payload.location
+        ? [Field({ label: "Location", value: payload.location })]
+        : [];
 
   const reasonField =
-    payload.notificationType === "BOOKING_CANCELLED" && payload.cancellationReason
+    (payload.notificationType === "BOOKING_CANCELLED" ||
+      payload.notificationType === "BOOKING_REJECTED") &&
+    payload.cancellationReason
       ? [Field({ label: "Reason", value: payload.cancellationReason })]
       : [];
+
+  const bookingUrl = payload.data?.url;
+  const viewBookingUrl =
+    bookingUrl && isHttpUrl(bookingUrl) ? bookingUrl : "https://app.cal.com/bookings";
 
   return Card({
     title: badge,
@@ -94,7 +106,7 @@ export function buildPushCard(payload: ChatPushPayload): ChatElement {
       Divider(),
       Actions([
         LinkButton({
-          url: payload.data?.url ?? "https://app.cal.com/bookings",
+          url: viewBookingUrl,
           label: "View Booking",
         }),
       ]),

@@ -26,7 +26,7 @@ export function validateRequiredEnv(): void {
     throw new Error(
       "CALCOM_DELIVERY_SECRET is required in production. Set it to the same value as CALCOM_CHAT_DELIVERY_SECRET on the /cal backend."
     );
-  } else if (!process.env.CALCOM_DELIVERY_SECRET) {
+  } else if (process.env.NODE_ENV === "development" && !process.env.CALCOM_DELIVERY_SECRET) {
     console.warn(
       "CALCOM_DELIVERY_SECRET not set — POST /api/notifications/deliver will reject all requests."
     );
