@@ -30,6 +30,8 @@ import {
   getBookings,
   getEventTypesByUsername,
   getSchedules,
+  registerSlackSubscription,
+  removeSlackSubscription,
   rescheduleBooking,
 } from "../calcom/client";
 import { generateAuthUrl } from "../calcom/oauth";
@@ -398,6 +400,45 @@ export function registerSlackHandlers(
           case "unlink":
             await handleUnlink(event, teamId, userId);
             break;
+          case "notify": {
+            const notifyArg = args[1]?.toLowerCase();
+            if (notifyArg !== "on" && notifyArg !== "off") {
+              await event.channel.postEphemeral(
+                event.user,
+                "Usage: `/cal notify on` or `/cal notify off`",
+                { fallbackToDM: true }
+              );
+              break;
+            }
+            const notifyToken = await getValidAccessToken(teamId, userId);
+            if (!notifyToken) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              break;
+            }
+            if (notifyArg === "on") {
+              await registerSlackSubscription(notifyToken, {
+                identifier: userId,
+                deviceId: teamId,
+              });
+              await event.channel.postEphemeral(
+                event.user,
+                "✅ You'll now receive booking notifications here.",
+                { fallbackToDM: true }
+              );
+            } else {
+              await removeSlackSubscription(notifyToken, { identifier: userId });
+              await event.channel.postEphemeral(
+                event.user,
+                "🔕 Booking push notifications turned off.",
+                { fallbackToDM: true }
+              );
+            }
+            break;
+          }
           case "help":
             await event.channel.postEphemeral(event.user, helpCard(), { fallbackToDM: true });
             break;

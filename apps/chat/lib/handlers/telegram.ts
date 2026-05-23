@@ -7,6 +7,8 @@ import {
   getBookings,
   getEventTypesByUsername,
   getSchedules,
+  registerTelegramSubscription,
+  removeTelegramSubscription,
   rescheduleBooking,
 } from "../calcom/client";
 import { generateAuthUrl } from "../calcom/oauth";
@@ -47,6 +49,7 @@ export const TELEGRAM_COMMANDS = [
   "help",
   "link",
   "unlink",
+  "notify",
   "bookings",
   "availability",
   "profile",
@@ -189,6 +192,43 @@ export async function handleTelegramCommand(
         await thread.post(
           `Your Cal.com account (**${linked.calcomUsername}**) has been disconnected.`
         );
+        return;
+      }
+
+      if (cmd === "notify") {
+        const notifyArg = rest.split(/\s+/)[0]?.toLowerCase();
+        if (notifyArg !== "on" && notifyArg !== "off") {
+          await postPrivately(
+            thread,
+            message,
+            "Usage: `/notify on` or `/notify off`",
+            isGroup
+          );
+          return;
+        }
+        const auth = await requireAuth();
+        if (!auth) return;
+        if (notifyArg === "on") {
+          await registerTelegramSubscription(auth.accessToken, {
+            identifier: ctx.userId,
+          });
+          await postPrivately(
+            thread,
+            message,
+            "✅ You'll now receive booking notifications here.",
+            isGroup
+          );
+        } else {
+          await removeTelegramSubscription(auth.accessToken, {
+            identifier: ctx.userId,
+          });
+          await postPrivately(
+            thread,
+            message,
+            "🔕 Booking push notifications turned off.",
+            isGroup
+          );
+        }
         return;
       }
 

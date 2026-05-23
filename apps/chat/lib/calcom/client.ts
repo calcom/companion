@@ -648,3 +648,45 @@ export async function chargeCredits(
     }),
   }, API_VERSION, 0);
 }
+
+// ─── Chat push notification subscriptions ────────────────────────────────────
+
+export async function registerSlackSubscription(
+  accessToken: string,
+  input: { identifier: string; deviceId: string }
+): Promise<void> {
+  await calcomFetch<void>("/v2/notifications/subscriptions/slack", accessToken, {
+    method: "POST",
+    body: JSON.stringify(input),
+  }, API_VERSION, 0);
+}
+
+export async function removeSlackSubscription(
+  accessToken: string,
+  input: { identifier: string }
+): Promise<void> {
+  await calcomFetch<void>("/v2/notifications/subscriptions/slack", accessToken, {
+    method: "DELETE",
+    body: JSON.stringify(input),
+  }, API_VERSION, 0);
+}
+
+export async function registerTelegramSubscription(
+  accessToken: string,
+  input: { identifier: string }
+): Promise<void> {
+  await calcomFetch<void>("/v2/notifications/subscriptions/telegram", accessToken, {
+    method: "POST",
+    body: JSON.stringify(input),
+  }, API_VERSION, 0);
+}
+
+export async function removeTelegramSubscription(
+  accessToken: string,
+  input: { identifier: string }
+): Promise<void> {
+  await calcomFetch<void>("/v2/notifications/subscriptions/telegram", accessToken, {
+    method: "DELETE",
+    body: JSON.stringify(input),
+  }, API_VERSION, 0);
+}

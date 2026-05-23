@@ -1,0 +1,103 @@
+// Mirrors ChatPushPayload from calcom/cal PR #2927
+// packages/features/notifications/send-chat-push-notification.ts
+
+import type { ChatElement } from "chat";
+import { Actions, Card, Divider, Field, Fields, LinkButton } from "chat";
+
+export type ChatPushPayload = {
+  title: string;
+  body: string;
+  data?: Record<string, string>;
+  notificationType:
+    | "BOOKING_CONFIRMED"
+    | "BOOKING_CANCELLED"
+    | "BOOKING_RESCHEDULED"
+    | "BOOKING_REQUESTED"
+    | "BOOKING_REJECTED";
+  hosts: Array<{ name: string; email: string }>;
+  attendees: Array<{ name: string; email: string }>;
+  start: string;
+  end: string;
+  timeZone: string;
+  location?: string;
+  meetingUrl?: string;
+  cancellationReason?: string;
+};
+
+const NOTIFICATION_BADGES: Record<ChatPushPayload["notificationType"], string> = {
+  BOOKING_CONFIRMED: "✅ Booking Confirmed",
+  BOOKING_CANCELLED: "❌ Booking Cancelled",
+  BOOKING_RESCHEDULED: "🔄 Booking Rescheduled",
+  BOOKING_REQUESTED: "🕐 Booking Requested",
+  BOOKING_REJECTED: "🚫 Booking Rejected",
+};
+
+function formatPushTime(start: string, end: string, timeZone: string): string {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const dateFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  const timeFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  });
+  const startTimeFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `${dateFmt.format(startDate)} · ${startTimeFmt.format(startDate)}–${timeFmt.format(endDate)}`;
+}
+
+function formatPeople(people: Array<{ name: string; email: string }>): string {
+  return people.map((p) => `${p.name} · ${p.email}`).join(", ");
+}
+
+export function buildPushCard(payload: ChatPushPayload): ChatElement {
+  const badge = NOTIFICATION_BADGES[payload.notificationType];
+  const when = formatPushTime(payload.start, payload.end, payload.timeZone);
+
+  const meetingField = payload.meetingUrl
+    ? [Field({ label: "Meeting", value: `[Join](${payload.meetingUrl})` })]
+    : payload.location
+      ? [Field({ label: "Location", value: payload.location })]
+      : [];
+
+  const reasonField =
+    payload.notificationType === "BOOKING_CANCELLED" && payload.cancellationReason
+      ? [Field({ label: "Reason", value: payload.cancellationReason })]
+      : [];
+
+  return Card({
+    title: badge,
+    subtitle: payload.title,
+    children: [
+      Fields([
+        Field({ label: "When", value: when }),
+        ...(payload.hosts.length > 0
+          ? [Field({ label: "Hosts", value: formatPeople(payload.hosts) })]
+          : []),
+        ...(payload.attendees.length > 0
+          ? [Field({ label: "Attendees", value: formatPeople(payload.attendees) })]
+          : []),
+        ...meetingField,
+        ...reasonField,
+      ]),
+      Divider(),
+      Actions([
+        LinkButton({
+          url: payload.data?.url ?? "https://app.cal.com/bookings",
+          label: "View Booking",
+        }),
+      ]),
+    ],
+  });
+}
