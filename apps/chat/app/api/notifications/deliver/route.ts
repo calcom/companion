@@ -4,8 +4,9 @@ import { type DeliverRequest, deliverNotifications } from "@/lib/push-notificati
 function verifyDeliverySecret(header: string | null): boolean {
   const secret = process.env.CALCOM_DELIVERY_SECRET;
   if (!secret || !header) return false;
-    const a = crypto.createHmac('sha256', 'delivery-verify').update(header).digest();
-    const b = crypto.createHmac('sha256', 'delivery-verify').update(secret).digest();
+  try {
+    const a = crypto.createHmac("sha256", "delivery-verify").update(header).digest();
+    const b = crypto.createHmac("sha256", "delivery-verify").update(secret).digest();
     return crypto.timingSafeEqual(a, b);
   } catch {
     return false;
