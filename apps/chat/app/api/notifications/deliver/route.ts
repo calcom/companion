@@ -54,6 +54,14 @@ function parseDeliverRequest(body: unknown): DeliverRequest | null {
         typeof (s as Record<string, unknown>).teamId === "string"
     );
     if (!valid) return null;
+  } else {
+    const valid = b.subscriptions.every(
+      (s: unknown) =>
+        typeof s === "object" &&
+        s !== null &&
+        typeof (s as Record<string, unknown>).identifier === "string"
+    );
+    if (!valid) return null;
   }
 
   return body as DeliverRequest;
