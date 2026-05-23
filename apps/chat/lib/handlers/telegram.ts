@@ -197,14 +197,13 @@ export async function handleTelegramCommand(
       }
 
       if (cmd === "notify") {
+        if (isGroup) {
+          await thread.post("Please check your DMs — `/notify` only works in a private chat with the bot.");
+          return;
+        }
         const notifyArg = rest.split(/\s+/)[0]?.toLowerCase();
         if (notifyArg !== "on" && notifyArg !== "off") {
-          await postPrivately(
-            thread,
-            message,
-            "Usage: `/notify on` or `/notify off`",
-            isGroup
-          );
+          await thread.post("Usage: `/notify on` or `/notify off`");
           return;
         }
         const auth = await requireAuth();
@@ -213,30 +212,21 @@ export async function handleTelegramCommand(
           await registerTelegramSubscription(auth.accessToken, {
             identifier: ctx.userId,
           });
-          await postPrivately(
-            thread,
-            message,
-            "✅ You'll now receive booking notifications here.",
-            isGroup
+          await thread.post(
+            "✅ You'll now receive booking notifications via DM."
           );
         } else {
           try {
             await removeTelegramSubscription(auth.accessToken, {
               identifier: ctx.userId,
             });
-            await postPrivately(
-              thread,
-              message,
-              "🔕 Booking push notifications turned off.",
-              isGroup
+            await thread.post(
+              "🔕 Booking push notifications turned off."
             );
           } catch (err) {
             if (err instanceof CalcomApiError && err.statusCode === 404) {
-              await postPrivately(
-                thread,
-                message,
-                "You don't have push notifications enabled.",
-                isGroup
+              await thread.post(
+                "You don't have push notifications enabled."
               );
             } else {
               throw err;

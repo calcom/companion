@@ -426,7 +426,7 @@ export function registerSlackHandlers(
               });
               await event.channel.postEphemeral(
                 event.user,
-                "✅ You'll now receive booking notifications here.",
+                "✅ You'll now receive booking notifications via DM.",
                 { fallbackToDM: true }
               );
             } else {

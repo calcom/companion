@@ -1,6 +1,9 @@
 import type { ChatElement } from "chat";
 import { bot, slackAdapter } from "@/lib/bot";
+import { getLogger } from "@/lib/logger";
 import type { DeliverResult } from "./types";
+
+const logger = getLogger("deliver-slack");
 
 const INVALID_SLACK_ERROR_CODES = new Set([
   "channel_not_found",
@@ -15,7 +18,8 @@ export async function deliverSlack(
 ): Promise<DeliverResult> {
   const installation = await slackAdapter.getInstallation(teamId);
   if (!installation) {
-    return { identifier, success: false, invalidIdentifier: true };
+    logger.warn("No installation found", { identifier, teamId });
+    return { identifier, success: false, invalidIdentifier: true, error: "no_installation" };
   }
 
   try {
@@ -32,9 +36,13 @@ export async function deliverSlack(
       const data = (err as Record<string, unknown>).data as Record<string, unknown> | undefined;
       const slackError = typeof data?.error === "string" ? data.error : "";
       if (INVALID_SLACK_ERROR_CODES.has(slackError)) {
-        return { identifier, success: false, invalidIdentifier: true };
+        logger.warn("Invalid Slack identifier", { identifier, teamId, slackError });
+        return { identifier, success: false, invalidIdentifier: true, error: slackError };
       }
+      logger.error("Slack API error", { identifier, teamId, slackError });
+      return { identifier, success: false, error: slackError || "slack_api_error" };
     }
-    return { identifier, success: false };
+    logger.error("Unexpected Slack delivery error", { identifier, teamId, error: String(err) });
+    return { identifier, success: false, error: String(err) };
   }
 }

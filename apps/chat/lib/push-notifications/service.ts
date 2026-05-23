@@ -1,7 +1,10 @@
+import { getLogger } from "@/lib/logger";
 import { deliverSlack } from "./deliver-slack";
 import { deliverTelegram } from "./deliver-telegram";
 import { buildPushCard, type ChatPushPayload } from "./formatter";
 import type { DeliverResult } from "./types";
+
+const logger = getLogger("push-service");
 
 export type DeliverRequest =
   | {
@@ -31,9 +34,15 @@ export async function deliverNotifications(request: DeliverRequest): Promise<Del
 
   return settled.map((result, i) => {
     if (result.status === "fulfilled") return result.value;
+    logger.error("Delivery promise rejected", {
+      identifier: request.subscriptions[i].identifier,
+      platform: request.platform,
+      reason: String(result.reason),
+    });
     return {
       identifier: request.subscriptions[i].identifier,
       success: false,
+      error: String(result.reason),
     };
   });
 }

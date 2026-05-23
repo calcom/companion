@@ -8,12 +8,7 @@ export type ChatPushPayload = {
   title: string;
   body: string;
   data?: Record<string, string>;
-  notificationType:
-    | "BOOKING_CONFIRMED"
-    | "BOOKING_CANCELLED"
-    | "BOOKING_RESCHEDULED"
-    | "BOOKING_REQUESTED"
-    | "BOOKING_REJECTED";
+  notificationType: string;
   hosts: Array<{ name: string; email: string }>;
   attendees: Array<{ name: string; email: string }>;
   start: string;
@@ -24,7 +19,7 @@ export type ChatPushPayload = {
   cancellationReason?: string;
 };
 
-const NOTIFICATION_BADGES: Record<ChatPushPayload["notificationType"], string> = {
+const NOTIFICATION_BADGES: Record<string, string> = {
   BOOKING_CONFIRMED: "✅ Booking Confirmed",
   BOOKING_CANCELLED: "❌ Booking Cancelled",
   BOOKING_RESCHEDULED: "🔄 Booking Rescheduled",
@@ -67,7 +62,9 @@ function formatPeople(people: Array<{ name: string; email: string }>): string {
 }
 
 export function buildPushCard(payload: ChatPushPayload): ChatElement {
-  const badge = NOTIFICATION_BADGES[payload.notificationType];
+  const badge =
+    NOTIFICATION_BADGES[payload.notificationType] ??
+    `📅 ${payload.notificationType.replace(/_/g, " ").toLowerCase()}`;
   const when = formatPushTime(payload.start, payload.end, payload.timeZone);
 
   const meetingField =
