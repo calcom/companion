@@ -419,16 +419,37 @@ export function registerSlackHandlers(
               );
               break;
             }
-            if (notifyArg === "on") {
-              await registerSlackSubscription(notifyToken, {
-                identifier: userId,
-                deviceId: teamId,
-              });
+            const notifyLinked = await getLinkedUser(teamId, userId);
+            if (!notifyLinked) {
               await event.channel.postEphemeral(
                 event.user,
-                "✅ You'll now receive booking notifications via DM.",
+                oauthLinkMessage("slack", teamId, userId),
                 { fallbackToDM: true }
               );
+              break;
+            }
+            if (notifyArg === "on") {
+              try {
+                await registerSlackSubscription(notifyToken, {
+                  identifier: userId,
+                  deviceId: teamId,
+                });
+                await event.channel.postEphemeral(
+                  event.user,
+                  "✅ You'll now receive booking notifications via DM.",
+                  { fallbackToDM: true }
+                );
+              } catch (err) {
+                if (err instanceof CalcomApiError && err.statusCode === 409) {
+                  await event.channel.postEphemeral(
+                    event.user,
+                    "You're already subscribed to booking notifications.",
+                    { fallbackToDM: true }
+                  );
+                } else {
+                  throw err;
+                }
+              }
             } else {
               try {
                 await removeSlackSubscription(notifyToken, { identifier: userId });

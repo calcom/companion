@@ -4,18 +4,13 @@ import { type DeliverRequest, deliverNotifications } from "@/lib/push-notificati
 
 const logger = getLogger("deliver-route");
 
-const secretHmac = process.env.CALCOM_DELIVERY_SECRET
-  ? crypto
-      .createHmac("sha256", "delivery-verify")
-      .update(process.env.CALCOM_DELIVERY_SECRET)
-      .digest()
-  : null;
-
 function verifyDeliverySecret(header: string | null): boolean {
-  if (!secretHmac || !header) return false;
+  const secret = process.env.CALCOM_DELIVERY_SECRET;
+  if (!secret || !header) return false;
   try {
-    const headerHmac = crypto.createHmac("sha256", "delivery-verify").update(header).digest();
-    return crypto.timingSafeEqual(headerHmac, secretHmac);
+    const a = crypto.createHmac("sha256", "delivery-verify").update(header).digest();
+    const b = crypto.createHmac("sha256", "delivery-verify").update(secret).digest();
+    return crypto.timingSafeEqual(a, b);
   } catch {
     return false;
   }
@@ -34,7 +29,12 @@ function parseDeliverRequest(body: unknown): DeliverRequest | null {
   if (typeof body !== "object" || body === null) return null;
   const b = body as Record<string, unknown>;
   if (b.platform !== "SLACK" && b.platform !== "TELEGRAM") return null;
-  if (!Array.isArray(b.subscriptions) || b.subscriptions.length === 0) return null;
+  if (
+    !Array.isArray(b.subscriptions) ||
+    b.subscriptions.length === 0 ||
+    b.subscriptions.length > 500
+  )
+    return null;
   if (typeof b.payload !== "object" || b.payload === null) return null;
 
   const p = b.payload as Record<string, unknown>;

@@ -209,12 +209,22 @@ export async function handleTelegramCommand(
         const auth = await requireAuth();
         if (!auth) return;
         if (notifyArg === "on") {
-          await registerTelegramSubscription(auth.accessToken, {
-            identifier: ctx.userId,
-          });
-          await thread.post(
-            "✅ You'll now receive booking notifications via DM."
-          );
+          try {
+            await registerTelegramSubscription(auth.accessToken, {
+              identifier: ctx.userId,
+            });
+            await thread.post(
+              "✅ You'll now receive booking notifications via DM."
+            );
+          } catch (err) {
+            if (err instanceof CalcomApiError && err.statusCode === 409) {
+              await thread.post(
+                "You're already subscribed to booking notifications."
+              );
+            } else {
+              throw err;
+            }
+          }
         } else {
           try {
             await removeTelegramSubscription(auth.accessToken, {

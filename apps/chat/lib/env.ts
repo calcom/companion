@@ -22,14 +22,14 @@ export function validateRequiredEnv(): void {
     );
   }
 
-  if (process.env.NODE_ENV === "production" && !process.env.CALCOM_DELIVERY_SECRET) {
-    throw new Error(
-      "CALCOM_DELIVERY_SECRET is required in production. Set it to the same value as CALCOM_CHAT_DELIVERY_SECRET on the /cal backend."
-    );
-  } else if (process.env.NODE_ENV === "development" && !process.env.CALCOM_DELIVERY_SECRET) {
-    console.warn(
-      "CALCOM_DELIVERY_SECRET not set — POST /api/notifications/deliver will reject all requests."
-    );
+  if (!process.env.CALCOM_DELIVERY_SECRET) {
+    if (process.env.NODE_ENV === "production") {
+      missing.push("CALCOM_DELIVERY_SECRET");
+    } else if (process.env.NODE_ENV === "development") {
+      console.warn(
+        "CALCOM_DELIVERY_SECRET not set — POST /api/notifications/deliver will reject all requests."
+      );
+    }
   }
 
   if (missing.length > 0) {

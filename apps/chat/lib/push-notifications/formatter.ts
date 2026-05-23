@@ -67,12 +67,13 @@ export function buildPushCard(payload: ChatPushPayload): ChatElement {
     `📅 ${payload.notificationType.replace(/_/g, " ").toLowerCase()}`;
   const when = formatPushTime(payload.start, payload.end, payload.timeZone);
 
-  const meetingField =
-    payload.meetingUrl && isHttpUrl(payload.meetingUrl)
+  const meetingField = payload.meetingUrl
+    ? isHttpUrl(payload.meetingUrl)
       ? [Field({ label: "Meeting", value: `[Join](${payload.meetingUrl})` })]
-      : payload.location
-        ? [Field({ label: "Location", value: payload.location })]
-        : [];
+      : [Field({ label: "Meeting", value: payload.meetingUrl })]
+    : payload.location
+      ? [Field({ label: "Location", value: payload.location })]
+      : [];
 
   const reasonField =
     (payload.notificationType === "BOOKING_CANCELLED" ||
