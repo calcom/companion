@@ -8,9 +8,9 @@ function verifyDeliverySecret(header: string | null): boolean {
   const secret = process.env.CALCOM_DELIVERY_SECRET;
   if (!secret || !header) return false;
   try {
-    const a = crypto.createHmac("sha256", "delivery-verify").update(header).digest();
-    const b = crypto.createHmac("sha256", "delivery-verify").update(secret).digest();
-    return crypto.timingSafeEqual(a, b);
+    const secretHmac = crypto.createHmac("sha256", "delivery-verify").update(secret).digest();
+    const headerHmac = crypto.createHmac("sha256", "delivery-verify").update(header).digest();
+    return crypto.timingSafeEqual(headerHmac, secretHmac);
   } catch {
     return false;
   }
@@ -40,8 +40,10 @@ function parseDeliverRequest(body: unknown): DeliverRequest | null {
   const p = b.payload as Record<string, unknown>;
   if (typeof p.title !== "string" || typeof p.timeZone !== "string") return null;
   if (typeof p.start !== "string" || typeof p.end !== "string") return null;
+  if (typeof p.notificationType !== "string" || p.notificationType === "") return null;
   if (!Array.isArray(p.hosts) || !Array.isArray(p.attendees)) return null;
   if (!isValidTimeZone(p.timeZone)) return null;
+  if (isNaN(Date.parse(p.start)) || isNaN(Date.parse(p.end))) return null;
 
   if (b.platform === "SLACK") {
     const valid = b.subscriptions.every(
@@ -68,6 +70,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
+    logger.warn("Failed to parse delivery request body");
     return new Response(null, { status: 400 });
   }
 
