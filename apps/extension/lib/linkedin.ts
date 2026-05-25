@@ -1,4 +1,5 @@
 /// <reference types="chrome" />
+import { getCalAppUrl, getCalWebUrl } from "./region";
 import { escapeHtml } from "./utils";
 
 // LinkedIn integration: inject a Cal.com scheduling button in LinkedIn messaging
@@ -617,7 +618,7 @@ export function initLinkedInIntegration() {
     const editBtn = createActionButton(SVG_ICONS.EDIT, "Edit", "0 6px 6px 0", tooltipsToCleanup);
     editBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const editUrl = `https://app.cal.com/event-types/${eventType.id}`;
+      const editUrl = `${getCalAppUrl()}/event-types/${eventType.id}`;
       window.open(editUrl, "_blank");
     });
 
@@ -668,7 +669,7 @@ export function initLinkedInIntegration() {
   function buildBookingUrl(eventType: EventType): string {
     return (
       eventType.bookingUrl ||
-      `https://cal.com/${eventType.users?.[0]?.username || "user"}/${eventType.slug}`
+      `${getCalWebUrl()}/${eventType.users?.[0]?.username || "user"}/${eventType.slug}`
     );
   }
 
