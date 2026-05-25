@@ -68,7 +68,10 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
       } else if (result.token) {
         // Server registration failed but token was obtained — store it so
         // we can still deregister on logout.
+        console.warn("[PushNotif] push registration failed:", result.reason);
         registeredTokenRef.current = result.token;
+      } else {
+        console.warn("[PushNotif] push registration failed:", result.reason);
       }
     })();
     return () => {

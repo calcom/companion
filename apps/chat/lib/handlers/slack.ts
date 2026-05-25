@@ -30,6 +30,8 @@ import {
   getBookings,
   getEventTypesByUsername,
   getSchedules,
+  registerSlackSubscription,
+  removeSlackSubscription,
   rescheduleBooking,
 } from "../calcom/client";
 import { generateAuthUrl } from "../calcom/oauth";
@@ -302,7 +304,8 @@ export function registerSlackHandlers(
         blocks: cardToBlockKit(homeCard),
       });
     } catch (err) {
-      const isAuthError = err instanceof CalcomApiError && (err.statusCode === 401 || err.statusCode === 403);
+      const isAuthError =
+        err instanceof CalcomApiError && (err.statusCode === 401 || err.statusCode === 403);
       const authUrl = generateAuthUrl("slack", teamId, userId);
       const errorCard = isAuthError
         ? Card({
@@ -314,9 +317,7 @@ export function registerSlackHandlers(
           })
         : Card({
             title: "Could Not Load Bookings",
-            children: [
-              CardText("Could not load bookings. Please try again later."),
-            ],
+            children: [CardText("Could not load bookings. Please try again later.")],
           });
       await slack.publishHomeView(userId, {
         type: "home",
@@ -398,6 +399,78 @@ export function registerSlackHandlers(
           case "unlink":
             await handleUnlink(event, teamId, userId);
             break;
+          case "notify": {
+            const notifyArg = args[1]?.toLowerCase();
+            if (notifyArg !== "on" && notifyArg !== "off") {
+              await event.channel.postEphemeral(
+                event.user,
+                "Usage: `/cal notify on` or `/cal notify off`",
+                { fallbackToDM: true }
+              );
+              break;
+            }
+            const notifyToken = await getValidAccessToken(teamId, userId);
+            if (!notifyToken) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              break;
+            }
+            const notifyLinked = await getLinkedUser(teamId, userId);
+            if (!notifyLinked) {
+              await event.channel.postEphemeral(
+                event.user,
+                oauthLinkMessage("slack", teamId, userId),
+                { fallbackToDM: true }
+              );
+              break;
+            }
+            if (notifyArg === "on") {
+              try {
+                await registerSlackSubscription(notifyToken, {
+                  identifier: userId,
+                  teamId,
+                });
+                await event.channel.postEphemeral(
+                  event.user,
+                  "✅ You'll now receive booking notifications via DM.",
+                  { fallbackToDM: true }
+                );
+              } catch (err) {
+                if (err instanceof CalcomApiError && err.statusCode === 409) {
+                  await event.channel.postEphemeral(
+                    event.user,
+                    "You're already subscribed to booking notifications.",
+                    { fallbackToDM: true }
+                  );
+                } else {
+                  throw err;
+                }
+              }
+            } else {
+              try {
+                await removeSlackSubscription(notifyToken, { identifier: userId });
+                await event.channel.postEphemeral(
+                  event.user,
+                  "🔕 Booking push notifications turned off.",
+                  { fallbackToDM: true }
+                );
+              } catch (err) {
+                if (err instanceof CalcomApiError && err.statusCode === 404) {
+                  await event.channel.postEphemeral(
+                    event.user,
+                    "You don't have push notifications enabled.",
+                    { fallbackToDM: true }
+                  );
+                } else {
+                  throw err;
+                }
+              }
+            }
+            break;
+          }
           case "help":
             await event.channel.postEphemeral(event.user, helpCard(), { fallbackToDM: true });
             break;
@@ -499,7 +572,11 @@ export function registerSlackHandlers(
                 { fallbackToDM: true }
               );
             } else {
-              await event.channel.postEphemeral(event.user, availabilityListCard(allSlots, eventType.title), { fallbackToDM: true });
+              await event.channel.postEphemeral(
+                event.user,
+                availabilityListCard(allSlots, eventType.title),
+                { fallbackToDM: true }
+              );
             }
             break;
           }
@@ -795,7 +872,9 @@ export function registerSlackHandlers(
               await chargeCredits(accessTokenForAgent, { externalRef });
             } catch {
               // Don't fail the interaction if charging fails
-              bot.getLogger("/cal").warn("Failed to charge credits via slash command", { userId, externalRef });
+              bot
+                .getLogger("/cal")
+                .warn("Failed to charge credits via slash command", { userId, externalRef });
             }
           }
         }
@@ -1180,7 +1259,9 @@ export function registerSlackHandlers(
           if (err instanceof CalcomApiError) {
             return friendlyCalcomError(err, "booking");
           }
-          return err instanceof Error ? "Failed to create the booking. Please try again." : undefined;
+          return err instanceof Error
+            ? "Failed to create the booking. Please try again."
+            : undefined;
         },
       }
     );
@@ -1205,7 +1286,9 @@ export function registerSlackHandlers(
         ]);
 
         if (!flow || !flow.targetUsername || !linked) {
-          await thread.post("Booking session expired. Please start again with `/cal book <username>`.");
+          await thread.post(
+            "Booking session expired. Please start again with `/cal book <username>`."
+          );
           return;
         }
 
@@ -1213,7 +1296,9 @@ export function registerSlackHandlers(
         const targetEventTypes = await getEventTypesByUsername(targetUsername);
         const selectedEt = targetEventTypes.find((et) => et.slug === selectedSlug);
         if (!selectedEt) {
-          await thread.post("Event type not found. Please start again with `/cal book <username>`.");
+          await thread.post(
+            "Event type not found. Please start again with `/cal book <username>`."
+          );
           return;
         }
 
@@ -1275,7 +1360,9 @@ export function registerSlackHandlers(
         const flow = await getBookingFlow(teamId, userId);
 
         if (!flow || !flow.targetUsername) {
-          await thread.post("Booking session expired. Please start again with `/cal book <username>`.");
+          await thread.post(
+            "Booking session expired. Please start again with `/cal book <username>`."
+          );
           return;
         }
 
@@ -1287,9 +1374,7 @@ export function registerSlackHandlers(
           selectedSlot: selectedTime,
         });
 
-        await thread.post(
-          bookConfirmCard(flow.eventTypeTitle, slotLabel, flow.targetUsername)
-        );
+        await thread.post(bookConfirmCard(flow.eventTypeTitle, slotLabel, flow.targetUsername));
       },
       {
         postError: (msg) => thread.post(msg).catch(() => {}),
@@ -1327,13 +1412,7 @@ export function registerSlackHandlers(
           getLinkedUser(teamId, userId),
         ]);
 
-        if (
-          !flow ||
-          !flow.selectedSlot ||
-          !flow.eventTypeSlug ||
-          !flow.targetUsername ||
-          !linked
-        ) {
+        if (!flow || !flow.selectedSlot || !flow.eventTypeSlug || !flow.targetUsername || !linked) {
           await thread.post(
             "Booking session expired. Please start again with `/cal book <username>`."
           );
@@ -1519,17 +1598,17 @@ export function registerSlackHandlers(
         const eventTypeSlug = selected.eventType?.slug;
         const eventTypeId = selected.eventType?.id ?? 0;
         if (!eventTypeSlug) {
-          await thread.post("Cannot reschedule: event type information is missing for this booking.");
+          await thread.post(
+            "Cannot reschedule: event type information is missing for this booking."
+          );
           return;
         }
 
         const emailLower = linked.calcomEmail.toLowerCase();
-        const isHost =
-          selected.hosts?.some(
-            (h) =>
-              String(h.id) === String(linked.calcomUserId) ||
-              h.email?.toLowerCase() === emailLower
-          );
+        const isHost = selected.hosts?.some(
+          (h) =>
+            String(h.id) === String(linked.calcomUserId) || h.email?.toLowerCase() === emailLower
+        );
         if (!isHost) {
           await thread.post(
             "You're an attendee on this booking, not the host. Rescheduling as an attendee isn't supported here — please use the reschedule link in your booking confirmation email or reschedule at <https://app.cal.com/bookings|app.cal.com/bookings>."
@@ -1601,7 +1680,9 @@ export function registerSlackHandlers(
       async () => {
         const flow = await getRescheduleFlow(teamId, userId);
         if (!flow) {
-          await thread.post("Reschedule session expired. Please start again with `/cal reschedule`.");
+          await thread.post(
+            "Reschedule session expired. Please start again with `/cal reschedule`."
+          );
           return;
         }
 
@@ -1651,7 +1732,9 @@ export function registerSlackHandlers(
       async () => {
         const flow = await getRescheduleFlow(teamId, userId);
         if (!flow?.selectedSlot) {
-          await thread.post("Reschedule session expired. Please start again with `/cal reschedule`.");
+          await thread.post(
+            "Reschedule session expired. Please start again with `/cal reschedule`."
+          );
           return;
         }
         const accessToken = await getValidAccessToken(teamId, userId);
@@ -1742,7 +1825,10 @@ export function registerSlackHandlers(
 
         const messageText = lastUserMessage.content as string;
         const msgHash = createHash("sha256").update(messageText).digest("hex").slice(0, 12);
-        const retryEventId = createHash("sha256").update(getRetryEventId(event.raw)).digest("hex").slice(0, 12);
+        const retryEventId = createHash("sha256")
+          .update(getRetryEventId(event.raw))
+          .digest("hex")
+          .slice(0, 12);
         const externalRef = `agent-${event.adapter.name}-${thread.id}-${msgHash}-retry-${retryEventId}`;
         try {
           await chargeCredits(accessToken, { externalRef });

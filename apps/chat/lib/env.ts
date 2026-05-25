@@ -22,6 +22,16 @@ export function validateRequiredEnv(): void {
     );
   }
 
+  if (!process.env.CALCOM_DELIVERY_SECRET) {
+    if (process.env.NODE_ENV === "production") {
+      missing.push("CALCOM_DELIVERY_SECRET");
+    } else if (process.env.NODE_ENV === "development") {
+      console.warn(
+        "CALCOM_DELIVERY_SECRET not set — POST /api/notifications/deliver will reject all requests."
+      );
+    }
+  }
+
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(", ")}`);
   }

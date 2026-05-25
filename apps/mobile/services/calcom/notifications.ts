@@ -19,7 +19,7 @@ export async function registerAppPushSubscription(
       }
     );
   } catch (error) {
-    console.error("registerAppPushSubscription error");
+    console.error("registerAppPushSubscription error", error);
     throw error;
   }
 }
@@ -32,7 +32,7 @@ export async function removeAppPushSubscription(token: string): Promise<{ status
       body: JSON.stringify({ token }),
     });
   } catch (error) {
-    console.error("removeAppPushSubscription error");
+    console.error("removeAppPushSubscription error", error);
     throw error;
   }
 }

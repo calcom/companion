@@ -83,15 +83,19 @@ async function calcomFetch<T>(
   retries: number = MAX_RETRIES
 ): Promise<T> {
   const url = `${CALCOM_API_URL}${path}`;
-  const res = await fetchWithRetry(url, {
-    ...options,
-    headers: {
-      "cal-api-version": apiVersion,
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      ...options.headers,
+  const res = await fetchWithRetry(
+    url,
+    {
+      ...options,
+      headers: {
+        "cal-api-version": apiVersion,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
     },
-  }, retries);
+    retries
+  );
 
   if (!res.ok) {
     let errorMessage = `Cal.com API error: ${res.status} ${res.statusText}`;
@@ -160,7 +164,9 @@ export async function getAvailableSlots(
     end: params.end,
     ...(params.timeZone ? { timeZone: params.timeZone } : {}),
     ...(params.duration ? { duration: String(params.duration) } : {}),
-    ...(params.bookingUidToReschedule ? { bookingUidToReschedule: params.bookingUidToReschedule } : {}),
+    ...(params.bookingUidToReschedule
+      ? { bookingUidToReschedule: params.bookingUidToReschedule }
+      : {}),
   });
   // The v2/slots API (2024-09-04) returns `data` as a date-keyed map of
   // `{ start }` objects — there is no wrapper `slots` property. Normalize to
@@ -203,7 +209,9 @@ export async function getAvailableSlotsPublic(
     end: params.end,
     ...(params.timeZone ? { timeZone: params.timeZone } : {}),
     ...(params.duration ? { duration: String(params.duration) } : {}),
-    ...(params.bookingUidToReschedule ? { bookingUidToReschedule: params.bookingUidToReschedule } : {}),
+    ...(params.bookingUidToReschedule
+      ? { bookingUidToReschedule: params.bookingUidToReschedule }
+      : {}),
   });
   const url = `${CALCOM_API_URL}/v2/slots?${query}`;
   const res = await fetchWithRetry(url, {
@@ -284,9 +292,7 @@ export async function getBookings(
     const isHost = booking.hosts?.some(
       (h) => idEq(h.id, currentUser.id) || emailEq(h.email, emailLower)
     );
-    const isAttendee = booking.attendees?.some(
-      (a) => emailEq(a.email, emailLower)
-    );
+    const isAttendee = booking.attendees?.some((a) => emailEq(a.email, emailLower));
     return isHost || isAttendee;
   });
 }
@@ -299,31 +305,41 @@ export async function createBooking(
   accessToken: string,
   input: CreateBookingInput
 ): Promise<CalcomBooking> {
-  return calcomFetch<CalcomBooking>("/v2/bookings", accessToken, {
-    method: "POST",
-    body: JSON.stringify(input),
-  }, API_VERSION, 0);
+  return calcomFetch<CalcomBooking>(
+    "/v2/bookings",
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+    API_VERSION,
+    0
+  );
 }
 
-export async function createBookingPublic(
-  input: CreatePublicBookingInput
-): Promise<CalcomBooking> {
+export async function createBookingPublic(input: CreatePublicBookingInput): Promise<CalcomBooking> {
   const url = `${CALCOM_API_URL}/v2/bookings`;
-  const res = await fetchWithRetry(url, {
-    method: "POST",
-    headers: {
-      "cal-api-version": "2024-08-13",
-      "Content-Type": "application/json",
+  const res = await fetchWithRetry(
+    url,
+    {
+      method: "POST",
+      headers: {
+        "cal-api-version": "2024-08-13",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
     },
-    body: JSON.stringify(input),
-  }, 0);
+    0
+  );
   if (!res.ok) {
     const body = await res.text();
     let message = `Booking failed (${res.status})`;
     try {
       const parsed = JSON.parse(body);
       message = parsed.error?.message ?? parsed.message ?? message;
-    } catch { /* use default */ }
+    } catch {
+      /* use default */
+    }
     throw new CalcomApiError(message, res.status);
   }
   const json = (await res.json()) as CalcomApiResponse<CalcomBooking>;
@@ -339,13 +355,19 @@ export async function cancelBooking(
   reason?: string,
   cancelSubsequentBookings?: boolean
 ): Promise<void> {
-  await calcomFetch<void>(`/v2/bookings/${bookingUid}/cancel`, accessToken, {
-    method: "POST",
-    body: JSON.stringify({
-      cancellationReason: reason,
-      ...(cancelSubsequentBookings ? { cancelSubsequentBookings: true } : {}),
-    }),
-  }, API_VERSION, 0);
+  await calcomFetch<void>(
+    `/v2/bookings/${bookingUid}/cancel`,
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        cancellationReason: reason,
+        ...(cancelSubsequentBookings ? { cancelSubsequentBookings: true } : {}),
+      }),
+    },
+    API_VERSION,
+    0
+  );
 }
 
 export async function rescheduleBooking(
@@ -355,14 +377,20 @@ export async function rescheduleBooking(
   reason?: string,
   rescheduledBy?: string
 ): Promise<CalcomBooking> {
-  return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/reschedule`, accessToken, {
-    method: "POST",
-    body: JSON.stringify({
-      start: newStart,
-      reschedulingReason: reason,
-      ...(rescheduledBy ? { rescheduledBy } : {}),
-    }),
-  }, API_VERSION, 0);
+  return calcomFetch<CalcomBooking>(
+    `/v2/bookings/${bookingUid}/reschedule`,
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        start: newStart,
+        reschedulingReason: reason,
+        ...(rescheduledBy ? { rescheduledBy } : {}),
+      }),
+    },
+    API_VERSION,
+    0
+  );
 }
 
 export interface CalcomMe {
@@ -380,10 +408,16 @@ export async function getMe(accessToken: string): Promise<CalcomMe> {
 }
 
 export async function updateMe(accessToken: string, input: UpdateMeInput): Promise<CalcomMe> {
-  return calcomFetch<CalcomMe>("/v2/me", accessToken, {
-    method: "PATCH",
-    body: JSON.stringify(input),
-  }, API_VERSION, 0);
+  return calcomFetch<CalcomMe>(
+    "/v2/me",
+    accessToken,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+    API_VERSION,
+    0
+  );
 }
 
 // ─── Schedules ───────────────────────────────────────────────────────────────
@@ -461,9 +495,15 @@ export async function confirmBooking(
   accessToken: string,
   bookingUid: string
 ): Promise<CalcomBooking> {
-  return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/confirm`, accessToken, {
-    method: "POST",
-  }, API_VERSION, 0);
+  return calcomFetch<CalcomBooking>(
+    `/v2/bookings/${bookingUid}/confirm`,
+    accessToken,
+    {
+      method: "POST",
+    },
+    API_VERSION,
+    0
+  );
 }
 
 export async function declineBooking(
@@ -471,10 +511,16 @@ export async function declineBooking(
   bookingUid: string,
   reason?: string
 ): Promise<CalcomBooking> {
-  return calcomFetch<CalcomBooking>(`/v2/bookings/${bookingUid}/decline`, accessToken, {
-    method: "POST",
-    body: JSON.stringify({ reason }),
-  }, API_VERSION, 0);
+  return calcomFetch<CalcomBooking>(
+    `/v2/bookings/${bookingUid}/decline`,
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    },
+    API_VERSION,
+    0
+  );
 }
 
 // ─── Calendar busy times ──────────────────────────────────────────────────────
@@ -546,10 +592,16 @@ export async function addBookingAttendee(
   bookingUid: string,
   input: AddAttendeeInput
 ): Promise<void> {
-  await calcomFetch<unknown>(`/v2/bookings/${bookingUid}/attendees`, accessToken, {
-    method: "POST",
-    body: JSON.stringify(input),
-  }, API_VERSION, 0);
+  await calcomFetch<unknown>(
+    `/v2/bookings/${bookingUid}/attendees`,
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+    API_VERSION,
+    0
+  );
 }
 
 // ─── Public event types (no auth) ─────────────────────────────────────────────
@@ -590,13 +642,19 @@ export async function markNoShow(
   host?: boolean,
   attendees?: Array<{ email: string; absent: boolean }>
 ): Promise<void> {
-  await calcomFetch<void>(`/v2/bookings/${bookingUid}/mark-absent`, accessToken, {
-    method: "POST",
-    body: JSON.stringify({
-      ...(host !== undefined ? { host } : {}),
-      ...(attendees ? { attendees } : {}),
-    }),
-  }, API_VERSION, 0);
+  await calcomFetch<void>(
+    `/v2/bookings/${bookingUid}/mark-absent`,
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...(host !== undefined ? { host } : {}),
+        ...(attendees ? { attendees } : {}),
+      }),
+    },
+    API_VERSION,
+    0
+  );
 }
 
 // ─── AI Agent Credits ────────────────────────────────────────────────────────
@@ -639,12 +697,84 @@ export async function chargeCredits(
   accessToken: string,
   params: { externalRef: string; credits?: number }
 ): Promise<ChargeCreditsData> {
-  return calcomFetch<ChargeCreditsData>("/v2/credits/charge", accessToken, {
-    method: "POST",
-    body: JSON.stringify({
-      credits: params.credits ?? AI_AGENT_CREDITS_PER_MESSAGE,
-      creditFor: "AI_AGENT",
-      externalRef: params.externalRef,
-    }),
-  }, API_VERSION, 0);
+  return calcomFetch<ChargeCreditsData>(
+    "/v2/credits/charge",
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        credits: params.credits ?? AI_AGENT_CREDITS_PER_MESSAGE,
+        creditFor: "AI_AGENT",
+        externalRef: params.externalRef,
+      }),
+    },
+    API_VERSION,
+    0
+  );
+}
+
+// ─── Chat push notification subscriptions ────────────────────────────────────
+
+export async function registerSlackSubscription(
+  accessToken: string,
+  input: { identifier: string; teamId: string }
+): Promise<void> {
+  await calcomFetch<void>(
+    "/v2/notifications/subscriptions/slack",
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+    API_VERSION,
+    0
+  );
+}
+
+export async function removeSlackSubscription(
+  accessToken: string,
+  input: { identifier: string }
+): Promise<void> {
+  await calcomFetch<void>(
+    "/v2/notifications/subscriptions/slack",
+    accessToken,
+    {
+      method: "DELETE",
+      body: JSON.stringify(input),
+    },
+    API_VERSION,
+    0
+  );
+}
+
+export async function registerTelegramSubscription(
+  accessToken: string,
+  input: { identifier: string }
+): Promise<void> {
+  await calcomFetch<void>(
+    "/v2/notifications/subscriptions/telegram",
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+    API_VERSION,
+    0
+  );
+}
+
+export async function removeTelegramSubscription(
+  accessToken: string,
+  input: { identifier: string }
+): Promise<void> {
+  await calcomFetch<void>(
+    "/v2/notifications/subscriptions/telegram",
+    accessToken,
+    {
+      method: "DELETE",
+      body: JSON.stringify(input),
+    },
+    API_VERSION,
+    0
+  );
 }

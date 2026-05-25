@@ -1,12 +1,15 @@
 import type { Chat, ChatElement, Message, Thread } from "chat";
 import { Actions, Button, Card, CardText, LinkButton } from "chat";
 import {
+  CalcomApiError,
   cancelBooking,
   createBookingPublic,
   getAvailableSlotsPublic,
   getBookings,
   getEventTypesByUsername,
   getSchedules,
+  registerTelegramSubscription,
+  removeTelegramSubscription,
   rescheduleBooking,
 } from "../calcom/client";
 import { generateAuthUrl } from "../calcom/oauth";
@@ -47,6 +50,7 @@ export const TELEGRAM_COMMANDS = [
   "help",
   "link",
   "unlink",
+  "notify",
   "bookings",
   "availability",
   "profile",
@@ -189,6 +193,56 @@ export async function handleTelegramCommand(
         await thread.post(
           `Your Cal.com account (**${linked.calcomUsername}**) has been disconnected.`
         );
+        return;
+      }
+
+      if (cmd === "notify") {
+        if (isGroup) {
+          await thread.post("Please check your DMs — `/notify` only works in a private chat with the bot.");
+          return;
+        }
+        const notifyArg = rest.split(/\s+/)[0]?.toLowerCase();
+        if (notifyArg !== "on" && notifyArg !== "off") {
+          await thread.post("Usage: `/notify on` or `/notify off`");
+          return;
+        }
+        const auth = await requireAuth();
+        if (!auth) return;
+        if (notifyArg === "on") {
+          try {
+            await registerTelegramSubscription(auth.accessToken, {
+              identifier: ctx.userId,
+            });
+            await thread.post(
+              "✅ You'll now receive booking notifications via DM."
+            );
+          } catch (err) {
+            if (err instanceof CalcomApiError && err.statusCode === 409) {
+              await thread.post(
+                "You're already subscribed to booking notifications."
+              );
+            } else {
+              throw err;
+            }
+          }
+        } else {
+          try {
+            await removeTelegramSubscription(auth.accessToken, {
+              identifier: ctx.userId,
+            });
+            await thread.post(
+              "🔕 Booking push notifications turned off."
+            );
+          } catch (err) {
+            if (err instanceof CalcomApiError && err.statusCode === 404) {
+              await thread.post(
+                "You don't have push notifications enabled."
+              );
+            } else {
+              throw err;
+            }
+          }
+        }
         return;
       }
 

@@ -21,8 +21,10 @@ async function getDeviceId(): Promise<string> {
     id = Crypto.randomUUID();
     await secureStorage.set(DEVICE_ID_KEY, id);
     return id;
-  } catch {
-    return id ?? Crypto.randomUUID();
+  } catch (err) {
+    const fallback = id ?? Crypto.randomUUID();
+    console.warn("[PushNotif] secureStorage error getting deviceId, using fallback:", err);
+    return fallback;
   }
 }
 
@@ -59,6 +61,7 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
       finalStatus = status;
     }
   } catch (error) {
+    console.error("[PushNotif] permission check/request failed:", error);
     return {
       success: false,
       reason: error instanceof Error ? error.message : "permission-request-failed",
@@ -73,6 +76,7 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) {
+    console.error("[PushNotif] missing EAS projectId — cannot get push token");
     return { success: false, reason: "missing-expo-project-id" };
   }
 
@@ -81,6 +85,7 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
     const result = await Notifications.getExpoPushTokenAsync({ projectId });
     token = result.data;
   } catch (error) {
+    console.error("[PushNotif] failed to get Expo push token:", error);
     return {
       success: false,
       reason: error instanceof Error ? error.message : "failed-to-get-expo-push-token",
@@ -96,9 +101,11 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
       deviceId,
     });
   } catch (error) {
+    const reason = error instanceof Error ? error.message : "server-registration-failed";
+    console.error("[PushNotif] server registration failed:", reason, error);
     return {
       success: false,
-      reason: error instanceof Error ? error.message : "server-registration-failed",
+      reason,
       token,
     };
   }
@@ -109,7 +116,8 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
 export async function deregisterPushToken(token: string): Promise<void> {
   try {
     await CalComAPIService.removeAppPushSubscription(token);
-  } catch {
+  } catch (error) {
     // Best-effort: server cleans up stale tokens on failed send attempts.
+    console.warn("[PushNotif] deregisterPushToken failed (non-fatal):", error);
   }
 }
