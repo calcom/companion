@@ -225,7 +225,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "List Bookings",
       description:
-        "List bookings with pagination (default 100, max 250 per page — use take/skip for more). Supports filtering by status (upcoming, recurring, past, cancelled, unconfirmed), attendee email/name, event type, team, date ranges (afterStart, beforeEnd), and sorting (sortStart, sortEnd, sortCreated).",
+        "List bookings with pagination (default 100, max 250 per page — use take/skip for more). By default returns only bookings the authenticated user participates in (organizer, host, or attendee); pass scope='all' to include every booking the API key/token can see (useful for admins viewing org-wide bookings). Supports filtering by status (upcoming, recurring, past, cancelled, unconfirmed), attendee email/name, event type, team, date ranges (afterStart, beforeEnd), and sorting (sortStart, sortEnd, sortCreated).",
       inputSchema: getBookingsSchema,
       annotations: READ_ONLY,
     },

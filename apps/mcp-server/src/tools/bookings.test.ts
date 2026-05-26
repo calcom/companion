@@ -50,6 +50,7 @@ describe("bookings schemas", () => {
     expect(getBookingsSchema.sortStart).toBeDefined();
     expect(getBookingsSchema.sortCreated).toBeDefined();
     expect(getBookingsSchema.bookingUid).toBeDefined();
+    expect(getBookingsSchema.scope).toBeDefined();
   });
 
   it("exports getBookingSchema with bookingUid", () => {
@@ -108,21 +109,26 @@ describe("bookings schemas", () => {
 
 describe("getBookings", () => {
   it("returns formatted data on success", async () => {
-    mockCalApi.mockResolvedValueOnce({ bookings: [{ uid: "abc" }] });
+    mockCalApi
+      .mockResolvedValueOnce({ id: 1, email: "test@example.com" })
+      .mockResolvedValueOnce({
+        bookings: [{ uid: "abc", hosts: [{ id: 1, email: "test@example.com" }] }],
+      });
 
     const result = await getBookings({ status: "upcoming" });
 
-    expect(mockCalApi).toHaveBeenCalledWith("bookings", {
+    expect(mockCalApi).toHaveBeenNthCalledWith(1, "me");
+    expect(mockCalApi).toHaveBeenNthCalledWith(2, "bookings", {
       params: expect.objectContaining({ status: "upcoming" }),
     });
     expect(result.content[0].type).toBe("text");
     expect(JSON.parse(result.content[0].text)).toEqual({
-      bookings: [{ uid: "abc" }],
+      bookings: [{ uid: "abc", hosts: [{ id: 1, email: "test@example.com" }] }],
     });
   });
 
   it("passes date range and sort params", async () => {
-    mockCalApi.mockResolvedValueOnce({ bookings: [] });
+    mockCalApi.mockResolvedValueOnce({ id: 1, email: "test@example.com" }).mockResolvedValueOnce({ bookings: [] });
 
     await getBookings({
       afterStart: "2024-08-01",
@@ -131,12 +137,73 @@ describe("getBookings", () => {
       teamId: 5,
     });
 
-    const [, opts] = mockCalApi.mock.calls[0];
+    const [, opts] = mockCalApi.mock.calls[1];
     const params = (opts as { params: Record<string, unknown> }).params;
     expect(params).toHaveProperty("afterStart", "2024-08-01");
     expect(params).toHaveProperty("beforeEnd", "2024-08-31");
     expect(params).toHaveProperty("sortStart", "asc");
     expect(params).toHaveProperty("teamId", 5);
+  });
+
+  it("filters admin booking responses to bookings involving the current user", async () => {
+    mockCalApi
+      .mockResolvedValueOnce({ data: { id: 1, email: "admin@example.com" } })
+      .mockResolvedValueOnce({
+        bookings: [
+          { uid: "host", hosts: [{ id: 1, email: "admin@example.com" }], attendees: [] },
+          { uid: "attendee", hosts: [], attendees: [{ email: "ADMIN@example.com" }] },
+          { uid: "organizer", user: { id: 1, email: "admin@example.com" }, hosts: [], attendees: [] },
+          { uid: "other", hosts: [{ id: 2, email: "other@example.com" }], attendees: [] },
+        ],
+      });
+
+    const result = await getBookings({});
+
+    expect(JSON.parse(result.content[0].text)).toEqual({
+      bookings: [
+        { uid: "host", hosts: [{ id: 1, email: "admin@example.com" }], attendees: [] },
+        { uid: "attendee", hosts: [], attendees: [{ email: "ADMIN@example.com" }] },
+        { uid: "organizer", user: { id: 1, email: "admin@example.com" }, hosts: [], attendees: [] },
+      ],
+    });
+  });
+
+  it("scope='all' skips the me lookup and returns the unfiltered payload", async () => {
+    mockCalApi.mockResolvedValueOnce({
+      bookings: [
+        { uid: "host", hosts: [{ id: 1, email: "admin@example.com" }], attendees: [] },
+        { uid: "other", hosts: [{ id: 2, email: "other@example.com" }], attendees: [] },
+      ],
+    });
+
+    const result = await getBookings({ scope: "all" });
+
+    expect(mockCalApi).toHaveBeenCalledTimes(1);
+    expect(mockCalApi).toHaveBeenCalledWith("bookings", { params: expect.any(Object) });
+    expect(JSON.parse(result.content[0].text)).toEqual({
+      bookings: [
+        { uid: "host", hosts: [{ id: 1, email: "admin@example.com" }], attendees: [] },
+        { uid: "other", hosts: [{ id: 2, email: "other@example.com" }], attendees: [] },
+      ],
+    });
+  });
+
+  it("scope='mine' is the default and filters to the current user", async () => {
+    mockCalApi
+      .mockResolvedValueOnce({ id: 1, email: "admin@example.com" })
+      .mockResolvedValueOnce({
+        bookings: [
+          { uid: "host", hosts: [{ id: 1, email: "admin@example.com" }], attendees: [] },
+          { uid: "other", hosts: [{ id: 2, email: "other@example.com" }], attendees: [] },
+        ],
+      });
+
+    const result = await getBookings({ scope: "mine" });
+
+    expect(mockCalApi).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(result.content[0].text)).toEqual({
+      bookings: [{ uid: "host", hosts: [{ id: 1, email: "admin@example.com" }], attendees: [] }],
+    });
   });
 
   it("returns error response on CalApiError", async () => {
