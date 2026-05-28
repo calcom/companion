@@ -6,9 +6,46 @@
 
 import type { PersistedClient, Persister } from "@tanstack/react-query-persist-client";
 import { CACHE_CONFIG } from "@/config/cache.config";
-import { getRegion, regionPreloaded } from "./region";
+import { type CalRegion, getRegion, regionPreloaded } from "./region";
 import { safeLogWarn } from "./safeLogger";
 import { generalStorage, secureStorage } from "./storage";
+
+/**
+ * The persisted cache is wrapped in an owner envelope so a restore can verify
+ * the cache belongs to the current identity (region + user) before rehydrating
+ * it. This prevents one user's cached data from rendering for another user, or
+ * an EU cache from restoring into a US session.
+ */
+interface CacheOwner {
+  region: CalRegion;
+  userId: number;
+}
+
+interface OwnedCacheEnvelope {
+  owner: CacheOwner;
+  client: PersistedClient;
+}
+
+function isOwnedCacheEnvelope(value: unknown): value is OwnedCacheEnvelope {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Partial<OwnedCacheEnvelope>;
+  const owner = candidate.owner;
+  if (typeof owner !== "object" || owner === null) return false;
+  if (owner.region !== "us" && owner.region !== "eu") return false;
+  if (typeof owner.userId !== "number" || Number.isNaN(owner.userId)) return false;
+  return typeof candidate.client === "object" && candidate.client !== null;
+}
+
+async function getCurrentUserId(): Promise<number | null> {
+  try {
+    const raw = await secureStorage.get(AUTH_USER_ID_KEY);
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+  } catch {
+    return null;
+  }
+}
 
 function getStorageKey(): string {
   return `${CACHE_CONFIG.persistence.storageKey}-${getRegion()}`;
@@ -29,6 +66,10 @@ const storage = generalStorage;
 // presence of either reliably indicates the user has not logged out.
 const OAUTH_TOKENS_KEY = "cal_oauth_tokens";
 const AUTH_TYPE_KEY = "cal_auth_type";
+// Identity of the cache owner. Written by AuthContext after the user profile
+// resolves; absence means we cannot attribute the cache to a user and must not
+// persist or restore it. Keep in sync with AuthContext.tsx.
+const AUTH_USER_ID_KEY = "cal_auth_user_id";
 
 // Pre-region-suffix key. Removed on every restore so pre-migration cache data
 // doesn't accumulate on disk; `removeItem` is a no-op once the key is gone.
@@ -53,7 +94,18 @@ export const createQueryPersister = (): Persister => {
     persistClient: async (client: PersistedClient): Promise<void> => {
       const storageKey = getStorageKey();
       try {
-        const serialized = JSON.stringify(client);
+        // Never write ownerless cache: without a user id we can't safely
+        // attribute it on restore, so drop any existing cache instead.
+        const userId = await getCurrentUserId();
+        if (userId == null) {
+          await storage.removeItem(storageKey);
+          return;
+        }
+        const envelope: OwnedCacheEnvelope = {
+          owner: { region: getRegion(), userId },
+          client,
+        };
+        const serialized = JSON.stringify(envelope);
         await storage.setItem(storageKey, serialized);
       } catch (error) {
         safeLogWarn("[QueryPersister] Failed to persist client:", error);
@@ -106,7 +158,37 @@ export const createQueryPersister = (): Persister => {
           return undefined;
         }
 
-        const client = JSON.parse(serialized) as PersistedClient;
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(serialized);
+        } catch (parseError) {
+          safeLogWarn("[QueryPersister] Invalid cache JSON, discarding", parseError);
+          await storage.removeItem(storageKey);
+          return undefined;
+        }
+
+        // Reject legacy ownerless caches (bare PersistedClient) and any other
+        // malformed shape — we can't attribute them to the current identity.
+        if (!isOwnedCacheEnvelope(parsed)) {
+          safeLogWarn("[QueryPersister] Cache is missing owner metadata, discarding");
+          await storage.removeItem(storageKey);
+          return undefined;
+        }
+
+        // Region must match the active session (EU cache must not load into US).
+        if (parsed.owner.region !== getRegion()) {
+          await storage.removeItem(storageKey);
+          return undefined;
+        }
+
+        // The cache owner must match the authenticated user.
+        const currentUserId = await getCurrentUserId();
+        if (currentUserId == null || parsed.owner.userId !== currentUserId) {
+          await storage.removeItem(storageKey);
+          return undefined;
+        }
+
+        const client = parsed.client;
 
         // Validate timestamp exists and is a valid number
         if (typeof client.timestamp !== "number" || Number.isNaN(client.timestamp)) {
@@ -178,7 +260,14 @@ export const getCacheMetadata = async (): Promise<{
       return { exists: false };
     }
 
-    const client = JSON.parse(serialized) as PersistedClient;
+    const parsed: unknown = JSON.parse(serialized);
+
+    // Only the owner-envelope shape is valid; legacy/ownerless caches are
+    // treated as expired so the status indicator reflects they'll be discarded.
+    if (!isOwnedCacheEnvelope(parsed)) {
+      return { exists: true, isExpired: true };
+    }
+    const client = parsed.client;
 
     // Validate timestamp exists and is a valid number
     if (typeof client.timestamp !== "number" || Number.isNaN(client.timestamp)) {

@@ -18,11 +18,19 @@ let tokenRefreshCallback:
 
 // Refresh token function - will be set by AuthContext
 let refreshTokenFunction:
-  | ((refreshToken: string) => Promise<{ accessToken: string; refreshToken?: string; expiresAt?: number }>)
+  | ((
+      refreshToken: string
+    ) => Promise<{ accessToken: string; refreshToken?: string; expiresAt?: number }>)
   | null = null;
 
 // Auth failure callback - invoked when 401 + refresh failure leaves the app in a zombie session
 let authFailureCallback: (() => Promise<void>) | null = null;
+
+type RefreshResult = { accessToken: string; refreshToken?: string; expiresAt?: number };
+
+// Single-flight refresh state: dedupe concurrent refreshes for the same
+// refresh token so parallel 401s trigger exactly one network refresh.
+let inFlightRefresh: { refreshToken: string; promise: Promise<RefreshResult> } | null = null;
 
 /**
  * Set OAuth access token for authentication
@@ -38,20 +46,78 @@ export function setAccessToken(accessToken: string, refreshToken?: string): void
  * Set refresh token function for automatic token refresh
  */
 export function setRefreshTokenFunction(
-  refreshFn: (refreshToken: string) => Promise<{ accessToken: string; refreshToken?: string; expiresAt?: number }>
+  refreshFn: (
+    refreshToken: string
+  ) => Promise<{ accessToken: string; refreshToken?: string; expiresAt?: number }>
 ): void {
   refreshTokenFunction = refreshFn;
 }
 
 /**
- * Clear all authentication
+ * Clear authentication token state (access + refresh tokens).
+ *
+ * Deliberately does NOT clear the callback functions: a 401-driven logout or a
+ * normal logout must not erase the mounted AuthProvider's callbacks, otherwise
+ * a subsequent login -> 401 could not refresh (the refresh path requires
+ * `tokenRefreshCallback`). Use `clearAuthCallbacks()` on provider unmount.
  */
 export function clearAuth(): void {
   authConfig.accessToken = undefined;
   authConfig.refreshToken = undefined;
+  inFlightRefresh = null;
+}
+
+/**
+ * Clear the auth callback functions. Only the AuthProvider should call this,
+ * and only on unmount — not on logout or 401 recovery.
+ */
+export function clearAuthCallbacks(): void {
   tokenRefreshCallback = null;
   refreshTokenFunction = null;
   authFailureCallback = null;
+  inFlightRefresh = null;
+}
+
+/**
+ * Refresh the auth tokens, coalescing concurrent callers that share the same
+ * refresh token into a single network refresh (single-flight). On success the
+ * in-memory auth config is updated and the token-refresh callback is notified
+ * so AuthContext can persist the new tokens.
+ */
+export function refreshAuthTokensSingleFlight(refreshToken: string): Promise<RefreshResult> {
+  if (inFlightRefresh && inFlightRefresh.refreshToken === refreshToken) {
+    return inFlightRefresh.promise;
+  }
+
+  const refreshFn = refreshTokenFunction;
+  if (!refreshFn) {
+    return Promise.reject(new Error("No refresh token function configured."));
+  }
+  const onTokensRefreshed = tokenRefreshCallback;
+
+  const promise = (async () => {
+    const newTokens = await refreshFn(refreshToken);
+    authConfig.accessToken = newTokens.accessToken;
+    if (newTokens.refreshToken) {
+      authConfig.refreshToken = newTokens.refreshToken;
+    }
+    // Notify AuthContext to persist the new tokens (including expiresAt for
+    // proactive refresh).
+    if (onTokensRefreshed) {
+      await onTokensRefreshed(newTokens.accessToken, newTokens.refreshToken, newTokens.expiresAt);
+    }
+    return newTokens;
+  })();
+
+  inFlightRefresh = { refreshToken, promise };
+  void promise
+    .catch(() => undefined)
+    .finally(() => {
+      if (inFlightRefresh?.promise === promise) {
+        inFlightRefresh = null;
+      }
+    });
+  return promise;
 }
 
 /**

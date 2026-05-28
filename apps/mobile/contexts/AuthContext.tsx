@@ -56,6 +56,10 @@ const ACCESS_TOKEN_KEY = "cal_access_token";
 const REFRESH_TOKEN_KEY = "cal_refresh_token";
 const OAUTH_TOKENS_KEY = "cal_oauth_tokens";
 const AUTH_TYPE_KEY = "cal_auth_type";
+// Identity marker for the persisted query cache owner envelope. Written after
+// the user profile resolves and read by the query persister to reject a cache
+// that belongs to a different user. Keep in sync with queryPersister.ts.
+const AUTH_USER_ID_KEY = "cal_auth_user_id";
 
 type AuthType = "oauth" | "web_session";
 
@@ -148,6 +152,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
               console.warn("Failed to clear stale persisted cache:", cacheError);
             }
           }
+          // Mark the cache owner so the persister can reject another user's
+          // cache on the next cold start. Written before setUserInfo so it is
+          // in place by the time queries for this identity start persisting.
+          try {
+            await storage.set(AUTH_USER_ID_KEY, String(profile.id));
+          } catch (idError) {
+            console.warn("Failed to persist auth user id:", idError);
+          }
           setUserInfo({
             email: profile.email,
             name: profile.name,
@@ -180,7 +192,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const clearAuth = useCallback(async () => {
-    await storage.removeAll([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, OAUTH_TOKENS_KEY, AUTH_TYPE_KEY]);
+    await storage.removeAll([
+      ACCESS_TOKEN_KEY,
+      REFRESH_TOKEN_KEY,
+      OAUTH_TOKENS_KEY,
+      AUTH_TYPE_KEY,
+      AUTH_USER_ID_KEY,
+    ]);
 
     if (oauthService) {
       try {
@@ -458,8 +476,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       cancelled = true;
       unsubscribeRegion();
-      CalComAPIService.setTokenRefreshCallback(() => Promise.resolve());
-      CalComAPIService.setAuthFailureCallback(() => Promise.resolve());
+      // Provider is unmounting — this is the only place callbacks should be
+      // torn down. Logout/401 recovery must NOT clear them (see clearAuth).
+      CalComAPIService.clearAuthCallbacks();
     };
   }, []);
 
@@ -513,6 +532,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     setLoading(true);
     try {
+      // Wipe any prior identity's cache before a new login / account switch:
+      // memory first (so a throttled persist can't re-write it), then disk.
+      try {
+        queryClient.clear();
+      } catch (memoryCacheError) {
+        safeLogWarn("Failed to clear in-memory query cache before login:", memoryCacheError);
+      }
       try {
         await clearQueryCache();
       } catch (cacheError) {

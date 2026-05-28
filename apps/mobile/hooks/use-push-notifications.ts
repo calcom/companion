@@ -4,13 +4,78 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { CalComAPIService } from "@/services/calcom";
+import { type CalRegion, getRegion } from "@/utils/region";
 import { secureStorage } from "@/utils/storage";
 
 const DEVICE_ID_KEY = "calcom_push_device_id";
+const PERSISTED_REGISTRATION_KEY = "calcom_push_registration";
 
 export type PushRegistrationResult =
   | { success: true; token: string }
   | { success: false; reason: string; token?: string };
+
+/**
+ * A durable record of the last successful server-side push registration.
+ * Persisted to secure storage so logout (even after an app restart, when the
+ * in-memory token ref is gone) can still deregister the server subscription.
+ */
+export type PersistedPushRegistration = {
+  token: string;
+  deviceId: string;
+  platform: "IOS" | "ANDROID";
+  region: CalRegion;
+  userId: number;
+  registeredAt: string;
+};
+
+export async function getPersistedPushRegistration(): Promise<PersistedPushRegistration | null> {
+  try {
+    const raw = await secureStorage.get(PERSISTED_REGISTRATION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PersistedPushRegistration;
+  } catch {
+    return null;
+  }
+}
+
+async function persistPushRegistration(record: PersistedPushRegistration): Promise<void> {
+  try {
+    await secureStorage.set(PERSISTED_REGISTRATION_KEY, JSON.stringify(record));
+  } catch {
+    // Best-effort: cross-restart deregistration is a hardening nicety, not
+    // critical to the login flow.
+  }
+}
+
+export async function clearPersistedPushRegistration(): Promise<void> {
+  try {
+    await secureStorage.remove(PERSISTED_REGISTRATION_KEY);
+  } catch {
+    // Best-effort.
+  }
+}
+
+/**
+ * Deregister the persisted push subscription on the server and clear the
+ * persisted record only once the server confirms deletion. Returns true when
+ * there is nothing left registered (either deletion succeeded or no record
+ * existed). On failure the record is kept so a later attempt can retry, and
+ * the caller is never blocked.
+ */
+export async function deregisterPersistedPushRegistration(): Promise<boolean> {
+  const persisted = await getPersistedPushRegistration();
+  if (!persisted) return true;
+
+  try {
+    await CalComAPIService.removeAppPushSubscription(persisted.token);
+    await clearPersistedPushRegistration();
+    return true;
+  } catch {
+    // Keep the persisted record; the server prunes stale tokens on failed
+    // sends, and a future logout/launch can retry deletion.
+    return false;
+  }
+}
 
 async function getDeviceId(): Promise<string> {
   let id: string | undefined;
@@ -44,7 +109,9 @@ export async function ensureAndroidChannel(): Promise<void> {
   }
 }
 
-export async function requestAndRegisterPushToken(): Promise<PushRegistrationResult> {
+export async function requestAndRegisterPushToken(params: {
+  userId: number;
+}): Promise<PushRegistrationResult> {
   if (!Device.isDevice) {
     return { success: false, reason: "simulators-do-not-support-push-notifications" };
   }
@@ -89,10 +156,12 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
 
   const deviceId = await getDeviceId();
 
+  const platform = getPlatform();
+
   try {
     await CalComAPIService.registerAppPushSubscription({
       token,
-      platform: getPlatform(),
+      platform,
       deviceId,
     });
   } catch (error) {
@@ -103,13 +172,14 @@ export async function requestAndRegisterPushToken(): Promise<PushRegistrationRes
     };
   }
 
-  return { success: true, token };
-}
+  await persistPushRegistration({
+    token,
+    deviceId,
+    platform,
+    region: getRegion(),
+    userId: params.userId,
+    registeredAt: new Date().toISOString(),
+  });
 
-export async function deregisterPushToken(token: string): Promise<void> {
-  try {
-    await CalComAPIService.removeAppPushSubscription(token);
-  } catch {
-    // Best-effort: server cleans up stale tokens on failed send attempts.
-  }
+  return { success: true, token };
 }

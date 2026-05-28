@@ -13,6 +13,7 @@ import {
   getAuthHeader,
   getRefreshTokenFunction,
   getTokenRefreshCallback,
+  refreshAuthTokensSingleFlight,
 } from "./auth";
 import { safeParseErrorJson, safeParseJson } from "./utils";
 
@@ -72,6 +73,10 @@ export async function makeRequest<T>(
   isRetry: boolean = false
 ): Promise<T> {
   const url = `${getApiBaseUrl()}${endpoint}`;
+  // Capture the access token this request used so that, on a 401, we can tell
+  // whether a parallel request already refreshed it (in which case we just
+  // retry rather than refresh again or tear down a now-valid session).
+  const accessTokenAtRequest = getAuthConfig().accessToken;
 
   const response = await fetchWithTimeout(
     url,
@@ -104,28 +109,30 @@ export async function makeRequest<T>(
     // Handle specific error cases
     if (response.status === 401) {
       const authConfig = getAuthConfig();
+
+      // A parallel request already refreshed the access token while this one
+      // was in flight — retry with the new token instead of refreshing again.
+      if (!isRetry && authConfig.accessToken && authConfig.accessToken !== accessTokenAtRequest) {
+        return makeRequest<T>(endpoint, options, apiVersion, true);
+      }
+
+      const refreshToken = authConfig.refreshToken;
       const refreshTokenFunction = getRefreshTokenFunction();
       const tokenRefreshCallback = getTokenRefreshCallback();
 
-      if (!isRetry && authConfig.refreshToken && refreshTokenFunction && tokenRefreshCallback) {
+      if (!isRetry && refreshToken && refreshTokenFunction && tokenRefreshCallback) {
         try {
-          const newTokens = await refreshTokenFunction(authConfig.refreshToken);
-
-          authConfig.accessToken = newTokens.accessToken;
-          if (newTokens.refreshToken) {
-            authConfig.refreshToken = newTokens.refreshToken;
-          }
-
-          // Notify AuthContext to update stored tokens (including expiresAt for proactive refresh)
-          await tokenRefreshCallback(
-            newTokens.accessToken,
-            newTokens.refreshToken,
-            newTokens.expiresAt
-          );
-
-          // Retry the original request with the new token
+          // Single-flight: concurrent 401s sharing this refresh token coalesce
+          // into one network refresh.
+          await refreshAuthTokensSingleFlight(refreshToken);
+          // Retry the original request with the new token.
           return makeRequest<T>(endpoint, options, apiVersion, true);
         } catch (refreshError) {
+          // If another request refreshed successfully while ours lost the race,
+          // don't log out a now-valid session — retry instead.
+          if (getAuthConfig().accessToken && getAuthConfig().accessToken !== accessTokenAtRequest) {
+            return makeRequest<T>(endpoint, options, apiVersion, true);
+          }
           safeLogError("Token refresh failed:", refreshError);
           const onAuthFailure = getAuthFailureCallback();
           clearAuth();
