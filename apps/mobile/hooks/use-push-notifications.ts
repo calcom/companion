@@ -4,7 +4,9 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { CalComAPIService } from "@/services/calcom";
+import { ApiRequestError } from "@/services/calcom/request";
 import { type CalRegion, getRegion } from "@/utils/region";
+import { safeLogWarn } from "@/utils/safeLogger";
 import { secureStorage } from "@/utils/storage";
 
 const DEVICE_ID_KEY = "calcom_push_device_id";
@@ -27,6 +29,31 @@ export type PersistedPushRegistration = {
   userId: number;
   registeredAt: string;
 };
+
+/**
+ * Stable, non-reversible short hash of an Expo push token, safe to log.
+ * Never log the raw token (it is PII / a routing credential).
+ */
+async function hashPushToken(token: string): Promise<string> {
+  try {
+    const digest = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, token);
+    return digest.slice(0, 16);
+  } catch {
+    return "unhashable";
+  }
+}
+
+async function safeRegistrationLogContext(
+  registration: PersistedPushRegistration
+): Promise<Record<string, unknown>> {
+  return {
+    currentRegion: getRegion(),
+    persistedRegion: registration.region,
+    userId: registration.userId,
+    deviceId: registration.deviceId,
+    tokenHash: await hashPushToken(registration.token),
+  };
+}
 
 export async function getPersistedPushRegistration(): Promise<PersistedPushRegistration | null> {
   try {
@@ -70,9 +97,28 @@ export async function deregisterPersistedPushRegistration(): Promise<boolean> {
     await CalComAPIService.removeAppPushSubscription(persisted.token);
     await clearPersistedPushRegistration();
     return true;
-  } catch {
-    // Keep the persisted record; the server prunes stale tokens on failed
-    // sends, and a future logout/launch can retry deletion.
+  } catch (error) {
+    // A 404 means the server has no such subscription. If it was registered in
+    // the region we're currently talking to, it is genuinely gone (e.g. pruned
+    // by invalid-token cleanup), so clear the stale record. If the persisted
+    // region differs, the 404 only means "not in this region" — we can't safely
+    // resolve it until cross-region ownership lands, so keep the record.
+    if (error instanceof ApiRequestError && error.status === 404) {
+      if (persisted.region === getRegion()) {
+        await clearPersistedPushRegistration();
+        return true;
+      }
+      safeLogWarn(
+        "[push] unregister 404 for a different region; keeping record",
+        await safeRegistrationLogContext(persisted)
+      );
+      return false;
+    }
+    // Keep the persisted record; a future logout/launch can retry deletion.
+    safeLogWarn(
+      "[push] failed to deregister persisted token",
+      await safeRegistrationLogContext(persisted)
+    );
     return false;
   }
 }
@@ -170,6 +216,21 @@ export async function requestAndRegisterPushToken(params: {
       reason: error instanceof Error ? error.message : "server-registration-failed",
       token,
     };
+  }
+
+  // There is a single persisted registration slot. If a previous record exists
+  // for a different token (e.g. a token whose deregistration failed earlier),
+  // try to resolve it before we overwrite it, so the old subscription isn't
+  // silently orphaned. If it can't be resolved now, deregister logs it safely.
+  const previous = await getPersistedPushRegistration();
+  if (previous && previous.token !== token) {
+    const resolved = await deregisterPersistedPushRegistration();
+    if (!resolved) {
+      safeLogWarn(
+        "[push] overwriting an unresolved previous registration",
+        await safeRegistrationLogContext(previous)
+      );
+    }
   }
 
   await persistPushRegistration({

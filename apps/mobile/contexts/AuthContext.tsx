@@ -484,6 +484,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const loginFromWebSession = async (sessionUserInfo: UserProfile) => {
     try {
+      // Persist the cache-owner marker before flipping to authenticated. A
+      // web session may never reach setupAfterLogin (no token, or getUserProfile
+      // fails), and the query persister now refuses to write ownerless cache, so
+      // without this marker web-session users would lose cache persistence.
+      try {
+        await storage.set(AUTH_USER_ID_KEY, String(sessionUserInfo.id));
+      } catch (idError) {
+        console.warn("Failed to persist auth user id:", idError);
+      }
       setUserInfo({
         id: sessionUserInfo.id,
         email: sessionUserInfo.email,

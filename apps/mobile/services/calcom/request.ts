@@ -25,6 +25,21 @@ export function getApiBaseUrl(): string {
   return `${getCalApiUrl()}/v2`;
 }
 
+/**
+ * Error thrown for non-2xx API responses, carrying the HTTP status so callers
+ * can branch on it (e.g. treat a 404 on unregister as "already deleted")
+ * without brittle message string matching.
+ */
+export class ApiRequestError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+  }
+}
+
 export const REQUEST_TIMEOUT_MS = 30000;
 
 /**
@@ -153,7 +168,7 @@ export async function makeRequest<T>(
     }
 
     // Include status code in error message for graceful error handling downstream
-    throw new Error(`API Error: ${response.status} ${errorMessage}`);
+    throw new ApiRequestError(response.status, `API Error: ${response.status} ${errorMessage}`);
   }
 
   return response.json();
