@@ -424,7 +424,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsWebSession(false);
 
       // Setup API service and refresh function
+      const generationBeforeProfile = CalComAPIService.getAuthGeneration();
       await setupAfterLogin(tokens.accessToken, tokens.refreshToken);
+      // A logout/new login during the profile fetch invalidates this boot flow;
+      // installing this (now stale) service as the refresh fn would let it
+      // refresh under the newer session.
+      if (CalComAPIService.getAuthGeneration() !== generationBeforeProfile) {
+        return;
+      }
       if (tokens.refreshToken) {
         setupRefreshTokenFunction(service);
       }
@@ -774,6 +781,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Setup API service and refresh function
       await setupAfterLogin(tokens.accessToken, tokens.refreshToken);
+      // A logout/new login during the profile fetch invalidates this login;
+      // don't install this (now stale) service as the session's refresh fn.
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        setLoading(false);
+        return;
+      }
       if (tokens.refreshToken) {
         setupRefreshTokenFunction(currentService);
       }
