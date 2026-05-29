@@ -166,7 +166,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // cache on the next cold start. Written before setUserInfo so it is
           // in place by the time queries for this identity start persisting.
           try {
-            await storage.set(AUTH_USER_ID_KEY, String(profile.id));
+            await CalComAPIService.runAuthTransition(async () => {
+              await storage.set(AUTH_USER_ID_KEY, String(profile.id));
+            });
           } catch (idError) {
             console.warn("Failed to persist auth user id:", idError);
           }
@@ -195,8 +197,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // memoization, and taking `service` explicitly lets cold-start callers pass
   // a freshly-rebuilt service without waiting for the state update to settle.
   const saveOAuthTokens = async (tokens: OAuthTokens, service: CalComOAuthService | null) => {
-    await storage.set(OAUTH_TOKENS_KEY, JSON.stringify(tokens));
-    await storage.set(AUTH_TYPE_KEY, "oauth");
+    // Write both markers as one atomic section so a concurrent rollback/clear
+    // can't observe a half-written pair. No network inside the lock.
+    await CalComAPIService.runAuthTransition(async () => {
+      await storage.set(OAUTH_TOKENS_KEY, JSON.stringify(tokens));
+      await storage.set(AUTH_TYPE_KEY, "oauth");
+    });
 
     if (service) {
       try {
@@ -218,26 +224,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
     service: CalComOAuthService | null
   ) => {
     try {
-      const raw = await storage.get(OAUTH_TOKENS_KEY);
-      // No stored oauth tokens means there's nothing of ours to undo — a newer
-      // login already replaced/cleared them (e.g. a web-session login that
-      // writes only AUTH_TYPE_KEY). Bail so we don't wipe that newer marker.
-      if (!raw) {
-        return;
-      }
-      const stored = JSON.parse(raw) as OAuthTokens;
-      if (stored.accessToken !== accessToken) {
-        return;
-      }
-      await storage.remove(OAUTH_TOKENS_KEY);
-      // Only clear the auth-type marker if it still says "oauth". A web-session
-      // login that interleaved with this rollback may have flipped it to
-      // "web_session"; removing it then would erase the newer session's marker.
-      const authType = await storage.get(AUTH_TYPE_KEY);
-      if (authType === "oauth") {
-        await storage.remove(AUTH_TYPE_KEY);
-      }
-      if (service) {
+      // The read-and-conditional-remove must be atomic against other marker
+      // mutations (e.g. a concurrent web-session login writing "web_session"),
+      // so it runs as one auth-transition section. No network inside the lock.
+      const didRollback = await CalComAPIService.runAuthTransition(async () => {
+        const raw = await storage.get(OAUTH_TOKENS_KEY);
+        // No stored oauth tokens means there's nothing of ours to undo — a newer
+        // login already replaced/cleared them (e.g. a web-session login that
+        // writes only AUTH_TYPE_KEY). Bail so we don't wipe that newer marker.
+        if (!raw) {
+          return false;
+        }
+        const stored = JSON.parse(raw) as OAuthTokens;
+        if (stored.accessToken !== accessToken) {
+          return false;
+        }
+        await storage.remove(OAUTH_TOKENS_KEY);
+        // Only clear the auth-type marker if it still says "oauth". A web-session
+        // login that ran before this section may have flipped it to
+        // "web_session"; removing it then would erase the newer session's marker.
+        const authType = await storage.get(AUTH_TYPE_KEY);
+        if (authType === "oauth") {
+          await storage.remove(AUTH_TYPE_KEY);
+        }
+        return true;
+      });
+      if (didRollback && service) {
         try {
           await service.clearTokensFromExtension();
         } catch (extensionError) {
@@ -250,13 +262,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const clearAuth = useCallback(async () => {
-    await storage.removeAll([
-      ACCESS_TOKEN_KEY,
-      REFRESH_TOKEN_KEY,
-      OAUTH_TOKENS_KEY,
-      AUTH_TYPE_KEY,
-      AUTH_USER_ID_KEY,
-    ]);
+    // Clearing every marker is one atomic section so a concurrent login's
+    // marker writes either all precede or all follow it. No network inside.
+    await CalComAPIService.runAuthTransition(async () => {
+      await storage.removeAll([
+        ACCESS_TOKEN_KEY,
+        REFRESH_TOKEN_KEY,
+        OAUTH_TOKENS_KEY,
+        AUTH_TYPE_KEY,
+        AUTH_USER_ID_KEY,
+      ]);
+    });
 
     if (oauthService) {
       try {
@@ -635,7 +651,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // fails), and the query persister now refuses to write ownerless cache, so
       // without this marker web-session users would lose cache persistence.
       try {
-        await storage.set(AUTH_USER_ID_KEY, String(sessionUserInfo.id));
+        await CalComAPIService.runAuthTransition(async () => {
+          await storage.set(AUTH_USER_ID_KEY, String(sessionUserInfo.id));
+        });
       } catch (idError) {
         console.warn("Failed to persist auth user id:", idError);
       }
@@ -663,7 +681,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Persist the web-session marker only once we've committed (after the
       // recheck), so an aborted stale login never leaves a "web_session" marker
       // behind. Written even when there's no token so the persister keeps cache.
-      await storage.set(AUTH_TYPE_KEY, "web_session");
+      await CalComAPIService.runAuthTransition(async () => {
+        await storage.set(AUTH_TYPE_KEY, "web_session");
+      });
       if (tokens.accessToken) {
         setAccessToken(tokens.accessToken);
         setRefreshToken(tokens.refreshToken || null);
@@ -724,7 +744,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // refuse to persist — otherwise new-user queries in that window would be
       // wrapped under the previous user's id.
       try {
-        await storage.remove(AUTH_USER_ID_KEY);
+        await CalComAPIService.runAuthTransition(async () => {
+          await storage.remove(AUTH_USER_ID_KEY);
+        });
       } catch (idError) {
         safeLogWarn("Failed to clear previous auth user id before login:", idError);
       }

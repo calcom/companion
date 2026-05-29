@@ -308,6 +308,13 @@ export async function requestAndRegisterPushToken(params: {
 
   const platform = getPlatform();
 
+  // Final check right before the POST: if the session already changed (e.g. a
+  // logout/switch during the awaits above), don't create the server row at all.
+  // Once the POST is in flight the post-await guard below handles cleanup.
+  if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+    return { success: false, reason: "auth-session-changed-during-registration", token };
+  }
+
   try {
     await CalComAPIService.registerAppPushSubscription({
       token,

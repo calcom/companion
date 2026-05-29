@@ -62,6 +62,29 @@ export function getAuthGeneration(): number {
   return authGeneration;
 }
 
+// Serial queue that makes auth/storage marker mutations atomic with respect to
+// one another. The epoch checks guard the *network-await* windows; this guards
+// the *storage read-modify-write* windows that no epoch recheck can close (e.g.
+// a rollback reading `cal_auth_type` and then removing it while a web-session
+// login writes "web_session" in between). Sections passed here MUST be short,
+// MUST NOT perform network I/O, and MUST NOT call runAuthTransition again
+// (nesting would self-deadlock the queue).
+let authTransitionChain: Promise<unknown> = Promise.resolve();
+
+/**
+ * Run a storage/auth-marker critical section exclusively, serialized against
+ * every other such section. See the constraints on `authTransitionChain` above.
+ */
+export function runAuthTransition<T>(section: () => Promise<T>): Promise<T> {
+  const result = authTransitionChain.then(section, section);
+  // Keep the chain alive regardless of this section's outcome.
+  authTransitionChain = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
 /**
  * Begin a new auth session generation. Call at the start of every login /
  * account switch so any in-flight work from the previous identity is
