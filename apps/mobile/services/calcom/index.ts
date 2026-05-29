@@ -38,8 +38,10 @@ export type {
 
 // Import all functions from submodules
 import {
+  beginAuthGeneration,
   clearAuth,
   clearAuthCallbacks,
+  getAuthGeneration,
   setAccessToken,
   setAuthFailureCallback,
   setRefreshTokenFunction,
@@ -115,6 +117,8 @@ export const CalComAPIService = {
   clearAuthCallbacks,
   setTokenRefreshCallback,
   setAuthFailureCallback,
+  beginAuthGeneration,
+  getAuthGeneration,
 
   // User
   getCurrentUser,

@@ -32,6 +32,47 @@ type RefreshResult = { accessToken: string; refreshToken?: string; expiresAt?: n
 // refresh token so parallel 401s trigger exactly one network refresh.
 let inFlightRefresh: { refreshToken: string; promise: Promise<RefreshResult> } | null = null;
 
+// Monotonic auth session generation ("epoch"). Bumped on every logout/clear and
+// on every new login/account switch. In-flight refreshes and requests capture
+// the generation when they start; if it changes before they finish, the session
+// they belonged to is gone, so their results must be discarded rather than
+// applied — otherwise a stale refresh could resurrect a logged-out identity or
+// a stale request could replay under a different user. A plain token-string
+// comparison can't tell "same session refreshed" apart from "logged out and
+// back in"; the generation can.
+let authGeneration = 0;
+
+/**
+ * Error thrown when an in-flight refresh resolves after the auth session it
+ * belonged to has been replaced (logout or account switch). Callers should
+ * abort rather than retry under the new identity.
+ */
+export class AuthSessionChangedError extends Error {
+  constructor() {
+    super("Auth session changed before the refresh completed.");
+    this.name = "AuthSessionChangedError";
+  }
+}
+
+/**
+ * Current auth session generation. Capture this when a request/refresh starts
+ * and re-check it before applying any result.
+ */
+export function getAuthGeneration(): number {
+  return authGeneration;
+}
+
+/**
+ * Begin a new auth session generation. Call at the start of every login /
+ * account switch so any in-flight work from the previous identity is
+ * invalidated. Returns the new generation.
+ */
+export function beginAuthGeneration(): number {
+  authGeneration += 1;
+  inFlightRefresh = null;
+  return authGeneration;
+}
+
 /**
  * Set OAuth access token for authentication
  */
@@ -65,6 +106,9 @@ export function clearAuth(): void {
   authConfig.accessToken = undefined;
   authConfig.refreshToken = undefined;
   inFlightRefresh = null;
+  // Advance the epoch so any in-flight refresh/request from this session is
+  // discarded instead of being applied after logout.
+  authGeneration += 1;
 }
 
 /**
@@ -94,9 +138,16 @@ export function refreshAuthTokensSingleFlight(refreshToken: string): Promise<Ref
     return Promise.reject(new Error("No refresh token function configured."));
   }
   const onTokensRefreshed = tokenRefreshCallback;
+  const generationAtStart = authGeneration;
 
   const promise = (async () => {
     const newTokens = await refreshFn(refreshToken);
+    // The session was logged out or switched while the refresh was in flight.
+    // Applying these tokens now would resurrect the previous identity, so
+    // discard the result and let the caller abort.
+    if (authGeneration !== generationAtStart) {
+      throw new AuthSessionChangedError();
+    }
     authConfig.accessToken = newTokens.accessToken;
     if (newTokens.refreshToken) {
       authConfig.refreshToken = newTokens.refreshToken;

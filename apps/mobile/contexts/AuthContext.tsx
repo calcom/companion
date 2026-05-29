@@ -484,6 +484,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const loginFromWebSession = async (sessionUserInfo: UserProfile) => {
     try {
+      // Start a new auth session generation so any in-flight request/refresh
+      // from a previous identity is invalidated and can't apply under this one.
+      CalComAPIService.beginAuthGeneration();
+      // Wipe any prior identity's cache before flipping to authenticated:
+      // memory first (so a throttled persist can't re-write it), then disk.
+      // Without this, the previous user's in-memory React Query data would be
+      // re-persisted under the new owner id we write just below — mislabeling
+      // user A's cache as user B's (loginWithOAuth already does this; a
+      // web-session login that never reaches setupAfterLogin would otherwise
+      // skip it entirely).
+      try {
+        queryClient.clear();
+      } catch (memoryCacheError) {
+        safeLogWarn("Failed to clear in-memory query cache before web login:", memoryCacheError);
+      }
+      try {
+        await clearQueryCache();
+      } catch (cacheError) {
+        safeLogWarn("Failed to clear persisted query cache before web login:", cacheError);
+      }
       // Persist the cache-owner marker before flipping to authenticated. A
       // web session may never reach setupAfterLogin (no token, or getUserProfile
       // fails), and the query persister now refuses to write ownerless cache, so
@@ -541,6 +561,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     setLoading(true);
     try {
+      // Start a new auth session generation so any in-flight request/refresh
+      // from a previous identity is invalidated and can't apply under this one.
+      CalComAPIService.beginAuthGeneration();
       // Wipe any prior identity's cache before a new login / account switch:
       // memory first (so a throttled persist can't re-write it), then disk.
       try {

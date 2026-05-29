@@ -11,6 +11,11 @@ import { secureStorage } from "@/utils/storage";
 
 const DEVICE_ID_KEY = "calcom_push_device_id";
 const PERSISTED_REGISTRATION_KEY = "calcom_push_registration";
+// Records we failed to deregister (offline, or belonging to a different
+// region/user) are parked here instead of being dropped, so a later launch can
+// retry their deletion. Keeps the single active-registration slot uncluttered
+// while ensuring an unresolved subscription stays retryable.
+const PENDING_DEREGISTRATIONS_KEY = "calcom_push_pending_deregistrations";
 
 export type PushRegistrationResult =
   | { success: true; token: string }
@@ -80,6 +85,83 @@ export async function clearPersistedPushRegistration(): Promise<void> {
   } catch {
     // Best-effort.
   }
+}
+
+/**
+ * Two registrations refer to the same server subscription only when the full
+ * identity tuple matches. Comparing the token alone misses cases where the same
+ * token is re-used across a region/user change, so we compare all four fields.
+ */
+function isSameRegistration(a: PersistedPushRegistration, b: PersistedPushRegistration): boolean {
+  return (
+    a.token === b.token &&
+    a.userId === b.userId &&
+    a.region === b.region &&
+    a.deviceId === b.deviceId
+  );
+}
+
+async function getPendingDeregistrations(): Promise<PersistedPushRegistration[]> {
+  try {
+    const raw = await secureStorage.get(PENDING_DEREGISTRATIONS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as PersistedPushRegistration[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function setPendingDeregistrations(records: PersistedPushRegistration[]): Promise<void> {
+  try {
+    if (records.length === 0) {
+      await secureStorage.remove(PENDING_DEREGISTRATIONS_KEY);
+      return;
+    }
+    await secureStorage.set(PENDING_DEREGISTRATIONS_KEY, JSON.stringify(records));
+  } catch {
+    // Best-effort.
+  }
+}
+
+async function enqueuePendingDeregistration(record: PersistedPushRegistration): Promise<void> {
+  const pending = await getPendingDeregistrations();
+  if (pending.some((r) => isSameRegistration(r, record))) return;
+  await setPendingDeregistrations([...pending, record]);
+}
+
+/**
+ * Best-effort retry of previously-unresolved deregistrations. Only attempts
+ * records registered in the region we're currently talking to — cross-region
+ * cleanup needs server-side global ownership, which is an explicit non-goal —
+ * and drops a record once the server confirms deletion or reports it already
+ * gone (404). Failures are kept for the next attempt.
+ */
+async function drainPendingDeregistrations(): Promise<void> {
+  const pending = await getPendingDeregistrations();
+  if (pending.length === 0) return;
+
+  const currentRegion = getRegion();
+  const remaining: PersistedPushRegistration[] = [];
+  for (const record of pending) {
+    if (record.region !== currentRegion) {
+      remaining.push(record);
+      continue;
+    }
+    try {
+      await CalComAPIService.removeAppPushSubscription(record.token);
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 404) {
+        continue;
+      }
+      remaining.push(record);
+      safeLogWarn(
+        "[push] pending deregistration retry failed",
+        await safeRegistrationLogContext(record)
+      );
+    }
+  }
+  await setPendingDeregistrations(remaining);
 }
 
 /**
@@ -162,6 +244,15 @@ export async function requestAndRegisterPushToken(params: {
     return { success: false, reason: "simulators-do-not-support-push-notifications" };
   }
 
+  // Capture the auth session at the start. If the user logs out or switches
+  // accounts while registration is in flight, the generation changes and we
+  // must not persist this as an active registration for a now-dead session.
+  const generationAtStart = CalComAPIService.getAuthGeneration();
+
+  // Retry any earlier deregistrations that couldn't be resolved (e.g. an
+  // offline logout) now that we're authenticated and online again.
+  await drainPendingDeregistrations();
+
   let finalStatus: Notifications.PermissionStatus;
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -218,29 +309,47 @@ export async function requestAndRegisterPushToken(params: {
     };
   }
 
-  // There is a single persisted registration slot. If a previous record exists
-  // for a different token (e.g. a token whose deregistration failed earlier),
-  // try to resolve it before we overwrite it, so the old subscription isn't
-  // silently orphaned. If it can't be resolved now, deregister logs it safely.
-  const previous = await getPersistedPushRegistration();
-  if (previous && previous.token !== token) {
-    const resolved = await deregisterPersistedPushRegistration();
-    if (!resolved) {
-      safeLogWarn(
-        "[push] overwriting an unresolved previous registration",
-        await safeRegistrationLogContext(previous)
-      );
-    }
-  }
-
-  await persistPushRegistration({
+  const newRecord: PersistedPushRegistration = {
     token,
     deviceId,
     platform,
     region: getRegion(),
     userId: params.userId,
     registeredAt: new Date().toISOString(),
-  });
+  };
+
+  // The session was logged out or switched while this registration was in
+  // flight. Do NOT persist it as the active registration — that would leave a
+  // logged-out (or previous) user's subscription live in our local state.
+  // Park it for retry instead; the backend's same-device dedup also clears it
+  // on the next login for this device.
+  if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+    await enqueuePendingDeregistration(newRecord);
+    safeLogWarn(
+      "[push] registration completed after logout/account switch; queued for cleanup",
+      await safeRegistrationLogContext(newRecord)
+    );
+    return { success: false, reason: "auth-session-changed-during-registration", token };
+  }
+
+  // There is a single active persisted registration slot. If a previous record
+  // refers to a different subscription (different token/user/region/device),
+  // try to deregister it before overwriting. If it can't be resolved now
+  // (offline, or a different region/user), park it for retry instead of
+  // silently dropping it — otherwise the old subscription becomes unretryable.
+  const previous = await getPersistedPushRegistration();
+  if (previous && !isSameRegistration(previous, newRecord)) {
+    const resolved = await deregisterPersistedPushRegistration();
+    if (!resolved) {
+      await enqueuePendingDeregistration(previous);
+      safeLogWarn(
+        "[push] queued unresolved previous registration for retry",
+        await safeRegistrationLogContext(previous)
+      );
+    }
+  }
+
+  await persistPushRegistration(newRecord);
 
   return { success: true, token };
 }
