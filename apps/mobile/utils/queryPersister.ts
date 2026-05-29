@@ -6,7 +6,7 @@
 
 import type { PersistedClient, Persister } from "@tanstack/react-query-persist-client";
 import { CACHE_CONFIG } from "@/config/cache.config";
-import { type CalRegion, getRegion, regionPreloaded } from "./region";
+import { type CalRegion, getRegion, isValidRegion, regionPreloaded } from "./region";
 import { safeLogWarn } from "./safeLogger";
 import { generalStorage, secureStorage } from "./storage";
 
@@ -31,7 +31,7 @@ function isOwnedCacheEnvelope(value: unknown): value is OwnedCacheEnvelope {
   const candidate = value as Partial<OwnedCacheEnvelope>;
   const owner = candidate.owner;
   if (typeof owner !== "object" || owner === null) return false;
-  if (owner.region !== "us" && owner.region !== "eu") return false;
+  if (!isValidRegion(owner.region as string | null)) return false;
   if (typeof owner.userId !== "number" || Number.isNaN(owner.userId)) return false;
   return typeof candidate.client === "object" && candidate.client !== null;
 }

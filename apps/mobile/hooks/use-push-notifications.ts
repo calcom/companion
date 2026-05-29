@@ -124,10 +124,19 @@ async function setPendingDeregistrations(records: PersistedPushRegistration[]): 
   }
 }
 
+// Cross-user/cross-region records can't be drained until the right identity
+// logs back in, so the queue can grow on shared devices. Cap it so it can't
+// accumulate unboundedly; oldest records are evicted first.
+const MAX_PENDING_DEREGISTRATIONS = 50;
+
 async function enqueuePendingDeregistration(record: PersistedPushRegistration): Promise<void> {
   const pending = await getPendingDeregistrations();
   if (pending.some((r) => isSameRegistration(r, record))) return;
-  await setPendingDeregistrations([...pending, record]);
+  const next = [...pending, record];
+  if (next.length > MAX_PENDING_DEREGISTRATIONS) {
+    next.splice(0, next.length - MAX_PENDING_DEREGISTRATIONS);
+  }
+  await setPendingDeregistrations(next);
 }
 
 /**

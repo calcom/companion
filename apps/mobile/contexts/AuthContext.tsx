@@ -303,7 +303,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  const logout = useCallback(async () => {
+  const logoutInFlightRef = useRef<Promise<void> | null>(null);
+
+  const performLogout = useCallback(async () => {
     // Advance the auth generation up front (tokens stay valid for the
     // pre-logout DELETE below) so any refresh/request/push registration that
     // resolves during this potentially slow logout sequence is treated as a
@@ -376,6 +378,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     resetAuthState();
   }, [clearAuth, resetAuthState, queryClient]);
+
+  const logout = useCallback(async () => {
+    // Coalesce concurrent logouts. Two parallel requests can both 401, fail the
+    // same single-flight refresh, and each call onAuthFailure -> logout(); without
+    // this the pre-logout callbacks (e.g. push deregistration) would run twice.
+    // Sharing the in-flight promise runs the sequence exactly once.
+    if (logoutInFlightRef.current) {
+      return logoutInFlightRef.current;
+    }
+    const run = performLogout();
+    logoutInFlightRef.current = run;
+    try {
+      await run;
+    } finally {
+      logoutInFlightRef.current = null;
+    }
+  }, [performLogout]);
 
   // Handle OAuth authentication. `service` is passed explicitly so the boot
   // effect can hand in a freshly-rebuilt service on cold-start region
@@ -611,8 +630,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const loginFromWebSession = async (sessionUserInfo: UserProfile) => {
     try {
-      // Start a new auth session generation so any in-flight request/refresh
-      // from a previous identity is invalidated and can't apply under this one.
+      // Both calls below bump authGeneration (+2 total, not +1): beginAuthGeneration
+      // invalidates in-flight work from the previous identity, and clearAuth clears
+      // tokens (which needs its own bump). loginWithOAuth only calls beginAuthGeneration
+      // because it doesn't need to clear prior tokens up front.
       CalComAPIService.beginAuthGeneration();
       // Clear the previous identity's tokens BEFORE flipping to the new user.
       // getTokensFromWebSession() below may return no token, in which case the
@@ -691,6 +712,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await CalComAPIService.runAuthTransition(async () => {
         await storage.set(AUTH_TYPE_KEY, "web_session");
       });
+      // Re-check after the marker-write await (it can queue behind another
+      // transition): a logout interleaving here must not let this stale login
+      // repoint auth at its token via setAccessToken / setupAfterLogin.
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        return;
+      }
       if (tokens.accessToken) {
         setAccessToken(tokens.accessToken);
         setRefreshToken(tokens.refreshToken || null);

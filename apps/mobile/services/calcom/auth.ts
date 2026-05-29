@@ -71,12 +71,31 @@ export function getAuthGeneration(): number {
 // (nesting would self-deadlock the queue).
 let authTransitionChain: Promise<unknown> = Promise.resolve();
 
+// True only while a section's synchronous prefix runs. Used to catch the common
+// nesting mistake (a section directly calling runAuthTransition) without
+// false-positiving legitimate concurrent callers: a section's sync prefix can't
+// be interrupted, so any caller observing this flag set is nesting.
+let inSectionSyncPrefix = false;
+
 /**
  * Run a storage/auth-marker critical section exclusively, serialized against
  * every other such section. See the constraints on `authTransitionChain` above.
  */
 export function runAuthTransition<T>(section: () => Promise<T>): Promise<T> {
-  const result = authTransitionChain.then(section, section);
+  if (inSectionSyncPrefix) {
+    throw new Error(
+      "runAuthTransition must not be called from within another auth-transition section (nesting would self-deadlock the serial queue)."
+    );
+  }
+  const guarded = (): Promise<T> => {
+    inSectionSyncPrefix = true;
+    try {
+      return section();
+    } finally {
+      inSectionSyncPrefix = false;
+    }
+  };
+  const result = authTransitionChain.then(guarded, guarded);
   // Keep the chain alive regardless of this section's outcome.
   authTransitionChain = result.then(
     () => undefined,
