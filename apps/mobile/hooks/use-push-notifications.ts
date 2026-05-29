@@ -140,7 +140,7 @@ async function enqueuePendingDeregistration(record: PersistedPushRegistration): 
  * non-goal. For owned records, a confirmed deletion or an authoritative 404
  * drops the record; everything else is kept for the next attempt.
  */
-async function drainPendingDeregistrations(currentUserId: number): Promise<void> {
+export async function drainPendingDeregistrations(currentUserId: number): Promise<void> {
   const pending = await getPendingDeregistrations();
   if (pending.length === 0) return;
 
@@ -352,13 +352,26 @@ export async function requestAndRegisterPushToken(params: {
   // silently dropping it — otherwise the old subscription becomes unretryable.
   const previous = await getPersistedPushRegistration();
   if (previous && !isSameRegistration(previous, newRecord)) {
-    const resolved = await deregisterPersistedPushRegistration(params.userId);
-    if (!resolved) {
+    if (previous.token === newRecord.token) {
+      // Same physical push token, only the owner/region/device metadata differs.
+      // The registration above already took over this token for the current
+      // user, and deleting by this token now (authenticated as the current user)
+      // would remove that just-created row. Park the previous record so the
+      // ownership-scoped drain resolves it under its own identity/region later.
       await enqueuePendingDeregistration(previous);
       safeLogWarn(
-        "[push] queued unresolved previous registration for retry",
+        "[push] previous registration shares the new token; queued for owner-scoped cleanup",
         await safeRegistrationLogContext(previous)
       );
+    } else {
+      const resolved = await deregisterPersistedPushRegistration(params.userId);
+      if (!resolved) {
+        await enqueuePendingDeregistration(previous);
+        safeLogWarn(
+          "[push] queued unresolved previous registration for retry",
+          await safeRegistrationLogContext(previous)
+        );
+      }
     }
   }
 

@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   deregisterPersistedPushRegistration,
+  drainPendingDeregistrations,
   requestAndRegisterPushToken,
 } from "@/hooks/use-push-notifications";
 
@@ -97,7 +98,16 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
           new Promise((resolve) => setTimeout(resolve, REGISTRATION_SETTLE_TIMEOUT_MS)),
         ]);
       }
-      await deregisterPersistedPushRegistration(userIdRef.current ?? undefined);
+      const currentUserId = userIdRef.current;
+      await deregisterPersistedPushRegistration(currentUserId ?? undefined);
+      // A registration that settled in the wait above (after logout advanced
+      // the generation) parks itself in the pending queue rather than the active
+      // slot. Drain it now — while the Bearer token is still valid — so its
+      // server subscription is deleted in this logout instead of lingering
+      // until the next login for this user.
+      if (currentUserId != null) {
+        await drainPendingDeregistrations(currentUserId);
+      }
     });
   }, [registerPreLogoutCallback]);
 
