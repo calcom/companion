@@ -64,6 +64,10 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
   // deregistering. requestAndRegisterPushToken persists a durable record on
   // success, which is what logout reads to deregister.
   const userId = userInfo?.id;
+  const userIdRef = useRef(userId);
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
   useEffect(() => {
     if (!isAuthenticated || userId == null) {
       return;
@@ -93,7 +97,7 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
           new Promise((resolve) => setTimeout(resolve, REGISTRATION_SETTLE_TIMEOUT_MS)),
         ]);
       }
-      await deregisterPersistedPushRegistration();
+      await deregisterPersistedPushRegistration(userIdRef.current ?? undefined);
     });
   }, [registerPreLogoutCallback]);
 

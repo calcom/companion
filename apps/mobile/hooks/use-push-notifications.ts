@@ -175,8 +175,13 @@ async function drainPendingDeregistrations(currentUserId: number): Promise<void>
  * there is nothing left registered (either deletion succeeded or no record
  * existed). On failure the record is kept so a later attempt can retry, and
  * the caller is never blocked.
+ *
+ * `currentUserId` is the user the DELETE is authenticated as. It gates whether
+ * a 404 can be treated as authoritative (see below).
  */
-export async function deregisterPersistedPushRegistration(): Promise<boolean> {
+export async function deregisterPersistedPushRegistration(
+  currentUserId?: number
+): Promise<boolean> {
   const persisted = await getPersistedPushRegistration();
   if (!persisted) return true;
 
@@ -185,18 +190,21 @@ export async function deregisterPersistedPushRegistration(): Promise<boolean> {
     await clearPersistedPushRegistration();
     return true;
   } catch (error) {
-    // A 404 means the server has no such subscription. If it was registered in
-    // the region we're currently talking to, it is genuinely gone (e.g. pruned
-    // by invalid-token cleanup), so clear the stale record. If the persisted
-    // region differs, the 404 only means "not in this region" — we can't safely
-    // resolve it until cross-region ownership lands, so keep the record.
+    // A 404 means "no such subscription for the authenticated user". It is only
+    // authoritative ("genuinely gone") when the record was registered in the
+    // current region AND belongs to the current user — the DELETE is authed as
+    // `currentUserId`, so a 404 for a different user's record only means "not
+    // owned by this user", not "deleted". Cross-region records are likewise
+    // unresolvable here. Keep anything we can't authoritatively confirm so the
+    // caller can re-queue it for a session that can.
     if (error instanceof ApiRequestError && error.status === 404) {
-      if (persisted.region === getRegion()) {
+      const ownedByCurrentUser = currentUserId != null && persisted.userId === currentUserId;
+      if (persisted.region === getRegion() && ownedByCurrentUser) {
         await clearPersistedPushRegistration();
         return true;
       }
       safeLogWarn(
-        "[push] unregister 404 for a different region; keeping record",
+        "[push] unregister 404 not authoritative for this session; keeping record",
         await safeRegistrationLogContext(persisted)
       );
       return false;
@@ -344,7 +352,7 @@ export async function requestAndRegisterPushToken(params: {
   // silently dropping it — otherwise the old subscription becomes unretryable.
   const previous = await getPersistedPushRegistration();
   if (previous && !isSameRegistration(previous, newRecord)) {
-    const resolved = await deregisterPersistedPushRegistration();
+    const resolved = await deregisterPersistedPushRegistration(params.userId);
     if (!resolved) {
       await enqueuePendingDeregistration(previous);
       safeLogWarn(

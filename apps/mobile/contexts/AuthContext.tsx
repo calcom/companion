@@ -191,6 +191,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Undo a token persist that a refresh completed just as the session changed
+  // (logout/account switch). `saveOAuthTokens` is not atomic, so a stale
+  // refresh can land its disk write before the post-write epoch re-check. We
+  // remove the persisted tokens ONLY when storage still holds exactly the ones
+  // this refresh wrote — a newer login may have already written its own tokens,
+  // and those must never be clobbered.
+  const rollbackPersistedTokensIfMatches = async (
+    accessToken: string,
+    service: CalComOAuthService | null
+  ) => {
+    try {
+      const raw = await storage.get(OAUTH_TOKENS_KEY);
+      if (raw) {
+        const stored = JSON.parse(raw) as OAuthTokens;
+        if (stored.accessToken !== accessToken) {
+          return;
+        }
+      }
+      await storage.removeAll([OAUTH_TOKENS_KEY, AUTH_TYPE_KEY]);
+      if (service) {
+        try {
+          await service.clearTokensFromExtension();
+        } catch (extensionError) {
+          console.warn("Failed to clear extension tokens during rollback:", extensionError);
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to roll back stale refreshed tokens:", error);
+    }
+  };
+
   const clearAuth = useCallback(async () => {
     await storage.removeAll([
       ACCESS_TOKEN_KEY,
@@ -327,10 +358,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
           tokensWereRefreshed = true;
         } catch (refreshError) {
           console.error("Failed to refresh token:", refreshError);
-          await clearAuth();
+          // Only clear if this boot session is still current — a logout or new
+          // login may have advanced the generation while the refresh failed,
+          // and clearing would wipe that newer session's auth.
+          if (CalComAPIService.getAuthGeneration() === generationAtStart) {
+            await clearAuth();
+          }
           return;
         }
         if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+          // The write may have landed before this check; undo it (only if it's
+          // still ours) so a logged-out/replaced session isn't resurrected.
+          await rollbackPersistedTokensIfMatches(tokens.accessToken, service);
           return;
         }
       }
@@ -440,6 +479,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         await saveOAuthTokens(tokens, activeService);
         if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+          // The write may have landed before this check; undo it (only if it's
+          // still ours) so the dead session isn't resurrected, and skip the
+          // in-memory writes.
+          await rollbackPersistedTokensIfMatches(newAccessToken, activeService);
           return;
         }
         setAccessToken(newAccessToken);
@@ -514,6 +557,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Start a new auth session generation so any in-flight request/refresh
       // from a previous identity is invalidated and can't apply under this one.
       CalComAPIService.beginAuthGeneration();
+      // Clear the previous identity's tokens BEFORE flipping to the new user.
+      // getTokensFromWebSession() below may return no token, in which case the
+      // prior OAuth bearer would otherwise stay live in CalComAPIService + React
+      // state under the new user's UI and cache owner.
+      CalComAPIService.clearAuth();
+      setAccessToken(null);
+      setRefreshToken(null);
+      try {
+        await clearAuth();
+      } catch (clearError) {
+        safeLogWarn("Failed to clear prior auth tokens before web login:", clearError);
+      }
       // Wipe any prior identity's cache before flipping to authenticated:
       // memory first (so a throttled persist can't re-write it), then disk.
       // Without this, the previous user's in-memory React Query data would be

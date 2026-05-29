@@ -157,8 +157,14 @@ export async function makeRequest<T>(
           // into one network refresh.
           await refreshAuthTokensSingleFlight(refreshToken);
         } catch (refreshError) {
-          // The refresh resolved into a different session (logout/switch) — abort.
-          if (refreshError instanceof AuthSessionChangedError) {
+          // The session was logged out or switched while the refresh was in
+          // flight (the refresh threw, or resolved into a different session).
+          // Abort WITHOUT logging out — clearing auth here would tear down the
+          // new, valid session because this stale request finished late.
+          if (
+            refreshError instanceof AuthSessionChangedError ||
+            getAuthGeneration() !== generationAtRequest
+          ) {
             throw new ApiRequestError(
               response.status,
               `API Error: ${response.status} ${errorMessage}`
