@@ -74,6 +74,19 @@ export function beginAuthGeneration(): number {
 }
 
 /**
+ * Advance the auth generation WITHOUT clearing the current tokens. Call at the
+ * very start of logout: pre-logout cleanup (e.g. push deregistration) still
+ * needs a valid Bearer token, but any refresh/request/registration that
+ * resolves during the (potentially slow) logout sequence must be treated as
+ * belonging to a now-dead session rather than applied. `clearAuth()` advances
+ * the generation again once the tokens are actually cleared.
+ */
+export function invalidateAuthSession(): void {
+  authGeneration += 1;
+  inFlightRefresh = null;
+}
+
+/**
  * Set OAuth access token for authentication
  */
 export function setAccessToken(accessToken: string, refreshToken?: string): void {

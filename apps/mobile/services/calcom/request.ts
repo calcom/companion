@@ -156,16 +156,6 @@ export async function makeRequest<T>(
           // Single-flight: concurrent 401s sharing this refresh token coalesce
           // into one network refresh.
           await refreshAuthTokensSingleFlight(refreshToken);
-          // The session changed across the refresh — don't retry under the new
-          // identity.
-          if (getAuthGeneration() !== generationAtRequest) {
-            throw new ApiRequestError(
-              response.status,
-              `API Error: ${response.status} ${errorMessage}`
-            );
-          }
-          // Retry the original request with the new token.
-          return makeRequest<T>(endpoint, options, apiVersion, true);
         } catch (refreshError) {
           // The refresh resolved into a different session (logout/switch) — abort.
           if (refreshError instanceof AuthSessionChangedError) {
@@ -190,6 +180,18 @@ export async function makeRequest<T>(
           await onAuthFailure?.();
           throw new Error("Authentication failed. Please sign in again.");
         }
+        // The session was logged out or switched across the refresh. Abort
+        // WITHOUT logging out — the current session is a new, valid identity
+        // and must not be torn down because this stale request finished late.
+        // (Checked outside the try so it isn't mistaken for a refresh failure.)
+        if (getAuthGeneration() !== generationAtRequest) {
+          throw new ApiRequestError(
+            response.status,
+            `API Error: ${response.status} ${errorMessage}`
+          );
+        }
+        // Retry the original request with the new token.
+        return makeRequest<T>(endpoint, options, apiVersion, true);
       }
 
       const onAuthFailure = getAuthFailureCallback();

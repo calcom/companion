@@ -132,25 +132,30 @@ async function enqueuePendingDeregistration(record: PersistedPushRegistration): 
 
 /**
  * Best-effort retry of previously-unresolved deregistrations. Only attempts
- * records registered in the region we're currently talking to — cross-region
- * cleanup needs server-side global ownership, which is an explicit non-goal —
- * and drops a record once the server confirms deletion or reports it already
- * gone (404). Failures are kept for the next attempt.
+ * records that belong to the CURRENT user AND region: the DELETE is
+ * authenticated as the current user, so a 404 for a record owned by a different
+ * user only means "not owned by this user" — not "already deleted" — and
+ * dropping it would orphan that user's still-live subscription. Cross-user /
+ * cross-region cleanup needs server-side global ownership, which is an explicit
+ * non-goal. For owned records, a confirmed deletion or an authoritative 404
+ * drops the record; everything else is kept for the next attempt.
  */
-async function drainPendingDeregistrations(): Promise<void> {
+async function drainPendingDeregistrations(currentUserId: number): Promise<void> {
   const pending = await getPendingDeregistrations();
   if (pending.length === 0) return;
 
   const currentRegion = getRegion();
   const remaining: PersistedPushRegistration[] = [];
   for (const record of pending) {
-    if (record.region !== currentRegion) {
+    if (record.region !== currentRegion || record.userId !== currentUserId) {
       remaining.push(record);
       continue;
     }
     try {
       await CalComAPIService.removeAppPushSubscription(record.token);
     } catch (error) {
+      // Authoritative: the record belongs to the authenticated current user,
+      // so a 404 means the row is genuinely gone.
       if (error instanceof ApiRequestError && error.status === 404) {
         continue;
       }
@@ -251,7 +256,7 @@ export async function requestAndRegisterPushToken(params: {
 
   // Retry any earlier deregistrations that couldn't be resolved (e.g. an
   // offline logout) now that we're authenticated and online again.
-  await drainPendingDeregistrations();
+  await drainPendingDeregistrations(params.userId);
 
   let finalStatus: Notifications.PermissionStatus;
   try {

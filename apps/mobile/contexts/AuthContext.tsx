@@ -230,6 +230,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const logout = useCallback(async () => {
+    // Advance the auth generation up front (tokens stay valid for the
+    // pre-logout DELETE below) so any refresh/request/push registration that
+    // resolves during this potentially slow logout sequence is treated as a
+    // dead session and not applied/persisted as active.
+    CalComAPIService.invalidateAuthSession();
     // Run pre-logout callbacks while auth tokens are still valid (e.g. push
     // token deregistration needs a valid Bearer token for the API call).
     for (const callback of preLogoutCallbacksRef.current) {
@@ -308,14 +313,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
       let tokens = storedTokens;
       let tokensWereRefreshed = false;
       if (service.isTokenExpired(storedTokens) && storedTokens.refreshToken) {
+        // Capture the generation around the boot refresh: if the user logs out
+        // or starts a new login while this in-flight refresh resolves, applying
+        // its result would resurrect the previous stored session.
+        const generationAtStart = CalComAPIService.getAuthGeneration();
         try {
           console.log("Access token expired, refreshing...");
           tokens = await service.refreshAccessToken(storedTokens.refreshToken);
+          if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+            return;
+          }
           await saveOAuthTokens(tokens, service);
           tokensWereRefreshed = true;
         } catch (refreshError) {
           console.error("Failed to refresh token:", refreshError);
           await clearAuth();
+          return;
+        }
+        if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
           return;
         }
       }
@@ -407,6 +422,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       expiresAt?: number
     ) => {
       try {
+        // The refresh that produced these tokens validated the generation
+        // before invoking this callback, but logout/account switch can still
+        // advance it during the awaits below. Re-check before each write so we
+        // never persist a dead session's tokens (which boot would resurrect)
+        // or repoint in-memory auth at the previous identity.
+        const generationAtStart = CalComAPIService.getAuthGeneration();
         const tokens: OAuthTokens = {
           accessToken: newAccessToken,
           refreshToken: newRefreshToken || refreshTokenRef.current || undefined,
@@ -414,7 +435,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           expiresAt,
         };
 
+        if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+          return;
+        }
         await saveOAuthTokens(tokens, activeService);
+        if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+          return;
+        }
         setAccessToken(newAccessToken);
         if (newRefreshToken) {
           setRefreshToken(newRefreshToken);
