@@ -170,6 +170,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           } catch (idError) {
             console.warn("Failed to persist auth user id:", idError);
           }
+          // Final re-check before the synchronous state flip: the cache-clear
+          // and owner-marker writes above are awaits, and a logout/switch during
+          // them must not let this stale login set the previous identity.
+          if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+            return;
+          }
           setUserInfo({
             email: profile.email,
             name: profile.name,
@@ -646,15 +652,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
       setIsAuthenticated(true);
       setIsWebSession(true);
-      await storage.set(AUTH_TYPE_KEY, "web_session");
 
       // Try to get tokens from web session
       const tokens = await WebAuthService.getTokensFromWebSession();
       // Re-check after the network await: a concurrent logout/login here must
-      // not have this session's tokens applied under it.
+      // not have this session's tokens or marker applied under it.
       if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
         return;
       }
+      // Persist the web-session marker only once we've committed (after the
+      // recheck), so an aborted stale login never leaves a "web_session" marker
+      // behind. Written even when there's no token so the persister keeps cache.
+      await storage.set(AUTH_TYPE_KEY, "web_session");
       if (tokens.accessToken) {
         setAccessToken(tokens.accessToken);
         setRefreshToken(tokens.refreshToken || null);
@@ -709,6 +718,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await clearQueryCache();
       } catch (cacheError) {
         safeLogWarn("Failed to clear query cache before login:", cacheError);
+      }
+      // Drop the previous owner marker too. Until setupAfterLogin fetches the
+      // new profile and writes the new id, the persister must see no owner and
+      // refuse to persist — otherwise new-user queries in that window would be
+      // wrapped under the previous user's id.
+      try {
+        await storage.remove(AUTH_USER_ID_KEY);
+      } catch (idError) {
+        safeLogWarn("Failed to clear previous auth user id before login:", idError);
       }
       const tokens = await currentService.startAuthorizationFlow();
       if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
