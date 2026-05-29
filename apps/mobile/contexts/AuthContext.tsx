@@ -115,6 +115,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Common post-login setup: configure API service and fetch user profile
   const setupAfterLogin = useCallback(
     async (token: string, refreshToken?: string) => {
+      // Capture the session generation up front. The profile fetch below is a
+      // network round-trip; a logout/account switch during it must not let this
+      // (now stale) login write the old identity into state or the cache owner.
+      const generationAtStart = CalComAPIService.getAuthGeneration();
       CalComAPIService.setAccessToken(token, refreshToken);
       // Drop any user-profile singleton left over from a previous in-memory
       // session (e.g. an extension iframe that outlived a logout, or a future
@@ -126,6 +130,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       try {
         const profile = await CalComAPIService.getUserProfile();
+        // A logout/account switch during the fetch above invalidates this login.
+        // Bail before writing the owner marker or identity so we don't resurrect
+        // or mislabel the cache under the previous user.
+        if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+          return;
+        }
         // Store user info for use in the app (e.g., to display "You" in bookings)
         if (profile) {
           // If the persisted cache was rehydrated for a different user (cold
@@ -213,7 +223,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (stored.accessToken !== accessToken) {
         return;
       }
-      await storage.removeAll([OAUTH_TOKENS_KEY, AUTH_TYPE_KEY]);
+      await storage.remove(OAUTH_TOKENS_KEY);
+      // Only clear the auth-type marker if it still says "oauth". A web-session
+      // login that interleaved with this rollback may have flipped it to
+      // "web_session"; removing it then would erase the newer session's marker.
+      const authType = await storage.get(AUTH_TYPE_KEY);
+      if (authType === "oauth") {
+        await storage.remove(AUTH_TYPE_KEY);
+      }
       if (service) {
         try {
           await service.clearTokensFromExtension();
@@ -616,6 +633,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } catch (idError) {
         console.warn("Failed to persist auth user id:", idError);
       }
+      // Re-check after the owner-marker write: the synchronous state flip below
+      // must not run if a logout/newer login advanced the generation during it.
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        return;
+      }
       setUserInfo({
         id: sessionUserInfo.id,
         email: sessionUserInfo.email,
@@ -672,6 +694,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Start a new auth session generation so any in-flight request/refresh
       // from a previous identity is invalidated and can't apply under this one.
       CalComAPIService.beginAuthGeneration();
+      // Capture the generation for this login. The authorization flow below is a
+      // long await (browser redirect + token exchange); a logout or newer login
+      // during it must abort this flow before it persists tokens or flips auth.
+      const generationAtStart = CalComAPIService.getAuthGeneration();
       // Wipe any prior identity's cache before a new login / account switch:
       // memory first (so a throttled persist can't re-write it), then disk.
       try {
@@ -685,9 +711,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         safeLogWarn("Failed to clear query cache before login:", cacheError);
       }
       const tokens = await currentService.startAuthorizationFlow();
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        setLoading(false);
+        return;
+      }
 
       // Save tokens
       await saveOAuthTokens(tokens, currentService);
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        // The write may have landed before this check; undo it if it's still
+        // ours so a logged-out/replaced session isn't resurrected.
+        await rollbackPersistedTokensIfMatches(tokens.accessToken, currentService);
+        setLoading(false);
+        return;
+      }
 
       // Update state
       setAccessToken(tokens.accessToken);

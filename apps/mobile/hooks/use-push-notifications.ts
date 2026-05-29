@@ -334,14 +334,25 @@ export async function requestAndRegisterPushToken(params: {
   // The session was logged out or switched while this registration was in
   // flight. Do NOT persist it as the active registration — that would leave a
   // logged-out (or previous) user's subscription live in our local state.
-  // Park it for retry instead; the backend's same-device dedup also clears it
-  // on the next login for this device.
   if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
-    await enqueuePendingDeregistration(newRecord);
-    safeLogWarn(
-      "[push] registration completed after logout/account switch; queued for cleanup",
-      await safeRegistrationLogContext(newRecord)
-    );
+    // Best-effort immediate cleanup: if the Bearer is still valid (the change
+    // was an account switch, or logout hasn't cleared tokens yet) the server
+    // row is removed right now. Only if that fails do we park it for a session
+    // that can delete it (the pre-logout drain, or the next login for this
+    // user/region); the backend same-device dedup is the final backstop.
+    try {
+      await CalComAPIService.removeAppPushSubscription(token);
+      safeLogWarn(
+        "[push] registration completed after session change; deleted immediately",
+        await safeRegistrationLogContext(newRecord)
+      );
+    } catch {
+      await enqueuePendingDeregistration(newRecord);
+      safeLogWarn(
+        "[push] registration completed after logout/account switch; queued for cleanup",
+        await safeRegistrationLogContext(newRecord)
+      );
+    }
     return { success: false, reason: "auth-session-changed-during-registration", token };
   }
 
