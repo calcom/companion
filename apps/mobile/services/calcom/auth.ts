@@ -75,6 +75,14 @@ let authTransitionChain: Promise<unknown> = Promise.resolve();
 // nesting mistake (a section directly calling runAuthTransition) without
 // false-positiving legitimate concurrent callers: a section's sync prefix can't
 // be interrupted, so any caller observing this flag set is nesting.
+//
+// This deliberately does NOT stay set across the section's own awaits: a
+// legitimate concurrent caller calls runAuthTransition synchronously while
+// another section is mid-await, and must be allowed to queue (not throw).
+// The cost is that async re-entry (a section awaiting, then re-calling
+// runAuthTransition) isn't caught and would deadlock — but no section does that
+// (sections are tiny storage writes that never re-enter), and catching it would
+// require AsyncLocalStorage context tracking, which isn't warranted here.
 let inSectionSyncPrefix = false;
 
 /**

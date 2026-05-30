@@ -101,6 +101,23 @@ function isSameRegistration(a: PersistedPushRegistration, b: PersistedPushRegist
   );
 }
 
+// The pending queue is a read-modify-write on a single storage key, so
+// concurrent enqueue/drain calls (e.g. a registration parking a record while a
+// login-triggered drain runs) could clobber each other and lose records.
+// Serialize every queue mutation through this chain so each get->modify->set
+// runs atomically. Sections here only touch the queue and never re-enter it, so
+// the chain can't self-deadlock.
+let pendingQueueChain: Promise<unknown> = Promise.resolve();
+
+function runPendingQueueMutation<T>(section: () => Promise<T>): Promise<T> {
+  const result = pendingQueueChain.then(section, section);
+  pendingQueueChain = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
 async function getPendingDeregistrations(): Promise<PersistedPushRegistration[]> {
   try {
     const raw = await secureStorage.get(PENDING_DEREGISTRATIONS_KEY);
@@ -130,13 +147,15 @@ async function setPendingDeregistrations(records: PersistedPushRegistration[]): 
 const MAX_PENDING_DEREGISTRATIONS = 50;
 
 async function enqueuePendingDeregistration(record: PersistedPushRegistration): Promise<void> {
-  const pending = await getPendingDeregistrations();
-  if (pending.some((r) => isSameRegistration(r, record))) return;
-  const next = [...pending, record];
-  if (next.length > MAX_PENDING_DEREGISTRATIONS) {
-    next.splice(0, next.length - MAX_PENDING_DEREGISTRATIONS);
-  }
-  await setPendingDeregistrations(next);
+  await runPendingQueueMutation(async () => {
+    const pending = await getPendingDeregistrations();
+    if (pending.some((r) => isSameRegistration(r, record))) return;
+    const next = [...pending, record];
+    if (next.length > MAX_PENDING_DEREGISTRATIONS) {
+      next.splice(0, next.length - MAX_PENDING_DEREGISTRATIONS);
+    }
+    await setPendingDeregistrations(next);
+  });
 }
 
 /**
@@ -150,32 +169,34 @@ async function enqueuePendingDeregistration(record: PersistedPushRegistration): 
  * drops the record; everything else is kept for the next attempt.
  */
 export async function drainPendingDeregistrations(currentUserId: number): Promise<void> {
-  const pending = await getPendingDeregistrations();
-  if (pending.length === 0) return;
+  await runPendingQueueMutation(async () => {
+    const pending = await getPendingDeregistrations();
+    if (pending.length === 0) return;
 
-  const currentRegion = getRegion();
-  const remaining: PersistedPushRegistration[] = [];
-  for (const record of pending) {
-    if (record.region !== currentRegion || record.userId !== currentUserId) {
-      remaining.push(record);
-      continue;
-    }
-    try {
-      await CalComAPIService.removeAppPushSubscription(record.token);
-    } catch (error) {
-      // Authoritative: the record belongs to the authenticated current user,
-      // so a 404 means the row is genuinely gone.
-      if (error instanceof ApiRequestError && error.status === 404) {
+    const currentRegion = getRegion();
+    const remaining: PersistedPushRegistration[] = [];
+    for (const record of pending) {
+      if (record.region !== currentRegion || record.userId !== currentUserId) {
+        remaining.push(record);
         continue;
       }
-      remaining.push(record);
-      safeLogWarn(
-        "[push] pending deregistration retry failed",
-        await safeRegistrationLogContext(record)
-      );
+      try {
+        await CalComAPIService.removeAppPushSubscription(record.token);
+      } catch (error) {
+        // Authoritative: the record belongs to the authenticated current user,
+        // so a 404 means the row is genuinely gone.
+        if (error instanceof ApiRequestError && error.status === 404) {
+          continue;
+        }
+        remaining.push(record);
+        safeLogWarn(
+          "[push] pending deregistration retry failed",
+          await safeRegistrationLogContext(record)
+        );
+      }
     }
-  }
-  await setPendingDeregistrations(remaining);
+    await setPendingDeregistrations(remaining);
+  });
 }
 
 /**
@@ -351,24 +372,17 @@ export async function requestAndRegisterPushToken(params: {
   // flight. Do NOT persist it as the active registration — that would leave a
   // logged-out (or previous) user's subscription live in our local state.
   if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
-    // Best-effort immediate cleanup: if the Bearer is still valid (the change
-    // was an account switch, or logout hasn't cleared tokens yet) the server
-    // row is removed right now. Only if that fails do we park it for a session
-    // that can delete it (the pre-logout drain, or the next login for this
-    // user/region); the backend same-device dedup is the final backstop.
-    try {
-      await CalComAPIService.removeAppPushSubscription(token);
-      safeLogWarn(
-        "[push] registration completed after session change; deleted immediately",
-        await safeRegistrationLogContext(newRecord)
-      );
-    } catch {
-      await enqueuePendingDeregistration(newRecord);
-      safeLogWarn(
-        "[push] registration completed after logout/account switch; queued for cleanup",
-        await safeRegistrationLogContext(newRecord)
-      );
-    }
+    // Don't delete by token here. The Expo push token is per-device, so a new
+    // session that took over this device likely re-registered the SAME token;
+    // a token-only DELETE authenticated as that new user would remove their
+    // just-created row. Park it instead — the owner-scoped drain resolves it
+    // under this record's own user/region on their next login (the same
+    // same-token safeguard applied to the previous-registration path below).
+    await enqueuePendingDeregistration(newRecord);
+    safeLogWarn(
+      "[push] registration completed after logout/account switch; queued for owner-scoped cleanup",
+      await safeRegistrationLogContext(newRecord)
+    );
     return { success: false, reason: "auth-session-changed-during-registration", token };
   }
 

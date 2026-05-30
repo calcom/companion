@@ -89,6 +89,10 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
   // still clean up the server subscription after an app restart.
   useEffect(() => {
     return registerPreLogoutCallback(async () => {
+      // Snapshot the account being logged out BEFORE the settle wait. A relogin
+      // landing during the wait could repoint userIdRef at a new account, which
+      // would make us deregister/drain the wrong identity.
+      const currentUserId = userIdRef.current;
       // Wait briefly for any in-flight registration to settle so a token that
       // registered moments before logout is persisted and thus deregistered.
       const inFlight = registrationInFlightRef.current;
@@ -98,7 +102,6 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
           new Promise((resolve) => setTimeout(resolve, REGISTRATION_SETTLE_TIMEOUT_MS)),
         ]);
       }
-      const currentUserId = userIdRef.current;
       await deregisterPersistedPushRegistration(currentUserId ?? undefined);
       // A registration that settled in the wait above (after logout advanced
       // the generation) parks itself in the pending queue rather than the active
