@@ -4,7 +4,12 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import React from "react";
 import { Pressable, useColorScheme, View } from "react-native";
 import type { SFSymbols7_0 } from "sf-symbols-typescript";
-import { getBookingActions } from "@/utils/booking-actions";
+import {
+  getBookingActions,
+  isUserHost,
+  isUserOrganizer,
+  normalizeBooking,
+} from "@/utils/booking-actions";
 import {
   BadgesRow,
   BookingDescription,
@@ -57,6 +62,14 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
       isOnline: true, // Assume online
     });
   }, [booking, userEmail]);
+  const canConfirmOrReject = React.useMemo(() => {
+    const normalizedBooking = normalizeBooking(booking);
+    return (
+      isPending &&
+      (isUserOrganizer(normalizedBooking, undefined, userEmail) ||
+        isUserHost(normalizedBooking, undefined, userEmail))
+    );
+  }, [booking, isPending, userEmail]);
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -200,7 +213,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
       >
         <ConfirmRejectButtons
           booking={booking}
-          isPending={isPending}
+          isPending={canConfirmOrReject}
           isConfirming={isConfirming}
           isDeclining={isDeclining}
           onConfirm={onConfirm}
