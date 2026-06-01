@@ -330,6 +330,11 @@ export async function requestAndRegisterPushToken(params: {
   // offline logout) now that we're authenticated and online again.
   await drainPendingDeregistrations(params.userId);
 
+  // Android 13+ needs a notification channel before the runtime permission
+  // prompt can appear. Create it before get/requestPermissionsAsync so the
+  // first-login registration path can actually ask for permission.
+  await ensureAndroidChannel();
+
   let finalStatus: Notifications.PermissionStatus;
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -349,8 +354,6 @@ export async function requestAndRegisterPushToken(params: {
   if (finalStatus !== "granted") {
     return { success: false, reason: "notification-permission-denied" };
   }
-
-  await ensureAndroidChannel();
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) {
