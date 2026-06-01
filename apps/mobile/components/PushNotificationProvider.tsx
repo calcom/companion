@@ -20,7 +20,6 @@ const LAST_HANDLED_NOTIF_KEY = "calcom_last_handled_notification_id";
 // Show notifications even when the app is in foreground.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
