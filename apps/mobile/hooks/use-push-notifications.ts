@@ -161,8 +161,14 @@ const MAX_PENDING_DEREGISTRATIONS = 50;
 async function enqueuePendingDeregistration(record: PersistedPushRegistration): Promise<void> {
   await runPendingQueueMutation(async () => {
     const pending = await getPendingDeregistrations();
-    if (pending.some((r) => isSameRegistration(r, record))) return;
-    const next = [...pending, record];
+    // Keep one record per subscription identity, but never drop a newer one: a
+    // late re-registration can produce a record with the same identity tuple and
+    // a newer registeredAt while a drain holds an older snapshot. Returning early
+    // here would let the drain remove the old record and leave the new server row
+    // with no cleanup entry. Replace any same-identity record with the newer one.
+    const existing = pending.find((r) => isSameRegistration(r, record));
+    if (existing && existing.registeredAt >= record.registeredAt) return;
+    const next = [...pending.filter((r) => !isSameRegistration(r, record)), record];
     if (next.length > MAX_PENDING_DEREGISTRATIONS) {
       next.splice(0, next.length - MAX_PENDING_DEREGISTRATIONS);
     }
