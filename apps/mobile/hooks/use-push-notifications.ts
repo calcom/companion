@@ -105,8 +105,10 @@ function isSameRegistration(a: PersistedPushRegistration, b: PersistedPushRegist
 // concurrent enqueue/drain calls (e.g. a registration parking a record while a
 // login-triggered drain runs) could clobber each other and lose records.
 // Serialize every queue mutation through this chain so each get->modify->set
-// runs atomically. Sections here only touch the queue and never re-enter it, so
-// the chain can't self-deadlock.
+// runs atomically. Sections passed here MUST do storage work only and MUST NOT
+// perform network I/O: a DELETE can 401 -> logout -> re-enter drain, which would
+// block on this chain while the holder blocks on logout (a deadlock). Drain
+// therefore does its DELETEs outside the lock and only the final removal under it.
 let pendingQueueChain: Promise<unknown> = Promise.resolve();
 
 function runPendingQueueMutation<T>(section: () => Promise<T>): Promise<T> {
@@ -169,32 +171,48 @@ async function enqueuePendingDeregistration(record: PersistedPushRegistration): 
  * drops the record; everything else is kept for the next attempt.
  */
 export async function drainPendingDeregistrations(currentUserId: number): Promise<void> {
-  await runPendingQueueMutation(async () => {
-    const pending = await getPendingDeregistrations();
-    if (pending.length === 0) return;
+  // A single storage read is atomic, so snapshot the queue without the lock.
+  const pending = await getPendingDeregistrations();
+  if (pending.length === 0) return;
 
-    const currentRegion = getRegion();
-    const remaining: PersistedPushRegistration[] = [];
-    for (const record of pending) {
-      if (record.region !== currentRegion || record.userId !== currentUserId) {
-        remaining.push(record);
+  const currentRegion = getRegion();
+  // Perform the DELETE calls OUTSIDE the queue lock. removeAppPushSubscription
+  // can 401, which triggers logout, whose pre-logout callback re-enters this
+  // drain; holding the lock across that network I/O would deadlock (the
+  // re-entrant drain would block on the lock this call still holds while this
+  // call blocks on logout). Collect the records we confirm are gone, then drop
+  // just those under the lock.
+  const removed: PersistedPushRegistration[] = [];
+  for (const record of pending) {
+    if (record.region !== currentRegion || record.userId !== currentUserId) {
+      continue;
+    }
+    try {
+      await CalComAPIService.removeAppPushSubscription(record.token);
+      removed.push(record);
+    } catch (error) {
+      // Authoritative: the record belongs to the authenticated current user,
+      // so a 404 means the row is genuinely gone.
+      if (error instanceof ApiRequestError && error.status === 404) {
+        removed.push(record);
         continue;
       }
-      try {
-        await CalComAPIService.removeAppPushSubscription(record.token);
-      } catch (error) {
-        // Authoritative: the record belongs to the authenticated current user,
-        // so a 404 means the row is genuinely gone.
-        if (error instanceof ApiRequestError && error.status === 404) {
-          continue;
-        }
-        remaining.push(record);
-        safeLogWarn(
-          "[push] pending deregistration retry failed",
-          await safeRegistrationLogContext(record)
-        );
-      }
+      safeLogWarn(
+        "[push] pending deregistration retry failed",
+        await safeRegistrationLogContext(record)
+      );
     }
+  }
+
+  if (removed.length === 0) return;
+
+  // Re-read under the lock and drop only the confirmed-removed records,
+  // preserving anything enqueued while the DELETEs were in flight.
+  await runPendingQueueMutation(async () => {
+    const current = await getPendingDeregistrations();
+    const remaining = current.filter(
+      (record) => !removed.some((deleted) => isSameRegistration(record, deleted))
+    );
     await setPendingDeregistrations(remaining);
   });
 }
