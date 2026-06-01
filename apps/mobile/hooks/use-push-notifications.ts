@@ -101,6 +101,16 @@ function isSameRegistration(a: PersistedPushRegistration, b: PersistedPushRegist
   );
 }
 
+/**
+ * Stricter equality for removing an exact pending record. Includes registeredAt
+ * so the drain only drops the precise records it snapshotted and deleted — a
+ * newer record sharing the same subscription identity (but queued while the
+ * DELETEs were in flight) is preserved.
+ */
+function isSamePendingRecord(a: PersistedPushRegistration, b: PersistedPushRegistration): boolean {
+  return isSameRegistration(a, b) && a.registeredAt === b.registeredAt;
+}
+
 // The pending queue is a read-modify-write on a single storage key, so
 // concurrent enqueue/drain calls (e.g. a registration parking a record while a
 // login-triggered drain runs) could clobber each other and lose records.
@@ -211,7 +221,7 @@ export async function drainPendingDeregistrations(currentUserId: number): Promis
   await runPendingQueueMutation(async () => {
     const current = await getPendingDeregistrations();
     const remaining = current.filter(
-      (record) => !removed.some((deleted) => isSameRegistration(record, deleted))
+      (record) => !removed.some((deleted) => isSamePendingRecord(record, deleted))
     );
     await setPendingDeregistrations(remaining);
   });
@@ -432,6 +442,19 @@ export async function requestAndRegisterPushToken(params: {
         );
       }
     }
+  }
+
+  // The previous-registration cleanup above awaits storage/network work, so the
+  // session can have changed since the post-POST recheck. Recheck once more here:
+  // persisting now would write a dead session's record as the ACTIVE
+  // registration after logout already ran. Park it for owner-scoped cleanup instead.
+  if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+    await enqueuePendingDeregistration(newRecord);
+    safeLogWarn(
+      "[push] session changed before persisting registration; queued for owner-scoped cleanup",
+      await safeRegistrationLogContext(newRecord)
+    );
+    return { success: false, reason: "auth-session-changed-during-registration", token };
   }
 
   await persistPushRegistration(newRecord);
