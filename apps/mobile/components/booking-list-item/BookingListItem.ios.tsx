@@ -213,7 +213,8 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
       >
         <ConfirmRejectButtons
           booking={booking}
-          isPending={canConfirmOrReject}
+          isPending={isPending}
+          canConfirmOrReject={canConfirmOrReject}
           isConfirming={isConfirming}
           isDeclining={isDeclining}
           onConfirm={onConfirm}
