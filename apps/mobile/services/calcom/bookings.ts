@@ -275,8 +275,6 @@ export async function rescheduleBooking(
  */
 export async function confirmBooking(bookingUid: string): Promise<Booking> {
   try {
-    safeLogInfo("[CalComAPIService] confirmBooking request", { bookingUid });
-
     const response = await makeRequest<{ status: string; data: Booking }>(
       `/bookings/${bookingUid}/confirm`,
       {
@@ -290,11 +288,6 @@ export async function confirmBooking(bookingUid: string): Promise<Booking> {
     );
 
     if (response?.data) {
-      safeLogInfo("[CalComAPIService] confirmBooking success", {
-        bookingUid,
-        returnedUid: response.data.uid,
-        returnedStatus: response.data.status,
-      });
       return response.data;
     }
 
@@ -318,12 +311,6 @@ export async function declineBooking(bookingUid: string, reason?: string): Promi
       body.reason = reason;
     }
 
-    safeLogInfo("[CalComAPIService] declineBooking request", {
-      bookingUid,
-      hasReason: Boolean(reason?.trim()),
-      reasonLength: reason?.length ?? 0,
-    });
-
     const response = await makeRequest<{ status: string; data: Booking }>(
       `/bookings/${bookingUid}/decline`,
       {
@@ -338,11 +325,6 @@ export async function declineBooking(bookingUid: string, reason?: string): Promi
     );
 
     if (response?.data) {
-      safeLogInfo("[CalComAPIService] declineBooking success", {
-        bookingUid,
-        returnedUid: response.data.uid,
-        returnedStatus: response.data.status,
-      });
       return response.data;
     }
 

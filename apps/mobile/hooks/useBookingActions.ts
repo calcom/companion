@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Alert, Platform } from "react-native";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
-import { safeLogError, safeLogInfo, safeLogWarn } from "@/utils/safeLogger";
 
 interface UseBookingActionsParams {
   router: ReturnType<typeof useRouter>;
@@ -69,26 +68,6 @@ export const useBookingActions = ({
 
   // Selected booking for actions modal
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-
-  const getActionLogContext = (booking: Booking, extra?: Record<string, unknown>) => ({
-    bookingUid: booking.uid,
-    bookingStatus: booking.status,
-    platform: Platform.OS,
-    isConfirming,
-    isDeclining,
-    ...extra,
-  });
-
-  const getActionErrorDiagnostics = (error: unknown) => {
-    if (error instanceof Error) {
-      return {
-        name: error.name,
-        message: error.message,
-      };
-    }
-
-    return { error };
-  };
 
   /**
    * Navigate to booking detail page
@@ -348,29 +327,18 @@ export const useBookingActions = ({
    * Show alert and confirm booking
    */
   const handleConfirmBooking = (booking: Booking) => {
-    safeLogInfo("[useBookingActions] confirm alert opened", getActionLogContext(booking));
-
     Alert.alert("Confirm Booking", `Are you sure you want to confirm "${booking.title}"?`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Confirm",
         onPress: () => {
-          safeLogInfo("[useBookingActions] confirm alert accepted", getActionLogContext(booking));
           confirmMutation(
             { uid: booking.uid },
             {
               onSuccess: () => {
-                safeLogInfo(
-                  "[useBookingActions] confirm alert mutation succeeded",
-                  getActionLogContext(booking)
-                );
                 showSilentSuccessAlert("Success", "Booking confirmed successfully");
               },
               onError: (error) => {
-                safeLogError("[useBookingActions] confirm alert mutation failed", {
-                  ...getActionLogContext(booking),
-                  error: getActionErrorDiagnostics(error),
-                });
                 showErrorAlert("Error", error.message || "Failed to confirm booking");
               },
             }
@@ -384,7 +352,6 @@ export const useBookingActions = ({
    * Open reject modal (used by iOS for custom modal UI)
    */
   const handleOpenRejectModal = (booking: Booking) => {
-    safeLogInfo("[useBookingActions] reject modal opened", getActionLogContext(booking));
     setRejectBooking(booking);
     setRejectReason("");
     setShowRejectModal(true);
@@ -394,8 +361,6 @@ export const useBookingActions = ({
    * Show alert and reject booking (Android Alert.prompt pattern)
    */
   const handleRejectBooking = (booking: Booking) => {
-    safeLogInfo("[useBookingActions] reject alert opened", getActionLogContext(booking));
-
     Alert.alert("Decline Booking", `Are you sure you want to decline "${booking.title}"?`, [
       { text: "Cancel", style: "cancel" },
       {
@@ -411,28 +376,13 @@ export const useBookingActions = ({
               {
                 text: "OK",
                 onPress: (reason?: string) => {
-                  safeLogInfo("[useBookingActions] reject alert submitted", {
-                    ...getActionLogContext(booking),
-                    hasReason: Boolean(reason?.trim()),
-                    reasonLength: reason?.length ?? 0,
-                  });
                   declineMutation(
                     { uid: booking.uid, reason: reason || undefined },
                     {
                       onSuccess: () => {
-                        safeLogInfo(
-                          "[useBookingActions] reject alert mutation succeeded",
-                          getActionLogContext(booking)
-                        );
                         showSilentSuccessAlert("Success", "Booking declined successfully");
                       },
                       onError: (error) => {
-                        safeLogError("[useBookingActions] reject alert mutation failed", {
-                          ...getActionLogContext(booking),
-                          hasReason: Boolean(reason?.trim()),
-                          reasonLength: reason?.length ?? 0,
-                          error: getActionErrorDiagnostics(error),
-                        });
                         showErrorAlert("Error", error.message || "Failed to decline booking");
                       },
                     }
@@ -454,44 +404,22 @@ export const useBookingActions = ({
    * @param reasonOverride - Optional reason passed directly to avoid race condition with state updates
    */
   const handleSubmitReject = (reasonOverride?: string) => {
-    if (!rejectBooking) {
-      safeLogWarn("[useBookingActions] reject submit ignored; no selected booking", {
-        platform: Platform.OS,
-        hasReasonOverride: reasonOverride !== undefined,
-      });
-      return;
-    }
+    if (!rejectBooking) return;
     const booking = rejectBooking;
 
     // Use passed reason if provided, otherwise fall back to state
     const reason = reasonOverride !== undefined ? reasonOverride : rejectReason;
-    safeLogInfo("[useBookingActions] reject modal submitted", {
-      ...getActionLogContext(booking),
-      hasReason: Boolean(reason?.trim()),
-      reasonLength: reason?.length ?? 0,
-      usedReasonOverride: reasonOverride !== undefined,
-    });
 
     declineMutation(
       { uid: booking.uid, reason: reason || undefined },
       {
         onSuccess: () => {
-          safeLogInfo(
-            "[useBookingActions] reject modal mutation succeeded",
-            getActionLogContext(booking)
-          );
           setShowRejectModal(false);
           setRejectBooking(null);
           setRejectReason("");
           showSilentSuccessAlert("Success", "Booking rejected successfully");
         },
-        onError: (error) => {
-          safeLogError("[useBookingActions] reject modal mutation failed", {
-            ...getActionLogContext(booking),
-            hasReason: Boolean(reason?.trim()),
-            reasonLength: reason?.length ?? 0,
-            error: getActionErrorDiagnostics(error),
-          });
+        onError: (_error) => {
           showErrorAlert("Error", "Failed to reject booking. Please try again.");
         },
       }
@@ -511,23 +439,13 @@ export const useBookingActions = ({
    * Inline confirm handler (for use directly in JSX)
    */
   const handleInlineConfirm = (booking: Booking) => {
-    safeLogInfo("[useBookingActions] inline confirm pressed", getActionLogContext(booking));
-
     confirmMutation(
       { uid: booking.uid },
       {
         onSuccess: () => {
-          safeLogInfo(
-            "[useBookingActions] inline confirm mutation succeeded",
-            getActionLogContext(booking)
-          );
           showSilentSuccessAlert("Success", "Booking confirmed successfully");
         },
-        onError: (error) => {
-          safeLogError("[useBookingActions] inline confirm mutation failed", {
-            ...getActionLogContext(booking),
-            error: getActionErrorDiagnostics(error),
-          });
+        onError: (_error) => {
           showErrorAlert("Error", "Failed to confirm booking. Please try again.");
         },
       }
