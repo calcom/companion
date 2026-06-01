@@ -442,17 +442,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsAuthenticated(true);
       setIsWebSession(false);
 
-      // Setup API service and refresh function
+      // Install the refresh function before setupAfterLogin() performs its
+      // authenticated /me request. A fresh access token can still receive a 401
+      // (clock skew, token propagation, regional auth mismatch); without this,
+      // the request layer has no refresh path and logs the user out.
+      if (tokens.refreshToken) {
+        setupRefreshTokenFunction(service);
+      }
+
+      // Setup API service and fetch profile.
       const generationBeforeProfile = CalComAPIService.getAuthGeneration();
       await setupAfterLogin(tokens.accessToken, tokens.refreshToken);
       // A logout/new login during the profile fetch invalidates this boot flow;
-      // installing this (now stale) service as the refresh fn would let it
-      // refresh under the newer session.
+      // this stale boot flow must not keep applying work after that point.
       if (CalComAPIService.getAuthGeneration() !== generationBeforeProfile) {
         return;
-      }
-      if (tokens.refreshToken) {
-        setupRefreshTokenFunction(service);
       }
 
       if (!tokensWereRefreshed) {
@@ -585,6 +589,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     CalComAPIService.setTokenRefreshCallback(handleTokenRefresh);
     CalComAPIService.setAuthFailureCallback(() => logoutRef.current());
+    if (activeService) {
+      setupRefreshTokenFunction(activeService);
+    }
 
     (async () => {
       const initialRegion = getRegion();
@@ -806,16 +813,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsAuthenticated(true);
       setIsWebSession(false);
 
-      // Setup API service and refresh function
+      // Install the refresh function before setupAfterLogin() performs its
+      // authenticated /me request. If that request sees a recoverable 401, the
+      // request layer can refresh instead of immediately logging out.
+      if (tokens.refreshToken) {
+        setupRefreshTokenFunction(currentService);
+      }
+
+      // Setup API service and fetch profile.
       await setupAfterLogin(tokens.accessToken, tokens.refreshToken);
       // A logout/new login during the profile fetch invalidates this login;
-      // don't install this (now stale) service as the session's refresh fn.
+      // don't keep applying this now-stale session.
       if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
         setLoading(false);
         return;
-      }
-      if (tokens.refreshToken) {
-        setupRefreshTokenFunction(currentService);
       }
 
       // Clear PKCE parameters
