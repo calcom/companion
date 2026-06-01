@@ -44,6 +44,10 @@ export class ApiRequestError extends Error {
 
 export const REQUEST_TIMEOUT_MS = 30000;
 
+type MakeRequestOptions = {
+  skipAuthFailure?: boolean;
+};
+
 /**
  * Test function for bookings API specifically
  */
@@ -87,7 +91,8 @@ export async function makeRequest<T>(
   endpoint: string,
   options: RequestInit = {},
   apiVersion: string = "2024-08-13",
-  isRetry: boolean = false
+  isRetry: boolean = false,
+  requestOptions: MakeRequestOptions = {}
 ): Promise<T> {
   const url = `${getApiBaseUrl()}${endpoint}`;
   // Capture the access token this request used so that, on a 401, we can tell
@@ -144,7 +149,7 @@ export async function makeRequest<T>(
       // was in flight (same session) — retry with the new token instead of
       // refreshing again.
       if (!isRetry && authConfig.accessToken && authConfig.accessToken !== accessTokenAtRequest) {
-        return makeRequest<T>(endpoint, options, apiVersion, true);
+        return makeRequest<T>(endpoint, options, apiVersion, true, requestOptions);
       }
 
       // We already refreshed once and retried with the fresh token. If the API
@@ -185,7 +190,13 @@ export async function makeRequest<T>(
             getAuthConfig().accessToken &&
             getAuthConfig().accessToken !== accessTokenAtRequest
           ) {
-            return makeRequest<T>(endpoint, options, apiVersion, true);
+            return makeRequest<T>(endpoint, options, apiVersion, true, requestOptions);
+          }
+          if (requestOptions.skipAuthFailure) {
+            throw new ApiRequestError(
+              response.status,
+              `API Error: ${response.status} ${errorMessage}`
+            );
           }
           safeLogError("Token refresh failed:", refreshError);
           const onAuthFailure = getAuthFailureCallback();
@@ -205,7 +216,11 @@ export async function makeRequest<T>(
           );
         }
         // Retry the original request with the new token.
-        return makeRequest<T>(endpoint, options, apiVersion, true);
+        return makeRequest<T>(endpoint, options, apiVersion, true, requestOptions);
+      }
+
+      if (requestOptions.skipAuthFailure) {
+        throw new ApiRequestError(response.status, `API Error: ${response.status} ${errorMessage}`);
       }
 
       const onAuthFailure = getAuthFailureCallback();
