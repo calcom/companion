@@ -230,6 +230,7 @@ export function useConfirmBooking() {
 
   return useMutation({
     mutationFn: ({ uid }: { uid: string }) => CalComAPIService.confirmBooking(uid),
+    retry: false,
     onMutate: (variables) => {
       safeLogInfo("[useConfirmBooking] mutation started", { bookingUid: variables.uid });
     },
@@ -279,6 +280,7 @@ export function useDeclineBooking() {
   return useMutation({
     mutationFn: ({ uid, reason }: { uid: string; reason?: string }) =>
       CalComAPIService.declineBooking(uid, reason),
+    retry: false,
     onMutate: (variables) => {
       safeLogInfo("[useDeclineBooking] mutation started", {
         bookingUid: variables.uid,

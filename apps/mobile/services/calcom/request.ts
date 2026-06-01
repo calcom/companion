@@ -207,6 +207,18 @@ export async function makeRequest<T>(
         return makeRequest<T>(endpoint, options, apiVersion, true);
       }
 
+      // We already refreshed once and retried with the fresh token. If the API
+      // still returns 401, treat it as an endpoint authorization failure instead
+      // of logging out the whole app. This prevents one forbidden booking action
+      // from tearing down an otherwise valid session.
+      if (isRetry) {
+        safeLogWarn(
+          "[CalComAPIService] 401 after refresh retry; preserving auth session",
+          diagnostics
+        );
+        throw new ApiRequestError(response.status, `API Error: ${response.status} ${errorMessage}`);
+      }
+
       const refreshToken = authConfig.refreshToken;
       const refreshTokenFunction = getRefreshTokenFunction();
       const tokenRefreshCallback = getTokenRefreshCallback();
