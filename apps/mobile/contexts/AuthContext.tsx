@@ -56,6 +56,10 @@ const ACCESS_TOKEN_KEY = "cal_access_token";
 const REFRESH_TOKEN_KEY = "cal_refresh_token";
 const OAUTH_TOKENS_KEY = "cal_oauth_tokens";
 const AUTH_TYPE_KEY = "cal_auth_type";
+// Identity marker for the persisted query cache owner envelope. Written after
+// the user profile resolves and read by the query persister to reject a cache
+// that belongs to a different user. Keep in sync with queryPersister.ts.
+const AUTH_USER_ID_KEY = "cal_auth_user_id";
 
 type AuthType = "oauth" | "web_session";
 
@@ -111,6 +115,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Common post-login setup: configure API service and fetch user profile
   const setupAfterLogin = useCallback(
     async (token: string, refreshToken?: string) => {
+      // Capture the session generation up front. The profile fetch below is a
+      // network round-trip; a logout/account switch during it must not let this
+      // (now stale) login write the old identity into state or the cache owner.
+      const generationAtStart = CalComAPIService.getAuthGeneration();
       CalComAPIService.setAccessToken(token, refreshToken);
       // Drop any user-profile singleton left over from a previous in-memory
       // session (e.g. an extension iframe that outlived a logout, or a future
@@ -122,6 +130,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       try {
         const profile = await CalComAPIService.getUserProfile();
+        // A logout/account switch during the fetch above invalidates this login.
+        // Bail before writing the owner marker or identity so we don't resurrect
+        // or mislabel the cache under the previous user.
+        if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+          return;
+        }
         // Store user info for use in the app (e.g., to display "You" in bookings)
         if (profile) {
           // If the persisted cache was rehydrated for a different user (cold
@@ -148,6 +162,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
               console.warn("Failed to clear stale persisted cache:", cacheError);
             }
           }
+          // Mark the cache owner so the persister can reject another user's
+          // cache on the next cold start. Written before setUserInfo so it is
+          // in place by the time queries for this identity start persisting.
+          try {
+            await CalComAPIService.runAuthTransition(async () => {
+              await storage.set(AUTH_USER_ID_KEY, String(profile.id));
+            });
+          } catch (idError) {
+            console.warn("Failed to persist auth user id:", idError);
+          }
+          // Final re-check before the synchronous state flip: the cache-clear
+          // and owner-marker writes above are awaits, and a logout/switch during
+          // them must not let this stale login set the previous identity.
+          if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+            return;
+          }
           setUserInfo({
             email: profile.email,
             name: profile.name,
@@ -167,8 +197,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // memoization, and taking `service` explicitly lets cold-start callers pass
   // a freshly-rebuilt service without waiting for the state update to settle.
   const saveOAuthTokens = async (tokens: OAuthTokens, service: CalComOAuthService | null) => {
-    await storage.set(OAUTH_TOKENS_KEY, JSON.stringify(tokens));
-    await storage.set(AUTH_TYPE_KEY, "oauth");
+    // Write both markers as one atomic section so a concurrent rollback/clear
+    // can't observe a half-written pair. No network inside the lock.
+    await CalComAPIService.runAuthTransition(async () => {
+      await storage.set(OAUTH_TOKENS_KEY, JSON.stringify(tokens));
+      await storage.set(AUTH_TYPE_KEY, "oauth");
+    });
 
     if (service) {
       try {
@@ -179,8 +213,66 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Undo a token persist that a refresh completed just as the session changed
+  // (logout/account switch). `saveOAuthTokens` is not atomic, so a stale
+  // refresh can land its disk write before the post-write epoch re-check. We
+  // remove the persisted tokens ONLY when storage still holds exactly the ones
+  // this refresh wrote — a newer login may have already written its own tokens,
+  // and those must never be clobbered.
+  const rollbackPersistedTokensIfMatches = async (
+    accessToken: string,
+    service: CalComOAuthService | null
+  ) => {
+    try {
+      // The read-and-conditional-remove must be atomic against other marker
+      // mutations (e.g. a concurrent web-session login writing "web_session"),
+      // so it runs as one auth-transition section. No network inside the lock.
+      const didRollback = await CalComAPIService.runAuthTransition(async () => {
+        const raw = await storage.get(OAUTH_TOKENS_KEY);
+        // No stored oauth tokens means there's nothing of ours to undo — a newer
+        // login already replaced/cleared them (e.g. a web-session login that
+        // writes only AUTH_TYPE_KEY). Bail so we don't wipe that newer marker.
+        if (!raw) {
+          return false;
+        }
+        const stored = JSON.parse(raw) as OAuthTokens;
+        if (stored.accessToken !== accessToken) {
+          return false;
+        }
+        await storage.remove(OAUTH_TOKENS_KEY);
+        // Only clear the auth-type marker if it still says "oauth". A web-session
+        // login that ran before this section may have flipped it to
+        // "web_session"; removing it then would erase the newer session's marker.
+        const authType = await storage.get(AUTH_TYPE_KEY);
+        if (authType === "oauth") {
+          await storage.remove(AUTH_TYPE_KEY);
+        }
+        return true;
+      });
+      if (didRollback && service) {
+        try {
+          await service.clearTokensFromExtension();
+        } catch (extensionError) {
+          console.warn("Failed to clear extension tokens during rollback:", extensionError);
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to roll back stale refreshed tokens:", error);
+    }
+  };
+
   const clearAuth = useCallback(async () => {
-    await storage.removeAll([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, OAUTH_TOKENS_KEY, AUTH_TYPE_KEY]);
+    // Clearing every marker is one atomic section so a concurrent login's
+    // marker writes either all precede or all follow it. No network inside.
+    await CalComAPIService.runAuthTransition(async () => {
+      await storage.removeAll([
+        ACCESS_TOKEN_KEY,
+        REFRESH_TOKEN_KEY,
+        OAUTH_TOKENS_KEY,
+        AUTH_TYPE_KEY,
+        AUTH_USER_ID_KEY,
+      ]);
+    });
 
     if (oauthService) {
       try {
@@ -211,7 +303,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  const logout = useCallback(async () => {
+  const logoutInFlightRef = useRef<Promise<void> | null>(null);
+
+  const performLogout = useCallback(async () => {
+    // Advance the auth generation up front (tokens stay valid for the
+    // pre-logout DELETE below) so any refresh/request/push registration that
+    // resolves during this potentially slow logout sequence is treated as a
+    // dead session and not applied/persisted as active.
+    CalComAPIService.invalidateAuthSession();
     // Run pre-logout callbacks while auth tokens are still valid (e.g. push
     // token deregistration needs a valid Bearer token for the API call).
     for (const callback of preLogoutCallbacksRef.current) {
@@ -280,6 +379,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     resetAuthState();
   }, [clearAuth, resetAuthState, queryClient]);
 
+  const logout = useCallback(async () => {
+    // Coalesce concurrent logouts. Two parallel requests can both 401, fail the
+    // same single-flight refresh, and each call onAuthFailure -> logout(); without
+    // this the pre-logout callbacks (e.g. push deregistration) would run twice.
+    // Sharing the in-flight promise runs the sequence exactly once.
+    if (logoutInFlightRef.current) {
+      return logoutInFlightRef.current;
+    }
+    const run = performLogout();
+    logoutInFlightRef.current = run;
+    try {
+      await run;
+    } finally {
+      logoutInFlightRef.current = null;
+    }
+  }, [performLogout]);
+
   // Handle OAuth authentication. `service` is passed explicitly so the boot
   // effect can hand in a freshly-rebuilt service on cold-start region
   // mismatch without a re-render round-trip.
@@ -290,14 +406,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
       let tokens = storedTokens;
       let tokensWereRefreshed = false;
       if (service.isTokenExpired(storedTokens) && storedTokens.refreshToken) {
+        // Capture the generation around the boot refresh: if the user logs out
+        // or starts a new login while this in-flight refresh resolves, applying
+        // its result would resurrect the previous stored session.
+        const generationAtStart = CalComAPIService.getAuthGeneration();
         try {
           console.log("Access token expired, refreshing...");
           tokens = await service.refreshAccessToken(storedTokens.refreshToken);
+          if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+            return;
+          }
           await saveOAuthTokens(tokens, service);
           tokensWereRefreshed = true;
         } catch (refreshError) {
           console.error("Failed to refresh token:", refreshError);
-          await clearAuth();
+          // Only clear if this boot session is still current — a logout or new
+          // login may have advanced the generation while the refresh failed,
+          // and clearing would wipe that newer session's auth.
+          if (CalComAPIService.getAuthGeneration() === generationAtStart) {
+            await clearAuth();
+          }
+          return;
+        }
+        if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+          // The write may have landed before this check; undo it (only if it's
+          // still ours) so a logged-out/replaced session isn't resurrected.
+          await rollbackPersistedTokensIfMatches(tokens.accessToken, service);
           return;
         }
       }
@@ -309,7 +443,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsWebSession(false);
 
       // Setup API service and refresh function
+      const generationBeforeProfile = CalComAPIService.getAuthGeneration();
       await setupAfterLogin(tokens.accessToken, tokens.refreshToken);
+      // A logout/new login during the profile fetch invalidates this boot flow;
+      // installing this (now stale) service as the refresh fn would let it
+      // refresh under the newer session.
+      if (CalComAPIService.getAuthGeneration() !== generationBeforeProfile) {
+        return;
+      }
       if (tokens.refreshToken) {
         setupRefreshTokenFunction(service);
       }
@@ -388,6 +529,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       newRefreshToken?: string,
       expiresAt?: number
     ) => {
+      // The refresh that produced these tokens validated the generation
+      // before invoking this callback, but logout/account switch can still
+      // advance it during the awaits below. Re-check before each write so we
+      // never persist a dead session's tokens (which boot would resurrect)
+      // or repoint in-memory auth at the previous identity. Captured outside the
+      // try so the catch can tell a dead-session failure from a live one.
+      const generationAtStart = CalComAPIService.getAuthGeneration();
       try {
         const tokens: OAuthTokens = {
           accessToken: newAccessToken,
@@ -396,7 +544,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
           expiresAt,
         };
 
+        if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+          return;
+        }
         await saveOAuthTokens(tokens, activeService);
+        if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+          // The write may have landed before this check; undo it (only if it's
+          // still ours) so the dead session isn't resurrected, and skip the
+          // in-memory writes.
+          await rollbackPersistedTokensIfMatches(newAccessToken, activeService);
+          return;
+        }
         setAccessToken(newAccessToken);
         if (newRefreshToken) {
           setRefreshToken(newRefreshToken);
@@ -415,7 +573,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             stack: getErrorStack(error),
           });
         }
-        await logoutRef.current();
+        // Only tear down auth if this refresh still belongs to the current
+        // session. If logout/login advanced the generation while the write was
+        // failing, this is a dead session's failure and must not log out the
+        // newer one.
+        if (CalComAPIService.getAuthGeneration() === generationAtStart) {
+          await logoutRef.current();
+        }
       }
     };
 
@@ -458,13 +622,74 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       cancelled = true;
       unsubscribeRegion();
-      CalComAPIService.setTokenRefreshCallback(() => Promise.resolve());
-      CalComAPIService.setAuthFailureCallback(() => Promise.resolve());
+      // Provider is unmounting — this is the only place callbacks should be
+      // torn down. Logout/401 recovery must NOT clear them (see clearAuth).
+      CalComAPIService.clearAuthCallbacks();
     };
   }, []);
 
   const loginFromWebSession = async (sessionUserInfo: UserProfile) => {
     try {
+      // Both calls below bump authGeneration (+2 total, not +1): beginAuthGeneration
+      // invalidates in-flight work from the previous identity, and clearAuth clears
+      // tokens (which needs its own bump). loginWithOAuth only calls beginAuthGeneration
+      // because it doesn't need to clear prior tokens up front.
+      CalComAPIService.beginAuthGeneration();
+      // Clear the previous identity's tokens BEFORE flipping to the new user.
+      // getTokensFromWebSession() below may return no token, in which case the
+      // prior OAuth bearer would otherwise stay live in CalComAPIService + React
+      // state under the new user's UI and cache owner.
+      CalComAPIService.clearAuth();
+      setAccessToken(null);
+      setRefreshToken(null);
+      // Capture the generation after the synchronous bumps above. If a logout or
+      // another login advances it during the awaits below, this web-session
+      // login is stale and must abort before applying its identity/tokens.
+      const generationAtStart = CalComAPIService.getAuthGeneration();
+      try {
+        await clearAuth();
+      } catch (clearError) {
+        safeLogWarn("Failed to clear prior auth tokens before web login:", clearError);
+      }
+      // Wipe any prior identity's cache before flipping to authenticated:
+      // memory first (so a throttled persist can't re-write it), then disk.
+      // Without this, the previous user's in-memory React Query data would be
+      // re-persisted under the new owner id we write just below — mislabeling
+      // user A's cache as user B's (loginWithOAuth already does this; a
+      // web-session login that never reaches setupAfterLogin would otherwise
+      // skip it entirely).
+      try {
+        queryClient.clear();
+      } catch (memoryCacheError) {
+        safeLogWarn("Failed to clear in-memory query cache before web login:", memoryCacheError);
+      }
+      try {
+        await clearQueryCache();
+      } catch (cacheError) {
+        safeLogWarn("Failed to clear persisted query cache before web login:", cacheError);
+      }
+      // A logout/login may have started while we were clearing above. Bail
+      // before writing this session's owner marker or flipping auth state, so a
+      // stale web login can't apply on top of the newer session.
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        return;
+      }
+      // Persist the cache-owner marker before flipping to authenticated. A
+      // web session may never reach setupAfterLogin (no token, or getUserProfile
+      // fails), and the query persister now refuses to write ownerless cache, so
+      // without this marker web-session users would lose cache persistence.
+      try {
+        await CalComAPIService.runAuthTransition(async () => {
+          await storage.set(AUTH_USER_ID_KEY, String(sessionUserInfo.id));
+        });
+      } catch (idError) {
+        console.warn("Failed to persist auth user id:", idError);
+      }
+      // Re-check after the owner-marker write: the synchronous state flip below
+      // must not run if a logout/newer login advanced the generation during it.
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        return;
+      }
       setUserInfo({
         id: sessionUserInfo.id,
         email: sessionUserInfo.email,
@@ -473,10 +698,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
       setIsAuthenticated(true);
       setIsWebSession(true);
-      await storage.set(AUTH_TYPE_KEY, "web_session");
 
       // Try to get tokens from web session
       const tokens = await WebAuthService.getTokensFromWebSession();
+      // Re-check after the network await: a concurrent logout/login here must
+      // not have this session's tokens or marker applied under it.
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        return;
+      }
+      // Persist the web-session marker only once we've committed (after the
+      // recheck), so an aborted stale login never leaves a "web_session" marker
+      // behind. Written even when there's no token so the persister keeps cache.
+      await CalComAPIService.runAuthTransition(async () => {
+        await storage.set(AUTH_TYPE_KEY, "web_session");
+      });
+      // Re-check after the marker-write await (it can queue behind another
+      // transition): a logout interleaving here must not let this stale login
+      // repoint auth at its token via setAccessToken / setupAfterLogin.
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        return;
+      }
       if (tokens.accessToken) {
         setAccessToken(tokens.accessToken);
         setRefreshToken(tokens.refreshToken || null);
@@ -513,15 +754,51 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     setLoading(true);
     try {
+      // Start a new auth session generation so any in-flight request/refresh
+      // from a previous identity is invalidated and can't apply under this one.
+      CalComAPIService.beginAuthGeneration();
+      // Capture the generation for this login. The authorization flow below is a
+      // long await (browser redirect + token exchange); a logout or newer login
+      // during it must abort this flow before it persists tokens or flips auth.
+      const generationAtStart = CalComAPIService.getAuthGeneration();
+      // Wipe any prior identity's cache before a new login / account switch:
+      // memory first (so a throttled persist can't re-write it), then disk.
+      try {
+        queryClient.clear();
+      } catch (memoryCacheError) {
+        safeLogWarn("Failed to clear in-memory query cache before login:", memoryCacheError);
+      }
       try {
         await clearQueryCache();
       } catch (cacheError) {
         safeLogWarn("Failed to clear query cache before login:", cacheError);
       }
+      // Drop the previous owner marker too. Until setupAfterLogin fetches the
+      // new profile and writes the new id, the persister must see no owner and
+      // refuse to persist — otherwise new-user queries in that window would be
+      // wrapped under the previous user's id.
+      try {
+        await CalComAPIService.runAuthTransition(async () => {
+          await storage.remove(AUTH_USER_ID_KEY);
+        });
+      } catch (idError) {
+        safeLogWarn("Failed to clear previous auth user id before login:", idError);
+      }
       const tokens = await currentService.startAuthorizationFlow();
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        setLoading(false);
+        return;
+      }
 
       // Save tokens
       await saveOAuthTokens(tokens, currentService);
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        // The write may have landed before this check; undo it if it's still
+        // ours so a logged-out/replaced session isn't resurrected.
+        await rollbackPersistedTokensIfMatches(tokens.accessToken, currentService);
+        setLoading(false);
+        return;
+      }
 
       // Update state
       setAccessToken(tokens.accessToken);
@@ -531,6 +808,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Setup API service and refresh function
       await setupAfterLogin(tokens.accessToken, tokens.refreshToken);
+      // A logout/new login during the profile fetch invalidates this login;
+      // don't install this (now stale) service as the session's refresh fn.
+      if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
+        setLoading(false);
+        return;
+      }
       if (tokens.refreshToken) {
         setupRefreshTokenFunction(currentService);
       }

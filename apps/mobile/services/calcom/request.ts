@@ -7,12 +7,15 @@ import { getCalApiUrl } from "@/utils/region";
 import { safeLogError } from "@/utils/safeLogger";
 
 import {
+  AuthSessionChangedError,
   clearAuth,
   getAuthConfig,
   getAuthFailureCallback,
+  getAuthGeneration,
   getAuthHeader,
   getRefreshTokenFunction,
   getTokenRefreshCallback,
+  refreshAuthTokensSingleFlight,
 } from "./auth";
 import { safeParseErrorJson, safeParseJson } from "./utils";
 
@@ -22,6 +25,21 @@ import { safeParseErrorJson, safeParseJson } from "./utils";
  */
 export function getApiBaseUrl(): string {
   return `${getCalApiUrl()}/v2`;
+}
+
+/**
+ * Error thrown for non-2xx API responses, carrying the HTTP status so callers
+ * can branch on it (e.g. treat a 404 on unregister as "already deleted")
+ * without brittle message string matching.
+ */
+export class ApiRequestError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+  }
 }
 
 export const REQUEST_TIMEOUT_MS = 30000;
@@ -72,6 +90,16 @@ export async function makeRequest<T>(
   isRetry: boolean = false
 ): Promise<T> {
   const url = `${getApiBaseUrl()}${endpoint}`;
+  // Capture the access token this request used so that, on a 401, we can tell
+  // whether a parallel request already refreshed it (in which case we just
+  // retry rather than refresh again or tear down a now-valid session).
+  const accessTokenAtRequest = getAuthConfig().accessToken;
+  // Capture the auth session generation too. The token string alone can't
+  // distinguish "the same session refreshed" from "this session logged out and
+  // a new one logged in" — both change the token. If the generation changed,
+  // this request belongs to a dead session and must NOT be retried (retrying
+  // would replay it, possibly a mutation, under the new user's credentials).
+  const generationAtRequest = getAuthGeneration();
 
   const response = await fetchWithTimeout(
     url,
@@ -104,28 +132,53 @@ export async function makeRequest<T>(
     // Handle specific error cases
     if (response.status === 401) {
       const authConfig = getAuthConfig();
+
+      // The session was logged out or switched while this request was in flight.
+      // Abort instead of retrying — a retry would send this request under the
+      // new identity's credentials.
+      if (getAuthGeneration() !== generationAtRequest) {
+        throw new ApiRequestError(response.status, `API Error: ${response.status} ${errorMessage}`);
+      }
+
+      // A parallel request already refreshed the access token while this one
+      // was in flight (same session) — retry with the new token instead of
+      // refreshing again.
+      if (!isRetry && authConfig.accessToken && authConfig.accessToken !== accessTokenAtRequest) {
+        return makeRequest<T>(endpoint, options, apiVersion, true);
+      }
+
+      const refreshToken = authConfig.refreshToken;
       const refreshTokenFunction = getRefreshTokenFunction();
       const tokenRefreshCallback = getTokenRefreshCallback();
 
-      if (!isRetry && authConfig.refreshToken && refreshTokenFunction && tokenRefreshCallback) {
+      if (!isRetry && refreshToken && refreshTokenFunction && tokenRefreshCallback) {
         try {
-          const newTokens = await refreshTokenFunction(authConfig.refreshToken);
-
-          authConfig.accessToken = newTokens.accessToken;
-          if (newTokens.refreshToken) {
-            authConfig.refreshToken = newTokens.refreshToken;
-          }
-
-          // Notify AuthContext to update stored tokens (including expiresAt for proactive refresh)
-          await tokenRefreshCallback(
-            newTokens.accessToken,
-            newTokens.refreshToken,
-            newTokens.expiresAt
-          );
-
-          // Retry the original request with the new token
-          return makeRequest<T>(endpoint, options, apiVersion, true);
+          // Single-flight: concurrent 401s sharing this refresh token coalesce
+          // into one network refresh.
+          await refreshAuthTokensSingleFlight(refreshToken);
         } catch (refreshError) {
+          // The session was logged out or switched while the refresh was in
+          // flight (the refresh threw, or resolved into a different session).
+          // Abort WITHOUT logging out — clearing auth here would tear down the
+          // new, valid session because this stale request finished late.
+          if (
+            refreshError instanceof AuthSessionChangedError ||
+            getAuthGeneration() !== generationAtRequest
+          ) {
+            throw new ApiRequestError(
+              response.status,
+              `API Error: ${response.status} ${errorMessage}`
+            );
+          }
+          // If another request refreshed successfully while ours lost the race
+          // within the SAME session, don't log out a now-valid session — retry.
+          if (
+            getAuthGeneration() === generationAtRequest &&
+            getAuthConfig().accessToken &&
+            getAuthConfig().accessToken !== accessTokenAtRequest
+          ) {
+            return makeRequest<T>(endpoint, options, apiVersion, true);
+          }
           safeLogError("Token refresh failed:", refreshError);
           const onAuthFailure = getAuthFailureCallback();
           clearAuth();
@@ -133,6 +186,18 @@ export async function makeRequest<T>(
           await onAuthFailure?.();
           throw new Error("Authentication failed. Please sign in again.");
         }
+        // The session was logged out or switched across the refresh. Abort
+        // WITHOUT logging out — the current session is a new, valid identity
+        // and must not be torn down because this stale request finished late.
+        // (Checked outside the try so it isn't mistaken for a refresh failure.)
+        if (getAuthGeneration() !== generationAtRequest) {
+          throw new ApiRequestError(
+            response.status,
+            `API Error: ${response.status} ${errorMessage}`
+          );
+        }
+        // Retry the original request with the new token.
+        return makeRequest<T>(endpoint, options, apiVersion, true);
       }
 
       const onAuthFailure = getAuthFailureCallback();
@@ -146,7 +211,7 @@ export async function makeRequest<T>(
     }
 
     // Include status code in error message for graceful error handling downstream
-    throw new Error(`API Error: ${response.status} ${errorMessage}`);
+    throw new ApiRequestError(response.status, `API Error: ${response.status} ${errorMessage}`);
   }
 
   return response.json();
