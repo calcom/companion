@@ -4,7 +4,7 @@
 
 import { fetchWithTimeout } from "@/utils/network";
 import { getCalApiUrl } from "@/utils/region";
-import { safeLogError } from "@/utils/safeLogger";
+import { safeLogError, safeLogInfo, safeLogWarn } from "@/utils/safeLogger";
 
 import {
   AuthSessionChangedError,
@@ -43,6 +43,47 @@ export class ApiRequestError extends Error {
 }
 
 export const REQUEST_TIMEOUT_MS = 30000;
+
+function getRequestAuthDiagnostics({
+  endpoint,
+  method,
+  apiVersion,
+  isRetry,
+  responseStatus,
+  generationAtRequest,
+  accessTokenAtRequest,
+}: {
+  endpoint: string;
+  method?: string;
+  apiVersion: string;
+  isRetry: boolean;
+  responseStatus: number;
+  generationAtRequest: number;
+  accessTokenAtRequest?: string;
+}) {
+  const authConfig = getAuthConfig();
+  const currentGeneration = getAuthGeneration();
+
+  return {
+    endpoint,
+    method: method || "GET",
+    apiVersion,
+    isRetry,
+    responseStatus,
+    generationAtRequest,
+    currentGeneration,
+    generationChanged: currentGeneration !== generationAtRequest,
+    hadAccessTokenAtRequest: Boolean(accessTokenAtRequest),
+    hasCurrentAccessToken: Boolean(authConfig.accessToken),
+    accessTokenChanged: Boolean(
+      authConfig.accessToken && authConfig.accessToken !== accessTokenAtRequest
+    ),
+    hasRefreshToken: Boolean(authConfig.refreshToken),
+    hasRefreshTokenFunction: Boolean(getRefreshTokenFunction()),
+    hasTokenRefreshCallback: Boolean(getTokenRefreshCallback()),
+    hasAuthFailureCallback: Boolean(getAuthFailureCallback()),
+  };
+}
 
 /**
  * Test function for bookings API specifically
@@ -132,11 +173,26 @@ export async function makeRequest<T>(
     // Handle specific error cases
     if (response.status === 401) {
       const authConfig = getAuthConfig();
+      const diagnostics = getRequestAuthDiagnostics({
+        endpoint,
+        method: options.method,
+        apiVersion,
+        isRetry,
+        responseStatus: response.status,
+        generationAtRequest,
+        accessTokenAtRequest,
+      });
+
+      safeLogWarn("[CalComAPIService] 401 response", diagnostics);
 
       // The session was logged out or switched while this request was in flight.
       // Abort instead of retrying — a retry would send this request under the
       // new identity's credentials.
       if (getAuthGeneration() !== generationAtRequest) {
+        safeLogWarn(
+          "[CalComAPIService] 401 belongs to stale auth generation; aborting",
+          diagnostics
+        );
         throw new ApiRequestError(response.status, `API Error: ${response.status} ${errorMessage}`);
       }
 
@@ -144,6 +200,10 @@ export async function makeRequest<T>(
       // was in flight (same session) — retry with the new token instead of
       // refreshing again.
       if (!isRetry && authConfig.accessToken && authConfig.accessToken !== accessTokenAtRequest) {
+        safeLogInfo(
+          "[CalComAPIService] 401 retrying with token refreshed by parallel request",
+          diagnostics
+        );
         return makeRequest<T>(endpoint, options, apiVersion, true);
       }
 
@@ -153,6 +213,7 @@ export async function makeRequest<T>(
 
       if (!isRetry && refreshToken && refreshTokenFunction && tokenRefreshCallback) {
         try {
+          safeLogInfo("[CalComAPIService] 401 attempting token refresh", diagnostics);
           // Single-flight: concurrent 401s sharing this refresh token coalesce
           // into one network refresh.
           await refreshAuthTokensSingleFlight(refreshToken);
@@ -165,6 +226,10 @@ export async function makeRequest<T>(
             refreshError instanceof AuthSessionChangedError ||
             getAuthGeneration() !== generationAtRequest
           ) {
+            safeLogWarn(
+              "[CalComAPIService] token refresh resolved after auth generation changed; aborting",
+              diagnostics
+            );
             throw new ApiRequestError(
               response.status,
               `API Error: ${response.status} ${errorMessage}`
@@ -177,9 +242,17 @@ export async function makeRequest<T>(
             getAuthConfig().accessToken &&
             getAuthConfig().accessToken !== accessTokenAtRequest
           ) {
+            safeLogInfo(
+              "[CalComAPIService] token refresh race resolved by another request; retrying",
+              diagnostics
+            );
             return makeRequest<T>(endpoint, options, apiVersion, true);
           }
-          safeLogError("Token refresh failed:", refreshError);
+          safeLogError("[CalComAPIService] token refresh failed", {
+            diagnostics,
+            error: refreshError,
+          });
+          safeLogWarn("[CalComAPIService] clearing auth after failed token refresh", diagnostics);
           const onAuthFailure = getAuthFailureCallback();
           clearAuth();
           // Trigger full logout so AuthContext resets isAuthenticated
@@ -191,15 +264,24 @@ export async function makeRequest<T>(
         // and must not be torn down because this stale request finished late.
         // (Checked outside the try so it isn't mistaken for a refresh failure.)
         if (getAuthGeneration() !== generationAtRequest) {
+          safeLogWarn(
+            "[CalComAPIService] refresh completed after auth generation changed; aborting retry",
+            diagnostics
+          );
           throw new ApiRequestError(
             response.status,
             `API Error: ${response.status} ${errorMessage}`
           );
         }
         // Retry the original request with the new token.
+        safeLogInfo("[CalComAPIService] token refresh succeeded; retrying original request", {
+          ...diagnostics,
+          currentGeneration: getAuthGeneration(),
+        });
         return makeRequest<T>(endpoint, options, apiVersion, true);
       }
 
+      safeLogWarn("[CalComAPIService] 401 has no refresh path; clearing auth", diagnostics);
       const onAuthFailure = getAuthFailureCallback();
       clearAuth();
       await onAuthFailure?.();

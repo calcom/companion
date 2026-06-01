@@ -13,6 +13,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
 import { RatingTrigger, requestRating } from "@/hooks/useAppStoreRating";
 import { type Booking, CalComAPIService } from "@/services/calcom";
+import { safeLogError, safeLogInfo } from "@/utils/safeLogger";
+
+function getMutationErrorDiagnostics(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+    };
+  }
+
+  return { error };
+}
 
 /**
  * Filter options for fetching bookings
@@ -218,7 +230,16 @@ export function useConfirmBooking() {
 
   return useMutation({
     mutationFn: ({ uid }: { uid: string }) => CalComAPIService.confirmBooking(uid),
-    onSuccess: (_, variables) => {
+    onMutate: (variables) => {
+      safeLogInfo("[useConfirmBooking] mutation started", { bookingUid: variables.uid });
+    },
+    onSuccess: (booking, variables) => {
+      safeLogInfo("[useConfirmBooking] mutation succeeded", {
+        bookingUid: variables.uid,
+        returnedUid: booking?.uid,
+        returnedStatus: booking?.status,
+      });
+
       // Invalidate all booking queries to refetch fresh data
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
 
@@ -230,7 +251,11 @@ export function useConfirmBooking() {
       // Request app store rating on first booking confirmation
       requestRating(RatingTrigger.BOOKING_CONFIRMED);
     },
-    onError: (_error) => {
+    onError: (error, variables) => {
+      safeLogError("[useConfirmBooking] mutation failed", {
+        bookingUid: variables.uid,
+        error: getMutationErrorDiagnostics(error),
+      });
       console.error("Failed to confirm booking");
     },
   });
@@ -254,7 +279,20 @@ export function useDeclineBooking() {
   return useMutation({
     mutationFn: ({ uid, reason }: { uid: string; reason?: string }) =>
       CalComAPIService.declineBooking(uid, reason),
-    onSuccess: (_, variables) => {
+    onMutate: (variables) => {
+      safeLogInfo("[useDeclineBooking] mutation started", {
+        bookingUid: variables.uid,
+        hasReason: Boolean(variables.reason?.trim()),
+        reasonLength: variables.reason?.length ?? 0,
+      });
+    },
+    onSuccess: (booking, variables) => {
+      safeLogInfo("[useDeclineBooking] mutation succeeded", {
+        bookingUid: variables.uid,
+        returnedUid: booking?.uid,
+        returnedStatus: booking?.status,
+      });
+
       // Invalidate all booking queries to refetch fresh data
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
 
@@ -266,7 +304,13 @@ export function useDeclineBooking() {
       // Request app store rating on first booking rejection
       requestRating(RatingTrigger.BOOKING_REJECTED);
     },
-    onError: (_error) => {
+    onError: (error, variables) => {
+      safeLogError("[useDeclineBooking] mutation failed", {
+        bookingUid: variables.uid,
+        hasReason: Boolean(variables.reason?.trim()),
+        reasonLength: variables.reason?.length ?? 0,
+        error: getMutationErrorDiagnostics(error),
+      });
       console.error("Failed to decline booking");
     },
   });
