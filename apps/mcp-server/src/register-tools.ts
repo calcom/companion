@@ -73,6 +73,22 @@ import {
   calculateRoutingFormSlots,
 } from "./tools/routing-forms.js";
 
+// ── Organizations: Attributes ──
+import {
+  getOrgAttributesSchema,
+  getOrgAttributes,
+  getOrgAttributeSchema,
+  getOrgAttribute,
+  getUserAttributesSchema,
+  getUserAttributes,
+  assignAttributeToUserSchema,
+  assignAttributeToUser,
+  updateUserAttributeSchema,
+  updateUserAttribute,
+  unassignAttributeFromUserSchema,
+  unassignAttributeFromUser,
+} from "./tools/organizations/attributes.js";
+
 // ── Organizations: Memberships ──
 import {
   getOrgMembershipsSchema,
@@ -454,6 +470,74 @@ export function registerTools(server: McpServer): void {
       annotations: CREATE,
     },
     calculateRoutingFormSlots,
+  );
+
+  // ── Organizations: Attributes (6) ──
+  server.registerTool(
+    "get_org_attributes",
+    {
+      title: "List Org Attributes",
+      description:
+        "List all attributes defined for an organization. Attributes are custom fields (TEXT, NUMBER, SINGLE_SELECT, MULTI_SELECT) used to tag members for routing and round-robin. Supports pagination with skip/take.",
+      inputSchema: getOrgAttributesSchema,
+      annotations: READ_ONLY,
+    },
+    getOrgAttributes,
+  );
+  server.registerTool(
+    "get_org_attribute",
+    {
+      title: "Get Org Attribute",
+      description:
+        "Get a single organization attribute by ID, including its options. Use get_org_attributes to find attribute IDs.",
+      inputSchema: getOrgAttributeSchema,
+      annotations: READ_ONLY,
+    },
+    getOrgAttribute,
+  );
+  server.registerTool(
+    "get_user_attributes",
+    {
+      title: "Get User Attributes",
+      description:
+        "Get all attribute options assigned to a specific user within an organization. Returns grouped attributes with their assigned option values and weights.",
+      inputSchema: getUserAttributesSchema,
+      annotations: READ_ONLY,
+    },
+    getUserAttributes,
+  );
+  server.registerTool(
+    "assign_attribute_to_user",
+    {
+      title: "Assign Attribute to User",
+      description:
+        "Assign an attribute option to a user. For SINGLE_SELECT/MULTI_SELECT attributes, pass attributeOptionId (use get_org_attributes to find option IDs). For TEXT/NUMBER attributes, pass value instead to create an option on the fly. Optionally set a weight for round-robin routing.",
+      inputSchema: assignAttributeToUserSchema,
+      annotations: CREATE,
+    },
+    assignAttributeToUser,
+  );
+  server.registerTool(
+    "update_user_attribute",
+    {
+      title: "Update User Attribute Assignment",
+      description:
+        "Update an existing attribute assignment for a user (e.g. change the weight). Use get_user_attributes to find the attributeOptionId.",
+      inputSchema: updateUserAttributeSchema,
+      annotations: UPDATE,
+    },
+    updateUserAttribute,
+  );
+  server.registerTool(
+    "unassign_attribute_from_user",
+    {
+      title: "Unassign Attribute from User",
+      description:
+        "Remove an attribute option assignment from a user. Use get_user_attributes to find the attributeOptionId. Confirm with the user before proceeding.",
+      inputSchema: unassignAttributeFromUserSchema,
+      annotations: DESTRUCTIVE,
+    },
+    unassignAttributeFromUser,
   );
 
   // ── Organizations: Memberships (5) ──
