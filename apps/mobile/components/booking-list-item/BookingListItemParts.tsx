@@ -3,7 +3,7 @@ import { Linking, Text, TouchableOpacity, useColorScheme, View } from "react-nat
 import { SvgImage } from "@/components/SvgImage";
 import { getColors } from "@/constants/colors";
 import type { Booking } from "@/services/calcom";
-import { showErrorAlert } from "@/utils/alerts";
+import { showErrorAlert, showInfoAlert } from "@/utils/alerts";
 import type { BookingListItemData } from "./useBookingListItemData";
 
 interface TimeAndDateRowProps {
@@ -140,6 +140,7 @@ export function MeetingLink({ meetingInfo }: MeetingLinkProps) {
 interface ConfirmRejectButtonsProps {
   booking: Booking;
   isPending: boolean;
+  canConfirmOrReject: boolean;
   isConfirming: boolean;
   isDeclining: boolean;
   onConfirm: (booking: Booking) => void;
@@ -149,6 +150,7 @@ interface ConfirmRejectButtonsProps {
 export function ConfirmRejectButtons({
   booking,
   isPending,
+  canConfirmOrReject,
   isConfirming,
   isDeclining,
   onConfirm,
@@ -175,6 +177,10 @@ export function ConfirmRejectButtons({
         disabled={isConfirming || isDeclining}
         onPress={(e) => {
           e.stopPropagation();
+          if (!canConfirmOrReject) {
+            showInfoAlert("Not authorized", "You are not authorized to reject this booking.");
+            return;
+          }
           onReject(booking);
         }}
       >
@@ -193,6 +199,10 @@ export function ConfirmRejectButtons({
         disabled={isConfirming || isDeclining}
         onPress={(e) => {
           e.stopPropagation();
+          if (!canConfirmOrReject) {
+            showInfoAlert("Not authorized", "You are not authorized to confirm this booking.");
+            return;
+          }
           onConfirm(booking);
         }}
       >

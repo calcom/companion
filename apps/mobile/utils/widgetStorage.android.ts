@@ -25,10 +25,6 @@ async function updateAndroidWidget(widgetData: WidgetData): Promise<void> {
 }
 
 export async function updateWidgetBookings(bookings: BookingInput[]): Promise<void> {
-  if (__DEV__) {
-    console.log("[Widget Debug] updateWidgetBookings called with", bookings.length, "bookings");
-  }
-
   try {
     const widgetData = transformBookingsToWidgetData(bookings);
     await updateAndroidWidget(widgetData);

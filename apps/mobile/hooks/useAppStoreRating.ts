@@ -21,22 +21,22 @@ function getStorageKey(trigger: RatingTriggerType): string {
 }
 
 async function requestReviewIfAvailable(): Promise<boolean> {
-  // Only available on native platforms (iOS/Android)
-  if (Platform.OS === "web") {
+  // Review prompts are a production-only, best-effort native feature.
+  if (__DEV__ || Platform.OS === "web") {
     return false;
   }
 
   try {
     // Dynamic import to avoid bundling issues on web
     const StoreReview = await import("expo-store-review");
-    const isAvailable = await StoreReview.isAvailableAsync();
-    if (isAvailable) {
-      await StoreReview.requestReview();
-      return true;
+    const hasReviewAction = await StoreReview.hasAction();
+    if (!hasReviewAction) {
+      return false;
     }
-    return false;
-  } catch (error) {
-    console.warn("Failed to request app store review:", error);
+
+    await StoreReview.requestReview();
+    return true;
+  } catch (_error) {
     return false;
   }
 }
@@ -74,13 +74,20 @@ async function markAsTriggered(trigger: RatingTriggerType): Promise<void> {
  * await requestRating(RatingTrigger.BOOKING_CONFIRMED);
  */
 export async function requestRating(trigger: RatingTriggerType): Promise<boolean> {
+  if (__DEV__ || Platform.OS === "web") {
+    return false;
+  }
+
   const alreadyTriggered = await hasAlreadyTriggered(trigger);
   if (alreadyTriggered) {
     return false;
   }
 
-  await markAsTriggered(trigger);
-  return requestReviewIfAvailable();
+  const didRequestReview = await requestReviewIfAvailable();
+  if (didRequestReview) {
+    await markAsTriggered(trigger);
+  }
+  return didRequestReview;
 }
 
 /**

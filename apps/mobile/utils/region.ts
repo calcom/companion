@@ -26,7 +26,7 @@ const DEFAULT_REGION: CalRegion = "us";
 let currentRegion: CalRegion = DEFAULT_REGION;
 const listeners = new Set<(region: CalRegion) => void>();
 
-function isValidRegion(value: string | null): value is CalRegion {
+export function isValidRegion(value: string | null): value is CalRegion {
   return value === "us" || value === "eu";
 }
 

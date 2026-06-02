@@ -4,14 +4,22 @@ import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { type ReactNode, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { deregisterPushToken, requestAndRegisterPushToken } from "@/hooks/use-push-notifications";
+import {
+  deregisterPersistedPushRegistration,
+  drainPendingDeregistrations,
+  requestAndRegisterPushToken,
+} from "@/hooks/use-push-notifications";
+
+// How long the pre-logout callback waits for an in-flight registration to
+// settle before deregistering, so a token that registered moments before
+// logout still gets removed — without blocking the UI logout indefinitely.
+const REGISTRATION_SETTLE_TIMEOUT_MS = 3000;
 
 const LAST_HANDLED_NOTIF_KEY = "calcom_last_handled_notification_id";
 
 // Show notifications even when the app is in foreground.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
@@ -36,9 +44,9 @@ function handleNotificationUrl(url: string, router: ReturnType<typeof useRouter>
 }
 
 export function PushNotificationProvider({ children }: PushNotificationProviderProps) {
-  const { isAuthenticated, registerPreLogoutCallback } = useAuth();
+  const { isAuthenticated, userInfo, registerPreLogoutCallback } = useAuth();
   const router = useRouter();
-  const registeredTokenRef = useRef<string | null>(null);
+  const registrationInFlightRef = useRef<Promise<unknown> | null>(null);
   const coldStartHandledRef = useRef(false);
   const isAuthenticatedRef = useRef(isAuthenticated);
   const routerRef = useRef(router);
@@ -51,38 +59,56 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
     routerRef.current = router;
   }, [router]);
 
-  // Register token on login.
-  // Register token on login.
+  // Register token on login. The registration promise is tracked in a ref so
+  // the pre-logout callback can wait for an in-flight registration before
+  // deregistering. requestAndRegisterPushToken persists a durable record on
+  // success, which is what logout reads to deregister.
+  const userId = userInfo?.id;
+  const userIdRef = useRef(userId);
   useEffect(() => {
-    if (!isAuthenticated) {
-      registeredTokenRef.current = null;
+    userIdRef.current = userId;
+  }, [userId]);
+  useEffect(() => {
+    if (!isAuthenticated || userId == null) {
       return;
     }
 
-    let cancelled = false;
-    void (async () => {
-      const result = await requestAndRegisterPushToken();
-      if (cancelled) return;
-      if (result.success) {
-        registeredTokenRef.current = result.token;
-      } else if (result.token) {
-        // Server registration failed but token was obtained — store it so
-        // we can still deregister on logout.
-        registeredTokenRef.current = result.token;
+    const promise = requestAndRegisterPushToken({ userId });
+    registrationInFlightRef.current = promise;
+    void promise.finally(() => {
+      if (registrationInFlightRef.current === promise) {
+        registrationInFlightRef.current = null;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated]);
+    });
+  }, [isAuthenticated, userId]);
 
   // Deregister token before auth is cleared — the pre-logout callback runs
-  // while the Bearer token is still valid so the API call succeeds.
+  // while the Bearer token is still valid so the API call succeeds. Reading
+  // the persisted registration (instead of an in-memory ref) means logout can
+  // still clean up the server subscription after an app restart.
   useEffect(() => {
     return registerPreLogoutCallback(async () => {
-      if (registeredTokenRef.current) {
-        await deregisterPushToken(registeredTokenRef.current);
-        registeredTokenRef.current = null;
+      // Snapshot the account being logged out BEFORE the settle wait. A relogin
+      // landing during the wait could repoint userIdRef at a new account, which
+      // would make us deregister/drain the wrong identity.
+      const currentUserId = userIdRef.current;
+      // Wait briefly for any in-flight registration to settle so a token that
+      // registered moments before logout is persisted and thus deregistered.
+      const inFlight = registrationInFlightRef.current;
+      if (inFlight) {
+        await Promise.race([
+          inFlight.catch(() => undefined),
+          new Promise((resolve) => setTimeout(resolve, REGISTRATION_SETTLE_TIMEOUT_MS)),
+        ]);
+      }
+      await deregisterPersistedPushRegistration(currentUserId ?? undefined);
+      // A registration that settled in the wait above (after logout advanced
+      // the generation) parks itself in the pending queue rather than the active
+      // slot. Drain it now — while the Bearer token is still valid — so its
+      // server subscription is deleted in this logout instead of lingering
+      // until the next login for this user.
+      if (currentUserId != null) {
+        await drainPendingDeregistrations(currentUserId);
       }
     });
   }, [registerPreLogoutCallback]);
