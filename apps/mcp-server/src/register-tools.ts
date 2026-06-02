@@ -79,6 +79,8 @@ import {
   getOrgAttributes,
   getOrgAttributeSchema,
   getOrgAttribute,
+  getAttributeOptionsSchema,
+  getAttributeOptions,
   getUserAttributesSchema,
   getUserAttributes,
   assignAttributeToUserSchema,
@@ -472,7 +474,7 @@ export function registerTools(server: McpServer): void {
     calculateRoutingFormSlots,
   );
 
-  // ── Organizations: Attributes (6) ──
+  // ── Organizations: Attributes (7) ──
   server.registerTool(
     "get_org_attributes",
     {
@@ -496,6 +498,17 @@ export function registerTools(server: McpServer): void {
     getOrgAttribute,
   );
   server.registerTool(
+    "get_attribute_options",
+    {
+      title: "List Attribute Options",
+      description:
+        "List all available options for a SINGLE_SELECT or MULTI_SELECT attribute. Returns option IDs and values needed when assigning attributes to users via assign_attribute_to_user.",
+      inputSchema: getAttributeOptionsSchema,
+      annotations: READ_ONLY,
+    },
+    getAttributeOptions,
+  );
+  server.registerTool(
     "get_user_attributes",
     {
       title: "Get User Attributes",
@@ -511,7 +524,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Assign Attribute to User",
       description:
-        "Assign an attribute option to a user. For SINGLE_SELECT/MULTI_SELECT attributes, pass attributeOptionId (use get_org_attributes to find option IDs). For TEXT/NUMBER attributes, pass value instead to create an option on the fly. Optionally set a weight for round-robin routing.",
+        "Assign an attribute option to a user. For SINGLE_SELECT/MULTI_SELECT attributes, pass attributeOptionId (use get_attribute_options to list available options). For TEXT/NUMBER attributes, pass value instead to create an option on the fly. Optionally set a weight for round-robin routing.",
       inputSchema: assignAttributeToUserSchema,
       annotations: CREATE,
     },

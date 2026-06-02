@@ -9,6 +9,8 @@ import {
   getOrgAttributesSchema,
   getOrgAttribute,
   getOrgAttributeSchema,
+  getAttributeOptions,
+  getAttributeOptionsSchema,
   getUserAttributes,
   getUserAttributesSchema,
   assignAttributeToUser,
@@ -60,6 +62,27 @@ describe("getOrgAttribute", () => {
   it("handles API errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(404, "Not found", {}));
     const result = await getOrgAttribute({ orgId: 1, attributeId: "abc" });
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("404");
+  });
+});
+
+describe("getAttributeOptions", () => {
+  it("exports getAttributeOptionsSchema", () => { expect(getAttributeOptionsSchema).toBeDefined(); });
+  it("returns data on success", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success", data: [{ id: "opt1", value: "Engineering" }] });
+    const result = await getAttributeOptions({ orgId: 1, attributeId: "abc" });
+    expect(result.content[0].type).toBe("text");
+    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success", data: [{ id: "opt1", value: "Engineering" }] });
+  });
+  it("calls correct endpoint", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success" });
+    await getAttributeOptions({ orgId: 1, attributeId: "abc" });
+    expect(mockCalApi).toHaveBeenCalledWith("organizations/1/attributes/abc/options");
+  });
+  it("handles API errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(404, "Not found", {}));
+    const result = await getAttributeOptions({ orgId: 1, attributeId: "abc" });
     expect(result).toHaveProperty("isError", true);
     expect(result.content[0].text).toContain("404");
   });

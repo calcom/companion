@@ -43,6 +43,27 @@ export async function getOrgAttribute(params: {
   }
 }
 
+// ── Read: Attribute Options ──
+
+export const getAttributeOptionsSchema = {
+  orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
+  attributeId: z.string().describe("Attribute ID. Use get_org_attributes to find this."),
+};
+
+export async function getAttributeOptions(params: {
+  orgId: number;
+  attributeId: string;
+}) {
+  try {
+    const data = await calApi(
+      `organizations/${params.orgId}/attributes/${params.attributeId}/options`,
+    );
+    return ok(data);
+  } catch (err) {
+    return handleError("get_attribute_options", err);
+  }
+}
+
 // ── Read: User Attributes ──
 
 export const getUserAttributesSchema = {
@@ -68,7 +89,7 @@ export const assignAttributeToUserSchema = {
   orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
   userId: z.number().int().describe("User ID to assign the attribute to."),
   attributeId: z.string().describe("Attribute ID. Use get_org_attributes to find this."),
-  attributeOptionId: z.string().optional().describe("Existing attribute option ID to assign. Use get_org_attributes to find option IDs. Provide this OR value, not both."),
+  attributeOptionId: z.string().optional().describe("Existing attribute option ID to assign. Use get_attribute_options to list available options for SINGLE_SELECT/MULTI_SELECT attributes. Provide this OR value, not both."),
   value: z.string().optional().describe("Value for TEXT/NUMBER attributes (creates an option on the fly). Provide this OR attributeOptionId, not both."),
   weight: z.number().int().min(0).optional().describe("Weight of this attribute assignment for the user (used in round-robin)."),
 };
