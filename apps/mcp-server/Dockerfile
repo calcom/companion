@@ -10,7 +10,7 @@ RUN bun run build
 RUN bun install --frozen-lockfile --production
 
 # ── Production stage ──
-FROM node:20-slim
+FROM node:22-slim
 
 WORKDIR /app
 

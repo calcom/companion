@@ -15,7 +15,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ### Prerequisites
 
-- Node.js >= 18
+- Node.js >= 22
 - [Bun](https://bun.sh/) (for workspace install)
 - A Cal.com API key ([get one here](https://app.cal.com/settings/developer/api-keys))
 
