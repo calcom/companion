@@ -12,11 +12,13 @@ import {
   createEventType,
   updateEventType,
   deleteEventType,
+  getRoundRobinConfig,
   getEventTypesSchema,
   getEventTypeSchema,
   createEventTypeSchema,
   updateEventTypeSchema,
   deleteEventTypeSchema,
+  getRoundRobinConfigSchema,
 } from "./event-types.js";
 
 const mockCalApi = vi.mocked(calApi);
@@ -64,6 +66,12 @@ describe("event-types schemas", () => {
 
   it("exports deleteEventTypeSchema", () => {
     expect(deleteEventTypeSchema.eventTypeId).toBeDefined();
+  });
+
+  it("exports getRoundRobinConfigSchema with required and optional fields", () => {
+    expect(getRoundRobinConfigSchema.eventTypeId).toBeDefined();
+    expect(getRoundRobinConfigSchema.orgId).toBeDefined();
+    expect(getRoundRobinConfigSchema.teamId).toBeDefined();
   });
 });
 
@@ -172,5 +180,101 @@ describe("deleteEventType", () => {
     await deleteEventType({ eventTypeId: 42 });
 
     expect(mockCalApi).toHaveBeenCalledWith("event-types/42", { method: "DELETE" });
+  });
+});
+
+describe("getRoundRobinConfig", () => {
+  it("fetches event type and extracts round-robin fields", async () => {
+    mockCalApi.mockResolvedValueOnce({
+      id: 10,
+      schedulingType: "roundRobin",
+      assignAllTeamMembers: false,
+      hosts: [
+        { userId: 1, name: "Alice", isFixed: false, priority: 2, weight: 100 },
+        { userId: 2, name: "Bob", isFixed: true, priority: 1, weight: 50 },
+      ],
+    });
+
+    const result = await getRoundRobinConfig({ eventTypeId: 10 });
+
+    expect(mockCalApi).toHaveBeenCalledWith("event-types/10");
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.eventTypeId).toBe(10);
+    expect(parsed.schedulingType).toBe("roundRobin");
+    expect(parsed.isRoundRobin).toBe(true);
+    expect(parsed.assignAllTeamMembers).toBe(false);
+    expect(parsed.hosts).toHaveLength(2);
+    expect(parsed.hosts[0]).toEqual({
+      userId: 1,
+      name: "Alice",
+      isFixed: false,
+      priority: 2,
+      weight: 100,
+      weightAdjustment: null,
+      scheduleId: null,
+      createdAt: null,
+    });
+  });
+
+  it("uses org-scoped path when orgId and teamId are provided", async () => {
+    mockCalApi.mockResolvedValueOnce({
+      schedulingType: "roundRobin",
+      assignAllTeamMembers: true,
+      hosts: [],
+    });
+
+    const result = await getRoundRobinConfig({ eventTypeId: 5, orgId: 100, teamId: 200 });
+
+    expect(mockCalApi).toHaveBeenCalledWith("organizations/100/teams/200/event-types/5");
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.assignAllTeamMembers).toBe(true);
+    expect(parsed.isRoundRobin).toBe(true);
+  });
+
+  it("returns isRoundRobin false for non-RR scheduling types", async () => {
+    mockCalApi.mockResolvedValueOnce({
+      schedulingType: "collective",
+      hosts: [{ userId: 3, name: "Carol" }],
+    });
+
+    const result = await getRoundRobinConfig({ eventTypeId: 7 });
+
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.schedulingType).toBe("collective");
+    expect(parsed.isRoundRobin).toBe(false);
+    expect(parsed.hosts).toHaveLength(1);
+  });
+
+  it("handles null schedulingType gracefully", async () => {
+    mockCalApi.mockResolvedValueOnce({
+      hosts: [],
+    });
+
+    const result = await getRoundRobinConfig({ eventTypeId: 1 });
+
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.schedulingType).toBeNull();
+    expect(parsed.isRoundRobin).toBe(false);
+    expect(parsed.assignAllTeamMembers).toBe(false);
+  });
+
+  it("handles ROUND_ROBIN with underscore/mixed case", async () => {
+    mockCalApi.mockResolvedValueOnce({
+      schedulingType: "ROUND_ROBIN",
+      hosts: [],
+    });
+
+    const result = await getRoundRobinConfig({ eventTypeId: 1 });
+
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.isRoundRobin).toBe(true);
+  });
+
+  it("handles errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(404, "Not found", {}));
+
+    const result = await getRoundRobinConfig({ eventTypeId: 999 });
+
+    expect(result).toHaveProperty("isError", true);
   });
 });

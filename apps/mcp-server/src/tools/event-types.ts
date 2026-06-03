@@ -294,6 +294,67 @@ export async function updateEventType(params: {
   }
 }
 
+export const getRoundRobinConfigSchema = {
+  eventTypeId: z.number().int().describe("Event type ID. Use get_event_types to find this."),
+  orgId: z.number().int().optional().describe("Organization ID for org-scoped team event types. Use get_me to obtain your organizationId."),
+  teamId: z.number().int().optional().describe("Team ID for org-scoped team event types. Required together with orgId."),
+};
+
+interface RoundRobinHost {
+  userId: number;
+  name?: string;
+  isFixed?: boolean;
+  priority?: number;
+  weight?: number;
+  weightAdjustment?: number;
+  scheduleId?: number | null;
+  createdAt?: string;
+}
+
+export async function getRoundRobinConfig(params: {
+  eventTypeId: number;
+  orgId?: number;
+  teamId?: number;
+}) {
+  try {
+    const path =
+      params.orgId !== undefined && params.teamId !== undefined
+        ? `organizations/${params.orgId}/teams/${params.teamId}/event-types/${params.eventTypeId}`
+        : `event-types/${params.eventTypeId}`;
+
+    const data = (await calApi(path)) as Record<string, unknown>;
+
+    const schedulingType = (data.schedulingType as string) ?? null;
+    const assignAllTeamMembers = (data.assignAllTeamMembers as boolean) ?? false;
+
+    const rawHosts = (data.hosts as RoundRobinHost[] | undefined) ?? [];
+    const hosts = rawHosts.map((h) => ({
+      userId: h.userId,
+      name: h.name ?? null,
+      isFixed: h.isFixed ?? false,
+      priority: h.priority ?? null,
+      weight: h.weight ?? null,
+      weightAdjustment: h.weightAdjustment ?? null,
+      scheduleId: h.scheduleId ?? null,
+      createdAt: h.createdAt ?? null,
+    }));
+
+    const isRoundRobin =
+      typeof schedulingType === "string" &&
+      schedulingType.toLowerCase().replace(/_/g, "") === "roundrobin";
+
+    return ok({
+      eventTypeId: params.eventTypeId,
+      schedulingType,
+      isRoundRobin,
+      assignAllTeamMembers,
+      hosts,
+    });
+  } catch (err) {
+    return handleError("get_round_robin_config", err);
+  }
+}
+
 export const deleteEventTypeSchema = {
   eventTypeId: z.number().int().describe("Event type ID to delete. Use get_event_types to find this."),
 };

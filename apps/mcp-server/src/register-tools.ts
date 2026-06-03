@@ -14,6 +14,8 @@ import {
   createEventType,
   updateEventTypeSchema,
   updateEventType,
+  getRoundRobinConfigSchema,
+  getRoundRobinConfig,
   deleteEventTypeSchema,
   deleteEventType,
 } from "./tools/event-types.js";
@@ -162,7 +164,7 @@ export function registerTools(server: McpServer): void {
     updateMe,
   );
 
-  // ── Event Types (5) ──
+  // ── Event Types (6) ──
   server.registerTool(
     "get_event_types",
     {
@@ -217,6 +219,17 @@ export function registerTools(server: McpServer): void {
       annotations: DESTRUCTIVE,
     },
     deleteEventType,
+  );
+  server.registerTool(
+    "get_round_robin_config",
+    {
+      title: "Get Round-Robin Config",
+      description:
+        "Get the round-robin / team scheduling configuration for an event type. Shows who is in the host rotation pool and each host's priority, weight, and isFixed status. Also returns schedulingType and whether assignAllTeamMembers is enabled. For org-scoped team event types, pass orgId + teamId.",
+      inputSchema: getRoundRobinConfigSchema,
+      annotations: READ_ONLY,
+    },
+    getRoundRobinConfig,
   );
 
   // ── Bookings (10) ──
