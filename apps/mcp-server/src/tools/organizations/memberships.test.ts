@@ -39,11 +39,20 @@ describe("getOrgMemberships", () => {
 
 describe("createOrgMembership", () => {
   it("exports createOrgMembershipSchema", () => { expect(createOrgMembershipSchema).toBeDefined(); });
-  it("returns data on success", async () => {
+  it("returns data on success with userId", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success" });
     const result = await createOrgMembership({"orgId":1,"userId":1,"role":"MEMBER"});
     expect(result.content[0].type).toBe("text");
     expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
+  });
+  it("sends email for invite-by-email flow", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success", accepted: true });
+    const result = await createOrgMembership({"orgId":1,"email":"user@example.com","role":"MEMBER"});
+    expect(mockCalApi).toHaveBeenCalledWith("organizations/1/memberships", {
+      method: "POST",
+      body: { email: "user@example.com", role: "MEMBER" },
+    });
+    expect(result.content[0].type).toBe("text");
   });
   it("handles API errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));

@@ -9,10 +9,6 @@ import {
 	getOrgUsersSchema,
 	createOrgUser,
 	createOrgUserSchema,
-	updateOrgUser,
-	updateOrgUserSchema,
-	deleteOrgUser,
-	deleteOrgUserSchema,
 } from "./users.js";
 
 const mockCalApi = vi.mocked(calApi);
@@ -84,51 +80,6 @@ describe("createOrgUser", () => {
 	it("handles API errors", async () => {
 		mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
 		const result = await createOrgUser({ orgId: 1, email: "new@cal.com", username: "newuser" });
-		expect(result).toHaveProperty("isError", true);
-		expect(result.content[0].text).toContain("400");
-	});
-});
-
-describe("updateOrgUser", () => {
-	it("exports updateOrgUserSchema", () => { expect(updateOrgUserSchema).toBeDefined(); });
-	it("returns data on success", async () => {
-		mockCalApi.mockResolvedValueOnce({ status: "success" });
-		const result = await updateOrgUser({ orgId: 1, userId: 5 });
-		expect(result.content[0].type).toBe("text");
-		expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-	});
-	it("sends correct body", async () => {
-		mockCalApi.mockResolvedValueOnce({ status: "success" });
-		await updateOrgUser({ orgId: 1, userId: 5, name: "Updated", organizationRole: "OWNER" });
-		expect(mockCalApi).toHaveBeenCalledWith("organizations/1/users/5", {
-			method: "PATCH",
-			body: { name: "Updated", organizationRole: "OWNER" },
-		});
-	});
-	it("handles API errors", async () => {
-		mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-		const result = await updateOrgUser({ orgId: 1, userId: 5 });
-		expect(result).toHaveProperty("isError", true);
-		expect(result.content[0].text).toContain("400");
-	});
-});
-
-describe("deleteOrgUser", () => {
-	it("exports deleteOrgUserSchema", () => { expect(deleteOrgUserSchema).toBeDefined(); });
-	it("returns data on success", async () => {
-		mockCalApi.mockResolvedValueOnce({ status: "success" });
-		const result = await deleteOrgUser({ orgId: 1, userId: 5 });
-		expect(result.content[0].type).toBe("text");
-		expect(JSON.parse(result.content[0].text)).toEqual({ status: "success" });
-	});
-	it("calls correct endpoint with DELETE", async () => {
-		mockCalApi.mockResolvedValueOnce({ status: "success" });
-		await deleteOrgUser({ orgId: 1, userId: 5 });
-		expect(mockCalApi).toHaveBeenCalledWith("organizations/1/users/5", { method: "DELETE" });
-	});
-	it("handles API errors", async () => {
-		mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
-		const result = await deleteOrgUser({ orgId: 1, userId: 5 });
 		expect(result).toHaveProperty("isError", true);
 		expect(result.content[0].text).toContain("400");
 	});

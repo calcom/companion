@@ -101,10 +101,6 @@ import {
   getOrgUsers,
   createOrgUserSchema,
   createOrgUser,
-  updateOrgUserSchema,
-  updateOrgUser,
-  deleteOrgUserSchema,
-  deleteOrgUser,
 } from "./tools/organizations/users.js";
 
 // ── Teams: Memberships ──
@@ -500,7 +496,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Create Org Membership",
       description:
-        "Add a user to an organization. Required: userId (must be a real user ID from the system) and role (MEMBER, ADMIN, or OWNER). Platform managed users should only have MEMBER role.",
+        "Add a user to an organization or invite by email. WORKFLOW: (1) To invite an existing Cal.com user, pass 'email' and 'role'. (2) To attach by user ID, pass 'userId' and 'role'. Provide userId OR email, not both. If the user doesn't have a Cal.com account yet, use create_org_user first. Platform managed users should only have MEMBER role.",
       inputSchema: createOrgMembershipSchema,
       annotations: CREATE,
     },
@@ -563,7 +559,7 @@ export function registerTools(server: McpServer): void {
     getOrgRoutingFormResponses,
   );
 
-  // ── Organizations: Users (4) ──
+  // ── Organizations: Users (2) ──
   server.registerTool(
     "get_org_users",
     {
@@ -580,33 +576,11 @@ export function registerTools(server: McpServer): void {
     {
       title: "Create Org User",
       description:
-        "Provision a new user in an organization. Required: email and username. Supports setting name, time zone, locale, role, and auto-accept. Use get_me to obtain your organizationId — never guess.",
+        "Provision a brand-new Cal.com user account and add them to the organization. Use this for new hires who don't have a Cal.com account yet. If the person already has a Cal.com account, use create_org_membership with their email to invite them instead. Required: email and username. Use get_me to obtain your organizationId — never guess.",
       inputSchema: createOrgUserSchema,
       annotations: CREATE,
     },
     createOrgUser,
-  );
-  server.registerTool(
-    "update_org_user",
-    {
-      title: "Update Org User",
-      description:
-        "Update an existing user in an organization. Can change name, email, username, time zone, locale, role, and more. Use get_org_users to find the userId — never guess.",
-      inputSchema: updateOrgUserSchema,
-      annotations: UPDATE,
-    },
-    updateOrgUser,
-  );
-  server.registerTool(
-    "delete_org_user",
-    {
-      title: "Delete Org User",
-      description:
-        "Remove a user from an organization. This action is irreversible — confirm with the user before proceeding. Use get_org_users to find the userId — never guess.",
-      inputSchema: deleteOrgUserSchema,
-      annotations: DESTRUCTIVE,
-    },
-    deleteOrgUser,
   );
 
   // ── Teams: Memberships (6) ──

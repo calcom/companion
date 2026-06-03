@@ -33,7 +33,7 @@ export async function getOrgUsers(params: {
 
 export const createOrgUserSchema = {
 	orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
-	email: z.string().describe("Email address of the new user"),
+	email: z.string().describe("Email address of the new user. If this email already belongs to an existing Cal.com user, use create_org_membership with email to invite them instead."),
 	username: z.string().describe("Username for the new user"),
 	name: z.string().optional().describe("Display name"),
 	timeZone: z.string().optional().describe("IANA time zone (e.g. 'America/New_York')"),
@@ -74,71 +74,5 @@ export async function createOrgUser(params: {
 		return ok(data);
 	} catch (err) {
 		return handleError("create_org_user", err);
-	}
-}
-
-// ── Update Org User ──
-
-export const updateOrgUserSchema = {
-	orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
-	userId: z.number().int().describe("User ID to update. Use get_org_users to find this — never guess."),
-	name: z.string().optional().describe("Display name"),
-	email: z.string().optional().describe("Email address"),
-	username: z.string().optional().describe("Username"),
-	timeZone: z.string().optional().describe("IANA time zone (e.g. 'America/New_York')"),
-	weekStart: z.string().optional().describe("Week start day (e.g. 'Monday')"),
-	timeFormat: z.number().optional().describe("Time format (12 or 24)"),
-	locale: z.string().optional().describe("Locale (e.g. 'en')"),
-	avatarUrl: z.string().optional().describe("Avatar image URL"),
-	organizationRole: z.enum(["MEMBER", "OWNER", "ADMIN"]).optional().describe("New role in the organization"),
-};
-
-export async function updateOrgUser(params: {
-	orgId: number;
-	userId: number;
-	name?: string;
-	email?: string;
-	username?: string;
-	timeZone?: string;
-	weekStart?: string;
-	timeFormat?: number;
-	locale?: string;
-	avatarUrl?: string;
-	organizationRole?: "MEMBER" | "OWNER" | "ADMIN";
-}) {
-	try {
-		const body: Record<string, unknown> = {};
-		if (params.name !== undefined) body.name = params.name;
-		if (params.email !== undefined) body.email = params.email;
-		if (params.username !== undefined) body.username = params.username;
-		if (params.timeZone !== undefined) body.timeZone = params.timeZone;
-		if (params.weekStart !== undefined) body.weekStart = params.weekStart;
-		if (params.timeFormat !== undefined) body.timeFormat = params.timeFormat;
-		if (params.locale !== undefined) body.locale = params.locale;
-		if (params.avatarUrl !== undefined) body.avatarUrl = params.avatarUrl;
-		if (params.organizationRole !== undefined) body.organizationRole = params.organizationRole;
-		const data = await calApi(`organizations/${params.orgId}/users/${params.userId}`, { method: "PATCH", body });
-		return ok(data);
-	} catch (err) {
-		return handleError("update_org_user", err);
-	}
-}
-
-// ── Delete Org User ──
-
-export const deleteOrgUserSchema = {
-	orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
-	userId: z.number().int().describe("User ID to remove. Use get_org_users to find this — never guess."),
-};
-
-export async function deleteOrgUser(params: {
-	orgId: number;
-	userId: number;
-}) {
-	try {
-		const data = await calApi(`organizations/${params.orgId}/users/${params.userId}`, { method: "DELETE" });
-		return ok(data);
-	} catch (err) {
-		return handleError("delete_org_user", err);
 	}
 }

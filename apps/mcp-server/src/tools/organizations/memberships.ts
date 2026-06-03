@@ -26,7 +26,8 @@ export async function getOrgMemberships(params: {
 
 export const createOrgMembershipSchema = {
   orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
-  userId: z.number().describe("User ID of the person to add. Must be a real user ID — ask the user for this, never guess."),
+  userId: z.number().optional().describe("User ID of the person to add. Provide userId OR email, not both. Use get_org_users to find this — never guess."),
+  email: z.string().optional().describe("Email of an existing Cal.com user to invite. Provide email OR userId, not both. Triggers the invite flow (auto-accept or pending based on org settings)."),
   accepted: z.boolean().optional().describe("Whether accepted"),
   role: z.enum(["MEMBER", "OWNER", "ADMIN"]).describe("Role (managed users: MEMBER only)"),
   disableImpersonation: z.boolean().optional().describe("Disable impersonation"),
@@ -34,14 +35,16 @@ export const createOrgMembershipSchema = {
 
 export async function createOrgMembership(params: {
   orgId: number;
-  userId: number;
+  userId?: number;
+  email?: string;
   accepted?: boolean;
   role: "MEMBER" | "OWNER" | "ADMIN";
   disableImpersonation?: boolean;
 }) {
   try {
     const body: Record<string, unknown> = {};
-    body.userId = params.userId;
+    if (params.userId !== undefined) body.userId = params.userId;
+    if (params.email !== undefined) body.email = params.email;
     if (params.accepted !== undefined) body.accepted = params.accepted;
     body.role = params.role;
     if (params.disableImpersonation !== undefined) body.disableImpersonation = params.disableImpersonation;
