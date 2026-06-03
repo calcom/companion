@@ -1,99 +1,127 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
-
-// ── Users ──
-import { getMeSchema, getMe, updateMeSchema, updateMe } from "./tools/users.js";
-
-// ── Event Types ──
-import {
-  getEventTypesSchema,
-  getEventTypes,
-  getEventTypeSchema,
-  getEventType,
-  createEventTypeSchema,
-  createEventType,
-  updateEventTypeSchema,
-  updateEventType,
-  deleteEventTypeSchema,
-  deleteEventType,
-} from "./tools/event-types.js";
-
+// ── Availability / Slots ──
+import { getAvailability, getAvailabilitySchema } from "./tools/availability.js";
 // ── Bookings ──
 import {
-  getBookingsSchema,
-  getBookings,
-  getBookingSchema,
-  getBooking,
-  createBookingSchema,
-  createBooking,
-  rescheduleBookingSchema,
-  rescheduleBooking,
-  cancelBookingSchema,
-  cancelBooking,
-  confirmBookingSchema,
-  confirmBooking,
-  markBookingAbsentSchema,
-  markBookingAbsent,
-  getBookingAttendeesSchema,
-  getBookingAttendees,
-  addBookingAttendeeSchema,
   addBookingAttendee,
-  getBookingAttendeeSchema,
+  addBookingAttendeeSchema,
+  cancelBooking,
+  cancelBookingSchema,
+  confirmBooking,
+  confirmBookingSchema,
+  createBooking,
+  createBookingSchema,
+  getBooking,
   getBookingAttendee,
+  getBookingAttendeeSchema,
+  getBookingAttendees,
+  getBookingAttendeesSchema,
+  getBookingSchema,
+  getBookings,
+  getBookingsSchema,
+  markBookingAbsent,
+  markBookingAbsentSchema,
+  rescheduleBooking,
+  rescheduleBookingSchema,
 } from "./tools/bookings.js";
-
-// ── Schedules ──
-import {
-  getSchedulesSchema,
-  getSchedules,
-  getScheduleSchema,
-  getSchedule,
-  createScheduleSchema,
-  createSchedule,
-  updateScheduleSchema,
-  updateSchedule,
-  deleteScheduleSchema,
-  deleteSchedule,
-  getDefaultScheduleSchema,
-  getDefaultSchedule,
-} from "./tools/schedules.js";
-
-// ── Availability / Slots ──
-import { getAvailabilitySchema, getAvailability } from "./tools/availability.js";
-
 // ── Calendars ──
-import { getConnectedCalendarsSchema, getConnectedCalendars, getBusyTimesSchema, getBusyTimes } from "./tools/calendars.js";
-
-// ── Conferencing ──
-import { getConferencingAppsSchema, getConferencingApps } from "./tools/conferencing.js";
-
-// ── Routing Forms ──
 import {
-  calculateRoutingFormSlotsSchema,
-  calculateRoutingFormSlots,
-} from "./tools/routing-forms.js";
-
+  getBusyTimes,
+  getBusyTimesSchema,
+  getConnectedCalendars,
+  getConnectedCalendarsSchema,
+} from "./tools/calendars.js";
+// ── Conferencing ──
+import { getConferencingApps, getConferencingAppsSchema } from "./tools/conferencing.js";
+// ── Event Types ──
+import {
+  createEventType,
+  createEventTypeSchema,
+  deleteEventType,
+  deleteEventTypeSchema,
+  getEventType,
+  getEventTypeSchema,
+  getEventTypes,
+  getEventTypesSchema,
+  updateEventType,
+  updateEventTypeSchema,
+} from "./tools/event-types.js";
+// ── Organizations: Attributes ──
+import {
+  assignAttributeToUser,
+  assignAttributeToUserSchema,
+  createOrgAttribute,
+  createOrgAttributeOption,
+  createOrgAttributeOptionSchema,
+  createOrgAttributeSchema,
+  deleteOrgAttribute,
+  deleteOrgAttributeOption,
+  deleteOrgAttributeOptionSchema,
+  deleteOrgAttributeSchema,
+  getAssignedAttributeOptions,
+  getAssignedAttributeOptionsBySlug,
+  getAssignedAttributeOptionsBySlugSchema,
+  getAssignedAttributeOptionsSchema,
+  getOrgAttribute,
+  getOrgAttributeOptions,
+  getOrgAttributeOptionsSchema,
+  getOrgAttributeSchema,
+  getOrgAttributes,
+  getOrgAttributesSchema,
+  getUserAttributeOptions,
+  getUserAttributeOptionsSchema,
+  removeAttributeFromUser,
+  removeAttributeFromUserSchema,
+  updateOrgAttribute,
+  updateOrgAttributeOption,
+  updateOrgAttributeOptionSchema,
+  updateOrgAttributeSchema,
+  updateUserAttributeAssignment,
+  updateUserAttributeAssignmentSchema,
+} from "./tools/organizations/attributes.js";
 // ── Organizations: Memberships ──
 import {
-  getOrgMembershipsSchema,
-  getOrgMemberships,
-  createOrgMembershipSchema,
   createOrgMembership,
-  getOrgMembershipSchema,
-  getOrgMembership,
-  deleteOrgMembershipSchema,
+  createOrgMembershipSchema,
   deleteOrgMembership,
-  updateOrgMembershipSchema,
+  deleteOrgMembershipSchema,
+  getOrgMembership,
+  getOrgMembershipSchema,
+  getOrgMemberships,
+  getOrgMembershipsSchema,
   updateOrgMembership,
+  updateOrgMembershipSchema,
 } from "./tools/organizations/memberships.js";
-
 // ── Organizations: Routing Forms ──
 import {
-  getOrgRoutingFormsSchema,
-  getOrgRoutingForms,
-  getOrgRoutingFormResponsesSchema,
   getOrgRoutingFormResponses,
+  getOrgRoutingFormResponsesSchema,
+  getOrgRoutingForms,
+  getOrgRoutingFormsSchema,
 } from "./tools/organizations/routing-forms.js";
+// ── Routing Forms ──
+import {
+  calculateRoutingFormSlots,
+  calculateRoutingFormSlotsSchema,
+} from "./tools/routing-forms.js";
+// ── Schedules ──
+import {
+  createSchedule,
+  createScheduleSchema,
+  deleteSchedule,
+  deleteScheduleSchema,
+  getDefaultSchedule,
+  getDefaultScheduleSchema,
+  getSchedule,
+  getScheduleSchema,
+  getSchedules,
+  getSchedulesSchema,
+  updateSchedule,
+  updateScheduleSchema,
+} from "./tools/schedules.js";
+// ── Users ──
+import { getMe, getMeSchema, updateMe, updateMeSchema } from "./tools/users.js";
 
 /**
  * Tool annotation presets matching MCP behaviour hints.
@@ -148,7 +176,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getMeSchema,
       annotations: READ_ONLY,
     },
-    getMe,
+    getMe
   );
   server.registerTool(
     "update_me",
@@ -159,7 +187,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateMeSchema,
       annotations: UPDATE,
     },
-    updateMe,
+    updateMe
   );
 
   // ── Event Types (5) ──
@@ -172,7 +200,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getEventTypesSchema,
       annotations: READ_ONLY,
     },
-    getEventTypes,
+    getEventTypes
   );
   server.registerTool(
     "get_event_type",
@@ -183,7 +211,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getEventTypeSchema,
       annotations: READ_ONLY,
     },
-    getEventType,
+    getEventType
   );
   server.registerTool(
     "create_event_type",
@@ -194,7 +222,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: createEventTypeSchema,
       annotations: CREATE,
     },
-    createEventType,
+    createEventType
   );
   server.registerTool(
     "update_event_type",
@@ -205,7 +233,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateEventTypeSchema,
       annotations: UPDATE,
     },
-    updateEventType,
+    updateEventType
   );
   server.registerTool(
     "delete_event_type",
@@ -216,7 +244,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: deleteEventTypeSchema,
       annotations: DESTRUCTIVE,
     },
-    deleteEventType,
+    deleteEventType
   );
 
   // ── Bookings (10) ──
@@ -229,7 +257,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingsSchema,
       annotations: READ_ONLY,
     },
-    getBookings,
+    getBookings
   );
   server.registerTool(
     "get_booking",
@@ -240,7 +268,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingSchema,
       annotations: READ_ONLY,
     },
-    getBooking,
+    getBooking
   );
   server.registerTool(
     "create_booking",
@@ -251,7 +279,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: createBookingSchema,
       annotations: CREATE,
     },
-    createBooking,
+    createBooking
   );
   server.registerTool(
     "reschedule_booking",
@@ -262,7 +290,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: rescheduleBookingSchema,
       annotations: UPDATE,
     },
-    rescheduleBooking,
+    rescheduleBooking
   );
   server.registerTool(
     "cancel_booking",
@@ -273,17 +301,18 @@ export function registerTools(server: McpServer): void {
       inputSchema: cancelBookingSchema,
       annotations: DESTRUCTIVE,
     },
-    cancelBooking,
+    cancelBooking
   );
   server.registerTool(
     "confirm_booking",
     {
       title: "Confirm Booking",
-      description: "Confirm a pending booking that requires manual confirmation. Only the host can confirm.",
+      description:
+        "Confirm a pending booking that requires manual confirmation. Only the host can confirm.",
       inputSchema: confirmBookingSchema,
       annotations: UPDATE,
     },
-    confirmBooking,
+    confirmBooking
   );
   server.registerTool(
     "mark_booking_absent",
@@ -294,7 +323,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: markBookingAbsentSchema,
       annotations: UPDATE,
     },
-    markBookingAbsent,
+    markBookingAbsent
   );
   server.registerTool(
     "get_booking_attendees",
@@ -304,7 +333,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingAttendeesSchema,
       annotations: READ_ONLY,
     },
-    getBookingAttendees,
+    getBookingAttendees
   );
   server.registerTool(
     "add_booking_attendee",
@@ -315,7 +344,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: addBookingAttendeeSchema,
       annotations: CREATE,
     },
-    addBookingAttendee,
+    addBookingAttendee
   );
   server.registerTool(
     "get_booking_attendee",
@@ -326,7 +355,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingAttendeeSchema,
       annotations: READ_ONLY,
     },
-    getBookingAttendee,
+    getBookingAttendee
   );
 
   // ── Schedules (6) ──
@@ -338,17 +367,18 @@ export function registerTools(server: McpServer): void {
       inputSchema: getSchedulesSchema,
       annotations: READ_ONLY,
     },
-    getSchedules,
+    getSchedules
   );
   server.registerTool(
     "get_schedule",
     {
       title: "Get Schedule",
-      description: "Get a specific schedule by its numeric ID. Returns availability slots and overrides.",
+      description:
+        "Get a specific schedule by its numeric ID. Returns availability slots and overrides.",
       inputSchema: getScheduleSchema,
       annotations: READ_ONLY,
     },
-    getSchedule,
+    getSchedule
   );
   server.registerTool(
     "create_schedule",
@@ -359,17 +389,18 @@ export function registerTools(server: McpServer): void {
       inputSchema: createScheduleSchema,
       annotations: CREATE,
     },
-    createSchedule,
+    createSchedule
   );
   server.registerTool(
     "update_schedule",
     {
       title: "Update Schedule",
-      description: "Update an existing schedule. Array fields (availability, overrides) replace all existing entries.",
+      description:
+        "Update an existing schedule. Array fields (availability, overrides) replace all existing entries.",
       inputSchema: updateScheduleSchema,
       annotations: UPDATE,
     },
-    updateSchedule,
+    updateSchedule
   );
   server.registerTool(
     "delete_schedule",
@@ -380,7 +411,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: deleteScheduleSchema,
       annotations: DESTRUCTIVE,
     },
-    deleteSchedule,
+    deleteSchedule
   );
   server.registerTool(
     "get_default_schedule",
@@ -390,7 +421,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getDefaultScheduleSchema,
       annotations: READ_ONLY,
     },
-    getDefaultSchedule,
+    getDefaultSchedule
   );
 
   // ── Availability / Slots (1) ──
@@ -403,7 +434,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getAvailabilitySchema,
       annotations: READ_ONLY,
     },
-    getAvailability,
+    getAvailability
   );
 
   // ── Calendars (2) ──
@@ -416,7 +447,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getConnectedCalendarsSchema,
       annotations: READ_ONLY,
     },
-    getConnectedCalendars,
+    getConnectedCalendars
   );
   server.registerTool(
     "get_busy_times",
@@ -427,7 +458,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBusyTimesSchema,
       annotations: READ_ONLY,
     },
-    getBusyTimes,
+    getBusyTimes
   );
 
   // ── Conferencing (1) ──
@@ -440,7 +471,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getConferencingAppsSchema,
       annotations: READ_ONLY,
     },
-    getConferencingApps,
+    getConferencingApps
   );
 
   // ── Routing Forms (1) ──
@@ -453,7 +484,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: calculateRoutingFormSlotsSchema,
       annotations: CREATE,
     },
-    calculateRoutingFormSlots,
+    calculateRoutingFormSlots
   );
 
   // ── Organizations: Memberships (5) ──
@@ -465,7 +496,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgMembershipsSchema,
       annotations: READ_ONLY,
     },
-    getOrgMemberships,
+    getOrgMemberships
   );
   server.registerTool(
     "create_org_membership",
@@ -476,7 +507,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: createOrgMembershipSchema,
       annotations: CREATE,
     },
-    createOrgMembership,
+    createOrgMembership
   );
   server.registerTool(
     "get_org_membership",
@@ -486,7 +517,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgMembershipSchema,
       annotations: READ_ONLY,
     },
-    getOrgMembership,
+    getOrgMembership
   );
   server.registerTool(
     "delete_org_membership",
@@ -497,7 +528,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: deleteOrgMembershipSchema,
       annotations: DESTRUCTIVE,
     },
-    deleteOrgMembership,
+    deleteOrgMembership
   );
   server.registerTool(
     "update_org_membership",
@@ -508,7 +539,172 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateOrgMembershipSchema,
       annotations: UPDATE,
     },
-    updateOrgMembership,
+    updateOrgMembership
+  );
+
+  // ── Organizations: Attributes (15) ──
+  server.registerTool(
+    "get_org_attributes",
+    {
+      title: "List Org Attributes",
+      description:
+        "List all routing attributes for an organization. These attributes are used to tag members for routing form logic. Supports pagination with take/skip.",
+      inputSchema: getOrgAttributesSchema,
+      annotations: READ_ONLY,
+    },
+    getOrgAttributes
+  );
+  server.registerTool(
+    "get_org_attribute",
+    {
+      title: "Get Org Attribute",
+      description:
+        "Get a single routing attribute by its ID. Use get_org_attributes to find attribute IDs.",
+      inputSchema: getOrgAttributeSchema,
+      annotations: READ_ONLY,
+    },
+    getOrgAttribute
+  );
+  server.registerTool(
+    "create_org_attribute",
+    {
+      title: "Create Org Attribute",
+      description:
+        "Create a new routing attribute for the organization. Required: name, slug, type. For SELECT types, provide options with value and optional slug.",
+      inputSchema: createOrgAttributeSchema,
+      annotations: CREATE,
+    },
+    createOrgAttribute
+  );
+  server.registerTool(
+    "update_org_attribute",
+    {
+      title: "Update Org Attribute",
+      description: "Update a routing attribute's name, slug, type, or enabled status.",
+      inputSchema: updateOrgAttributeSchema,
+      annotations: UPDATE,
+    },
+    updateOrgAttribute
+  );
+  server.registerTool(
+    "delete_org_attribute",
+    {
+      title: "Delete Org Attribute",
+      description:
+        "Permanently delete a routing attribute. This action is irreversible — confirm with the user before proceeding.",
+      inputSchema: deleteOrgAttributeSchema,
+      annotations: DESTRUCTIVE,
+    },
+    deleteOrgAttribute
+  );
+  server.registerTool(
+    "get_org_attribute_options",
+    {
+      title: "List Attribute Options",
+      description:
+        "List all options for a routing attribute. Use this to discover option IDs before assigning them to users.",
+      inputSchema: getOrgAttributeOptionsSchema,
+      annotations: READ_ONLY,
+    },
+    getOrgAttributeOptions
+  );
+  server.registerTool(
+    "get_assigned_attribute_options",
+    {
+      title: "List Assigned Attribute Options",
+      description:
+        "List which options of a specific attribute are currently assigned to org members.",
+      inputSchema: getAssignedAttributeOptionsSchema,
+      annotations: READ_ONLY,
+    },
+    getAssignedAttributeOptions
+  );
+  server.registerTool(
+    "get_assigned_attribute_options_by_slug",
+    {
+      title: "List Assigned Attribute Options by Slug",
+      description:
+        "List assigned options for an attribute identified by its slug instead of ID. Convenient when you know the slug but not the ID.",
+      inputSchema: getAssignedAttributeOptionsBySlugSchema,
+      annotations: READ_ONLY,
+    },
+    getAssignedAttributeOptionsBySlug
+  );
+  server.registerTool(
+    "create_org_attribute_option",
+    {
+      title: "Create Attribute Option",
+      description:
+        "Create a new option for a routing attribute. Required: value. The option can then be assigned to users via assign_attribute_to_user.",
+      inputSchema: createOrgAttributeOptionSchema,
+      annotations: CREATE,
+    },
+    createOrgAttributeOption
+  );
+  server.registerTool(
+    "update_org_attribute_option",
+    {
+      title: "Update Attribute Option",
+      description: "Update an attribute option's value or slug.",
+      inputSchema: updateOrgAttributeOptionSchema,
+      annotations: UPDATE,
+    },
+    updateOrgAttributeOption
+  );
+  server.registerTool(
+    "delete_org_attribute_option",
+    {
+      title: "Delete Attribute Option",
+      description:
+        "Permanently delete an attribute option. This action is irreversible — confirm with the user before proceeding.",
+      inputSchema: deleteOrgAttributeOptionSchema,
+      annotations: DESTRUCTIVE,
+    },
+    deleteOrgAttributeOption
+  );
+  server.registerTool(
+    "get_user_attribute_options",
+    {
+      title: "Get User Attributes",
+      description:
+        "Get all routing attributes assigned to a specific user. Use get_org_memberships or get_me to find the userId.",
+      inputSchema: getUserAttributeOptionsSchema,
+      annotations: READ_ONLY,
+    },
+    getUserAttributeOptions
+  );
+  server.registerTool(
+    "assign_attribute_to_user",
+    {
+      title: "Assign Attribute to User",
+      description:
+        "Assign a routing attribute option to a user. Use get_org_attribute_options to find the attributeOptionId. For TEXT/NUMBER attributes, also provide a value.",
+      inputSchema: assignAttributeToUserSchema,
+      annotations: CREATE,
+    },
+    assignAttributeToUser
+  );
+  server.registerTool(
+    "update_user_attribute_assignment",
+    {
+      title: "Update User Attribute Assignment",
+      description:
+        "Update an attribute assignment for a user (e.g. change the weight for round-robin routing). Use get_user_attribute_options to find the attributeOptionId.",
+      inputSchema: updateUserAttributeAssignmentSchema,
+      annotations: UPDATE,
+    },
+    updateUserAttributeAssignment
+  );
+  server.registerTool(
+    "remove_attribute_from_user",
+    {
+      title: "Remove Attribute from User",
+      description:
+        "Remove an assigned routing attribute from a user. Use get_user_attribute_options to find the attributeOptionId. Confirm with the user before proceeding.",
+      inputSchema: removeAttributeFromUserSchema,
+      annotations: DESTRUCTIVE,
+    },
+    removeAttributeFromUser
   );
 
   // ── Organizations: Routing Forms (2) ──
@@ -521,7 +717,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgRoutingFormsSchema,
       annotations: READ_ONLY,
     },
-    getOrgRoutingForms,
+    getOrgRoutingForms
   );
   server.registerTool(
     "get_org_routing_form_responses",
@@ -532,6 +728,6 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgRoutingFormResponsesSchema,
       annotations: READ_ONLY,
     },
-    getOrgRoutingFormResponses,
+    getOrgRoutingFormResponses
   );
 }
