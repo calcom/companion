@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { calApi } from "../../utils/api-client.js";
+import { sanitizePathSegment } from "../../utils/path-sanitizer.js";
 import { handleError, ok } from "../../utils/tool-helpers.js";
 
 // ── List all attributes ──
@@ -39,7 +40,8 @@ export const getOrgAttributeSchema = {
 
 export async function getOrgAttribute(params: { orgId: number; attributeId: string }) {
   try {
-    const data = await calApi(`organizations/${params.orgId}/attributes/${params.attributeId}`);
+    const attrId = sanitizePathSegment(params.attributeId);
+    const data = await calApi(`organizations/${params.orgId}/attributes/${attrId}`);
     return ok(data);
   } catch (err) {
     return handleError("get_org_attribute", err);
@@ -123,7 +125,8 @@ export async function updateOrgAttribute(params: {
     if (params.slug !== undefined) body.slug = params.slug;
     if (params.type !== undefined) body.type = params.type;
     if (params.enabled !== undefined) body.enabled = params.enabled;
-    const data = await calApi(`organizations/${params.orgId}/attributes/${params.attributeId}`, {
+    const attrId = sanitizePathSegment(params.attributeId);
+    const data = await calApi(`organizations/${params.orgId}/attributes/${attrId}`, {
       method: "PATCH",
       body,
     });
@@ -147,7 +150,8 @@ export const deleteOrgAttributeSchema = {
 
 export async function deleteOrgAttribute(params: { orgId: number; attributeId: string }) {
   try {
-    const data = await calApi(`organizations/${params.orgId}/attributes/${params.attributeId}`, {
+    const attrId = sanitizePathSegment(params.attributeId);
+    const data = await calApi(`organizations/${params.orgId}/attributes/${attrId}`, {
       method: "DELETE",
     });
     return ok(data);
@@ -180,10 +184,10 @@ export async function getOrgAttributeOptions(params: {
     const qp: Record<string, string | number | boolean | undefined> = {};
     if (params.take !== undefined) qp.take = params.take;
     if (params.skip !== undefined) qp.skip = params.skip;
-    const data = await calApi(
-      `organizations/${params.orgId}/attributes/${params.attributeId}/options`,
-      { params: qp }
-    );
+    const attrId = sanitizePathSegment(params.attributeId);
+    const data = await calApi(`organizations/${params.orgId}/attributes/${attrId}/options`, {
+      params: qp,
+    });
     return ok(data);
   } catch (err) {
     return handleError("get_org_attribute_options", err);
@@ -204,8 +208,9 @@ export const getAssignedAttributeOptionsSchema = {
 
 export async function getAssignedAttributeOptions(params: { orgId: number; attributeId: string }) {
   try {
+    const attrId = sanitizePathSegment(params.attributeId);
     const data = await calApi(
-      `organizations/${params.orgId}/attributes/${params.attributeId}/options/assigned`
+      `organizations/${params.orgId}/attributes/${attrId}/options/assigned`
     );
     return ok(data);
   } catch (err) {
@@ -230,8 +235,9 @@ export async function getAssignedAttributeOptionsBySlug(params: {
   attributeSlug: string;
 }) {
   try {
+    const slug = sanitizePathSegment(params.attributeSlug);
     const data = await calApi(
-      `organizations/${params.orgId}/attributes/slugs/${params.attributeSlug}/options/assigned`
+      `organizations/${params.orgId}/attributes/slugs/${slug}/options/assigned`
     );
     return ok(data);
   } catch (err) {
@@ -263,10 +269,11 @@ export async function createOrgAttributeOption(params: {
     const body: Record<string, unknown> = {};
     body.value = params.value;
     if (params.slug !== undefined) body.slug = params.slug;
-    const data = await calApi(
-      `organizations/${params.orgId}/attributes/${params.attributeId}/options`,
-      { method: "POST", body }
-    );
+    const attrId = sanitizePathSegment(params.attributeId);
+    const data = await calApi(`organizations/${params.orgId}/attributes/${attrId}/options`, {
+      method: "POST",
+      body,
+    });
     return ok(data);
   } catch (err) {
     return handleError("create_org_attribute_option", err);
@@ -301,8 +308,10 @@ export async function updateOrgAttributeOption(params: {
     const body: Record<string, unknown> = {};
     if (params.value !== undefined) body.value = params.value;
     if (params.slug !== undefined) body.slug = params.slug;
+    const attrId = sanitizePathSegment(params.attributeId);
+    const optId = sanitizePathSegment(params.optionId);
     const data = await calApi(
-      `organizations/${params.orgId}/attributes/${params.attributeId}/options/${params.optionId}`,
+      `organizations/${params.orgId}/attributes/${attrId}/options/${optId}`,
       {
         method: "PATCH",
         body,
@@ -335,8 +344,10 @@ export async function deleteOrgAttributeOption(params: {
   optionId: string;
 }) {
   try {
+    const attrId = sanitizePathSegment(params.attributeId);
+    const optId = sanitizePathSegment(params.optionId);
     const data = await calApi(
-      `organizations/${params.orgId}/attributes/${params.attributeId}/options/${params.optionId}`,
+      `organizations/${params.orgId}/attributes/${attrId}/options/${optId}`,
       {
         method: "DELETE",
       }
@@ -436,8 +447,9 @@ export async function updateUserAttributeAssignment(params: {
   try {
     const body: Record<string, unknown> = {};
     if (params.weight !== undefined) body.weight = params.weight;
+    const optId = sanitizePathSegment(params.attributeOptionId);
     const data = await calApi(
-      `organizations/${params.orgId}/attributes/options/${params.userId}/${params.attributeOptionId}`,
+      `organizations/${params.orgId}/attributes/options/${params.userId}/${optId}`,
       {
         method: "PATCH",
         body,
@@ -473,8 +485,9 @@ export async function removeAttributeFromUser(params: {
   attributeOptionId: string;
 }) {
   try {
+    const optId = sanitizePathSegment(params.attributeOptionId);
     const data = await calApi(
-      `organizations/${params.orgId}/attributes/options/${params.userId}/${params.attributeOptionId}`,
+      `organizations/${params.orgId}/attributes/options/${params.userId}/${optId}`,
       {
         method: "DELETE",
       }
