@@ -95,6 +95,34 @@ import {
   getOrgRoutingFormResponses,
 } from "./tools/organizations/routing-forms.js";
 
+// ── Organizations: Users ──
+import {
+  getOrgUsersSchema,
+  getOrgUsers,
+  createOrgUserSchema,
+  createOrgUser,
+  updateOrgUserSchema,
+  updateOrgUser,
+  deleteOrgUserSchema,
+  deleteOrgUser,
+} from "./tools/organizations/users.js";
+
+// ── Teams: Memberships ──
+import {
+  getTeamMembershipsSchema,
+  getTeamMemberships,
+  getTeamMembershipSchema,
+  getTeamMembership,
+  createTeamMembershipSchema,
+  createTeamMembership,
+  updateTeamMembershipSchema,
+  updateTeamMembership,
+  deleteTeamMembershipSchema,
+  deleteTeamMembership,
+  createTeamInviteSchema,
+  createTeamInvite,
+} from "./tools/teams/memberships.js";
+
 /**
  * Tool annotation presets matching MCP behaviour hints.
  *
@@ -533,5 +561,119 @@ export function registerTools(server: McpServer): void {
       annotations: READ_ONLY,
     },
     getOrgRoutingFormResponses,
+  );
+
+  // ── Organizations: Users (4) ──
+  server.registerTool(
+    "get_org_users",
+    {
+      title: "List Org Users",
+      description:
+        "List users in an organization. Supports pagination with take/skip and filtering by email addresses. Use get_me to obtain your organizationId — never guess.",
+      inputSchema: getOrgUsersSchema,
+      annotations: READ_ONLY,
+    },
+    getOrgUsers,
+  );
+  server.registerTool(
+    "create_org_user",
+    {
+      title: "Create Org User",
+      description:
+        "Provision a new user in an organization. Required: email and username. Supports setting name, time zone, locale, role, and auto-accept. Use get_me to obtain your organizationId — never guess.",
+      inputSchema: createOrgUserSchema,
+      annotations: CREATE,
+    },
+    createOrgUser,
+  );
+  server.registerTool(
+    "update_org_user",
+    {
+      title: "Update Org User",
+      description:
+        "Update an existing user in an organization. Can change name, email, username, time zone, locale, role, and more. Use get_org_users to find the userId — never guess.",
+      inputSchema: updateOrgUserSchema,
+      annotations: UPDATE,
+    },
+    updateOrgUser,
+  );
+  server.registerTool(
+    "delete_org_user",
+    {
+      title: "Delete Org User",
+      description:
+        "Remove a user from an organization. This action is irreversible — confirm with the user before proceeding. Use get_org_users to find the userId — never guess.",
+      inputSchema: deleteOrgUserSchema,
+      annotations: DESTRUCTIVE,
+    },
+    deleteOrgUser,
+  );
+
+  // ── Teams: Memberships (6) ──
+  server.registerTool(
+    "get_team_memberships",
+    {
+      title: "List Team Memberships",
+      description:
+        "List all memberships in a team. Supports pagination with take/skip.",
+      inputSchema: getTeamMembershipsSchema,
+      annotations: READ_ONLY,
+    },
+    getTeamMemberships,
+  );
+  server.registerTool(
+    "get_team_membership",
+    {
+      title: "Get Team Membership",
+      description:
+        "Get a specific team membership by its numeric ID. Use get_team_memberships to find this — never guess.",
+      inputSchema: getTeamMembershipSchema,
+      annotations: READ_ONLY,
+    },
+    getTeamMembership,
+  );
+  server.registerTool(
+    "create_team_membership",
+    {
+      title: "Create Team Membership",
+      description:
+        "Add a user to a team. Required: userId (must be a real user ID from the system) and role (MEMBER, ADMIN, or OWNER). Ask the user for the userId — never guess.",
+      inputSchema: createTeamMembershipSchema,
+      annotations: CREATE,
+    },
+    createTeamMembership,
+  );
+  server.registerTool(
+    "update_team_membership",
+    {
+      title: "Update Team Membership",
+      description:
+        "Update a team membership. Can change role or impersonation settings. Use get_team_memberships to find the membershipId — never guess.",
+      inputSchema: updateTeamMembershipSchema,
+      annotations: UPDATE,
+    },
+    updateTeamMembership,
+  );
+  server.registerTool(
+    "delete_team_membership",
+    {
+      title: "Delete Team Membership",
+      description:
+        "Remove a user from a team. This action is irreversible — confirm with the user before proceeding. Use get_team_memberships to find the membershipId — never guess.",
+      inputSchema: deleteTeamMembershipSchema,
+      annotations: DESTRUCTIVE,
+    },
+    deleteTeamMembership,
+  );
+  server.registerTool(
+    "create_team_invite",
+    {
+      title: "Create Team Invite",
+      description:
+        "Generate an invite link for a team. Returns a URL that can be shared with users to join the team.",
+      inputSchema: createTeamInviteSchema,
+      annotations: CREATE,
+    },
+    createTeamInvite,
   );
 }
