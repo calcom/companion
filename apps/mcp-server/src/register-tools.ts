@@ -95,14 +95,6 @@ import {
   getOrgRoutingFormResponses,
 } from "./tools/organizations/routing-forms.js";
 
-// ── Organizations: Users ──
-import {
-  getOrgUsersSchema,
-  getOrgUsers,
-  createOrgUserSchema,
-  createOrgUser,
-} from "./tools/organizations/users.js";
-
 // ── Teams: Memberships ──
 import {
   getTeamMembershipsSchema,
@@ -557,30 +549,6 @@ export function registerTools(server: McpServer): void {
       annotations: READ_ONLY,
     },
     getOrgRoutingFormResponses,
-  );
-
-  // ── Organizations: Users (2) ──
-  server.registerTool(
-    "get_org_users",
-    {
-      title: "List Org Users",
-      description:
-        "List users in an organization. Supports pagination with take/skip and filtering by email addresses. Use get_me to obtain your organizationId — never guess.",
-      inputSchema: getOrgUsersSchema,
-      annotations: READ_ONLY,
-    },
-    getOrgUsers,
-  );
-  server.registerTool(
-    "create_org_user",
-    {
-      title: "Create Org User",
-      description:
-        "Provision a brand-new Cal.com user account and add them to the organization. Use this for new hires who don't have a Cal.com account yet. If the person already has a Cal.com account, use create_org_membership with their email to invite them instead. Required: email and username. Use get_me to obtain your organizationId — never guess.",
-      inputSchema: createOrgUserSchema,
-      annotations: CREATE,
-    },
-    createOrgUser,
   );
 
   // ── Teams: Memberships (6) ──
