@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { calApi } from "../../utils/api-client.js";
+import { sanitizePathSegment } from "../../utils/path-sanitizer.js";
 import { handleError, ok } from "../../utils/tool-helpers.js";
 
 // ── Read: Org Attributes ──
@@ -36,7 +37,8 @@ export async function getOrgAttribute(params: {
   attributeId: string;
 }) {
   try {
-    const data = await calApi(`organizations/${params.orgId}/attributes/${params.attributeId}`);
+    const attrId = sanitizePathSegment(params.attributeId);
+    const data = await calApi(`organizations/${params.orgId}/attributes/${attrId}`);
     return ok(data);
   } catch (err) {
     return handleError("get_org_attribute", err);
@@ -55,8 +57,9 @@ export async function getAttributeOptions(params: {
   attributeId: string;
 }) {
   try {
+    const attrId = sanitizePathSegment(params.attributeId);
     const data = await calApi(
-      `organizations/${params.orgId}/attributes/${params.attributeId}/options`,
+      `organizations/${params.orgId}/attributes/${attrId}/options`,
     );
     return ok(data);
   } catch (err) {
@@ -133,8 +136,9 @@ export async function updateUserAttribute(params: {
   try {
     const body: Record<string, unknown> = {};
     if (params.weight !== undefined) body.weight = params.weight;
+    const optId = sanitizePathSegment(params.attributeOptionId);
     const data = await calApi(
-      `organizations/${params.orgId}/attributes/options/${params.userId}/${params.attributeOptionId}`,
+      `organizations/${params.orgId}/attributes/options/${params.userId}/${optId}`,
       { method: "PATCH", body },
     );
     return ok(data);
@@ -155,8 +159,9 @@ export async function unassignAttributeFromUser(params: {
   attributeOptionId: string;
 }) {
   try {
+    const optId = sanitizePathSegment(params.attributeOptionId);
     const data = await calApi(
-      `organizations/${params.orgId}/attributes/options/${params.userId}/${params.attributeOptionId}`,
+      `organizations/${params.orgId}/attributes/options/${params.userId}/${optId}`,
       { method: "DELETE" },
     );
     return ok(data);
