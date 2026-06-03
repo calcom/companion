@@ -1,35 +1,48 @@
 #!/usr/bin/env bash
-# Fail if any file under apps/mobile inlines a literal `cal.com` or `cal.eu`
-# hostname in code. Region-aware construction must go through the helpers in
-# `apps/mobile/utils/region.ts` so EU users get routed to `app.cal.eu` /
-# `api.cal.eu` / `cal.eu`.
+# Fail if any file under apps/mobile or apps/extension inlines a literal
+# `cal.com` / `cal.eu` hostname in code. Region-aware construction must go
+# through the helpers in:
+#   - apps/mobile/utils/region.ts        (mobile + web build)
+#   - apps/extension/lib/region.ts       (Chrome extension)
 #
-# Scope: scans the entire `apps/mobile` tree. `rg` honors `.gitignore` so
-# `node_modules/`, build artifacts, and other ignored paths are skipped
-# automatically — no manual directory list to drift out of sync.
+# Scope: scans both `apps/mobile` and `apps/extension`. `rg` honors
+# `.gitignore` so build artifacts and `node_modules/` are skipped.
 #
 # Filters applied on top of the raw matches:
-# - Word boundaries in `PATTERN` so incidental substrings like
-#   `group.com.cal.companion` (an iOS app-group id) are not flagged.
-# - Lines whose content starts with `//`, `*`, or `/*` are filtered, since
-#   documentation prose / docstring @example URLs don't cause runtime bugs.
-# - `ALLOWLIST` exempts files that legitimately reference the bare hostnames:
-#   the region helpers themselves, the env template, the hostname match-set
-#   used for video-call URL detection, and this script.
+#  - PATTERN uses word boundaries so incidental substrings like
+#    `group.com.cal.companion` (iOS app-group id) and `companion.cal.com`
+#    (extension OAuth/iframe origin) ARE captured by the pattern and then
+#    filtered out below — see CONTENT_ALLOWLIST.
+#  - FILE_ALLOWLIST exempts files that legitimately reference Cal hostnames:
+#    the region helpers, env templates, manifests / build configs that must
+#    stay static, and the hostname match-sets used for detection.
+#  - CONTENT_ALLOWLIST exempts the `companion.cal.com` token (the extension's
+#    OAuth landing / iframe origin — it matches the pattern but is not a Cal
+#    app URL).
+#  - Comment lines (starting with //, *, /*) are filtered.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../../.."  # repo root
 
-PATTERN='\bcal\.(com|eu)\b'
-ALLOWLIST='^(\./)?(utils/region\.ts|utils/booking\.ts|\.env\.example|scripts/check-no-cal-hostnames\.sh):'
+PATTERN='\b(app\.)?cal\.(com|eu)\b'
 
-raw=$(rg -n --no-heading "$PATTERN" . 2>/dev/null || true)
-hits=$(echo "$raw" | grep -Ev "$ALLOWLIST" | grep -Ev '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' || true)
+FILE_ALLOWLIST='^(apps/mobile/utils/region\.ts|apps/mobile/utils/booking\.ts|apps/mobile/\.env\.example|apps/mobile/scripts/check-no-cal-hostnames\.sh|apps/extension/lib/region\.ts|apps/extension/\.env\.example|apps/extension/wxt\.config\.ts|apps/extension/public/manifest\.json):'
+
+# Match-anywhere allowlist for tokens that aren't Cal app URLs but happen to
+# contain a substring matching PATTERN.
+CONTENT_ALLOWLIST='companion\.cal\.com'
+
+raw=$(rg -n --no-heading "$PATTERN" apps/mobile apps/extension 2>/dev/null || true)
+hits=$(echo "$raw" \
+  | grep -Ev "$FILE_ALLOWLIST" \
+  | grep -Ev "$CONTENT_ALLOWLIST" \
+  | grep -Ev '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' \
+  || true)
 
 if [[ -n "$hits" ]]; then
   {
-    echo "Hardcoded Cal hostname found. Use helpers from utils/region.ts:"
-    echo "  getCalAppUrl(), getCalApiUrl(), getCalWebUrl()"
-    echo "  getCalSupportUrl(), getCalHelpUrl(slug)"
+    echo "Hardcoded Cal hostname found. Use region helpers:"
+    echo "  apps/mobile/**:     import from utils/region.ts"
+    echo "  apps/extension/**:  import from lib/region.ts"
     echo ""
     echo "$hits"
   } >&2

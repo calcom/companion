@@ -1,5 +1,6 @@
 /// <reference types="chrome" />
 
+import { getCalApiUrl, getCalMarketingAppUrl } from "../../lib/region";
 import type { Booking } from "../../types/bookings.types";
 import type { OAuthTokens } from "../../types/oauth";
 
@@ -325,11 +326,12 @@ function isRestrictedUrl(url: string | undefined): boolean {
   return restrictedPatterns.some((pattern) => pattern.test(url));
 }
 
-// Open cal.com/app (Framer marketing page) in a new tab with auto-open parameter
+// Open the Cal.com Framer marketing landing in a new tab with auto-open parameter.
+// The marketing site is intentionally cross-region — see getCalMarketingAppUrl().
 function openAppPage(): void {
   const tabsAPI = getTabsAPI();
   if (tabsAPI) {
-    tabsAPI.create({ url: "https://cal.com/app?openExtension=true" });
+    tabsAPI.create({ url: getCalMarketingAppUrl() });
   }
 }
 
@@ -895,13 +897,9 @@ async function getStoredRegion(): Promise<"us" | "eu"> {
   }
 }
 
-function apiBaseUrlForRegion(region: "us" | "eu"): string {
-  return region === "eu" ? "https://api.cal.eu/v2" : "https://api.cal.com/v2";
-}
-
 async function getApiBaseUrl(): Promise<string> {
   const region = await getStoredRegion();
-  return apiBaseUrlForRegion(region);
+  return `${getCalApiUrl(region)}/v2`;
 }
 
 const tokenOperationTimestamps: number[] = [];
@@ -934,7 +932,7 @@ async function validateTokens(tokens: OAuthTokens, region?: "us" | "eu"): Promis
   }
 
   try {
-    const apiBaseUrl = region ? apiBaseUrlForRegion(region) : await getApiBaseUrl();
+    const apiBaseUrl = region ? `${getCalApiUrl(region)}/v2` : await getApiBaseUrl();
     const response = await fetchWithTimeout(`${apiBaseUrl}/me`, {
       headers: {
         Authorization: `Bearer ${tokens.accessToken}`,

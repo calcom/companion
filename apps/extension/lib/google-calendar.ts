@@ -1,4 +1,5 @@
 /// <reference types="chrome" />
+import { CAL_WEB_HOSTNAMES } from "./region";
 
 // Google Calendar integration: inject a no-show toggle next to attendees in event popups.
 const bookingStatusCache = new Map<string, { data: Map<string, boolean>; timestamp: number }>();
@@ -266,11 +267,12 @@ function injectStyles(): void {
 }
 
 /**
- * Extract booking UID from event description
- * Looks for patterns like: https://cal.com/booking/{uid} or https://app.cal.com/booking/{uid}
+ * Extract booking UID from event description.
+ * Matches both regions: https://cal.{com|eu}/booking/{uid} and
+ * https://app.cal.{com|eu}/booking/{uid}.
  */
 function extractBookingUid(text: string): string | null {
-  const regex = /https:\/\/(?:app\.)?cal\.com\/booking\/([a-zA-Z0-9]+)/;
+  const regex = /https:\/\/(?:app\.)?cal\.(?:com|eu)\/booking\/([a-zA-Z0-9]+)/;
   const match = text.match(regex);
   return match ? match[1] : null;
 }
@@ -1199,10 +1201,10 @@ function observeEventPopups(): void {
     }
 
     const text = element.textContent || "";
-    // Check if this looks like a Cal.com event
+    const lowerText = text.toLowerCase();
+    // Check if this looks like a Cal.com event (case-insensitive across both regions)
     const isCalComEvent =
-      text.includes("cal.com") ||
-      text.includes("Cal.com") ||
+      CAL_WEB_HOSTNAMES.some((host) => lowerText.includes(host)) ||
       text.includes("booking") ||
       extractBookingUid(text) !== null;
 
@@ -1354,11 +1356,11 @@ function observeEventPopups(): void {
         return;
       }
 
-      // Check if this is a Cal.com event
+      // Check if this is a Cal.com event (case-insensitive across both regions)
       const text = popup.textContent || "";
+      const lowerText = text.toLowerCase();
       const isCalComEvent =
-        text.includes("cal.com") ||
-        text.includes("Cal.com") ||
+        CAL_WEB_HOSTNAMES.some((host) => lowerText.includes(host)) ||
         text.includes("booking") ||
         extractBookingUid(text) !== null;
 
