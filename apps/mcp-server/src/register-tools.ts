@@ -491,7 +491,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Get Org Attribute",
       description:
-        "Get a single organization attribute by ID, including its options. Use get_org_attributes to find attribute IDs.",
+        "Get a single organization attribute by ID. Use get_org_attributes to find attribute IDs and get_attribute_options to list available options.",
       inputSchema: getOrgAttributeSchema,
       annotations: READ_ONLY,
     },
