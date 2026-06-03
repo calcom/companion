@@ -225,7 +225,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Get Round-Robin Config",
       description:
-        "Get the round-robin / team scheduling configuration for an event type. Shows who is in the host rotation pool and each host's priority, weight, and isFixed status. Also returns schedulingType and whether assignAllTeamMembers is enabled. For org-scoped team event types, pass orgId + teamId.",
+        "Get the full event type settings including round-robin / team scheduling configuration. Returns all fields exposed by the Cal.com API: schedulingType, hosts (with priority, weight, isFixed), assignAllTeamMembers, and all other event type settings. For org-scoped team event types, pass orgId + teamId.",
       inputSchema: getRoundRobinConfigSchema,
       annotations: READ_ONLY,
     },

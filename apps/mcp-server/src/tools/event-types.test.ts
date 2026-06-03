@@ -184,90 +184,58 @@ describe("deleteEventType", () => {
 });
 
 describe("getRoundRobinConfig", () => {
-  it("fetches event type and extracts round-robin fields", async () => {
-    mockCalApi.mockResolvedValueOnce({
+  it("returns full event type settings from the API", async () => {
+    const apiResponse = {
       id: 10,
+      title: "Team Meeting",
+      slug: "team-meeting",
       schedulingType: "roundRobin",
       assignAllTeamMembers: false,
+      lengthInMinutes: 30,
       hosts: [
-        { userId: 1, name: "Alice", isFixed: false, priority: 2, weight: 100 },
-        { userId: 2, name: "Bob", isFixed: true, priority: 1, weight: 50 },
+        { userId: 1, name: "Alice", isFixed: false, priority: 2, weight: 100, scheduleId: 456 },
+        { userId: 2, name: "Bob", isFixed: true, priority: 1, weight: 50, scheduleId: null },
       ],
-    });
+    };
+    mockCalApi.mockResolvedValueOnce(apiResponse);
 
     const result = await getRoundRobinConfig({ eventTypeId: 10 });
 
     expect(mockCalApi).toHaveBeenCalledWith("event-types/10");
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.eventTypeId).toBe(10);
-    expect(parsed.schedulingType).toBe("roundRobin");
-    expect(parsed.isRoundRobin).toBe(true);
-    expect(parsed.assignAllTeamMembers).toBe(false);
-    expect(parsed.hosts).toHaveLength(2);
-    expect(parsed.hosts[0]).toEqual({
-      userId: 1,
-      name: "Alice",
-      isFixed: false,
-      priority: 2,
-      weight: 100,
-      weightAdjustment: null,
-      scheduleId: null,
-      createdAt: null,
-    });
+    expect(parsed).toEqual(apiResponse);
   });
 
   it("uses org-scoped path when orgId and teamId are provided", async () => {
-    mockCalApi.mockResolvedValueOnce({
+    const apiResponse = {
+      id: 5,
       schedulingType: "roundRobin",
       assignAllTeamMembers: true,
       hosts: [],
-    });
+    };
+    mockCalApi.mockResolvedValueOnce(apiResponse);
 
     const result = await getRoundRobinConfig({ eventTypeId: 5, orgId: 100, teamId: 200 });
 
     expect(mockCalApi).toHaveBeenCalledWith("organizations/100/teams/200/event-types/5");
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.assignAllTeamMembers).toBe(true);
-    expect(parsed.isRoundRobin).toBe(true);
+    expect(parsed).toEqual(apiResponse);
   });
 
-  it("returns isRoundRobin false for non-RR scheduling types", async () => {
-    mockCalApi.mockResolvedValueOnce({
+  it("returns whatever the API exposes without transformation", async () => {
+    const apiResponse = {
+      id: 7,
       schedulingType: "collective",
-      hosts: [{ userId: 3, name: "Carol" }],
-    });
+      hosts: [{ userId: 3, name: "Carol", isFixed: true }],
+      bookingLimitsCount: { day: 2 },
+      locations: [{ type: "inPerson", address: "123 Main St" }],
+    };
+    mockCalApi.mockResolvedValueOnce(apiResponse);
 
     const result = await getRoundRobinConfig({ eventTypeId: 7 });
 
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.schedulingType).toBe("collective");
-    expect(parsed.isRoundRobin).toBe(false);
-    expect(parsed.hosts).toHaveLength(1);
-  });
-
-  it("handles null schedulingType gracefully", async () => {
-    mockCalApi.mockResolvedValueOnce({
-      hosts: [],
-    });
-
-    const result = await getRoundRobinConfig({ eventTypeId: 1 });
-
-    const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.schedulingType).toBeNull();
-    expect(parsed.isRoundRobin).toBe(false);
-    expect(parsed.assignAllTeamMembers).toBe(false);
-  });
-
-  it("handles ROUND_ROBIN with underscore/mixed case", async () => {
-    mockCalApi.mockResolvedValueOnce({
-      schedulingType: "ROUND_ROBIN",
-      hosts: [],
-    });
-
-    const result = await getRoundRobinConfig({ eventTypeId: 1 });
-
-    const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.isRoundRobin).toBe(true);
+    expect(parsed).toEqual(apiResponse);
   });
 
   it("handles errors", async () => {
