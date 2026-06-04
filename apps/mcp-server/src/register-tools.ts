@@ -106,7 +106,7 @@ import {
 } from "./tools/organizations/memberships.js";
 
 // ── Organizations: Teams ──
-import { getOrgTeamsSchema, getOrgTeams } from "./tools/organizations/teams.js";
+import { getOrgTeamsSchema, getOrgTeams, getMyTeamsSchema, getMyTeams } from "./tools/organizations/teams.js";
 
 // ── Organizations: Routing Forms ──
 import {
@@ -611,17 +611,28 @@ export function registerTools(server: McpServer): void {
     updateOrgMembership,
   );
 
-  // ── Organizations: Teams (1) ──
+  // ── Organizations: Teams (2) ──
   server.registerTool(
     "get_org_teams",
     {
-      title: "List Org Teams",
+      title: "List All Org Teams",
       description:
-        "List teams in an organization that the authenticated user belongs to (org admins see all teams). Use get_me to obtain your organizationId. Returns team IDs, names, and slugs needed by other team-scoped tools.",
+        "List all teams in an organization. Requires ORG_ADMIN role. Use get_me to obtain your organizationId. Returns team IDs, names, and slugs needed by other team-scoped tools. If this fails with 403, use get_my_teams instead.",
       inputSchema: getOrgTeamsSchema,
       annotations: READ_ONLY,
     },
     getOrgTeams,
+  );
+  server.registerTool(
+    "get_my_teams",
+    {
+      title: "List My Teams",
+      description:
+        "List teams the authenticated user belongs to. Works for any org member (org admins see all teams). Use get_me to obtain your organizationId. Returns team IDs, names, and slugs needed by other team-scoped tools.",
+      inputSchema: getMyTeamsSchema,
+      annotations: READ_ONLY,
+    },
+    getMyTeams,
   );
 
   // ── Organizations: Routing Forms (2) ──
