@@ -54,6 +54,16 @@ describe("createOrgMembership", () => {
     });
     expect(result.content[0].type).toBe("text");
   });
+  it("rejects when both userId and email are provided", async () => {
+    const result = await createOrgMembership({"orgId":1,"userId":1,"email":"user@example.com","role":"MEMBER"});
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("Provide exactly one of userId or email");
+  });
+  it("rejects when neither userId nor email is provided", async () => {
+    const result = await createOrgMembership({"orgId":1,"role":"MEMBER"});
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("Provide exactly one of userId or email");
+  });
   it("handles API errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
     const result = await createOrgMembership({"orgId":1,"userId":1,"role":"MEMBER"});

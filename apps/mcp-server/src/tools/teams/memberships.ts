@@ -6,7 +6,7 @@ import { handleError, ok } from "../../utils/tool-helpers.js";
 
 export const getTeamMembershipsSchema = {
 	teamId: z.number().int().describe("Team ID. Use get_me or list the user's teams to find this — never guess."),
-	take: z.number().optional().describe("Max results to return"),
+	take: z.number().int().max(100).optional().describe("Max results to return (max 100)"),
 	skip: z.number().optional().describe("Results to skip (offset)"),
 };
 

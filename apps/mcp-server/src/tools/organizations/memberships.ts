@@ -4,7 +4,7 @@ import { handleError, ok } from "../../utils/tool-helpers.js";
 
 export const getOrgMembershipsSchema = {
   orgId: z.number().int().describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
-  take: z.number().optional().describe("Max results to return"),
+  take: z.number().int().max(100).optional().describe("Max results to return (max 100)"),
   skip: z.number().optional().describe("Results to skip (offset)"),
 };
 
@@ -41,6 +41,12 @@ export async function createOrgMembership(params: {
   role: "MEMBER" | "OWNER" | "ADMIN";
   disableImpersonation?: boolean;
 }) {
+  if ((params.userId === undefined) === (params.email === undefined)) {
+    return {
+      content: [{ type: "text" as const, text: "Error: Provide exactly one of userId or email." }],
+      isError: true as const,
+    };
+  }
   try {
     const body: Record<string, unknown> = {};
     if (params.userId !== undefined) body.userId = params.userId;

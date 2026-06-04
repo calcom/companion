@@ -488,7 +488,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Create Org Membership",
       description:
-        "Add a user to an organization or invite by email. WORKFLOW: (1) To invite an existing Cal.com user, pass 'email' and 'role'. (2) To attach by user ID, pass 'userId' and 'role'. Provide userId OR email, not both. If the user doesn't have a Cal.com account yet, use create_org_user first. Platform managed users should only have MEMBER role.",
+        "Add a user to an organization or invite by email. WORKFLOW: (1) To invite by email, pass 'email' and 'role'. (2) To attach by user ID, pass 'userId' and 'role'. Provide userId OR email, not both. Invites may auto-accept or remain pending based on org settings. Platform managed users should only have MEMBER role.",
       inputSchema: createOrgMembershipSchema,
       annotations: CREATE,
     },
