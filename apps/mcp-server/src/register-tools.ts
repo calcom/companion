@@ -105,6 +105,9 @@ import {
   updateOrgMembership,
 } from "./tools/organizations/memberships.js";
 
+// ── Organizations: Teams ──
+import { getOrgTeamsSchema, getOrgTeams } from "./tools/organizations/teams.js";
+
 // ── Organizations: Routing Forms ──
 import {
   getOrgRoutingFormsSchema,
@@ -606,6 +609,19 @@ export function registerTools(server: McpServer): void {
       annotations: UPDATE,
     },
     updateOrgMembership,
+  );
+
+  // ── Organizations: Teams (1) ──
+  server.registerTool(
+    "get_org_teams",
+    {
+      title: "List Org Teams",
+      description:
+        "List teams in an organization that the authenticated user belongs to (org admins see all teams). Use get_me to obtain your organizationId. Returns team IDs, names, and slugs needed by other team-scoped tools.",
+      inputSchema: getOrgTeamsSchema,
+      annotations: READ_ONLY,
+    },
+    getOrgTeams,
   );
 
   // ── Organizations: Routing Forms (2) ──
