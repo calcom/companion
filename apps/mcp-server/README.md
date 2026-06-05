@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **42 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Routing Forms, Organizations, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **44 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Routing Forms, Organizations, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
 - **Per-user token storage** — encrypted at rest with AES-256-GCM in SQLite
@@ -178,7 +178,7 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - Expired tokens are cleaned up automatically every 5 minutes
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
 
-## Tools (42)
+## Tools (44)
 
 Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specification/draft/server/tools#tool-annotations) — a human-readable `title` plus behaviour hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP clients can render them appropriately and apply safety policies.
 
@@ -270,6 +270,12 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 | `get_org_membership` | Get Org Membership | Read | Get an organization membership |
 | `update_org_membership` | Update Org Membership | Update | Update an organization membership (role, accepted, impersonation) |
 | `delete_org_membership` | Delete Org Membership | Destructive | Delete an organization membership |
+
+### Organizations: Teams (2)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_org_teams` | List All Org Teams | Read | List all teams in an organization; requires org admin access |
+| `get_my_teams` | List My Teams | Read | List teams the authenticated user belongs to |
 
 ### Organizations: Routing Forms (2)
 | Tool | Title | Hint | Description |
