@@ -126,6 +126,22 @@ import {
   getOrgRoutingFormResponses,
 } from "./tools/organizations/routing-forms.js";
 
+// ── Teams: Memberships ──
+import {
+  getTeamMembershipsSchema,
+  getTeamMemberships,
+  getTeamMembershipSchema,
+  getTeamMembership,
+  createTeamMembershipSchema,
+  createTeamMembership,
+  updateTeamMembershipSchema,
+  updateTeamMembership,
+  deleteTeamMembershipSchema,
+  deleteTeamMembership,
+  createTeamInviteSchema,
+  createTeamInvite,
+} from "./tools/teams/memberships.js";
+
 /**
  * Tool annotation presets matching MCP behaviour hints.
  *
@@ -574,7 +590,8 @@ export function registerTools(server: McpServer): void {
     "get_org_memberships",
     {
       title: "List Org Memberships",
-      description: "List all memberships in an organization. Supports pagination with take/skip.",
+      description:
+        "List all memberships in an organization. Supports pagination with take/skip (take max 250).",
       inputSchema: getOrgMembershipsSchema,
       annotations: READ_ONLY,
     },
@@ -585,7 +602,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Create Org Membership",
       description:
-        "Add a user to an organization. Required: userId (must be a real user ID from the system) and role (MEMBER, ADMIN, or OWNER). Platform managed users should only have MEMBER role.",
+        "Add a user to an organization or invite by email. WORKFLOW: (1) To invite by email, pass 'email' and 'role'. (2) To attach by user ID, pass 'userId' and 'role'. Provide userId OR email, not both. Invites may auto-accept or remain pending based on org settings. Platform managed users should only have MEMBER role.",
       inputSchema: createOrgMembershipSchema,
       annotations: CREATE,
     },
@@ -670,5 +687,73 @@ export function registerTools(server: McpServer): void {
       annotations: READ_ONLY,
     },
     getOrgRoutingFormResponses
+  );
+
+  // ── Teams: Memberships (6) ──
+  server.registerTool(
+    "get_team_memberships",
+    {
+      title: "List Team Memberships",
+      description:
+        "List all memberships in a team. Supports pagination with take/skip (take max 250) and filtering by up to 20 email addresses.",
+      inputSchema: getTeamMembershipsSchema,
+      annotations: READ_ONLY,
+    },
+    getTeamMemberships
+  );
+  server.registerTool(
+    "get_team_membership",
+    {
+      title: "Get Team Membership",
+      description:
+        "Get a specific team membership by its numeric ID. Use get_team_memberships to find this — never guess.",
+      inputSchema: getTeamMembershipSchema,
+      annotations: READ_ONLY,
+    },
+    getTeamMembership
+  );
+  server.registerTool(
+    "create_team_membership",
+    {
+      title: "Create Team Membership",
+      description:
+        "Add a user to a team. Required: userId (must be a real user ID from the system). Optional: role (defaults to MEMBER), accepted, disableImpersonation. Ask the user for the userId — never guess.",
+      inputSchema: createTeamMembershipSchema,
+      annotations: CREATE,
+    },
+    createTeamMembership
+  );
+  server.registerTool(
+    "update_team_membership",
+    {
+      title: "Update Team Membership",
+      description:
+        "Update a team membership. Can change accepted status, role, or impersonation settings. Use get_team_memberships to find the membershipId — never guess.",
+      inputSchema: updateTeamMembershipSchema,
+      annotations: UPDATE,
+    },
+    updateTeamMembership
+  );
+  server.registerTool(
+    "delete_team_membership",
+    {
+      title: "Delete Team Membership",
+      description:
+        "Remove a user from a team. This action is irreversible — confirm with the user before proceeding. Use get_team_memberships to find the membershipId — never guess.",
+      inputSchema: deleteTeamMembershipSchema,
+      annotations: DESTRUCTIVE,
+    },
+    deleteTeamMembership
+  );
+  server.registerTool(
+    "create_team_invite",
+    {
+      title: "Create Team Invite",
+      description:
+        "Generate an invite link for a team. Returns a URL that can be shared with users to join the team.",
+      inputSchema: createTeamInviteSchema,
+      annotations: CREATE,
+    },
+    createTeamInvite
   );
 }
