@@ -274,8 +274,8 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 ### Organizations: Teams (2)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
-| `get_org_teams` | List All Org Teams | Read | List all teams in an organization; requires org admin access |
-| `get_my_teams` | List My Teams | Read | List teams the authenticated user belongs to |
+| `get_org_teams` | List All Org Teams | Read | List all teams in an organization; requires org admin access; supports `take`/`skip` pagination (`take` max 250) |
+| `get_my_teams` | List My Teams | Read | List teams the authenticated user belongs to; supports `take`/`skip` pagination (`take` max 250) |
 
 ### Organizations: Routing Forms (2)
 | Tool | Title | Hint | Description |

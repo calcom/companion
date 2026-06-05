@@ -7,8 +7,8 @@ export const getOrgTeamsSchema = {
     .number()
     .int()
     .describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
-  take: z.number().optional().describe("Max results to return (default 250)"),
-  skip: z.number().optional().describe("Results to skip (offset)"),
+  take: z.number().int().min(1).max(250).optional().describe("Max results to return (1-250)"),
+  skip: z.number().int().min(0).optional().describe("Results to skip (offset, min 0)"),
 };
 
 export async function getOrgTeams(params: { orgId: number; take?: number; skip?: number }) {
@@ -28,8 +28,8 @@ export const getMyTeamsSchema = {
     .number()
     .int()
     .describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
-  take: z.number().optional().describe("Max results to return (default 250)"),
-  skip: z.number().optional().describe("Results to skip (offset)"),
+  take: z.number().int().min(1).max(250).optional().describe("Max results to return (1-250)"),
+  skip: z.number().int().min(0).optional().describe("Results to skip (offset, min 0)"),
 };
 
 export async function getMyTeams(params: { orgId: number; take?: number; skip?: number }) {

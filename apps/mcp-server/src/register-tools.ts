@@ -647,7 +647,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "List All Org Teams",
       description:
-        "List all teams in an organization. Requires ORG_ADMIN role. Use get_me to obtain your organizationId. Returns team IDs, names, and slugs needed by other team-scoped tools. If this fails with 403, use get_my_teams instead.",
+        "List all teams in an organization. Supports take/skip pagination (take max 250). Requires ORG_ADMIN role. Use get_me to obtain your organizationId. Returns team IDs, names, and slugs needed by other team-scoped tools. If this fails with 403, use get_my_teams instead.",
       inputSchema: getOrgTeamsSchema,
       annotations: READ_ONLY,
     },
@@ -658,7 +658,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "List My Teams",
       description:
-        "List teams the authenticated user belongs to. Works for any org member (org admins see all teams). Use get_me to obtain your organizationId. Returns team IDs, names, and slugs needed by other team-scoped tools.",
+        "List teams the authenticated user belongs to. Supports take/skip pagination (take max 250). Works for any org member (org admins see all teams). Use get_me to obtain your organizationId. Returns team IDs, names, and slugs needed by other team-scoped tools.",
       inputSchema: getMyTeamsSchema,
       annotations: READ_ONLY,
     },
