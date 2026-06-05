@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **35 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Routing Forms, Organizations, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **42 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Routing Forms, Organizations, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
 - **Per-user token storage** — encrypted at rest with AES-256-GCM in SQLite
@@ -15,7 +15,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ### Prerequisites
 
-- Node.js >= 18
+- Node.js >= 22
 - [Bun](https://bun.sh/) (for workspace install)
 - A Cal.com API key ([get one here](https://app.cal.com/settings/developer/api-keys))
 
@@ -178,7 +178,7 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - Expired tokens are cleaned up automatically every 5 minutes
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
 
-## Tools (35)
+## Tools (42)
 
 Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specification/draft/server/tools#tool-annotations) — a human-readable `title` plus behaviour hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP clients can render them appropriately and apply safety policies.
 
@@ -250,6 +250,17 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `calculate_routing_form_slots` | Calculate Routing Form Slots | Create | Submit a routing form response and get available slots |
+
+### Organizations: Attributes (7)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_org_attributes` | List Org Attributes | Read | List attributes defined for an organization |
+| `get_org_attribute` | Get Org Attribute | Read | Get a single organization attribute by ID |
+| `get_attribute_options` | List Attribute Options | Read | List available options for a select attribute |
+| `get_user_attributes` | Get User Attributes | Read | Get attribute options assigned to a user |
+| `assign_attribute_to_user` | Assign Attribute to User | Create | Assign an attribute option or value to a user |
+| `update_user_attribute` | Update User Attribute Assignment | Update | Update an existing user attribute assignment |
+| `unassign_attribute_from_user` | Unassign Attribute from User | Destructive | Remove an attribute option assignment from a user |
 
 ### Organizations: Memberships (5)
 | Tool | Title | Hint | Description |

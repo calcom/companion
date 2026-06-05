@@ -218,6 +218,7 @@ export function useConfirmBooking() {
 
   return useMutation({
     mutationFn: ({ uid }: { uid: string }) => CalComAPIService.confirmBooking(uid),
+    retry: false,
     onSuccess: (_, variables) => {
       // Invalidate all booking queries to refetch fresh data
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
@@ -254,6 +255,7 @@ export function useDeclineBooking() {
   return useMutation({
     mutationFn: ({ uid, reason }: { uid: string; reason?: string }) =>
       CalComAPIService.declineBooking(uid, reason),
+    retry: false,
     onSuccess: (_, variables) => {
       // Invalidate all booking queries to refetch fresh data
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });

@@ -26,11 +26,17 @@ export async function registerAppPushSubscription(
 
 export async function removeAppPushSubscription(token: string): Promise<{ status: string }> {
   try {
-    return await makeRequest<{ status: string }>("/notifications/subscriptions/app-push", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
+    return await makeRequest<{ status: string }>(
+      "/notifications/subscriptions/app-push",
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      },
+      "2024-08-13",
+      false,
+      { skipAuthFailure: true }
+    );
   } catch (error) {
     console.error("removeAppPushSubscription error");
     throw error;

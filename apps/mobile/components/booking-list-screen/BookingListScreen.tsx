@@ -42,7 +42,13 @@ import {
   useRescheduleBooking,
 } from "@/hooks";
 import type { Booking, EventType } from "@/services/calcom";
-import { showErrorAlert, showInfoAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
+import {
+  showErrorAlert,
+  showInfoAlert,
+  showSilentSuccessAlert,
+  showSuccessAlert,
+} from "@/utils/alerts";
+import { isUserHost, isUserOrganizer, normalizeBooking } from "@/utils/booking-actions";
 import type { ListItem, RecurringBookingGroup } from "@/utils/bookings-utils";
 import {
   filterByEventType,
@@ -154,6 +160,20 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
     isDeclining,
     isRescheduling,
   });
+
+  const currentUserId = userInfo ? userInfo.id : undefined;
+  const currentUserEmail = userInfo ? userInfo.email : undefined;
+
+  const canConfirmOrRejectBooking = React.useCallback(
+    (booking: Booking) => {
+      const normalizedBooking = normalizeBooking(booking);
+      return (
+        isUserOrganizer(normalizedBooking, currentUserId, currentUserEmail) ||
+        isUserHost(normalizedBooking, currentUserId, currentUserEmail)
+      );
+    },
+    [currentUserId, currentUserEmail]
+  );
 
   // Navigate to reschedule screen (same pattern as booking detail)
   const handleNavigateToReschedule = React.useCallback(
@@ -437,6 +457,11 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
         return;
       }
 
+      if (unconfirmedBookings.some((booking) => !canConfirmOrRejectBooking(booking))) {
+        showInfoAlert("Not authorized", "You are not authorized to confirm these bookings.");
+        return;
+      }
+
       Alert.alert(
         "Confirm All",
         `Are you sure you want to confirm ${unconfirmedBookings.length} unconfirmed bookings?`,
@@ -481,14 +506,17 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
                   `Confirmed ${successCount} bookings. Failed to confirm ${errorCount}.`
                 );
               } else {
-                showSilentSuccessAlert("Success", `All ${successCount} bookings have been confirmed.`);
+                showSilentSuccessAlert(
+                  "Success",
+                  `All ${successCount} bookings have been confirmed.`
+                );
               }
             },
           },
         ]
       );
     },
-    [confirmBookingMutation]
+    [canConfirmOrRejectBooking, confirmBookingMutation]
   );
 
   // Reject all unconfirmed bookings in a recurring series
@@ -503,6 +531,11 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
 
       if (unconfirmedBookings.length === 0) {
         showInfoAlert("Info", "No unconfirmed bookings to reject.");
+        return;
+      }
+
+      if (unconfirmedBookings.some((booking) => !canConfirmOrRejectBooking(booking))) {
+        showInfoAlert("Not authorized", "You are not authorized to reject these bookings.");
         return;
       }
 
@@ -589,7 +622,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
         ]
       );
     },
-    [declineBookingMutation]
+    [canConfirmOrRejectBooking, declineBookingMutation]
   );
 
   const renderBookingItem = ({ item }: { item: Booking }) => {
@@ -1078,7 +1111,10 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
                       `Rejected ${successCount} bookings. Failed to reject ${errorCount}.`
                     );
                   } else {
-                    showSilentSuccessAlert("Success", `All ${successCount} bookings have been rejected.`);
+                    showSilentSuccessAlert(
+                      "Success",
+                      `All ${successCount} bookings have been rejected.`
+                    );
                   }
                 }}
               >

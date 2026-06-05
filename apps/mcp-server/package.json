@@ -11,7 +11,7 @@
     "directory": "apps/mcp-server"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "files": [
     "dist"
@@ -28,15 +28,15 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
-    "@vercel/postgres": "^0.10.0",
-    "zod": "^3.24.4"
+    "@modelcontextprotocol/sdk": "1.12.1",
+    "@vercel/postgres": "0.10.0",
+    "zod": "3.24.4"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.10",
     "@types/node": "22.19.6",
-    "tsx": "^4.19.4",
+    "tsx": "4.19.4",
     "typescript": "5.9.3",
-    "vitest": "^3.2.1"
+    "vitest": "4.1.8"
   }
 }

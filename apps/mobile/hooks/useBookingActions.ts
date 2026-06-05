@@ -405,12 +405,13 @@ export const useBookingActions = ({
    */
   const handleSubmitReject = (reasonOverride?: string) => {
     if (!rejectBooking) return;
+    const booking = rejectBooking;
 
     // Use passed reason if provided, otherwise fall back to state
     const reason = reasonOverride !== undefined ? reasonOverride : rejectReason;
 
     declineMutation(
-      { uid: rejectBooking.uid, reason: reason || undefined },
+      { uid: booking.uid, reason: reason || undefined },
       {
         onSuccess: () => {
           setShowRejectModal(false);

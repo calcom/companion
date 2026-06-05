@@ -11,7 +11,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Text } from "@/components/ui/text";
 import { getColors } from "@/constants/colors";
-import { getBookingActions } from "@/utils/booking-actions";
+import {
+  getBookingActions,
+  isUserHost,
+  isUserOrganizer,
+  normalizeBooking,
+} from "@/utils/booking-actions";
 import {
   BadgesRow,
   BookingDescription,
@@ -83,6 +88,14 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
       isOnline: true,
     });
   }, [booking, userEmail]);
+  const canConfirmOrReject = React.useMemo(() => {
+    const normalizedBooking = normalizeBooking(booking);
+    return (
+      isPending &&
+      (isUserOrganizer(normalizedBooking, undefined, userEmail) ||
+        isUserHost(normalizedBooking, undefined, userEmail))
+    );
+  }, [booking, isPending, userEmail]);
 
   type DropdownAction = {
     label: string;
@@ -197,6 +210,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
         <ConfirmRejectButtons
           booking={booking}
           isPending={isPending}
+          canConfirmOrReject={canConfirmOrReject}
           isConfirming={isConfirming}
           isDeclining={isDeclining}
           onConfirm={onConfirm}
