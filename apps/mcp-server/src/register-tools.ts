@@ -62,7 +62,12 @@ import {
 import { getAvailabilitySchema, getAvailability } from "./tools/availability.js";
 
 // ── Calendars ──
-import { getConnectedCalendarsSchema, getConnectedCalendars, getBusyTimesSchema, getBusyTimes } from "./tools/calendars.js";
+import {
+  getConnectedCalendarsSchema,
+  getConnectedCalendars,
+  getBusyTimesSchema,
+  getBusyTimes,
+} from "./tools/calendars.js";
 
 // ── Conferencing ──
 import { getConferencingAppsSchema, getConferencingApps } from "./tools/conferencing.js";
@@ -106,7 +111,12 @@ import {
 } from "./tools/organizations/memberships.js";
 
 // ── Organizations: Teams ──
-import { getOrgTeamsSchema, getOrgTeams, getMyTeamsSchema, getMyTeams } from "./tools/organizations/teams.js";
+import {
+  getOrgTeamsSchema,
+  getOrgTeams,
+  getMyTeamsSchema,
+  getMyTeams,
+} from "./tools/organizations/teams.js";
 
 // ── Organizations: Routing Forms ──
 import {
@@ -115,6 +125,22 @@ import {
   getOrgRoutingFormResponsesSchema,
   getOrgRoutingFormResponses,
 } from "./tools/organizations/routing-forms.js";
+
+// ── Teams: Memberships ──
+import {
+  getTeamMembershipsSchema,
+  getTeamMemberships,
+  getTeamMembershipSchema,
+  getTeamMembership,
+  createTeamMembershipSchema,
+  createTeamMembership,
+  updateTeamMembershipSchema,
+  updateTeamMembership,
+  deleteTeamMembershipSchema,
+  deleteTeamMembership,
+  createTeamInviteSchema,
+  createTeamInvite,
+} from "./tools/teams/memberships.js";
 
 /**
  * Tool annotation presets matching MCP behaviour hints.
@@ -169,7 +195,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getMeSchema,
       annotations: READ_ONLY,
     },
-    getMe,
+    getMe
   );
   server.registerTool(
     "update_me",
@@ -180,7 +206,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateMeSchema,
       annotations: UPDATE,
     },
-    updateMe,
+    updateMe
   );
 
   // ── Event Types (5) ──
@@ -193,7 +219,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getEventTypesSchema,
       annotations: READ_ONLY,
     },
-    getEventTypes,
+    getEventTypes
   );
   server.registerTool(
     "get_event_type",
@@ -204,7 +230,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getEventTypeSchema,
       annotations: READ_ONLY,
     },
-    getEventType,
+    getEventType
   );
   server.registerTool(
     "create_event_type",
@@ -215,7 +241,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: createEventTypeSchema,
       annotations: CREATE,
     },
-    createEventType,
+    createEventType
   );
   server.registerTool(
     "update_event_type",
@@ -226,7 +252,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateEventTypeSchema,
       annotations: UPDATE,
     },
-    updateEventType,
+    updateEventType
   );
   server.registerTool(
     "delete_event_type",
@@ -237,7 +263,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: deleteEventTypeSchema,
       annotations: DESTRUCTIVE,
     },
-    deleteEventType,
+    deleteEventType
   );
 
   // ── Bookings (10) ──
@@ -250,7 +276,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingsSchema,
       annotations: READ_ONLY,
     },
-    getBookings,
+    getBookings
   );
   server.registerTool(
     "get_booking",
@@ -261,7 +287,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingSchema,
       annotations: READ_ONLY,
     },
-    getBooking,
+    getBooking
   );
   server.registerTool(
     "create_booking",
@@ -272,7 +298,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: createBookingSchema,
       annotations: CREATE,
     },
-    createBooking,
+    createBooking
   );
   server.registerTool(
     "reschedule_booking",
@@ -283,7 +309,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: rescheduleBookingSchema,
       annotations: UPDATE,
     },
-    rescheduleBooking,
+    rescheduleBooking
   );
   server.registerTool(
     "cancel_booking",
@@ -294,17 +320,18 @@ export function registerTools(server: McpServer): void {
       inputSchema: cancelBookingSchema,
       annotations: DESTRUCTIVE,
     },
-    cancelBooking,
+    cancelBooking
   );
   server.registerTool(
     "confirm_booking",
     {
       title: "Confirm Booking",
-      description: "Confirm a pending booking that requires manual confirmation. Only the host can confirm.",
+      description:
+        "Confirm a pending booking that requires manual confirmation. Only the host can confirm.",
       inputSchema: confirmBookingSchema,
       annotations: UPDATE,
     },
-    confirmBooking,
+    confirmBooking
   );
   server.registerTool(
     "mark_booking_absent",
@@ -315,7 +342,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: markBookingAbsentSchema,
       annotations: UPDATE,
     },
-    markBookingAbsent,
+    markBookingAbsent
   );
   server.registerTool(
     "get_booking_attendees",
@@ -325,7 +352,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingAttendeesSchema,
       annotations: READ_ONLY,
     },
-    getBookingAttendees,
+    getBookingAttendees
   );
   server.registerTool(
     "add_booking_attendee",
@@ -336,7 +363,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: addBookingAttendeeSchema,
       annotations: CREATE,
     },
-    addBookingAttendee,
+    addBookingAttendee
   );
   server.registerTool(
     "get_booking_attendee",
@@ -347,7 +374,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingAttendeeSchema,
       annotations: READ_ONLY,
     },
-    getBookingAttendee,
+    getBookingAttendee
   );
 
   // ── Schedules (6) ──
@@ -359,17 +386,18 @@ export function registerTools(server: McpServer): void {
       inputSchema: getSchedulesSchema,
       annotations: READ_ONLY,
     },
-    getSchedules,
+    getSchedules
   );
   server.registerTool(
     "get_schedule",
     {
       title: "Get Schedule",
-      description: "Get a specific schedule by its numeric ID. Returns availability slots and overrides.",
+      description:
+        "Get a specific schedule by its numeric ID. Returns availability slots and overrides.",
       inputSchema: getScheduleSchema,
       annotations: READ_ONLY,
     },
-    getSchedule,
+    getSchedule
   );
   server.registerTool(
     "create_schedule",
@@ -380,17 +408,18 @@ export function registerTools(server: McpServer): void {
       inputSchema: createScheduleSchema,
       annotations: CREATE,
     },
-    createSchedule,
+    createSchedule
   );
   server.registerTool(
     "update_schedule",
     {
       title: "Update Schedule",
-      description: "Update an existing schedule. Array fields (availability, overrides) replace all existing entries.",
+      description:
+        "Update an existing schedule. Array fields (availability, overrides) replace all existing entries.",
       inputSchema: updateScheduleSchema,
       annotations: UPDATE,
     },
-    updateSchedule,
+    updateSchedule
   );
   server.registerTool(
     "delete_schedule",
@@ -401,7 +430,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: deleteScheduleSchema,
       annotations: DESTRUCTIVE,
     },
-    deleteSchedule,
+    deleteSchedule
   );
   server.registerTool(
     "get_default_schedule",
@@ -411,7 +440,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getDefaultScheduleSchema,
       annotations: READ_ONLY,
     },
-    getDefaultSchedule,
+    getDefaultSchedule
   );
 
   // ── Availability / Slots (1) ──
@@ -424,7 +453,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getAvailabilitySchema,
       annotations: READ_ONLY,
     },
-    getAvailability,
+    getAvailability
   );
 
   // ── Calendars (2) ──
@@ -437,7 +466,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getConnectedCalendarsSchema,
       annotations: READ_ONLY,
     },
-    getConnectedCalendars,
+    getConnectedCalendars
   );
   server.registerTool(
     "get_busy_times",
@@ -448,7 +477,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBusyTimesSchema,
       annotations: READ_ONLY,
     },
-    getBusyTimes,
+    getBusyTimes
   );
 
   // ── Conferencing (1) ──
@@ -461,7 +490,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getConferencingAppsSchema,
       annotations: READ_ONLY,
     },
-    getConferencingApps,
+    getConferencingApps
   );
 
   // ── Routing Forms (1) ──
@@ -474,7 +503,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: calculateRoutingFormSlotsSchema,
       annotations: CREATE,
     },
-    calculateRoutingFormSlots,
+    calculateRoutingFormSlots
   );
 
   // ── Organizations: Attributes (7) ──
@@ -487,7 +516,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgAttributesSchema,
       annotations: READ_ONLY,
     },
-    getOrgAttributes,
+    getOrgAttributes
   );
   server.registerTool(
     "get_org_attribute",
@@ -498,7 +527,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgAttributeSchema,
       annotations: READ_ONLY,
     },
-    getOrgAttribute,
+    getOrgAttribute
   );
   server.registerTool(
     "get_attribute_options",
@@ -509,7 +538,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getAttributeOptionsSchema,
       annotations: READ_ONLY,
     },
-    getAttributeOptions,
+    getAttributeOptions
   );
   server.registerTool(
     "get_user_attributes",
@@ -520,7 +549,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getUserAttributesSchema,
       annotations: READ_ONLY,
     },
-    getUserAttributes,
+    getUserAttributes
   );
   server.registerTool(
     "assign_attribute_to_user",
@@ -531,7 +560,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: assignAttributeToUserSchema,
       annotations: CREATE,
     },
-    assignAttributeToUser,
+    assignAttributeToUser
   );
   server.registerTool(
     "update_user_attribute",
@@ -542,7 +571,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateUserAttributeSchema,
       annotations: UPDATE,
     },
-    updateUserAttribute,
+    updateUserAttribute
   );
   server.registerTool(
     "unassign_attribute_from_user",
@@ -553,7 +582,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: unassignAttributeFromUserSchema,
       annotations: DESTRUCTIVE,
     },
-    unassignAttributeFromUser,
+    unassignAttributeFromUser
   );
 
   // ── Organizations: Memberships (5) ──
@@ -561,22 +590,23 @@ export function registerTools(server: McpServer): void {
     "get_org_memberships",
     {
       title: "List Org Memberships",
-      description: "List all memberships in an organization. Supports pagination with take/skip.",
+      description:
+        "List all memberships in an organization. Supports pagination with take/skip (take max 250).",
       inputSchema: getOrgMembershipsSchema,
       annotations: READ_ONLY,
     },
-    getOrgMemberships,
+    getOrgMemberships
   );
   server.registerTool(
     "create_org_membership",
     {
       title: "Create Org Membership",
       description:
-        "Add a user to an organization. Required: userId (must be a real user ID from the system) and role (MEMBER, ADMIN, or OWNER). Platform managed users should only have MEMBER role.",
+        "Add a user to an organization or invite by email. WORKFLOW: (1) To invite by email, pass 'email' and 'role'. (2) To attach by user ID, pass 'userId' and 'role'. Provide userId OR email, not both. Invites may auto-accept or remain pending based on org settings. Platform managed users should only have MEMBER role.",
       inputSchema: createOrgMembershipSchema,
       annotations: CREATE,
     },
-    createOrgMembership,
+    createOrgMembership
   );
   server.registerTool(
     "get_org_membership",
@@ -586,7 +616,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgMembershipSchema,
       annotations: READ_ONLY,
     },
-    getOrgMembership,
+    getOrgMembership
   );
   server.registerTool(
     "delete_org_membership",
@@ -597,7 +627,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: deleteOrgMembershipSchema,
       annotations: DESTRUCTIVE,
     },
-    deleteOrgMembership,
+    deleteOrgMembership
   );
   server.registerTool(
     "update_org_membership",
@@ -608,7 +638,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateOrgMembershipSchema,
       annotations: UPDATE,
     },
-    updateOrgMembership,
+    updateOrgMembership
   );
 
   // ── Organizations: Teams (2) ──
@@ -621,7 +651,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgTeamsSchema,
       annotations: READ_ONLY,
     },
-    getOrgTeams,
+    getOrgTeams
   );
   server.registerTool(
     "get_my_teams",
@@ -632,7 +662,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getMyTeamsSchema,
       annotations: READ_ONLY,
     },
-    getMyTeams,
+    getMyTeams
   );
 
   // ── Organizations: Routing Forms (2) ──
@@ -645,7 +675,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgRoutingFormsSchema,
       annotations: READ_ONLY,
     },
-    getOrgRoutingForms,
+    getOrgRoutingForms
   );
   server.registerTool(
     "get_org_routing_form_responses",
@@ -656,6 +686,74 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgRoutingFormResponsesSchema,
       annotations: READ_ONLY,
     },
-    getOrgRoutingFormResponses,
+    getOrgRoutingFormResponses
+  );
+
+  // ── Teams: Memberships (6) ──
+  server.registerTool(
+    "get_team_memberships",
+    {
+      title: "List Team Memberships",
+      description:
+        "List all memberships in a team. Supports pagination with take/skip (take max 250) and filtering by up to 20 email addresses.",
+      inputSchema: getTeamMembershipsSchema,
+      annotations: READ_ONLY,
+    },
+    getTeamMemberships
+  );
+  server.registerTool(
+    "get_team_membership",
+    {
+      title: "Get Team Membership",
+      description:
+        "Get a specific team membership by its numeric ID. Use get_team_memberships to find this — never guess.",
+      inputSchema: getTeamMembershipSchema,
+      annotations: READ_ONLY,
+    },
+    getTeamMembership
+  );
+  server.registerTool(
+    "create_team_membership",
+    {
+      title: "Create Team Membership",
+      description:
+        "Add a user to a team. Required: userId (must be a real user ID from the system). Optional: role (defaults to MEMBER), accepted, disableImpersonation. Ask the user for the userId — never guess.",
+      inputSchema: createTeamMembershipSchema,
+      annotations: CREATE,
+    },
+    createTeamMembership
+  );
+  server.registerTool(
+    "update_team_membership",
+    {
+      title: "Update Team Membership",
+      description:
+        "Update a team membership. Can change accepted status, role, or impersonation settings. Use get_team_memberships to find the membershipId — never guess.",
+      inputSchema: updateTeamMembershipSchema,
+      annotations: UPDATE,
+    },
+    updateTeamMembership
+  );
+  server.registerTool(
+    "delete_team_membership",
+    {
+      title: "Delete Team Membership",
+      description:
+        "Remove a user from a team. This action is irreversible — confirm with the user before proceeding. Use get_team_memberships to find the membershipId — never guess.",
+      inputSchema: deleteTeamMembershipSchema,
+      annotations: DESTRUCTIVE,
+    },
+    deleteTeamMembership
+  );
+  server.registerTool(
+    "create_team_invite",
+    {
+      title: "Create Team Invite",
+      description:
+        "Generate an invite link for a team. Returns a URL that can be shared with users to join the team.",
+      inputSchema: createTeamInviteSchema,
+      annotations: CREATE,
+    },
+    createTeamInvite
   );
 }
