@@ -17,6 +17,15 @@ describe("getOrgTeams", () => {
     expect(getOrgTeamsSchema).toBeDefined();
   });
 
+  it("enforces OpenAPI pagination bounds", () => {
+    expect(getOrgTeamsSchema.take.safeParse(1.5).success).toBe(false);
+    expect(getOrgTeamsSchema.take.safeParse(0).success).toBe(false);
+    expect(getOrgTeamsSchema.take.safeParse(250).success).toBe(true);
+    expect(getOrgTeamsSchema.take.safeParse(251).success).toBe(false);
+    expect(getOrgTeamsSchema.skip.safeParse(1.5).success).toBe(false);
+    expect(getOrgTeamsSchema.skip.safeParse(-1).success).toBe(false);
+  });
+
   it("calls the admin teams endpoint", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success", data: [{ id: 1, name: "Engineering" }] });
     const result = await getOrgTeams({ orgId: 1 });
@@ -47,6 +56,15 @@ describe("getOrgTeams", () => {
 describe("getMyTeams", () => {
   it("exports getMyTeamsSchema", () => {
     expect(getMyTeamsSchema).toBeDefined();
+  });
+
+  it("enforces OpenAPI pagination bounds", () => {
+    expect(getMyTeamsSchema.take.safeParse(1.5).success).toBe(false);
+    expect(getMyTeamsSchema.take.safeParse(0).success).toBe(false);
+    expect(getMyTeamsSchema.take.safeParse(250).success).toBe(true);
+    expect(getMyTeamsSchema.take.safeParse(251).success).toBe(false);
+    expect(getMyTeamsSchema.skip.safeParse(1.5).success).toBe(false);
+    expect(getMyTeamsSchema.skip.safeParse(-1).success).toBe(false);
   });
 
   it("calls the /me teams endpoint", async () => {
