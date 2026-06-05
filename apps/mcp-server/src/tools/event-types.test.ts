@@ -12,13 +12,13 @@ import {
   createEventType,
   updateEventType,
   deleteEventType,
-  getRoundRobinConfig,
+  getEventTypeSettings,
   getEventTypesSchema,
   getEventTypeSchema,
   createEventTypeSchema,
   updateEventTypeSchema,
   deleteEventTypeSchema,
-  getRoundRobinConfigSchema,
+  getEventTypeSettingsSchema,
 } from "./event-types.js";
 
 const mockCalApi = vi.mocked(calApi);
@@ -68,10 +68,10 @@ describe("event-types schemas", () => {
     expect(deleteEventTypeSchema.eventTypeId).toBeDefined();
   });
 
-  it("exports getRoundRobinConfigSchema with required and optional fields", () => {
-    expect(getRoundRobinConfigSchema.eventTypeId).toBeDefined();
-    expect(getRoundRobinConfigSchema.orgId).toBeDefined();
-    expect(getRoundRobinConfigSchema.teamId).toBeDefined();
+  it("exports getEventTypeSettingsSchema with required and optional fields", () => {
+    expect(getEventTypeSettingsSchema.eventTypeId).toBeDefined();
+    expect(getEventTypeSettingsSchema.orgId).toBeDefined();
+    expect(getEventTypeSettingsSchema.teamId).toBeDefined();
   });
 });
 
@@ -183,7 +183,7 @@ describe("deleteEventType", () => {
   });
 });
 
-describe("getRoundRobinConfig", () => {
+describe("getEventTypeSettings", () => {
   it("returns full event type settings from the API", async () => {
     const apiResponse = {
       id: 10,
@@ -199,7 +199,7 @@ describe("getRoundRobinConfig", () => {
     };
     mockCalApi.mockResolvedValueOnce(apiResponse);
 
-    const result = await getRoundRobinConfig({ eventTypeId: 10 });
+    const result = await getEventTypeSettings({ eventTypeId: 10 });
 
     expect(mockCalApi).toHaveBeenCalledWith("event-types/10");
     const parsed = JSON.parse(result.content[0].text);
@@ -215,7 +215,7 @@ describe("getRoundRobinConfig", () => {
     };
     mockCalApi.mockResolvedValueOnce(apiResponse);
 
-    const result = await getRoundRobinConfig({ eventTypeId: 5, orgId: 100, teamId: 200 });
+    const result = await getEventTypeSettings({ eventTypeId: 5, orgId: 100, teamId: 200 });
 
     expect(mockCalApi).toHaveBeenCalledWith("organizations/100/teams/200/event-types/5");
     const parsed = JSON.parse(result.content[0].text);
@@ -232,7 +232,7 @@ describe("getRoundRobinConfig", () => {
     };
     mockCalApi.mockResolvedValueOnce(apiResponse);
 
-    const result = await getRoundRobinConfig({ eventTypeId: 7 });
+    const result = await getEventTypeSettings({ eventTypeId: 7 });
 
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed).toEqual(apiResponse);
@@ -241,7 +241,7 @@ describe("getRoundRobinConfig", () => {
   it("handles errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(404, "Not found", {}));
 
-    const result = await getRoundRobinConfig({ eventTypeId: 999 });
+    const result = await getEventTypeSettings({ eventTypeId: 999 });
 
     expect(result).toHaveProperty("isError", true);
   });

@@ -14,8 +14,8 @@ import {
   createEventType,
   updateEventTypeSchema,
   updateEventType,
-  getRoundRobinConfigSchema,
-  getRoundRobinConfig,
+  getEventTypeSettingsSchema,
+  getEventTypeSettings,
   deleteEventTypeSchema,
   deleteEventType,
 } from "./tools/event-types.js";
@@ -221,15 +221,15 @@ export function registerTools(server: McpServer): void {
     deleteEventType,
   );
   server.registerTool(
-    "get_round_robin_config",
+    "get_event_type_settings",
     {
-      title: "Get Round-Robin Config",
+      title: "Get Event Type Settings",
       description:
-        "Get the full event type settings including round-robin / team scheduling configuration. Returns all fields exposed by the Cal.com API: schedulingType, hosts (with priority, weight, isFixed), assignAllTeamMembers, and all other event type settings. For org-scoped team event types, pass orgId + teamId.",
-      inputSchema: getRoundRobinConfigSchema,
+        "Get the full event type settings as exposed by the Cal.com API — including scheduling type, hosts, locations, booking fields, limits, and all other configuration. For org-scoped team event types, pass orgId + teamId.",
+      inputSchema: getEventTypeSettingsSchema,
       annotations: READ_ONLY,
     },
-    getRoundRobinConfig,
+    getEventTypeSettings,
   );
 
   // ── Bookings (10) ──
