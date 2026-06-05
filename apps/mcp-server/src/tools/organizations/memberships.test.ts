@@ -31,6 +31,12 @@ describe("getOrgMemberships", () => {
     expect(getOrgMembershipsSchema.take.safeParse(1.5).success).toBe(false);
     expect(getOrgMembershipsSchema.skip.safeParse(1.5).success).toBe(false);
   });
+  it("enforces OpenAPI pagination bounds", () => {
+    expect(getOrgMembershipsSchema.take.safeParse(0).success).toBe(false);
+    expect(getOrgMembershipsSchema.take.safeParse(250).success).toBe(true);
+    expect(getOrgMembershipsSchema.take.safeParse(251).success).toBe(false);
+    expect(getOrgMembershipsSchema.skip.safeParse(-1).success).toBe(false);
+  });
   it("returns data on success", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success" });
     const result = await getOrgMemberships({ orgId: 1 });
@@ -82,6 +88,18 @@ describe("createOrgMembership", () => {
     const result = await createOrgMembership({ orgId: 1, role: "MEMBER" });
     expect(result).toHaveProperty("isError", true);
     expect(result.content[0].text).toContain("Provide exactly one of userId or email");
+  });
+  it("rejects email invites with userId-only fields", async () => {
+    const result = await createOrgMembership({
+      orgId: 1,
+      email: "user@example.com",
+      role: "MEMBER",
+      accepted: true,
+    });
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain(
+      "accepted and disableImpersonation are only supported when using userId"
+    );
   });
   it("handles API errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));

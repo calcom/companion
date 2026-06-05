@@ -590,7 +590,8 @@ export function registerTools(server: McpServer): void {
     "get_org_memberships",
     {
       title: "List Org Memberships",
-      description: "List all memberships in an organization. Supports pagination with take/skip.",
+      description:
+        "List all memberships in an organization. Supports pagination with take/skip (take max 250).",
       inputSchema: getOrgMembershipsSchema,
       annotations: READ_ONLY,
     },
@@ -693,7 +694,8 @@ export function registerTools(server: McpServer): void {
     "get_team_memberships",
     {
       title: "List Team Memberships",
-      description: "List all memberships in a team. Supports pagination with take/skip.",
+      description:
+        "List all memberships in a team. Supports pagination with take/skip (take max 250) and filtering by up to 20 email addresses.",
       inputSchema: getTeamMembershipsSchema,
       annotations: READ_ONLY,
     },
@@ -715,7 +717,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Create Team Membership",
       description:
-        "Add a user to a team. Required: userId (must be a real user ID from the system) and role (MEMBER, ADMIN, or OWNER). Ask the user for the userId — never guess.",
+        "Add a user to a team. Required: userId (must be a real user ID from the system). Optional: role (defaults to MEMBER), accepted, disableImpersonation. Ask the user for the userId — never guess.",
       inputSchema: createTeamMembershipSchema,
       annotations: CREATE,
     },
@@ -726,7 +728,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Update Team Membership",
       description:
-        "Update a team membership. Can change role or impersonation settings. Use get_team_memberships to find the membershipId — never guess.",
+        "Update a team membership. Can change accepted status, role, or impersonation settings. Use get_team_memberships to find the membershipId — never guess.",
       inputSchema: updateTeamMembershipSchema,
       annotations: UPDATE,
     },

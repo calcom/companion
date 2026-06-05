@@ -9,15 +9,26 @@ export const getTeamMembershipsSchema = {
     .number()
     .int()
     .describe("Team ID. Use get_me or list the user's teams to find this — never guess."),
-  take: z.number().int().max(100).optional().describe("Max results to return (max 100)"),
-  skip: z.number().int().optional().describe("Results to skip (offset)"),
+  take: z.number().int().min(1).max(250).optional().describe("Max results to return (1-250)"),
+  skip: z.number().int().min(0).optional().describe("Results to skip (offset, min 0)"),
+  emails: z
+    .array(z.string().email())
+    .max(20)
+    .optional()
+    .describe("Filter team memberships by email address (max 20 emails)"),
 };
 
-export async function getTeamMemberships(params: { teamId: number; take?: number; skip?: number }) {
+export async function getTeamMemberships(params: {
+  teamId: number;
+  take?: number;
+  skip?: number;
+  emails?: string[];
+}) {
   try {
     const qp: Record<string, string | number | boolean | undefined> = {};
     if (params.take !== undefined) qp.take = params.take;
     if (params.skip !== undefined) qp.skip = params.skip;
+    if (params.emails !== undefined) qp.emails = params.emails.join(",");
     const data = await calApi(`teams/${params.teamId}/memberships`, { params: qp });
     return ok(data);
   } catch (err) {
@@ -60,7 +71,10 @@ export const createTeamMembershipSchema = {
       "User ID of the person to add. Must be a real user ID — ask the user for this, never guess."
     ),
   accepted: z.boolean().optional().describe("Whether accepted"),
-  role: z.enum(["MEMBER", "OWNER", "ADMIN"]).describe("Role to assign"),
+  role: z
+    .enum(["MEMBER", "OWNER", "ADMIN"])
+    .optional()
+    .describe("Role to assign (defaults to MEMBER)"),
   disableImpersonation: z.boolean().optional().describe("Disable impersonation"),
 };
 
@@ -68,14 +82,14 @@ export async function createTeamMembership(params: {
   teamId: number;
   userId: number;
   accepted?: boolean;
-  role: "MEMBER" | "OWNER" | "ADMIN";
+  role?: "MEMBER" | "OWNER" | "ADMIN";
   disableImpersonation?: boolean;
 }) {
   try {
     const body: Record<string, unknown> = {};
     body.userId = params.userId;
     if (params.accepted !== undefined) body.accepted = params.accepted;
-    body.role = params.role;
+    if (params.role !== undefined) body.role = params.role;
     if (params.disableImpersonation !== undefined)
       body.disableImpersonation = params.disableImpersonation;
     const data = await calApi(`teams/${params.teamId}/memberships`, { method: "POST", body });
@@ -96,6 +110,7 @@ export const updateTeamMembershipSchema = {
     .number()
     .int()
     .describe("Membership ID. Use get_team_memberships to find this — never guess."),
+  accepted: z.boolean().optional().describe("Whether accepted"),
   role: z.enum(["MEMBER", "OWNER", "ADMIN"]).optional().describe("New role"),
   disableImpersonation: z.boolean().optional().describe("Disable impersonation"),
 };
@@ -103,11 +118,13 @@ export const updateTeamMembershipSchema = {
 export async function updateTeamMembership(params: {
   teamId: number;
   membershipId: number;
+  accepted?: boolean;
   role?: "MEMBER" | "OWNER" | "ADMIN";
   disableImpersonation?: boolean;
 }) {
   try {
     const body: Record<string, unknown> = {};
+    if (params.accepted !== undefined) body.accepted = params.accepted;
     if (params.role !== undefined) body.role = params.role;
     if (params.disableImpersonation !== undefined)
       body.disableImpersonation = params.disableImpersonation;

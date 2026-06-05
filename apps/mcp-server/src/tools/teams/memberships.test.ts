@@ -33,6 +33,17 @@ describe("getTeamMemberships", () => {
     expect(getTeamMembershipsSchema.take.safeParse(1.5).success).toBe(false);
     expect(getTeamMembershipsSchema.skip.safeParse(1.5).success).toBe(false);
   });
+  it("enforces OpenAPI pagination and email filter bounds", () => {
+    expect(getTeamMembershipsSchema.take.safeParse(0).success).toBe(false);
+    expect(getTeamMembershipsSchema.take.safeParse(250).success).toBe(true);
+    expect(getTeamMembershipsSchema.take.safeParse(251).success).toBe(false);
+    expect(getTeamMembershipsSchema.skip.safeParse(-1).success).toBe(false);
+    expect(getTeamMembershipsSchema.emails.safeParse(["user@example.com"]).success).toBe(true);
+    expect(getTeamMembershipsSchema.emails.safeParse(["not-an-email"]).success).toBe(false);
+    expect(
+      getTeamMembershipsSchema.emails.safeParse(Array(21).fill("user@example.com")).success
+    ).toBe(false);
+  });
   it("returns data on success", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success" });
     const result = await getTeamMemberships({ teamId: 1 });
@@ -41,9 +52,14 @@ describe("getTeamMemberships", () => {
   });
   it("passes pagination params", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success" });
-    await getTeamMemberships({ teamId: 1, take: 10, skip: 5 });
+    await getTeamMemberships({
+      teamId: 1,
+      take: 10,
+      skip: 5,
+      emails: ["a@example.com", "b@example.com"],
+    });
     expect(mockCalApi).toHaveBeenCalledWith("teams/1/memberships", {
-      params: { take: 10, skip: 5 },
+      params: { take: 10, skip: 5, emails: "a@example.com,b@example.com" },
     });
   });
   it("handles API errors", async () => {
@@ -95,6 +111,14 @@ describe("createTeamMembership", () => {
       body: { userId: 5, role: "ADMIN", accepted: true },
     });
   });
+  it("omits role when not provided so the API default can apply", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success" });
+    await createTeamMembership({ teamId: 1, userId: 5 });
+    expect(mockCalApi).toHaveBeenCalledWith("teams/1/memberships", {
+      method: "POST",
+      body: { userId: 5 },
+    });
+  });
   it("handles API errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(400, "Bad request", {}));
     const result = await createTeamMembership({ teamId: 1, userId: 5, role: "MEMBER" });
@@ -115,10 +139,10 @@ describe("updateTeamMembership", () => {
   });
   it("sends correct body", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success" });
-    await updateTeamMembership({ teamId: 1, membershipId: 42, role: "OWNER" });
+    await updateTeamMembership({ teamId: 1, membershipId: 42, role: "OWNER", accepted: true });
     expect(mockCalApi).toHaveBeenCalledWith("teams/1/memberships/42", {
       method: "PATCH",
-      body: { role: "OWNER" },
+      body: { role: "OWNER", accepted: true },
     });
   });
   it("handles API errors", async () => {

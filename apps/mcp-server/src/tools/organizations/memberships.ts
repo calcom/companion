@@ -7,8 +7,8 @@ export const getOrgMembershipsSchema = {
     .number()
     .int()
     .describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
-  take: z.number().int().max(100).optional().describe("Max results to return (max 100)"),
-  skip: z.number().int().optional().describe("Results to skip (offset)"),
+  take: z.number().int().min(1).max(250).optional().describe("Max results to return (1-250)"),
+  skip: z.number().int().min(0).optional().describe("Results to skip (offset, min 0)"),
 };
 
 export async function getOrgMemberships(params: { orgId: number; take?: number; skip?: number }) {
@@ -57,6 +57,20 @@ export async function createOrgMembership(params: {
   if ((params.userId === undefined) === (params.email === undefined)) {
     return {
       content: [{ type: "text" as const, text: "Error: Provide exactly one of userId or email." }],
+      isError: true as const,
+    };
+  }
+  if (
+    params.email !== undefined &&
+    (params.accepted !== undefined || params.disableImpersonation !== undefined)
+  ) {
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: "Error: accepted and disableImpersonation are only supported when using userId.",
+        },
+      ],
       isError: true as const,
     };
   }

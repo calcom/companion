@@ -265,7 +265,7 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 ### Organizations: Memberships (5)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
-| `get_org_memberships` | List Org Memberships | Read | Get all organization memberships |
+| `get_org_memberships` | List Org Memberships | Read | Get all organization memberships; supports `take`/`skip` pagination (`take` max 250) |
 | `create_org_membership` | Create Org Membership | Create | Create an organization membership |
 | `get_org_membership` | Get Org Membership | Read | Get an organization membership |
 | `update_org_membership` | Update Org Membership | Update | Update an organization membership (role, accepted, impersonation) |
@@ -286,10 +286,10 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 ### Teams: Memberships (6)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
-| `get_team_memberships` | List Team Memberships | Read | Get all team memberships |
+| `get_team_memberships` | List Team Memberships | Read | Get all team memberships; supports `take`/`skip` pagination (`take` max 250) and email filtering |
 | `get_team_membership` | Get Team Membership | Read | Get a team membership |
-| `create_team_membership` | Create Team Membership | Create | Create a team membership |
-| `update_team_membership` | Update Team Membership | Update | Update a team membership (role, impersonation) |
+| `create_team_membership` | Create Team Membership | Create | Create a team membership (role defaults to `MEMBER`) |
+| `update_team_membership` | Update Team Membership | Update | Update a team membership (accepted, role, impersonation) |
 | `delete_team_membership` | Delete Team Membership | Destructive | Delete a team membership |
 | `create_team_invite` | Create Team Invite | Create | Generate a team invite link |
 
