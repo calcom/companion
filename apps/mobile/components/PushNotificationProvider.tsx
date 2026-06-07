@@ -128,9 +128,11 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
   const loadingRef = useRef(loading);
   const routerRef = useRef(router);
   const queryClientRef = useRef(queryClient);
-  // A booking-request action received while auth is still restoring is parked
-  // here and replayed by the drain effect once `loading` settles.
-  const pendingActionRef = useRef<Notifications.NotificationResponse | null>(null);
+  // Booking-request actions received while auth is still restoring are parked
+  // here and replayed by the drain effect once `loading` settles. Keep a queue
+  // so multiple actions cannot overwrite each other after they have already
+  // been claimed in the dedupe set.
+  const pendingActionsRef = useRef<Notifications.NotificationResponse[]>([]);
 
   useEffect(() => {
     isAuthenticatedRef.current = isAuthenticated;
@@ -253,13 +255,13 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
       void (async () => {
         await hydrateHandledActions();
         if (!claimActionKeySync(key)) return;
-        void persistHandledActions();
+        await persistHandledActions();
 
         if (loadingRef.current) {
           // Auth is still restoring; park the action and let the drain effect
           // run it once `loading` settles instead of treating it as
           // unauthenticated.
-          pendingActionRef.current = response;
+          pendingActionsRef.current.push(response);
           return;
         }
 
@@ -273,10 +275,12 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
   // Replay a parked action once auth finishes restoring.
   useEffect(() => {
     if (loading) return;
-    const pending = pendingActionRef.current;
-    if (!pending) return;
-    pendingActionRef.current = null;
-    void executeBookingRequestAction(pending);
+    const pending = pendingActionsRef.current;
+    if (pending.length === 0) return;
+    pendingActionsRef.current = [];
+    for (const response of pending) {
+      void executeBookingRequestAction(response);
+    }
   }, [loading, executeBookingRequestAction]);
 
   // Register token on login. The registration promise is tracked in a ref so
@@ -379,7 +383,7 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
         await hydrateHandledActions();
         const key = actionDedupeKey(id, actionId);
         if (!claimActionKeySync(key)) return;
-        void persistHandledActions();
+        await persistHandledActions();
         try {
           Notifications.clearLastNotificationResponse();
         } catch {
