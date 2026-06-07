@@ -17,7 +17,7 @@ import {
   requestAndRegisterPushToken,
 } from "@/hooks/use-push-notifications";
 import { CalComAPIService } from "@/services/calcom";
-import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
+import { showInfoAlert, showSuccessAlert } from "@/utils/alerts";
 
 // How long the pre-logout callback waits for an in-flight registration to
 // settle before deregistering, so a token that registered moments before
@@ -210,10 +210,10 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
       try {
         if (actionId === CONFIRM_BOOKING_REQUEST_ACTION_ID) {
           await CalComAPIService.confirmBooking(bookingUid);
-          showSilentSuccessAlert("Success", "Booking confirmed successfully");
+          showSuccessAlert("Success", "Booking confirmed successfully");
         } else if (actionId === DECLINE_BOOKING_REQUEST_ACTION_ID) {
           await CalComAPIService.declineBooking(bookingUid);
-          showSilentSuccessAlert("Success", "Booking declined successfully");
+          showSuccessAlert("Success", "Booking declined successfully");
         } else {
           return;
         }
@@ -221,9 +221,11 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
       } catch (error) {
         // Includes the non-idempotent "Booking already confirmed" case — show
         // it as feedback rather than retrying, then refresh so the UI reflects
-        // the booking's true server state.
+        // the booking's true server state. The action was triggered from a
+        // notification (likely outside the app), so feedback must be visible on
+        // native — showInfoAlert always surfaces, unlike the dev-only error alert.
         const message = error instanceof Error ? error.message : "Please try again.";
-        showErrorAlert("Action failed", message);
+        showInfoAlert("Action failed", message);
         await refresh();
       }
     },
@@ -241,21 +243,28 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
       }
 
       const key = actionDedupeKey(response.notification.request.identifier, actionId);
-      // Synchronous claim before any await — guarantees the listener and the
-      // cold-start path can't both submit the same action.
-      if (!claimActionKeySync(key)) {
-        return true;
-      }
-      void persistHandledActions();
+      // Hydrate the persisted set before claiming so a cross-session replay (or
+      // a launch response the listener receives before the cold-start effect
+      // hydrates) is recognised. `claimActionKeySync` stays synchronous, so even
+      // if the listener and cold-start paths both await hydration, whichever
+      // resumes first claims and the other sees it claimed — single-threaded
+      // resume keeps the double-submit guarantee intact. We return true
+      // synchronously below so a plain-tap fallthrough is always suppressed.
+      void (async () => {
+        await hydrateHandledActions();
+        if (!claimActionKeySync(key)) return;
+        void persistHandledActions();
 
-      if (loadingRef.current) {
-        // Auth is still restoring; park the action and let the drain effect run
-        // it once `loading` settles instead of treating it as unauthenticated.
-        pendingActionRef.current = response;
-        return true;
-      }
+        if (loadingRef.current) {
+          // Auth is still restoring; park the action and let the drain effect
+          // run it once `loading` settles instead of treating it as
+          // unauthenticated.
+          pendingActionRef.current = response;
+          return;
+        }
 
-      void executeBookingRequestAction(response);
+        void executeBookingRequestAction(response);
+      })();
       return true;
     },
     [executeBookingRequestAction]
