@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **43 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Routing Forms, Organizations, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **51 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
 - **Per-user token storage** — encrypted at rest with AES-256-GCM in SQLite
@@ -178,7 +178,7 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - Expired tokens are cleaned up automatically every 5 minutes
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
 
-## Tools (43)
+## Tools (51)
 
 Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specification/draft/server/tools#tool-annotations) — a human-readable `title` plus behaviour hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP clients can render them appropriately and apply safety policies.
 
@@ -270,17 +270,33 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 ### Organizations: Memberships (5)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
-| `get_org_memberships` | List Org Memberships | Read | Get all organization memberships |
+| `get_org_memberships` | List Org Memberships | Read | Get all organization memberships; supports `take`/`skip` pagination (`take` max 250) |
 | `create_org_membership` | Create Org Membership | Create | Create an organization membership |
 | `get_org_membership` | Get Org Membership | Read | Get an organization membership |
 | `update_org_membership` | Update Org Membership | Update | Update an organization membership (role, accepted, impersonation) |
 | `delete_org_membership` | Delete Org Membership | Destructive | Delete an organization membership |
+
+### Organizations: Teams (2)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_org_teams` | List All Org Teams | Read | List all teams in an organization; requires org admin access; supports `take`/`skip` pagination (`take` max 250) |
+| `get_my_teams` | List My Teams | Read | List teams the authenticated user belongs to; supports `take`/`skip` pagination (`take` max 250) |
 
 ### Organizations: Routing Forms (2)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_org_routing_forms` | List Org Routing Forms | Read | Get organization routing forms |
 | `get_org_routing_form_responses` | List Org Routing Form Responses | Read | Get routing form responses |
+
+### Teams: Memberships (6)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_team_memberships` | List Team Memberships | Read | Get all team memberships; supports `take`/`skip` pagination (`take` max 250) and email filtering |
+| `get_team_membership` | Get Team Membership | Read | Get a team membership |
+| `create_team_membership` | Create Team Membership | Create | Create a team membership (role defaults to `MEMBER`) |
+| `update_team_membership` | Update Team Membership | Update | Update a team membership (accepted, role, impersonation) |
+| `delete_team_membership` | Delete Team Membership | Destructive | Delete a team membership |
+| `create_team_invite` | Create Team Invite | Create | Generate a team invite link |
 
 ### API Version Notes
 
