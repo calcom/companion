@@ -32,8 +32,8 @@ export const bookingFiltersSchema = {
   sortEnd: z.enum(["asc", "desc"]).optional().describe("Sort by end time"),
   sortCreated: z.enum(["asc", "desc"]).optional().describe("Sort by creation time"),
   sortUpdatedAt: z.enum(["asc", "desc"]).optional().describe("Sort by updated time"),
-  take: z.number().int().optional().describe("Max results to return (default 100, max 250)"),
-  skip: z.number().int().optional().describe("Results to skip (offset)"),
+  take: z.number().int().min(1).max(250).optional().describe("Max results to return (1-250)"),
+  skip: z.number().int().min(0).optional().describe("Results to skip (offset, min 0)"),
 };
 
 export const bookingTeamFiltersSchema = {

@@ -13,10 +13,21 @@ import {
 
 const mockCalApi = vi.mocked(calApi);
 
-beforeEach(() => { vi.clearAllMocks(); });
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("getOrgTeamBookings", () => {
-  it("exports getOrgTeamBookingsSchema", () => { expect(getOrgTeamBookingsSchema).toBeDefined(); });
+  it("exports getOrgTeamBookingsSchema", () => {
+    expect(getOrgTeamBookingsSchema).toBeDefined();
+  });
+
+  it("enforces OpenAPI pagination bounds", () => {
+    expect(getOrgTeamBookingsSchema.take.safeParse(0).success).toBe(false);
+    expect(getOrgTeamBookingsSchema.take.safeParse(250).success).toBe(true);
+    expect(getOrgTeamBookingsSchema.take.safeParse(251).success).toBe(false);
+    expect(getOrgTeamBookingsSchema.skip.safeParse(-1).success).toBe(false);
+  });
 
   it("calls the correct endpoint", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success", data: [] });
@@ -60,7 +71,16 @@ describe("getOrgTeamBookings", () => {
 });
 
 describe("getOrgUserBookings", () => {
-  it("exports getOrgUserBookingsSchema", () => { expect(getOrgUserBookingsSchema).toBeDefined(); });
+  it("exports getOrgUserBookingsSchema", () => {
+    expect(getOrgUserBookingsSchema).toBeDefined();
+  });
+
+  it("enforces OpenAPI pagination bounds", () => {
+    expect(getOrgUserBookingsSchema.take.safeParse(0).success).toBe(false);
+    expect(getOrgUserBookingsSchema.take.safeParse(250).success).toBe(true);
+    expect(getOrgUserBookingsSchema.take.safeParse(251).success).toBe(false);
+    expect(getOrgUserBookingsSchema.skip.safeParse(-1).success).toBe(false);
+  });
 
   it("calls the correct endpoint", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success", data: [] });
