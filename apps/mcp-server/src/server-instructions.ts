@@ -15,6 +15,7 @@ CAPABILITIES — what you CAN do with the available tools:
 - View connected calendars and busy times
 - List connected conferencing apps
 - Work with routing forms and their responses (organization-level)
+- View the routing trace for a booking — how it was routed (get_booking_routing_trace)
 - Manage organization memberships
 - Manage team memberships and team invite links
 - List organization teams and list teams the authenticated user belongs to
