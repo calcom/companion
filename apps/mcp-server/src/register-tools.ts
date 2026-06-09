@@ -78,6 +78,11 @@ import {
   calculateRoutingFormSlots,
 } from "./tools/routing-forms.js";
 
+// ── Booking Routing Trace ──
+import {
+  getBookingRoutingTraceSchema,
+  getBookingRoutingTrace,
+} from "./tools/booking-routing-trace.js";
 // ── Organizations: Attributes ──
 import {
   getOrgAttributesSchema,
@@ -499,6 +504,19 @@ export function registerTools(server: McpServer): void {
       annotations: READ_ONLY,
     },
     getConferencingApps
+  );
+
+  // ── Booking Routing Trace (1) ──
+  server.registerTool(
+    "get_booking_routing_trace",
+    {
+      title: "Get Booking Routing Trace",
+      description:
+        "Get the routing trace for a booking — the step-by-step decision path showing how the booking was routed (routing form evaluation, CRM lookups, host selection). Returns human-readable steps grouped by round, plus the routing form submission answers. Only available for bookings that completed routing (permanent traces). Use get_bookings to find booking UIDs.",
+      inputSchema: getBookingRoutingTraceSchema,
+      annotations: READ_ONLY,
+    },
+    getBookingRoutingTrace,
   );
 
   // ── Routing Forms (1) ──

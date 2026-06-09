@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **52 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **53 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
 - **Per-user token storage** — encrypted at rest with AES-256-GCM in SQLite
@@ -179,7 +179,7 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - Expired tokens are cleaned up automatically every 5 minutes
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
 
-## Tools (52)
+## Tools (53)
 
 Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specification/draft/server/tools#tool-annotations) — a human-readable `title` plus behaviour hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP clients can render them appropriately and apply safety policies.
 
@@ -246,6 +246,11 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_conferencing_apps` | List Conferencing Apps | Read | List conferencing applications |
+
+### Booking Routing Trace (1)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_booking_routing_trace` | Get Booking Routing Trace | Read | Get the step-by-step routing decision path for a booking (routing form evaluation, CRM lookups, host selection). Only for bookings that completed routing. |
 
 ### Routing Forms (1)
 | Tool | Title | Hint | Description |
