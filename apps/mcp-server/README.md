@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **51 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **52 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
 - **Per-user token storage** — encrypted at rest with AES-256-GCM in SQLite
@@ -178,7 +178,7 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - Expired tokens are cleaned up automatically every 5 minutes
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
 
-## Tools (51)
+## Tools (52)
 
 Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specification/draft/server/tools#tool-annotations) — a human-readable `title` plus behaviour hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP clients can render them appropriately and apply safety policies.
 
@@ -197,11 +197,12 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 | `get_me` | Get My Profile | Read | Get authenticated user profile |
 | `update_me` | Update My Profile | Update | Update user profile |
 
-### Event Types (5)
+### Event Types (6)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_event_types` | List Event Types | Read | List all event types |
 | `get_event_type` | Get Event Type | Read | Get a specific event type by ID |
+| `get_round_robin_config` | Get Round-Robin Config | Read | Get round-robin scheduling config for a team event type |
 | `create_event_type` | Create Event Type | Create | Create a new event type |
 | `update_event_type` | Update Event Type | Update | Update an event type |
 | `delete_event_type` | Delete Event Type | Destructive | Delete an event type |

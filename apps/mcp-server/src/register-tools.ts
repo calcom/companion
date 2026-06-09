@@ -16,6 +16,8 @@ import {
   updateEventType,
   deleteEventTypeSchema,
   deleteEventType,
+  getRoundRobinConfigSchema,
+  getRoundRobinConfig,
 } from "./tools/event-types.js";
 
 // ── Bookings ──
@@ -214,7 +216,7 @@ export function registerTools(server: McpServer): void {
     updateMe
   );
 
-  // ── Event Types (5) ──
+  // ── Event Types (6) ──
   server.registerTool(
     "get_event_types",
     {
@@ -269,6 +271,17 @@ export function registerTools(server: McpServer): void {
       annotations: DESTRUCTIVE,
     },
     deleteEventType
+  );
+  server.registerTool(
+    "get_round_robin_config",
+    {
+      title: "Get Round-Robin Config",
+      description:
+        "Get the round-robin scheduling configuration for a team event type. Returns hosts (with priority, weight, mandatory status, group assignment), host groups, distribution settings (maxLeadThreshold), and advanced settings (weights enabled, no-show calculation, CRM fallback). The event type must be a team event type with round-robin scheduling — returns 422 otherwise.",
+      inputSchema: getRoundRobinConfigSchema,
+      annotations: READ_ONLY,
+    },
+    getRoundRobinConfig
   );
 
   // ── Bookings (10) ──

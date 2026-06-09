@@ -306,3 +306,21 @@ export async function deleteEventType(params: { eventTypeId: number }) {
     return handleError("delete_event_type", err);
   }
 }
+
+export const getRoundRobinConfigSchema = {
+  eventTypeId: z
+    .number()
+    .int()
+    .describe(
+      "Event type ID. Must be a team event type with round-robin scheduling. Use get_event_types to find this."
+    ),
+};
+
+export async function getRoundRobinConfig(params: { eventTypeId: number }) {
+  try {
+    const data = await calApi(`event-types/${params.eventTypeId}/round-robin`);
+    return ok(data);
+  } catch (err) {
+    return handleError("get_round_robin_config", err);
+  }
+}

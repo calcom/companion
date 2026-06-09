@@ -7,6 +7,7 @@ export const SERVER_INSTRUCTIONS = `You are connected to the Cal.com MCP server.
 CAPABILITIES — what you CAN do with the available tools:
 - Manage the user's profile (get_me, update_me)
 - List, create, update, and delete event types
+- Get round-robin scheduling configuration for team event types (hosts, priorities, weights, groups, distribution settings)
 - List, get, create, reschedule, cancel, and confirm bookings
 - Manage booking attendees (list, get, add)
 - Mark bookings as absent (no-show)
