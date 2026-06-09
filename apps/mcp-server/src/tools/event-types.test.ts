@@ -184,7 +184,8 @@ describe("getRoundRobinConfig schema", () => {
 
   it("requires eventTypeId to be a positive integer", () => {
     expect(getRoundRobinConfigSchema.eventTypeId.safeParse(1).success).toBe(true);
-    expect(getRoundRobinConfigSchema.eventTypeId.safeParse(0).success).toBe(true);
+    expect(getRoundRobinConfigSchema.eventTypeId.safeParse(0).success).toBe(false);
+    expect(getRoundRobinConfigSchema.eventTypeId.safeParse(-1).success).toBe(false);
     expect(getRoundRobinConfigSchema.eventTypeId.safeParse(1.5).success).toBe(false);
     expect(getRoundRobinConfigSchema.eventTypeId.safeParse("abc").success).toBe(false);
   });

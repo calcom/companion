@@ -311,6 +311,7 @@ export const getRoundRobinConfigSchema = {
   eventTypeId: z
     .number()
     .int()
+    .positive()
     .describe(
       "Event type ID. Must be a team event type with round-robin scheduling. Use get_event_types to find this."
     ),
