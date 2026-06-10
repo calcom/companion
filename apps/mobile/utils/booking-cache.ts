@@ -173,6 +173,14 @@ export const updateBookingCaches = (queryClient: QueryClient, updatedBooking: Bo
   }
 };
 
+export const syncBookingCachesAfterMutation = (
+  queryClient: QueryClient,
+  updatedBooking: Booking
+): void => {
+  updateBookingCaches(queryClient, updatedBooking);
+  void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
+};
+
 export const getBookingForCacheUpdate = (
   queryClient: QueryClient,
   bookingUid: string,

@@ -13,7 +13,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
 import { RatingTrigger, requestRating } from "@/hooks/useAppStoreRating";
 import { type Booking, CalComAPIService } from "@/services/calcom";
-import { updateBookingCaches } from "@/utils/booking-cache";
+import { syncBookingCachesAfterMutation } from "@/utils/booking-cache";
 
 /**
  * Filter options for fetching bookings
@@ -221,7 +221,7 @@ export function useConfirmBooking() {
     mutationFn: ({ uid }: { uid: string }) => CalComAPIService.confirmBooking(uid),
     retry: false,
     onSuccess: (updatedBooking) => {
-      updateBookingCaches(queryClient, updatedBooking);
+      syncBookingCachesAfterMutation(queryClient, updatedBooking);
 
       // Request app store rating on first booking confirmation
       requestRating(RatingTrigger.BOOKING_CONFIRMED);
@@ -252,7 +252,7 @@ export function useDeclineBooking() {
       CalComAPIService.declineBooking(uid, reason),
     retry: false,
     onSuccess: (updatedBooking) => {
-      updateBookingCaches(queryClient, updatedBooking);
+      syncBookingCachesAfterMutation(queryClient, updatedBooking);
 
       // Request app store rating on first booking rejection
       requestRating(RatingTrigger.BOOKING_REJECTED);

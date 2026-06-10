@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/config/cache.config";
+import * as bookingCache from "@/utils/booking-cache";
 import {
   bookingMatchesListFilters,
   getBookingForCacheUpdate,
@@ -169,5 +170,27 @@ describe("booking cache list helpers", () => {
     expect(getBookingForCacheUpdate(queryClient, pendingBooking.uid, pendingBooking)).toEqual(
       confirmedBooking
     );
+  });
+
+  test("syncs mutation results immediately and invalidates bookings for server reconciliation", () => {
+    const queryClient = new QueryClient();
+    const pendingBooking = booking({ status: "pending" });
+    const confirmedBooking = booking({ status: "accepted" });
+    const invalidations = [];
+
+    queryClient.invalidateQueries = (filters) => {
+      invalidations.push(filters);
+      return Promise.resolve();
+    };
+
+    queryClient.setQueryData(queryKeys.bookings.detail(pendingBooking.uid), pendingBooking);
+
+    expect(typeof bookingCache.syncBookingCachesAfterMutation).toBe("function");
+    bookingCache.syncBookingCachesAfterMutation(queryClient, confirmedBooking);
+
+    expect(queryClient.getQueryData(queryKeys.bookings.detail(pendingBooking.uid))).toEqual(
+      confirmedBooking
+    );
+    expect(invalidations).toContainEqual({ queryKey: queryKeys.bookings.all });
   });
 });
