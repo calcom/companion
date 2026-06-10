@@ -1,15 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Text, useColorScheme, View } from "react-native";
 import { AppPressable } from "@/components/AppPressable";
+import { getBookingRequestActionState } from "@/components/screens/BookingDetailRequestActions.state";
 import type { Booking } from "@/services/calcom";
-import {
-  isBookingInPast,
-  isBookingPending,
-  isUserHost,
-  isUserOrganizer,
-  normalizeBooking,
-} from "@/utils/booking-actions";
-import { getBookingPaymentStatus } from "@/utils/booking-payment-status";
+
+export {
+  canRespondToBookingRequest,
+  getBookingRequestActionState,
+} from "@/components/screens/BookingDetailRequestActions.state";
 
 type RequestActionColors = {
   cardBackground: string;
@@ -18,44 +16,6 @@ type RequestActionColors = {
   border: string;
   destructive: string;
 };
-
-type CanRespondToBookingRequestParams = {
-  booking: Booking;
-  currentUserId?: number;
-  currentUserEmail?: string;
-  now?: Date;
-};
-
-type BookingRequestActionState = {
-  canConfirm: boolean;
-  canReject: boolean;
-};
-
-export function getBookingRequestActionState({
-  booking,
-  currentUserId,
-  currentUserEmail,
-  now = new Date(),
-}: CanRespondToBookingRequestParams): BookingRequestActionState {
-  const normalizedBooking = normalizeBooking(booking);
-  const isPending = isBookingPending(normalizedBooking);
-  const isPast = isBookingInPast(normalizedBooking, now);
-  const { isPendingPayment } = getBookingPaymentStatus(booking);
-  const isOrganizer = isUserOrganizer(normalizedBooking, currentUserId, currentUserEmail);
-  const isHost = isUserHost(normalizedBooking, currentUserId, currentUserEmail);
-  const hasUnpaidPayment =
-    booking.paid !== true && ((booking.payment?.length ?? 0) > 0 || isPendingPayment);
-  const canReject = isPending && !isPast && (isOrganizer || isHost);
-
-  return {
-    canConfirm: canReject && !hasUnpaidPayment,
-    canReject,
-  };
-}
-
-export function canRespondToBookingRequest(params: CanRespondToBookingRequestParams): boolean {
-  return getBookingRequestActionState(params).canReject;
-}
 
 type BookingDetailRequestActionsProps = {
   booking: Booking;
