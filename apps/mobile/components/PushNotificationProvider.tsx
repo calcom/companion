@@ -111,7 +111,12 @@ function handleNotificationUrl(url: string, router: ReturnType<typeof useRouter>
     const parsed = Linking.parse(url);
     const uid = typeof parsed.queryParams?.uid === "string" ? parsed.queryParams.uid : null;
     if (uid) {
-      router.push(`/(tabs)/(bookings)/booking-detail?uid=${encodeURIComponent(uid)}`);
+      router.push(
+        `/(tabs)/(bookings)/booking-detail?uid=${encodeURIComponent(uid)}&source=notification`,
+        {
+          withAnchor: true,
+        }
+      );
     }
   } catch {
     // Malformed deep link — ignore.

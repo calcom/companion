@@ -1,6 +1,6 @@
 import * as Clipboard from "expo-clipboard";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef } from "react";
 import { useColorScheme } from "react-native";
 import { BookingDetailScreen } from "@/components/screens/BookingDetailScreen";
@@ -44,9 +44,11 @@ const getMonthName = (dateString: string | undefined): string => {
 };
 
 export default function BookingDetailIOS() {
-  const { uid } = useLocalSearchParams<{ uid: string }>();
+  const { uid, source } = useLocalSearchParams<{ uid: string; source?: string }>();
   const { userInfo } = useAuth();
+  const router = useRouter();
   const colorScheme = useColorScheme();
+  const openedFromNotification = source === "notification";
 
   // Use React Query hook for booking data - single source of truth
   const { data: booking, isLoading, error, refetch, isRefetching } = useBookingByUid(uid);
@@ -81,6 +83,7 @@ export default function BookingDetailIOS() {
     const startTime = enrichedBooking?.start || enrichedBooking?.startTime;
     return getMonthName(startTime);
   }, [enrichedBooking?.start, enrichedBooking?.startTime]);
+  const backTitle = openedFromNotification ? "Bookings" : monthName;
 
   // Get meeting URL for Join button
   const meetingUrl = useMemo(() => getMeetingUrl(enrichedBooking ?? null), [enrichedBooking]);
@@ -91,6 +94,10 @@ export default function BookingDetailIOS() {
       openInDefaultBrowser(meetingUrl, "meeting link");
     }
   }, [meetingUrl]);
+
+  const handleBackToBookings = useCallback(() => {
+    router.replace("/(tabs)/(bookings)");
+  }, [router]);
 
   // Handle copy meeting link
   const handleCopyMeetingLink = useCallback(async () => {
@@ -224,7 +231,7 @@ export default function BookingDetailIOS() {
       <Stack.Screen
         options={{
           title: "Booking", // This appears in long-press navigation history
-          headerBackTitle: monthName, // This shows on the back button
+          headerBackTitle: backTitle, // This shows on the back button
           headerBackButtonDisplayMode: "default",
           headerTitle: "", // Hide the title in the header bar itself
           headerShadowVisible: false,
@@ -236,6 +243,20 @@ export default function BookingDetailIOS() {
         style={{ backgroundColor: "transparent", shadowColor: "transparent" }}
         blurEffect={isLiquidGlassAvailable() ? undefined : "light"}
       >
+        {openedFromNotification ? (
+          <Stack.Header.Left>
+            <Stack.Header.Button
+              accessibilityLabel="Back to bookings"
+              onPress={handleBackToBookings}
+              tintColor={colorScheme === "dark" ? "#FFF" : "#000"}
+            >
+              <Stack.Header.Icon sf="chevron.backward" />
+            </Stack.Header.Button>
+          </Stack.Header.Left>
+        ) : (
+          <Stack.Header.BackButton displayMode="default">{backTitle}</Stack.Header.BackButton>
+        )}
+
         <Stack.Header.Right>
           {/* Actions Menu */}
           <Stack.Header.Menu>
