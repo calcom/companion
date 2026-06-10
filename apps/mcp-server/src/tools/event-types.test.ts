@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CalApiError } from "../utils/errors.js";
 
 vi.mock("../utils/api-client.js", () => ({
@@ -7,18 +7,18 @@ vi.mock("../utils/api-client.js", () => ({
 
 import { calApi } from "../utils/api-client.js";
 import {
-  getEventTypes,
-  getEventType,
   createEventType,
-  updateEventType,
-  deleteEventType,
-  getRoundRobinConfig,
-  getEventTypesSchema,
-  getEventTypeSchema,
   createEventTypeSchema,
-  updateEventTypeSchema,
+  deleteEventType,
   deleteEventTypeSchema,
-  getRoundRobinConfigSchema,
+  getEventType,
+  getEventTypeSchema,
+  getEventTypes,
+  getEventTypesSchema,
+  getSchedulingConfig,
+  getSchedulingConfigSchema,
+  updateEventType,
+  updateEventTypeSchema,
 } from "./event-types.js";
 
 const mockCalApi = vi.mocked(calApi);
@@ -177,21 +177,21 @@ describe("deleteEventType", () => {
   });
 });
 
-describe("getRoundRobinConfig schema", () => {
-  it("exports getRoundRobinConfigSchema with eventTypeId", () => {
-    expect(getRoundRobinConfigSchema.eventTypeId).toBeDefined();
+describe("getSchedulingConfig schema", () => {
+  it("exports getSchedulingConfigSchema with eventTypeId", () => {
+    expect(getSchedulingConfigSchema.eventTypeId).toBeDefined();
   });
 
   it("requires eventTypeId to be a positive integer", () => {
-    expect(getRoundRobinConfigSchema.eventTypeId.safeParse(1).success).toBe(true);
-    expect(getRoundRobinConfigSchema.eventTypeId.safeParse(0).success).toBe(false);
-    expect(getRoundRobinConfigSchema.eventTypeId.safeParse(-1).success).toBe(false);
-    expect(getRoundRobinConfigSchema.eventTypeId.safeParse(1.5).success).toBe(false);
-    expect(getRoundRobinConfigSchema.eventTypeId.safeParse("abc").success).toBe(false);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(1).success).toBe(true);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(0).success).toBe(false);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(-1).success).toBe(false);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(1.5).success).toBe(false);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse("abc").success).toBe(false);
   });
 });
 
-describe("getRoundRobinConfig", () => {
+describe("getSchedulingConfig", () => {
   it("calls the correct API path", async () => {
     mockCalApi.mockResolvedValueOnce({
       eventTypeId: 10,
@@ -200,9 +200,9 @@ describe("getRoundRobinConfig", () => {
       hostGroups: [],
     });
 
-    const result = await getRoundRobinConfig({ eventTypeId: 10 });
+    const result = await getSchedulingConfig({ eventTypeId: 10 });
 
-    expect(mockCalApi).toHaveBeenCalledWith("event-types/10/round-robin");
+    expect(mockCalApi).toHaveBeenCalledWith("event-types/10/scheduling-config");
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.schedulingType).toBe("roundRobin");
   });
@@ -233,7 +233,7 @@ describe("getRoundRobinConfig", () => {
     };
     mockCalApi.mockResolvedValueOnce(mockResponse);
 
-    const result = await getRoundRobinConfig({ eventTypeId: 10 });
+    const result = await getSchedulingConfig({ eventTypeId: 10 });
 
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.hosts).toHaveLength(1);
@@ -244,9 +244,9 @@ describe("getRoundRobinConfig", () => {
   });
 
   it("handles errors", async () => {
-    mockCalApi.mockRejectedValueOnce(new CalApiError(422, "Not a round-robin event type", {}));
+    mockCalApi.mockRejectedValueOnce(new CalApiError(422, "Not a team event type", {}));
 
-    const result = await getRoundRobinConfig({ eventTypeId: 99 });
+    const result = await getSchedulingConfig({ eventTypeId: 99 });
 
     expect(result).toHaveProperty("isError", true);
   });

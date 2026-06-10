@@ -202,7 +202,7 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 |---|---|---|---|
 | `get_event_types` | List Event Types | Read | List all event types |
 | `get_event_type` | Get Event Type | Read | Get a specific event type by ID |
-| `get_round_robin_config` | Get Round-Robin Config | Read | Get round-robin scheduling config for a team event type |
+| `get_scheduling_config` | Get Scheduling Config | Read | Get scheduling configuration for a team event type |
 | `create_event_type` | Create Event Type | Create | Create a new event type |
 | `update_event_type` | Update Event Type | Update | Update an event type |
 | `delete_event_type` | Delete Event Type | Destructive | Delete an event type |
