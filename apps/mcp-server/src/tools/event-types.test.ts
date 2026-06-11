@@ -12,11 +12,13 @@ import {
   createEventType,
   updateEventType,
   deleteEventType,
+  getEventTypeSettings,
   getEventTypesSchema,
   getEventTypeSchema,
   createEventTypeSchema,
   updateEventTypeSchema,
   deleteEventTypeSchema,
+  getEventTypeSettingsSchema,
 } from "./event-types.js";
 
 const mockCalApi = vi.mocked(calApi);
@@ -64,6 +66,12 @@ describe("event-types schemas", () => {
 
   it("exports deleteEventTypeSchema", () => {
     expect(deleteEventTypeSchema.eventTypeId).toBeDefined();
+  });
+
+  it("exports getEventTypeSettingsSchema with required and optional fields", () => {
+    expect(getEventTypeSettingsSchema.eventTypeId).toBeDefined();
+    expect(getEventTypeSettingsSchema.orgId).toBeDefined();
+    expect(getEventTypeSettingsSchema.teamId).toBeDefined();
   });
 });
 
@@ -172,5 +180,69 @@ describe("deleteEventType", () => {
     await deleteEventType({ eventTypeId: 42 });
 
     expect(mockCalApi).toHaveBeenCalledWith("event-types/42", { method: "DELETE" });
+  });
+});
+
+describe("getEventTypeSettings", () => {
+  it("returns full event type settings from the API", async () => {
+    const apiResponse = {
+      id: 10,
+      title: "Team Meeting",
+      slug: "team-meeting",
+      schedulingType: "roundRobin",
+      assignAllTeamMembers: false,
+      lengthInMinutes: 30,
+      hosts: [
+        { userId: 1, name: "Alice", isFixed: false, priority: 2, weight: 100, scheduleId: 456 },
+        { userId: 2, name: "Bob", isFixed: true, priority: 1, weight: 50, scheduleId: null },
+      ],
+    };
+    mockCalApi.mockResolvedValueOnce(apiResponse);
+
+    const result = await getEventTypeSettings({ eventTypeId: 10 });
+
+    expect(mockCalApi).toHaveBeenCalledWith("event-types/10");
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed).toEqual(apiResponse);
+  });
+
+  it("uses org-scoped path when orgId and teamId are provided", async () => {
+    const apiResponse = {
+      id: 5,
+      schedulingType: "roundRobin",
+      assignAllTeamMembers: true,
+      hosts: [],
+    };
+    mockCalApi.mockResolvedValueOnce(apiResponse);
+
+    const result = await getEventTypeSettings({ eventTypeId: 5, orgId: 100, teamId: 200 });
+
+    expect(mockCalApi).toHaveBeenCalledWith("organizations/100/teams/200/event-types/5");
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed).toEqual(apiResponse);
+  });
+
+  it("returns whatever the API exposes without transformation", async () => {
+    const apiResponse = {
+      id: 7,
+      schedulingType: "collective",
+      hosts: [{ userId: 3, name: "Carol", isFixed: true }],
+      bookingLimitsCount: { day: 2 },
+      locations: [{ type: "inPerson", address: "123 Main St" }],
+    };
+    mockCalApi.mockResolvedValueOnce(apiResponse);
+
+    const result = await getEventTypeSettings({ eventTypeId: 7 });
+
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed).toEqual(apiResponse);
+  });
+
+  it("handles errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(404, "Not found", {}));
+
+    const result = await getEventTypeSettings({ eventTypeId: 999 });
+
+    expect(result).toHaveProperty("isError", true);
   });
 });

@@ -294,6 +294,30 @@ export async function updateEventType(params: {
   }
 }
 
+export const getEventTypeSettingsSchema = {
+  eventTypeId: z.number().int().describe("Event type ID. Use get_event_types to find this."),
+  orgId: z.number().int().optional().describe("Organization ID for org-scoped team event types. Use get_me to obtain your organizationId."),
+  teamId: z.number().int().optional().describe("Team ID for org-scoped team event types. Required together with orgId."),
+};
+
+export async function getEventTypeSettings(params: {
+  eventTypeId: number;
+  orgId?: number;
+  teamId?: number;
+}) {
+  try {
+    const path =
+      params.orgId !== undefined && params.teamId !== undefined
+        ? `organizations/${params.orgId}/teams/${params.teamId}/event-types/${params.eventTypeId}`
+        : `event-types/${params.eventTypeId}`;
+
+    const data = await calApi(path);
+    return ok(data);
+  } catch (err) {
+    return handleError("get_event_type_settings", err);
+  }
+}
+
 export const deleteEventTypeSchema = {
   eventTypeId: z.number().int().describe("Event type ID to delete. Use get_event_types to find this."),
 };

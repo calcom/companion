@@ -14,6 +14,8 @@ import {
   createEventType,
   updateEventTypeSchema,
   updateEventType,
+  getEventTypeSettingsSchema,
+  getEventTypeSettings,
   deleteEventTypeSchema,
   deleteEventType,
 } from "./tools/event-types.js";
@@ -214,7 +216,7 @@ export function registerTools(server: McpServer): void {
     updateMe
   );
 
-  // ── Event Types (5) ──
+  // ── Event Types (6) ──
   server.registerTool(
     "get_event_types",
     {
@@ -269,6 +271,17 @@ export function registerTools(server: McpServer): void {
       annotations: DESTRUCTIVE,
     },
     deleteEventType
+  );
+  server.registerTool(
+    "get_event_type_settings",
+    {
+      title: "Get Event Type Settings",
+      description:
+        "Get the full event type settings as exposed by the Cal.com API — including scheduling type, hosts, locations, booking fields, limits, and all other configuration. For org-scoped team event types, pass orgId + teamId.",
+      inputSchema: getEventTypeSettingsSchema,
+      annotations: READ_ONLY,
+    },
+    getEventTypeSettings,
   );
 
   // ── Bookings (10) ──
