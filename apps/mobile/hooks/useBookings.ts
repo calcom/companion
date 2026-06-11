@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
 import { RatingTrigger, requestRating } from "@/hooks/useAppStoreRating";
 import { type Booking, CalComAPIService } from "@/services/calcom";
+import { syncBookingCachesAfterMutation } from "@/utils/booking-cache";
 
 /**
  * Filter options for fetching bookings
@@ -219,14 +220,8 @@ export function useConfirmBooking() {
   return useMutation({
     mutationFn: ({ uid }: { uid: string }) => CalComAPIService.confirmBooking(uid),
     retry: false,
-    onSuccess: (_, variables) => {
-      // Invalidate all booking queries to refetch fresh data
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
-
-      // Also invalidate the specific booking detail
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.bookings.detail(variables.uid),
-      });
+    onSuccess: (updatedBooking) => {
+      syncBookingCachesAfterMutation(queryClient, updatedBooking);
 
       // Request app store rating on first booking confirmation
       requestRating(RatingTrigger.BOOKING_CONFIRMED);
@@ -256,14 +251,8 @@ export function useDeclineBooking() {
     mutationFn: ({ uid, reason }: { uid: string; reason?: string }) =>
       CalComAPIService.declineBooking(uid, reason),
     retry: false,
-    onSuccess: (_, variables) => {
-      // Invalidate all booking queries to refetch fresh data
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
-
-      // Also invalidate the specific booking detail
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.bookings.detail(variables.uid),
-      });
+    onSuccess: (updatedBooking) => {
+      syncBookingCachesAfterMutation(queryClient, updatedBooking);
 
       // Request app store rating on first booking rejection
       requestRating(RatingTrigger.BOOKING_REJECTED);

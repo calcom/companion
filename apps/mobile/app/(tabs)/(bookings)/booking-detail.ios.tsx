@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -10,6 +11,7 @@ import { useBookingByUid } from "@/hooks/useBookings";
 import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
 import { getMeetingUrl } from "@/utils/booking";
 import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
+import { getBookingForCacheUpdate, updateBookingCaches } from "@/utils/booking-cache";
 import { openInDefaultBrowser } from "@/utils/browser";
 
 // Empty actions result for when no booking is loaded
@@ -47,6 +49,7 @@ export default function BookingDetailIOS() {
   const { uid, source } = useLocalSearchParams<{ uid: string; source?: string }>();
   const { userInfo } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const colorScheme = useColorScheme();
   const openedFromNotification = source === "notification";
 
@@ -96,8 +99,15 @@ export default function BookingDetailIOS() {
   }, [meetingUrl]);
 
   const handleBackToBookings = useCallback(() => {
-    router.replace("/(tabs)/(bookings)");
-  }, [router]);
+    const bookingForCacheUpdate = getBookingForCacheUpdate(queryClient, uid, enrichedBooking);
+    if (bookingForCacheUpdate) {
+      updateBookingCaches(queryClient, bookingForCacheUpdate);
+    }
+    router.replace({
+      pathname: "/(tabs)/(bookings)",
+      params: { sync: Date.now().toString() },
+    });
+  }, [enrichedBooking, queryClient, router, uid]);
 
   // Handle copy meeting link
   const handleCopyMeetingLink = useCallback(async () => {
