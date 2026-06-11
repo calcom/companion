@@ -20,6 +20,7 @@ import { AppPressable } from "@/components/AppPressable";
 import { BookingActionsModal } from "@/components/BookingActionsModal";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
+import { BookingDetailRequestActions } from "@/components/screens/BookingDetailRequestActions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,7 +41,7 @@ import {
 import { Text as UIText } from "@/components/ui/text";
 import { getColors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCancelBooking } from "@/hooks/useBookings";
+import { useCancelBooking, useConfirmBooking, useDeclineBooking } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
 import { getMeetingUrl } from "@/utils/booking";
@@ -196,12 +197,18 @@ export function BookingDetailScreen({
 
   const [showActionsModal, setShowActionsModal] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
   const [participantsExpanded, setParticipantsExpanded] = useState(true);
 
   // Cancel booking mutation
   const cancelBookingMutation = useCancelBooking();
+  const confirmBookingMutation = useConfirmBooking();
+  const declineBookingMutation = useDeclineBooking();
   const isCancelling = cancelBookingMutation.isPending;
+  const isConfirming = confirmBookingMutation.isPending;
+  const isDeclining = declineBookingMutation.isPending;
 
   const contentInsets = {
     top: insets.top,
@@ -299,6 +306,91 @@ export function BookingDetailScreen({
     setShowCancelDialog(false);
     setCancellationReason("");
   }, []);
+
+  const handleConfirmBooking = useCallback(() => {
+    if (!booking || isConfirming || isDeclining) return;
+
+    confirmBookingMutation.mutate(
+      { uid: booking.uid },
+      {
+        onSuccess: () => {
+          showSuccessAlert("Success", "Booking confirmed successfully");
+        },
+        onError: (err) => {
+          console.error("Failed to confirm booking");
+          if (__DEV__) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.debug("[BookingDetailScreen] confirmBooking failed", { message });
+          }
+          showErrorAlert("Error", "Failed to confirm booking. Please try again.");
+        },
+      }
+    );
+  }, [booking, confirmBookingMutation, isConfirming, isDeclining]);
+
+  const performRejectBooking = useCallback(
+    (reason?: string) => {
+      if (!booking || isDeclining) return;
+
+      declineBookingMutation.mutate(
+        { uid: booking.uid, reason },
+        {
+          onSuccess: () => {
+            setShowRejectDialog(false);
+            setRejectReason("");
+            showSuccessAlert("Success", "Booking rejected successfully");
+          },
+          onError: (err) => {
+            console.error("Failed to reject booking");
+            if (__DEV__) {
+              const message = err instanceof Error ? err.message : String(err);
+              console.debug("[BookingDetailScreen] rejectBooking failed", { message });
+            }
+            showErrorAlert("Error", "Failed to reject booking. Please try again.");
+          },
+        }
+      );
+    },
+    [booking, declineBookingMutation, isDeclining]
+  );
+
+  const handleRejectBooking = useCallback(() => {
+    if (!booking || isConfirming || isDeclining) return;
+
+    if (Platform.OS === "android" || Platform.OS === "web") {
+      setRejectReason("");
+      setShowRejectDialog(true);
+      return;
+    }
+
+    Alert.prompt(
+      "Reject Booking",
+      "Add an optional reason for rejecting this booking request:",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reject Booking",
+          style: "destructive",
+          onPress: (reason?: string) => {
+            performRejectBooking(reason?.trim() || undefined);
+          },
+        },
+      ],
+      "plain-text",
+      "",
+      "default"
+    );
+  }, [booking, isConfirming, isDeclining, performRejectBooking]);
+
+  const handleConfirmReject = useCallback(() => {
+    performRejectBooking(rejectReason.trim() || undefined);
+  }, [performRejectBooking, rejectReason]);
+
+  const handleCloseRejectDialog = useCallback(() => {
+    if (isDeclining) return;
+    setShowRejectDialog(false);
+    setRejectReason("");
+  }, [isDeclining]);
 
   const handleReportBooking = useCallback(() => {
     showInfoAlert("Report Booking", "Report booking functionality is not yet available");
@@ -710,7 +802,7 @@ export function BookingDetailScreen({
             ) : null}
 
             {/* Payment and Confirmation Status Badges */}
-            {(isPendingPayment || isUnconfirmed) ? (
+            {isPendingPayment || isUnconfirmed ? (
               <View className="mt-3 flex-row flex-wrap items-center">
                 {isPendingPayment ? (
                   <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
@@ -725,6 +817,23 @@ export function BookingDetailScreen({
               </View>
             ) : null}
           </View>
+
+          <BookingDetailRequestActions
+            booking={booking}
+            currentUserId={userInfo?.id}
+            currentUserEmail={userInfo?.email}
+            isConfirming={isConfirming}
+            isDeclining={isDeclining}
+            onConfirm={handleConfirmBooking}
+            onReject={handleRejectBooking}
+            colors={{
+              cardBackground,
+              text: theme.text,
+              textSecondary: theme.textSecondary,
+              border: theme.border,
+              destructive: theme.destructive,
+            }}
+          />
 
           {/* Participants Card - iOS Calendar Style (Expandable) */}
           <View
@@ -1140,7 +1249,9 @@ export function BookingDetailScreen({
 
                   {/* Title and description */}
                   <View className="flex-1">
-                    <Text className="mb-2 text-xl font-semibold text-gray-900 dark:text-white">Cancel Event</Text>
+                    <Text className="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
+                      Cancel Event
+                    </Text>
                     <Text className="text-sm leading-5 text-gray-600 dark:text-[#A3A3A3]">
                       Are you sure you want to cancel "{booking?.title}"? Cancellation reason will
                       be shared with guests.
@@ -1174,14 +1285,92 @@ export function BookingDetailScreen({
                   style={{ backgroundColor: isDark ? "#FFFFFF" : "#111827" }}
                   onPress={handleConfirmCancel}
                 >
-                  <Text className="text-center text-base font-medium text-white dark:text-black">Cancel Event</Text>
+                  <Text className="text-center text-base font-medium text-white dark:text-black">
+                    Cancel Event
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 dark:border-[#4D4D4D] dark:bg-[#262626]"
                   onPress={handleCloseCancelDialog}
                 >
-                  <Text className="text-center text-base font-medium text-gray-700 dark:text-white">Nevermind</Text>
+                  <Text className="text-center text-base font-medium text-gray-700 dark:text-white">
+                    Nevermind
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </FullScreenModal>
+      )}
+
+      {/* Web/Extension: Reject Booking Request Modal */}
+      {Platform.OS === "web" && (
+        <FullScreenModal
+          visible={showRejectDialog}
+          animationType="fade"
+          onRequestClose={handleCloseRejectDialog}
+        >
+          <View className="flex-1 items-center justify-center bg-black/50 p-4">
+            <View className="w-full max-w-md rounded-2xl bg-white shadow-2xl dark:bg-[#171717]">
+              <View className="p-6">
+                <View className="flex-row">
+                  <View className="mr-3 self-start rounded-full bg-red-50 p-2 dark:bg-red-900/30">
+                    <Ionicons name="close-circle" size={20} color={theme.destructive} />
+                  </View>
+
+                  <View className="flex-1">
+                    <Text className="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
+                      Reject Booking Request
+                    </Text>
+                    <Text className="text-sm leading-5 text-gray-600 dark:text-[#A3A3A3]">
+                      The request will be declined. You can share a reason with the attendee.
+                    </Text>
+
+                    <View className="mt-4">
+                      <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-[#A3A3A3]">
+                        Reason for rejection
+                      </Text>
+                      <TextInput
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 dark:border-[#4D4D4D] dark:bg-[#262626] dark:text-white"
+                        placeholder="Why are you rejecting?"
+                        placeholderTextColor={isDark ? "#636366" : "#9CA3AF"}
+                        value={rejectReason}
+                        onChangeText={setRejectReason}
+                        editable={!isDeclining}
+                        multiline
+                        numberOfLines={3}
+                        textAlignVertical="top"
+                        style={{ minHeight: 80 }}
+                      />
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              <View className="flex-row-reverse gap-2 px-6 pb-6 pt-2">
+                <TouchableOpacity
+                  className="rounded-lg px-4 py-2.5"
+                  style={{
+                    backgroundColor: theme.destructive,
+                    opacity: isDeclining ? 0.6 : 1,
+                  }}
+                  disabled={isDeclining}
+                  onPress={handleConfirmReject}
+                >
+                  <Text className="text-center text-base font-medium text-white">
+                    {isDeclining ? "Rejecting..." : "Reject Request"}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 dark:border-[#4D4D4D] dark:bg-[#262626]"
+                  disabled={isDeclining}
+                  onPress={handleCloseRejectDialog}
+                >
+                  <Text className="text-center text-base font-medium text-gray-700 dark:text-white">
+                    Nevermind
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1226,6 +1415,65 @@ export function BookingDetailScreen({
               </AlertDialogCancel>
               <AlertDialogAction onPress={handleConfirmCancel}>
                 <UIText className="text-white">Cancel event</UIText>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Reject Booking Request AlertDialog (Android only) */}
+      {Platform.OS === "android" && (
+        <AlertDialog
+          open={showRejectDialog}
+          onOpenChange={(open) => {
+            if (open) {
+              setShowRejectDialog(true);
+              return;
+            }
+            handleCloseRejectDialog();
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader className="items-start">
+              <AlertDialogTitle>
+                <UIText className="text-left text-lg font-semibold">Reject booking request</UIText>
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                <UIText className="text-left text-sm text-muted-foreground">
+                  Rejection reason will be shared with the attendee
+                </UIText>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <View>
+              <UIText className="mb-2 text-sm font-medium">Reason for rejection</UIText>
+              <TextInput
+                className="rounded-md border border-[#D1D5DB] bg-white px-3 py-2.5 text-base text-[#111827] dark:border-[#4D4D4D] dark:bg-[#262626] dark:text-white"
+                placeholder="Why are you rejecting?"
+                placeholderTextColor={isDark ? "#636366" : "#9CA3AF"}
+                value={rejectReason}
+                onChangeText={setRejectReason}
+                editable={!isDeclining}
+                autoFocus
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+                style={{ minHeight: 80 }}
+              />
+            </View>
+
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeclining} onPress={handleCloseRejectDialog}>
+                <UIText>Nevermind</UIText>
+              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={isDeclining}
+                onPress={handleConfirmReject}
+                className="bg-destructive"
+              >
+                <UIText className="text-white">
+                  {isDeclining ? "Rejecting..." : "Reject request"}
+                </UIText>
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
