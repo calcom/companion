@@ -1,151 +1,141 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
-
-// ── Users ──
-import { getMeSchema, getMe, updateMeSchema, updateMe } from "./tools/users.js";
-
-// ── Event Types ──
+// ── Availability / Slots ──
+import { getAvailability, getAvailabilitySchema } from "./tools/availability.js";
+// ── Booking Routing Trace ──
 import {
-  getEventTypesSchema,
-  getEventTypes,
-  getEventTypeSchema,
-  getEventType,
-  createEventTypeSchema,
-  createEventType,
-  updateEventTypeSchema,
-  updateEventType,
-  deleteEventTypeSchema,
-  deleteEventType,
-} from "./tools/event-types.js";
+  getBookingRoutingTrace,
+  getBookingRoutingTraceSchema,
+} from "./tools/booking-routing-trace.js";
 
 // ── Bookings ──
 import {
-  getBookingsSchema,
-  getBookings,
-  getBookingSchema,
-  getBooking,
-  createBookingSchema,
-  createBooking,
-  rescheduleBookingSchema,
-  rescheduleBooking,
-  cancelBookingSchema,
-  cancelBooking,
-  confirmBookingSchema,
-  confirmBooking,
-  markBookingAbsentSchema,
-  markBookingAbsent,
-  getBookingAttendeesSchema,
-  getBookingAttendees,
-  addBookingAttendeeSchema,
   addBookingAttendee,
-  getBookingAttendeeSchema,
+  addBookingAttendeeSchema,
+  cancelBooking,
+  cancelBookingSchema,
+  confirmBooking,
+  confirmBookingSchema,
+  createBooking,
+  createBookingSchema,
+  getBooking,
   getBookingAttendee,
+  getBookingAttendeeSchema,
+  getBookingAttendees,
+  getBookingAttendeesSchema,
+  getBookingSchema,
+  getBookings,
+  getBookingsSchema,
+  markBookingAbsent,
+  markBookingAbsentSchema,
+  rescheduleBooking,
+  rescheduleBookingSchema,
 } from "./tools/bookings.js";
-
-// ── Schedules ──
-import {
-  getSchedulesSchema,
-  getSchedules,
-  getScheduleSchema,
-  getSchedule,
-  createScheduleSchema,
-  createSchedule,
-  updateScheduleSchema,
-  updateSchedule,
-  deleteScheduleSchema,
-  deleteSchedule,
-  getDefaultScheduleSchema,
-  getDefaultSchedule,
-} from "./tools/schedules.js";
-
-// ── Availability / Slots ──
-import { getAvailabilitySchema, getAvailability } from "./tools/availability.js";
-
 // ── Calendars ──
 import {
-  getConnectedCalendarsSchema,
-  getConnectedCalendars,
-  getBusyTimesSchema,
   getBusyTimes,
+  getBusyTimesSchema,
+  getConnectedCalendars,
+  getConnectedCalendarsSchema,
 } from "./tools/calendars.js";
-
 // ── Conferencing ──
-import { getConferencingAppsSchema, getConferencingApps } from "./tools/conferencing.js";
-
-// ── Routing Forms ──
+import { getConferencingApps, getConferencingAppsSchema } from "./tools/conferencing.js";
+// ── Event Types ──
 import {
-  calculateRoutingFormSlotsSchema,
-  calculateRoutingFormSlots,
-} from "./tools/routing-forms.js";
-
-// ── Booking Routing Trace ──
-import {
-  getBookingRoutingTraceSchema,
-  getBookingRoutingTrace,
-} from "./tools/booking-routing-trace.js";
+  createEventType,
+  createEventTypeSchema,
+  deleteEventType,
+  deleteEventTypeSchema,
+  getEventType,
+  getEventTypeSchema,
+  getEventTypes,
+  getEventTypesSchema,
+  getSchedulingConfig,
+  getSchedulingConfigSchema,
+  updateEventType,
+  updateEventTypeSchema,
+} from "./tools/event-types.js";
 // ── Organizations: Attributes ──
 import {
-  getOrgAttributesSchema,
-  getOrgAttributes,
-  getOrgAttributeSchema,
-  getOrgAttribute,
-  getAttributeOptionsSchema,
-  getAttributeOptions,
-  getUserAttributesSchema,
-  getUserAttributes,
-  assignAttributeToUserSchema,
   assignAttributeToUser,
-  updateUserAttributeSchema,
-  updateUserAttribute,
-  unassignAttributeFromUserSchema,
+  assignAttributeToUserSchema,
+  getAttributeOptions,
+  getAttributeOptionsSchema,
+  getOrgAttribute,
+  getOrgAttributeSchema,
+  getOrgAttributes,
+  getOrgAttributesSchema,
+  getUserAttributes,
+  getUserAttributesSchema,
   unassignAttributeFromUser,
+  unassignAttributeFromUserSchema,
+  updateUserAttribute,
+  updateUserAttributeSchema,
 } from "./tools/organizations/attributes.js";
-
 // ── Organizations: Memberships ──
 import {
-  getOrgMembershipsSchema,
-  getOrgMemberships,
-  createOrgMembershipSchema,
   createOrgMembership,
-  getOrgMembershipSchema,
-  getOrgMembership,
-  deleteOrgMembershipSchema,
+  createOrgMembershipSchema,
   deleteOrgMembership,
-  updateOrgMembershipSchema,
+  deleteOrgMembershipSchema,
+  getOrgMembership,
+  getOrgMembershipSchema,
+  getOrgMemberships,
+  getOrgMembershipsSchema,
   updateOrgMembership,
+  updateOrgMembershipSchema,
 } from "./tools/organizations/memberships.js";
-
-// ── Organizations: Teams ──
-import {
-  getOrgTeamsSchema,
-  getOrgTeams,
-  getMyTeamsSchema,
-  getMyTeams,
-} from "./tools/organizations/teams.js";
-
 // ── Organizations: Routing Forms ──
 import {
-  getOrgRoutingFormsSchema,
-  getOrgRoutingForms,
-  getOrgRoutingFormResponsesSchema,
   getOrgRoutingFormResponses,
+  getOrgRoutingFormResponsesSchema,
+  getOrgRoutingForms,
+  getOrgRoutingFormsSchema,
 } from "./tools/organizations/routing-forms.js";
-
+// ── Organizations: Teams ──
+import {
+  getMyTeams,
+  getMyTeamsSchema,
+  getOrgTeams,
+  getOrgTeamsSchema,
+} from "./tools/organizations/teams.js";
+// ── Routing Forms ──
+import {
+  calculateRoutingFormSlots,
+  calculateRoutingFormSlotsSchema,
+} from "./tools/routing-forms.js";
+// ── Schedules ──
+import {
+  createSchedule,
+  createScheduleSchema,
+  deleteSchedule,
+  deleteScheduleSchema,
+  getDefaultSchedule,
+  getDefaultScheduleSchema,
+  getSchedule,
+  getScheduleSchema,
+  getSchedules,
+  getSchedulesSchema,
+  updateSchedule,
+  updateScheduleSchema,
+} from "./tools/schedules.js";
 // ── Teams: Memberships ──
 import {
-  getTeamMembershipsSchema,
-  getTeamMemberships,
-  getTeamMembershipSchema,
-  getTeamMembership,
-  createTeamMembershipSchema,
-  createTeamMembership,
-  updateTeamMembershipSchema,
-  updateTeamMembership,
-  deleteTeamMembershipSchema,
-  deleteTeamMembership,
-  createTeamInviteSchema,
   createTeamInvite,
+  createTeamInviteSchema,
+  createTeamMembership,
+  createTeamMembershipSchema,
+  deleteTeamMembership,
+  deleteTeamMembershipSchema,
+  getTeamMembership,
+  getTeamMembershipSchema,
+  getTeamMemberships,
+  getTeamMembershipsSchema,
+  updateTeamMembership,
+  updateTeamMembershipSchema,
 } from "./tools/teams/memberships.js";
+// ── Users ──
+import { getMe, getMeSchema, updateMe, updateMeSchema } from "./tools/users.js";
 
 /**
  * Tool annotation presets matching MCP behaviour hints.
@@ -214,7 +204,7 @@ export function registerTools(server: McpServer): void {
     updateMe
   );
 
-  // ── Event Types (5) ──
+  // ── Event Types (6) ──
   server.registerTool(
     "get_event_types",
     {
@@ -269,6 +259,17 @@ export function registerTools(server: McpServer): void {
       annotations: DESTRUCTIVE,
     },
     deleteEventType
+  );
+  server.registerTool(
+    "get_scheduling_config",
+    {
+      title: "Get Scheduling Config",
+      description:
+        "Get the scheduling configuration for a team event type. For roundRobin types: returns hosts (with priority, weight, mandatory status, group assignment), host groups, distribution settings (maxLeadThreshold), and advanced settings (weights enabled, no-show calculation, CRM fallback). For collective/managed types: returns hosts with basic info and assignAllTeamMembers. The event type must be a team event type — returns 422 otherwise.",
+      inputSchema: getSchedulingConfigSchema,
+      annotations: READ_ONLY,
+    },
+    getSchedulingConfig
   );
 
   // ── Bookings (10) ──
@@ -508,7 +509,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingRoutingTraceSchema,
       annotations: READ_ONLY,
     },
-    getBookingRoutingTrace,
+    getBookingRoutingTrace
   );
 
   // ── Routing Forms (1) ──
