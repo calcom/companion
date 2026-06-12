@@ -18,7 +18,7 @@ import {
 } from "@/hooks/use-push-notifications";
 import { type Booking, CalComAPIService } from "@/services/calcom";
 import { showInfoAlert, showSuccessAlert } from "@/utils/alerts";
-import { updateBookingCaches } from "@/utils/booking-cache";
+import { syncBookingCachesAfterMutation } from "@/utils/booking-cache";
 
 // How long the pre-logout callback waits for an in-flight registration to
 // settle before deregistering, so a token that registered moments before
@@ -226,7 +226,7 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
         } else {
           return;
         }
-        updateBookingCaches(queryClientRef.current, updatedBooking);
+        syncBookingCachesAfterMutation(queryClientRef.current, updatedBooking);
       } catch (error) {
         // Includes the non-idempotent "Booking already confirmed" case — show
         // it as feedback rather than retrying, then refresh so the UI reflects
