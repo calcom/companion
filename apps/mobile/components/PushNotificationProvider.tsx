@@ -16,8 +16,9 @@ import {
   drainPendingDeregistrations,
   requestAndRegisterPushToken,
 } from "@/hooks/use-push-notifications";
-import { CalComAPIService } from "@/services/calcom";
+import { type Booking, CalComAPIService } from "@/services/calcom";
 import { showInfoAlert, showSuccessAlert } from "@/utils/alerts";
+import { updateBookingCaches } from "@/utils/booking-cache";
 
 // How long the pre-logout callback waits for an in-flight registration to
 // settle before deregistering, so a token that registered moments before
@@ -215,16 +216,17 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
         ]);
 
       try {
+        let updatedBooking: Booking;
         if (actionId === CONFIRM_BOOKING_REQUEST_ACTION_ID) {
-          await CalComAPIService.confirmBooking(bookingUid);
+          updatedBooking = await CalComAPIService.confirmBooking(bookingUid);
           showSuccessAlert("Success", "Booking confirmed successfully");
         } else if (actionId === DECLINE_BOOKING_REQUEST_ACTION_ID) {
-          await CalComAPIService.declineBooking(bookingUid);
+          updatedBooking = await CalComAPIService.declineBooking(bookingUid);
           showSuccessAlert("Success", "Booking declined successfully");
         } else {
           return;
         }
-        await refresh();
+        updateBookingCaches(queryClientRef.current, updatedBooking);
       } catch (error) {
         // Includes the non-idempotent "Booking already confirmed" case — show
         // it as feedback rather than retrying, then refresh so the UI reflects

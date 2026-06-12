@@ -87,6 +87,9 @@ interface BookingListScreenProps {
   activeFilter: BookingFilter;
   filterParams: Record<string, unknown>;
 
+  // One-time background sync signal from routes that know list data may have moved
+  syncKey?: string;
+
   // iOS-style list (no wrapper)
   iosStyle?: boolean;
 }
@@ -103,6 +106,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
   onEventTypeChange,
   activeFilter,
   filterParams,
+  syncKey,
   iosStyle = false,
 }) => {
   const router = useRouter();
@@ -119,6 +123,14 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
     error: queryError,
     refetch,
   } = useBookings(filterParams);
+  const handledSyncKeyRef = React.useRef<string | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (!syncKey || handledSyncKeyRef.current === syncKey) return;
+
+    handledSyncKeyRef.current = syncKey;
+    void refetch();
+  }, [refetch, syncKey]);
 
   // Cancel booking mutation
   const { mutate: cancelBookingMutation } = useCancelBooking();
