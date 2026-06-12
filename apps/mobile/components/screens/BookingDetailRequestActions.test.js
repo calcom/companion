@@ -71,4 +71,22 @@ describe("getBookingRequestActionState", () => {
       canReject: true,
     });
   });
+
+  test("treats requires_confirmation status as a pending booking request", () => {
+    const booking = createBooking({
+      status: "requires_confirmation",
+    });
+
+    expect(
+      getBookingRequestActionState({
+        booking,
+        currentUserId: 42,
+        currentUserEmail: "organizer@example.com",
+        now,
+      })
+    ).toEqual({
+      canConfirm: true,
+      canReject: true,
+    });
+  });
 });

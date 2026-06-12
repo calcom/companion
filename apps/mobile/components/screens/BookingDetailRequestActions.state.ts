@@ -17,7 +17,14 @@ const getBookingStatus = (booking: Booking): string => booking.status?.toLowerCa
 
 const getBookingEndTime = (booking: Booking): string => booking.endTime || booking.end || "";
 
-const isBookingPending = (booking: Booking): boolean => getBookingStatus(booking) === "pending";
+const isBookingPending = (booking: Booking): boolean => {
+  const status = getBookingStatus(booking);
+  return (
+    status === "pending" ||
+    status === "requires_confirmation" ||
+    booking.requiresConfirmation === true
+  );
+};
 
 const isBookingInPast = (booking: Booking, now: Date): boolean => {
   const endTime = new Date(getBookingEndTime(booking));
