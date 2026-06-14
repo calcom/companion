@@ -21,41 +21,39 @@ export function AvailabilityListItemSkeleton({
         borderBottomColor: theme.border,
       }}
     >
-      <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
-        <View
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            alignItems: "center",
-            marginBottom: 4,
-          }}
-        >
-          <Skeleton style={{ height: 18, width: 100, borderRadius: 4 }} />
-          <Skeleton style={{ height: 20, width: 55, borderRadius: 4, marginLeft: 8 }} />
-        </View>
-
-        <View style={{ marginBottom: 4 }}>
-          <Skeleton style={{ height: 14, width: "85%", borderRadius: 4, marginBottom: 4 }} />
-          <Skeleton style={{ height: 14, width: "80%", borderRadius: 4, marginBottom: 4 }} />
-          <Skeleton style={{ height: 14, width: 80, borderRadius: 4 }} />
-        </View>
-
-        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
-          <Skeleton style={{ height: 14, width: 14, borderRadius: 7 }} />
-          <Skeleton style={{ height: 14, width: 90, borderRadius: 4, marginLeft: 6 }} />
-        </View>
-      </View>
-
       <View
         style={{
+          paddingHorizontal: 16,
+          paddingVertical: 16,
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "flex-end",
-          paddingHorizontal: 16,
-          paddingBottom: 16,
         }}
       >
-        <Skeleton style={{ height: 32, width: 32, borderRadius: 8 }} />
+        <View style={{ flex: 1, marginRight: 16 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginBottom: 4,
+            }}
+          >
+            <Skeleton style={{ height: 18, width: 100, borderRadius: 4 }} />
+            <Skeleton style={{ height: 20, width: 55, borderRadius: 4, marginLeft: 8 }} />
+          </View>
+
+          <View style={{ marginBottom: 4 }}>
+            <Skeleton style={{ height: 14, width: "85%", borderRadius: 4, marginBottom: 4 }} />
+            <Skeleton style={{ height: 14, width: "70%", borderRadius: 4 }} />
+          </View>
+
+          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
+            <Skeleton style={{ height: 14, width: 14, borderRadius: 7 }} />
+            <Skeleton style={{ height: 14, width: 90, borderRadius: 4, marginLeft: 6 }} />
+          </View>
+        </View>
+
+        <Skeleton style={{ height: 32, width: 32, borderRadius: 8, flexShrink: 0 }} />
       </View>
     </View>
   );
