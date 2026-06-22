@@ -163,7 +163,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       jsonError(res, 503, "server_error", "Maximum number of registered clients reached");
       return;
     }
-    await handleRegister(req, res);
+    await handleRegister(req, res, { allowedHosts: config.allowedRedirectHosts });
     return;
   }
   if (url.pathname === "/oauth/authorize" && req.method === "GET") {
