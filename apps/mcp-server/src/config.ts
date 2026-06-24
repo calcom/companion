@@ -53,12 +53,16 @@ const httpSchema = baseSchema.extend({
   calOAuthScopes: z
     .string()
     .default(
-      "EVENT_TYPE_READ EVENT_TYPE_WRITE BOOKING_READ BOOKING_WRITE SCHEDULE_READ SCHEDULE_WRITE APPS_READ APPS_WRITE PROFILE_READ PROFILE_WRITE",
+      "EVENT_TYPE_READ EVENT_TYPE_WRITE BOOKING_READ BOOKING_WRITE SCHEDULE_READ SCHEDULE_WRITE APPS_READ APPS_WRITE PROFILE_READ PROFILE_WRITE ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ"
     ),
   rateLimitWindowMs: z.coerce.number().int().positive().default(60_000),
   rateLimitMax: z.coerce.number().int().positive().default(30),
   maxSessions: z.coerce.number().int().positive().default(10_000),
-  sessionIdleTimeoutMs: z.coerce.number().int().positive().default(30 * 60 * 1000),
+  sessionIdleTimeoutMs: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30 * 60 * 1000),
   maxRegisteredClients: z.coerce.number().int().positive().default(10_000),
   trustProxy: z
     .enum(["true", "false", "1", "0"])
@@ -123,7 +127,9 @@ export function loadConfig(): AppConfig {
   if (transport === "http") {
     const result = httpSchema.safeParse(raw);
     if (!result.success) {
-      const issues = result.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
+      const issues = result.error.issues
+        .map((i) => `  ${i.path.join(".")}: ${i.message}`)
+        .join("\n");
       throw new Error(`Invalid HTTP mode configuration:\n${issues}`);
     }
     return result.data;
