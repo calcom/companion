@@ -48,7 +48,10 @@ import {
   showSilentSuccessAlert,
   showSuccessAlert,
 } from "@/utils/alerts";
-import { isUserHost, isUserOrganizer, normalizeBooking } from "@/utils/booking-actions";
+import {
+  getBookingRequestActionState,
+  isBookingRequestPending,
+} from "@/utils/booking-request-actions";
 import type { ListItem, RecurringBookingGroup } from "@/utils/bookings-utils";
 import {
   filterByEventType,
@@ -176,13 +179,13 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
   const currentUserId = userInfo ? userInfo.id : undefined;
   const currentUserEmail = userInfo ? userInfo.email : undefined;
 
-  const canConfirmOrRejectBooking = React.useCallback(
+  const getRequestActionState = React.useCallback(
     (booking: Booking) => {
-      const normalizedBooking = normalizeBooking(booking);
-      return (
-        isUserOrganizer(normalizedBooking, currentUserId, currentUserEmail) ||
-        isUserHost(normalizedBooking, currentUserId, currentUserEmail)
-      );
+      return getBookingRequestActionState({
+        booking,
+        currentUserId,
+        currentUserEmail,
+      });
     },
     [currentUserId, currentUserEmail]
   );
@@ -457,11 +460,8 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
   // Confirm all unconfirmed bookings in a recurring series
   const handleConfirmAll = React.useCallback(
     async (group: RecurringBookingGroup) => {
-      const unconfirmedBookings = group.bookings.filter(
-        (b) =>
-          b.status?.toLowerCase() === "pending" ||
-          b.status?.toLowerCase() === "requires_confirmation" ||
-          b.requiresConfirmation
+      const unconfirmedBookings = group.bookings.filter((booking) =>
+        isBookingRequestPending(booking)
       );
 
       if (unconfirmedBookings.length === 0) {
@@ -469,8 +469,8 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
         return;
       }
 
-      if (unconfirmedBookings.some((booking) => !canConfirmOrRejectBooking(booking))) {
-        showInfoAlert("Not authorized", "You are not authorized to confirm these bookings.");
+      if (unconfirmedBookings.some((booking) => !getRequestActionState(booking).canConfirm)) {
+        showInfoAlert("Unable to confirm", "These bookings cannot be confirmed yet.");
         return;
       }
 
@@ -528,17 +528,14 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
         ]
       );
     },
-    [canConfirmOrRejectBooking, confirmBookingMutation]
+    [confirmBookingMutation, getRequestActionState]
   );
 
   // Reject all unconfirmed bookings in a recurring series
   const handleRejectAll = React.useCallback(
     async (group: RecurringBookingGroup) => {
-      const unconfirmedBookings = group.bookings.filter(
-        (b) =>
-          b.status?.toLowerCase() === "pending" ||
-          b.status?.toLowerCase() === "requires_confirmation" ||
-          b.requiresConfirmation
+      const unconfirmedBookings = group.bookings.filter((booking) =>
+        isBookingRequestPending(booking)
       );
 
       if (unconfirmedBookings.length === 0) {
@@ -546,7 +543,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
         return;
       }
 
-      if (unconfirmedBookings.some((booking) => !canConfirmOrRejectBooking(booking))) {
+      if (unconfirmedBookings.some((booking) => !getRequestActionState(booking).canReject)) {
         showInfoAlert("Not authorized", "You are not authorized to reject these bookings.");
         return;
       }
@@ -634,7 +631,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
         ]
       );
     },
-    [canConfirmOrRejectBooking, declineBookingMutation]
+    [declineBookingMutation, getRequestActionState]
   );
 
   const renderBookingItem = ({ item }: { item: Booking }) => {
@@ -1079,11 +1076,8 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
                   setShowRejectAllDialog(false);
                   setIsDecliningAll(true);
 
-                  const unconfirmedBookings = rejectAllGroup.bookings.filter(
-                    (b) =>
-                      b.status?.toLowerCase() === "pending" ||
-                      b.status?.toLowerCase() === "requires_confirmation" ||
-                      b.requiresConfirmation
+                  const unconfirmedBookings = rejectAllGroup.bookings.filter((booking) =>
+                    isBookingRequestPending(booking)
                   );
 
                   let successCount = 0;

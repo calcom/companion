@@ -37,12 +37,12 @@ describe("useBookingListItemData", () => {
     expect(useBookingListItemData(booking).isPending).toBe(true);
   });
 
-  test("treats requiresConfirmation flag as pending for booking request UI", async () => {
+  test("does not treat accepted requires-confirmation bookings as pending", async () => {
     const { useBookingListItemData } = await import("./useBookingListItemData");
     const booking = createBooking({
       requiresConfirmation: true,
     });
 
-    expect(useBookingListItemData(booking).isPending).toBe(true);
+    expect(useBookingListItemData(booking).isPending).toBe(false);
   });
 });

@@ -11,7 +11,7 @@ import type { Booking } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 import { getBookingActions } from "@/utils/booking-actions";
 import {
-  getBookingRequestActionState,
+  getBookingRequestBulkActionState,
   isBookingRequestPending,
 } from "@/utils/booking-request-actions";
 import type { RecurringBookingGroup } from "@/utils/bookings-utils";
@@ -88,26 +88,16 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
     });
   }, [booking, userEmail]);
 
-  const pendingBookings = React.useMemo(
-    () => group.bookings.filter((booking) => isBookingRequestPending(booking)),
-    [group.bookings]
-  );
-  const pendingRequestStates = React.useMemo(
+  const bulkRequestActionState = React.useMemo(
     () =>
-      pendingBookings.map((booking) =>
-        getBookingRequestActionState({
-          booking,
-          currentUserId: userId,
-          currentUserEmail: userEmail,
-        })
-      ),
-    [pendingBookings, userId, userEmail]
+      getBookingRequestBulkActionState({
+        bookings: group.bookings,
+        currentUserId: userId,
+        currentUserEmail: userEmail,
+      }),
+    [group.bookings, userId, userEmail]
   );
-  const canConfirmOrRejectAll =
-    pendingRequestStates.length > 0 && pendingRequestStates.every((state) => state.canReject);
-  const showPendingHostConfirmation = pendingRequestStates.some(
-    (state) => state.showPendingHostConfirmation
-  );
+  const { canConfirmAll, canRejectAll, showPendingHostConfirmation } = bulkRequestActionState;
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -322,7 +312,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
         style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 8 }}
       >
         {/* Confirm All / Reject All for unconfirmed recurring */}
-        {group.hasUnconfirmed && canConfirmOrRejectAll && onRejectAll && (
+        {group.hasUnconfirmed && canRejectAll && onRejectAll && (
           <TouchableOpacity
             className="flex-row items-center justify-center rounded-lg border border-cal-border bg-white dark:border-cal-border-dark dark:bg-[#171717]"
             style={{
@@ -343,7 +333,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
           </TouchableOpacity>
         )}
 
-        {group.hasUnconfirmed && canConfirmOrRejectAll && onConfirmAll && (
+        {group.hasUnconfirmed && canConfirmAll && onConfirmAll && (
           <TouchableOpacity
             className="flex-row items-center justify-center rounded-lg bg-black dark:bg-white"
             style={{

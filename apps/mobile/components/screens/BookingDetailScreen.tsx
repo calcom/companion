@@ -650,7 +650,7 @@ export function BookingDetailScreen({
       };
     }
 
-    if (normalizedStatus === "pending") {
+    if (isUnconfirmed) {
       return {
         name: "help-circle" as const,
         color: "#A3A3A3",

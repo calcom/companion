@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { getBookingRequestActionState } from "@/utils/booking-request-actions";
+import {
+  getBookingRequestActionState,
+  getBookingRequestBulkActionState,
+  isBookingRequestPending,
+} from "@/utils/booking-request-actions";
 
 const now = new Date("2026-06-11T00:00:00.000Z");
 
@@ -89,6 +93,54 @@ describe("getBookingRequestActionState", () => {
     ).toEqual({
       canConfirm: true,
       canReject: true,
+      showPendingHostConfirmation: false,
+    });
+  });
+
+  test("does not treat accepted requires-confirmation bookings as pending requests", () => {
+    const booking = createBooking({
+      status: "accepted",
+      requiresConfirmation: true,
+    });
+
+    expect(isBookingRequestPending(booking)).toBe(false);
+    expect(
+      getBookingRequestActionState({
+        booking,
+        currentUserId: 42,
+        currentUserEmail: "organizer@example.com",
+        now,
+      })
+    ).toEqual({
+      canConfirm: false,
+      canReject: false,
+      showPendingHostConfirmation: false,
+    });
+  });
+
+  test("keeps recurring confirm-all hidden when any request cannot be confirmed", () => {
+    const pendingPaymentBooking = createBooking({
+      uid: "booking-with-pending-payment",
+      payment: [
+        {
+          id: 1,
+          success: false,
+          paymentOption: "ON_BOOKING",
+          refunded: false,
+        },
+      ],
+    });
+
+    expect(
+      getBookingRequestBulkActionState({
+        bookings: [pendingPaymentBooking],
+        currentUserId: 42,
+        currentUserEmail: "organizer@example.com",
+        now,
+      })
+    ).toEqual({
+      canConfirmAll: false,
+      canRejectAll: true,
       showPendingHostConfirmation: false,
     });
   });

@@ -1,5 +1,6 @@
 import type { Booking } from "@/services/types/bookings.types";
 import { getBookingPaymentStatus } from "@/utils/booking-payment-status";
+import { isUserHost, isUserOrganizer } from "@/utils/booking-user-roles";
 
 type CanRespondToBookingRequestParams = {
   booking: Booking;
@@ -14,41 +15,31 @@ type BookingRequestActionState = {
   showPendingHostConfirmation: boolean;
 };
 
+type BookingRequestBulkActionState = {
+  canConfirmAll: boolean;
+  canRejectAll: boolean;
+  showPendingHostConfirmation: boolean;
+};
+
+type BookingRequestBulkActionStateParams = {
+  bookings: Booking[];
+  currentUserId?: number;
+  currentUserEmail?: string;
+  now?: Date;
+};
+
 const getBookingStatus = (booking: Booking): string => booking.status?.toLowerCase() || "";
 
 const getBookingEndTime = (booking: Booking): string => booking.endTime || booking.end || "";
 
 export const isBookingRequestPending = (booking: Booking): boolean => {
   const status = getBookingStatus(booking);
-  return (
-    status === "pending" ||
-    status === "requires_confirmation" ||
-    booking.requiresConfirmation === true
-  );
+  return status === "pending" || status === "requires_confirmation";
 };
 
 const isBookingInPast = (booking: Booking, now: Date): boolean => {
   const endTime = new Date(getBookingEndTime(booking));
   return !Number.isNaN(endTime.getTime()) && endTime < now;
-};
-
-const isUserOrganizer = (booking: Booking, userId?: number, userEmail?: string): boolean => {
-  if (!booking.user) return false;
-
-  if (userId && booking.user.id === userId) return true;
-  if (userEmail && booking.user.email?.toLowerCase() === userEmail.toLowerCase()) return true;
-
-  return false;
-};
-
-const isUserHost = (booking: Booking, userId?: number, userEmail?: string): boolean => {
-  if (!booking.hosts || booking.hosts.length === 0) return false;
-
-  return booking.hosts.some((host) => {
-    if (userId && host.id !== undefined && String(host.id) === String(userId)) return true;
-    if (userEmail && host.email?.toLowerCase() === userEmail.toLowerCase()) return true;
-    return false;
-  });
 };
 
 export function getBookingRequestActionState({
@@ -74,4 +65,32 @@ export function getBookingRequestActionState({
 
 export function canRespondToBookingRequest(params: CanRespondToBookingRequestParams): boolean {
   return getBookingRequestActionState(params).canReject;
+}
+
+export function getBookingRequestBulkActionState({
+  bookings,
+  currentUserId,
+  currentUserEmail,
+  now = new Date(),
+}: BookingRequestBulkActionStateParams): BookingRequestBulkActionState {
+  const pendingRequestStates = bookings
+    .filter((booking) => isBookingRequestPending(booking))
+    .map((booking) =>
+      getBookingRequestActionState({
+        booking,
+        currentUserId,
+        currentUserEmail,
+        now,
+      })
+    );
+
+  return {
+    canConfirmAll:
+      pendingRequestStates.length > 0 && pendingRequestStates.every((state) => state.canConfirm),
+    canRejectAll:
+      pendingRequestStates.length > 0 && pendingRequestStates.every((state) => state.canReject),
+    showPendingHostConfirmation: pendingRequestStates.some(
+      (state) => state.showPendingHostConfirmation
+    ),
+  };
 }

@@ -14,6 +14,9 @@
 import type { Booking, BookingStatus } from "@/services/types/bookings.types";
 import type { EventType } from "@/services/types/event-types.types";
 import { getMeetingUrl, isCalVideoMeetingUrl } from "./booking";
+import { isUserHost, isUserOrganizer } from "./booking-user-roles";
+
+export { isUserHost, isUserOrganizer } from "./booking-user-roles";
 
 // ============================================================================
 // Types
@@ -210,39 +213,6 @@ export function isBookingConfirmed(booking: NormalizedBooking): boolean {
 // ============================================================================
 // Role Detection Functions
 // ============================================================================
-
-/**
- * Check if the current user is the organizer of the booking.
- */
-export function isUserOrganizer(
-  booking: NormalizedBooking,
-  userId?: number,
-  userEmail?: string
-): boolean {
-  if (!booking.user) return false;
-
-  if (userId && booking.user.id === userId) return true;
-  if (userEmail && booking.user.email?.toLowerCase() === userEmail.toLowerCase()) return true;
-
-  return false;
-}
-
-/**
- * Check if the current user is a host of the booking.
- */
-export function isUserHost(
-  booking: NormalizedBooking,
-  userId?: number,
-  userEmail?: string
-): boolean {
-  if (!booking.hosts || booking.hosts.length === 0) return false;
-
-  return booking.hosts.some((host) => {
-    if (userId && host.id !== undefined && String(host.id) === String(userId)) return true;
-    if (userEmail && host.email?.toLowerCase() === userEmail.toLowerCase()) return true;
-    return false;
-  });
-}
 
 /**
  * Check if the current user is an attendee of the booking.
