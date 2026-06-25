@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { calApi } from "../utils/api-client.js";
+import { extractCurrentUser, filterBookingsForCurrentUser } from "../utils/booking-participation.js";
 import { sanitizePathSegment } from "../utils/path-sanitizer.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
@@ -24,6 +25,12 @@ export const getBookingsSchema = {
   sortUpdatedAt: z.enum(["asc", "desc"]).optional().describe("Sort by updated time"),
   take: z.number().int().optional().describe("Max results to return (default 100, max 250)"),
   skip: z.number().int().optional().describe("Results to skip (offset)"),
+  scope: z
+    .enum(["mine", "all"])
+    .optional()
+    .describe(
+      "Whose bookings to return. 'mine' (default) returns only bookings where the authenticated user is organizer, host, or attendee. 'all' returns every booking the API key/token can see — useful for admins who want the org-wide view. Pagination (take/skip) operates on the unfiltered API response, so 'mine' may return fewer than `take` items per page.",
+    ),
 };
 
 export async function getBookings(params: {
@@ -47,6 +54,7 @@ export async function getBookings(params: {
   sortUpdatedAt?: "asc" | "desc";
   take?: number;
   skip?: number;
+  scope?: "mine" | "all";
 }) {
   try {
     const qp: Record<string, string | number | undefined> = {};
@@ -70,8 +78,13 @@ export async function getBookings(params: {
     if (params.sortUpdatedAt !== undefined) qp.sortUpdatedAt = params.sortUpdatedAt;
     if (params.take !== undefined) qp.take = params.take;
     if (params.skip !== undefined) qp.skip = params.skip;
-    const data = await calApi("bookings", { params: qp });
-    return ok(data);
+    if (params.scope === "all") {
+      const data = await calApi("bookings", { params: qp });
+      return ok(data);
+    }
+    const [meRaw, data] = await Promise.all([calApi("me"), calApi("bookings", { params: qp })]);
+    const currentUser = extractCurrentUser(meRaw);
+    return ok(filterBookingsForCurrentUser(data, currentUser));
   } catch (err) {
     return handleError("get_bookings", err);
   }
