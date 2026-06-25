@@ -64,6 +64,23 @@ const httpSchema = baseSchema.extend({
     .positive()
     .default(30 * 60 * 1000),
   maxRegisteredClients: z.coerce.number().int().positive().default(10_000),
+  /**
+   * Comma-separated allowlist of hostnames permitted for non-loopback `https`
+   * redirect URIs at Dynamic Client Registration. Loopback redirect URIs are
+   * always allowed; cleartext `http` to non-loopback hosts is always rejected.
+   * When empty, any `https` host is accepted (open DCR) but logged.
+   */
+  allowedRedirectHosts: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val
+        ? val
+            .split(",")
+            .map((h) => h.trim().toLowerCase())
+            .filter(Boolean)
+        : [],
+    ),
   trustProxy: z
     .enum(["true", "false", "1", "0"])
     .transform((val) => val === "true" || val === "1")
@@ -105,6 +122,7 @@ function readEnv(): Record<string, unknown> {
     maxSessions: process.env.MAX_SESSIONS || undefined,
     sessionIdleTimeoutMs: process.env.SESSION_IDLE_TIMEOUT_MS || undefined,
     maxRegisteredClients: process.env.MAX_REGISTERED_CLIENTS || undefined,
+    allowedRedirectHosts: process.env.ALLOWED_REDIRECT_HOSTS || undefined,
     trustProxy: process.env.TRUST_PROXY || undefined,
     corsOrigin: process.env.CORS_ORIGIN || undefined,
     fetchTimeoutMs: process.env.FETCH_TIMEOUT_MS || undefined,

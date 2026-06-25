@@ -60,6 +60,7 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 | `DATABASE_PATH` | No | `mcp-server.db` | SQLite database file path |
 | `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate limit window in ms (per IP) |
 | `RATE_LIMIT_MAX` | No | `30` | Max OAuth requests per window per IP |
+| `ALLOWED_REDIRECT_HOSTS` | No | — | Comma-separated allowlist of hostnames for non-loopback `https` redirect URIs at client registration. Loopback is always allowed; non-loopback cleartext `http` is always rejected. When unset, any `https` host is accepted (open DCR) but logged. |
 | `OPENAI_APPS_CHALLENGE_TOKEN` | No | — | Token served at `/.well-known/openai-apps-challenge` for OpenAI Apps domain verification. When unset, the endpoint returns 404. |
 
 ## Transport Modes
@@ -177,6 +178,7 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - Auth codes are single-use
 - Expired tokens are cleaned up automatically every 5 minutes
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
+- Redirect URIs registered via dynamic client registration are constrained: loopback (`localhost` / `127.0.0.0/8` / `::1`) is always allowed, cleartext `http` to non-loopback hosts is always rejected, and non-loopback `https` hosts can be restricted to a vetted allowlist via `ALLOWED_REDIRECT_HOSTS` (recommended in production to limit the open-DCR phishing surface)
 
 ## Tools (52)
 
