@@ -20,7 +20,10 @@ import { AppPressable } from "@/components/AppPressable";
 import { BookingActionsModal } from "@/components/BookingActionsModal";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
-import { BookingDetailRequestActions } from "@/components/screens/BookingDetailRequestActions";
+import {
+  BookingDetailRequestActions,
+  getBookingRequestActionState,
+} from "@/components/screens/BookingDetailRequestActions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +50,7 @@ import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts"
 import { getMeetingUrl } from "@/utils/booking";
 import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
 import { getBookingPaymentStatus } from "@/utils/booking-payment-status";
+import { isBookingRequestPending } from "@/utils/booking-request-actions";
 import { openInAppBrowser } from "@/utils/browser";
 
 const CopyButton = ({
@@ -628,7 +632,12 @@ export function BookingDetailScreen({
   const isPastBooking = new Date(endTime) < new Date();
   const normalizedStatus = booking.status.toLowerCase();
   const { isPendingPayment } = getBookingPaymentStatus(booking);
-  const isUnconfirmed = normalizedStatus === "pending";
+  const isUnconfirmed = isBookingRequestPending(booking);
+  const bookingRequestActionState = getBookingRequestActionState({
+    booking,
+    currentUserId: userInfo?.id,
+    currentUserEmail: userInfo?.email,
+  });
 
   const getAttendeeStatusIcon = (attendee: { noShow?: boolean; absent?: boolean }) => {
     const isNoShow = attendee.noShow || attendee.absent;
@@ -811,7 +820,11 @@ export function BookingDetailScreen({
                 ) : null}
                 {isUnconfirmed ? (
                   <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
-                    <Text className="text-xs font-medium text-white">Unconfirmed</Text>
+                    <Text className="text-xs font-medium text-white">
+                      {bookingRequestActionState.showPendingHostConfirmation
+                        ? "Pending host confirmation"
+                        : "Unconfirmed"}
+                    </Text>
                   </View>
                 ) : null}
               </View>

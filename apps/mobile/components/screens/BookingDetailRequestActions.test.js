@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getBookingRequestActionState } from "./BookingDetailRequestActions.state";
+import { getBookingRequestActionState } from "@/utils/booking-request-actions";
 
 const now = new Date("2026-06-11T00:00:00.000Z");
 
@@ -44,6 +44,7 @@ describe("getBookingRequestActionState", () => {
     ).toEqual({
       canConfirm: true,
       canReject: true,
+      showPendingHostConfirmation: false,
     });
   });
 
@@ -69,6 +70,7 @@ describe("getBookingRequestActionState", () => {
     ).toEqual({
       canConfirm: false,
       canReject: true,
+      showPendingHostConfirmation: false,
     });
   });
 
@@ -87,6 +89,32 @@ describe("getBookingRequestActionState", () => {
     ).toEqual({
       canConfirm: true,
       canReject: true,
+      showPendingHostConfirmation: false,
+    });
+  });
+
+  test("shows pending host confirmation when the current user cannot respond to the request", () => {
+    const booking = createBooking({
+      attendees: [
+        {
+          id: 7,
+          email: "attendee@example.com",
+          name: "Attendee",
+        },
+      ],
+    });
+
+    expect(
+      getBookingRequestActionState({
+        booking,
+        currentUserId: 7,
+        currentUserEmail: "attendee@example.com",
+        now,
+      })
+    ).toEqual({
+      canConfirm: false,
+      canReject: false,
+      showPendingHostConfirmation: true,
     });
   });
 });

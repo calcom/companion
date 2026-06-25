@@ -641,6 +641,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
     return (
       <BookingListItem
         booking={item}
+        userId={userInfo?.id}
         userEmail={userInfo?.email}
         isConfirming={isConfirming}
         isDeclining={isDeclining}
@@ -673,6 +674,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
       return (
         <RecurringBookingListItem
           group={item.group}
+          userId={userInfo?.id}
           userEmail={userInfo?.email}
           isConfirmingAll={isConfirmingAll}
           isDecliningAll={isDecliningAll}

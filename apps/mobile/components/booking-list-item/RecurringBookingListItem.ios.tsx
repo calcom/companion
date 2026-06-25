@@ -10,12 +10,17 @@ import { getColors } from "@/constants/colors";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 import { getBookingActions } from "@/utils/booking-actions";
+import {
+  getBookingRequestActionState,
+  isBookingRequestPending,
+} from "@/utils/booking-request-actions";
 import type { RecurringBookingGroup } from "@/utils/bookings-utils";
 import { formatDate, formatTime, getHostAndAttendeesDisplay } from "@/utils/bookings-utils";
 import { getMeetingInfo } from "@/utils/meetings-utils";
 
 export interface RecurringBookingListItemProps {
   group: RecurringBookingGroup;
+  userId?: number;
   userEmail?: string;
   isConfirmingAll?: boolean;
   isDecliningAll?: boolean;
@@ -38,6 +43,7 @@ export interface RecurringBookingListItemProps {
 
 export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> = ({
   group,
+  userId,
   userEmail,
   isConfirmingAll = false,
   isDecliningAll = false,
@@ -62,7 +68,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
   const isUpcoming = new Date(endTime) >= new Date();
   const isCancelled = booking.status?.toLowerCase() === "cancelled";
   const isRejected = booking.status?.toLowerCase() === "rejected";
-  const isPending = booking.status?.toLowerCase() === "pending" || booking.requiresConfirmation;
+  const isPending = isBookingRequestPending(booking);
 
   const hostAndAttendeesDisplay = getHostAndAttendeesDisplay(booking, userEmail);
   const meetingInfo = getMeetingInfo(booking.location);
@@ -81,6 +87,27 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
       isOnline: true,
     });
   }, [booking, userEmail]);
+
+  const pendingBookings = React.useMemo(
+    () => group.bookings.filter((booking) => isBookingRequestPending(booking)),
+    [group.bookings]
+  );
+  const pendingRequestStates = React.useMemo(
+    () =>
+      pendingBookings.map((booking) =>
+        getBookingRequestActionState({
+          booking,
+          currentUserId: userId,
+          currentUserEmail: userEmail,
+        })
+      ),
+    [pendingBookings, userId, userEmail]
+  );
+  const canConfirmOrRejectAll =
+    pendingRequestStates.length > 0 && pendingRequestStates.every((state) => state.canReject);
+  const showPendingHostConfirmation = pendingRequestStates.some(
+    (state) => state.showPendingHostConfirmation
+  );
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -218,7 +245,9 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
                 paddingVertical: 2,
               }}
             >
-              <Text className="text-xs font-medium text-white">Unconfirmed</Text>
+              <Text className="text-xs font-medium text-white">
+                {showPendingHostConfirmation ? "Pending host confirmation" : "Unconfirmed"}
+              </Text>
             </View>
           )}
         </View>
@@ -293,7 +322,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
         style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 8 }}
       >
         {/* Confirm All / Reject All for unconfirmed recurring */}
-        {group.hasUnconfirmed && onRejectAll && (
+        {group.hasUnconfirmed && canConfirmOrRejectAll && onRejectAll && (
           <TouchableOpacity
             className="flex-row items-center justify-center rounded-lg border border-cal-border bg-white dark:border-cal-border-dark dark:bg-[#171717]"
             style={{
@@ -314,7 +343,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
           </TouchableOpacity>
         )}
 
-        {group.hasUnconfirmed && onConfirmAll && (
+        {group.hasUnconfirmed && canConfirmOrRejectAll && onConfirmAll && (
           <TouchableOpacity
             className="flex-row items-center justify-center rounded-lg bg-black dark:bg-white"
             style={{
