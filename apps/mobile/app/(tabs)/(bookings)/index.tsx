@@ -28,7 +28,7 @@ function isValidBookingFilter(value: string | undefined): value is BookingFilter
 }
 
 export default function Bookings() {
-  const { filter } = useLocalSearchParams<{ filter?: string }>();
+  const { filter, sync } = useLocalSearchParams<{ filter?: string; sync?: string }>();
   const initialFilter = isValidBookingFilter(filter) ? filter : "upcoming";
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -226,6 +226,7 @@ export default function Bookings() {
       onEventTypeChange={handleEventTypeSelect}
       activeFilter={activeFilter}
       filterParams={filterParams}
+      syncKey={sync}
     />
   );
 }

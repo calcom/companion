@@ -35,6 +35,62 @@ export interface OAuthConfig {
 
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MB
 
+/** Policy controlling which redirect URIs may be registered via Dynamic Client Registration. */
+export interface RedirectUriPolicy {
+  /**
+   * Lowercased exact hostnames permitted for non-loopback `https` redirect URIs.
+   * When empty, any `https` host is accepted (loopback is always accepted, and
+   * cleartext `http` to non-loopback hosts is always rejected).
+   */
+  allowedHosts: string[];
+}
+
+/**
+ * Whether a hostname refers to the loopback interface (the victim's own machine).
+ * Codes registered against these never leave the user's device, so they are safe
+ * for public/native clients regardless of the allowlist. Covers `localhost`, the
+ * entire IPv4 `127.0.0.0/8` block, and IPv6 `::1`.
+ */
+export function isLoopbackHost(hostname: string): boolean {
+  const h = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (h === "localhost" || h === "::1") return true;
+  return /^127(?:\.\d{1,3}){3}$/.test(h);
+}
+
+/**
+ * Validate a single redirect URI against the registration policy.
+ *
+ * Rules (defense against the open-DCR confused-deputy exfiltration path):
+ *   - Must be a valid `http`/`https` URL.
+ *   - Loopback hosts are always allowed (any scheme) — the code stays on-device.
+ *   - Non-loopback hosts must use `https` (no cleartext exfiltration).
+ *   - When `policy.allowedHosts` is non-empty, non-loopback hosts must match it exactly.
+ */
+export function validateRedirectUri(
+  uri: string,
+  policy: RedirectUriPolicy,
+): { ok: true } | { ok: false; reason: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(uri);
+  } catch {
+    return { ok: false, reason: "not a valid URL" };
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return { ok: false, reason: `invalid scheme: ${parsed.protocol} — only http and https are allowed` };
+  }
+  if (isLoopbackHost(parsed.hostname)) {
+    return { ok: true };
+  }
+  if (parsed.protocol !== "https:") {
+    return { ok: false, reason: "non-loopback redirect_uri must use https" };
+  }
+  if (policy.allowedHosts.length > 0 && !policy.allowedHosts.includes(parsed.hostname.toLowerCase())) {
+    return { ok: false, reason: `redirect_uri host '${parsed.hostname.toLowerCase()}' is not in the allowed list` };
+  }
+  return { ok: true };
+}
+
 /** Read the full request body as a string (capped at 1 MB). */
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -65,6 +121,7 @@ function jsonResponse(res: ServerResponse, status: number, body: unknown): void 
 export async function handleRegister(
   req: IncomingMessage,
   res: ServerResponse,
+  policy: RedirectUriPolicy,
 ): Promise<void> {
   if (req.method !== "POST") {
     jsonResponse(res, 405, { error: "method_not_allowed" });
@@ -94,18 +151,25 @@ export async function handleRegister(
       jsonResponse(res, 400, { error: "invalid_request", error_description: "Each redirect_uri must be a string" });
       return;
     }
-    try {
-      const parsed = new URL(uri);
-      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-        jsonResponse(res, 400, { error: "invalid_request", error_description: `Invalid redirect_uri scheme: ${parsed.protocol} — only http and https are allowed` });
-        return;
-      }
-      redirectUris.push(uri);
-    } catch {
-      jsonResponse(res, 400, { error: "invalid_request", error_description: `Invalid redirect_uri: not a valid URL` });
+    const check = validateRedirectUri(uri, policy);
+    if (!check.ok) {
+      jsonResponse(res, 400, { error: "invalid_request", error_description: `Invalid redirect_uri: ${check.reason}` });
       return;
     }
+    redirectUris.push(uri);
   }
+
+  // Surface external (non-loopback) registrations: with no allowlist configured these
+  // are still accepted, but they are the surface a confused-deputy phishing attack uses.
+  if (policy.allowedHosts.length === 0) {
+    for (const uri of redirectUris) {
+      const host = new URL(uri).hostname;
+      if (!isLoopbackHost(host)) {
+        logger.warn("Registered client with non-loopback redirect_uri and no allowlist configured", { host });
+      }
+    }
+  }
+
   const clientName = typeof body.client_name === "string" ? body.client_name : undefined;
 
   const client = await createRegisteredClient(redirectUris, clientName);
