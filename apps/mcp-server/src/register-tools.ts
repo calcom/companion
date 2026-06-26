@@ -72,6 +72,13 @@ import {
   updateUserAttribute,
   updateUserAttributeSchema,
 } from "./tools/organizations/attributes.js";
+// ── Organizations: Bookings ──
+import {
+  getOrgTeamBookings,
+  getOrgTeamBookingsSchema,
+  getOrgUserBookings,
+  getOrgUserBookingsSchema,
+} from "./tools/organizations/bookings.js";
 // ── Organizations: Memberships ──
 import {
   createOrgMembership,
@@ -602,6 +609,30 @@ export function registerTools(server: McpServer): void {
       annotations: DESTRUCTIVE,
     },
     unassignAttributeFromUser
+  );
+
+  // ── Organizations: Bookings (2) ──
+  server.registerTool(
+    "get_org_team_bookings",
+    {
+      title: "List Org Team Bookings",
+      description:
+        "List all bookings for a team within an organization. Requires TEAM_ADMIN role. Supports filtering by status (upcoming, recurring, past, cancelled, unconfirmed), attendee email/name, event type, date ranges (afterStart, beforeEnd, afterCreatedAt, beforeCreatedAt, afterUpdatedAt, beforeUpdatedAt), and sorting (sortStart, sortEnd, sortCreated, sortUpdatedAt).",
+      inputSchema: getOrgTeamBookingsSchema,
+      annotations: READ_ONLY,
+    },
+    getOrgTeamBookings
+  );
+  server.registerTool(
+    "get_org_user_bookings",
+    {
+      title: "List Org User Bookings",
+      description:
+        "List all bookings for a specific user within an organization. Requires ORG_ADMIN role. Use get_org_memberships to find user IDs. Supports filtering by status, attendee email/name, event type, team, date ranges, and sorting.",
+      inputSchema: getOrgUserBookingsSchema,
+      annotations: READ_ONLY,
+    },
+    getOrgUserBookings
   );
 
   // ── Organizations: Memberships (5) ──

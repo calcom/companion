@@ -1,75 +1,23 @@
 import { z } from "zod";
+import {
+  type BookingFilterParams,
+  type BookingTeamFilterParams,
+  bookingFiltersSchema,
+  bookingTeamFiltersSchema,
+  buildBookingQueryParams,
+} from "./booking-filters.js";
 import { calApi } from "../utils/api-client.js";
 import { sanitizePathSegment } from "../utils/path-sanitizer.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
 export const getBookingsSchema = {
-  status: z.string().optional().describe("Comma-separated statuses: upcoming, recurring, past, cancelled, unconfirmed"),
-  attendeeEmail: z.string().email().optional().describe("Filter by attendee email"),
-  attendeeName: z.string().optional().describe("Filter by attendee name"),
-  eventTypeId: z.number().int().optional().describe("Filter by event type ID"),
-  eventTypeIds: z.string().optional().describe("Comma-separated event type IDs (e.g. '100,200')"),
-  teamId: z.number().int().optional().describe("Filter by team ID"),
-  teamsIds: z.string().optional().describe("Comma-separated team IDs (e.g. '50,60')"),
-  afterStart: z.string().optional().describe("Filter bookings starting after this ISO 8601 date"),
-  beforeEnd: z.string().optional().describe("Filter bookings ending before this ISO 8601 date"),
-  afterCreatedAt: z.string().optional().describe("Filter bookings created after this ISO 8601 date"),
-  beforeCreatedAt: z.string().optional().describe("Filter bookings created before this ISO 8601 date"),
-  afterUpdatedAt: z.string().optional().describe("Filter bookings updated after this ISO 8601 date"),
-  beforeUpdatedAt: z.string().optional().describe("Filter bookings updated before this ISO 8601 date"),
-  bookingUid: z.string().optional().describe("Filter by booking UID"),
-  sortStart: z.enum(["asc", "desc"]).optional().describe("Sort by start time"),
-  sortEnd: z.enum(["asc", "desc"]).optional().describe("Sort by end time"),
-  sortCreated: z.enum(["asc", "desc"]).optional().describe("Sort by creation time"),
-  sortUpdatedAt: z.enum(["asc", "desc"]).optional().describe("Sort by updated time"),
-  take: z.number().int().optional().describe("Max results to return (default 100, max 250)"),
-  skip: z.number().int().optional().describe("Results to skip (offset)"),
+  ...bookingFiltersSchema,
+  ...bookingTeamFiltersSchema,
 };
 
-export async function getBookings(params: {
-  status?: string;
-  attendeeEmail?: string;
-  attendeeName?: string;
-  eventTypeId?: number;
-  eventTypeIds?: string;
-  teamId?: number;
-  teamsIds?: string;
-  afterStart?: string;
-  beforeEnd?: string;
-  afterCreatedAt?: string;
-  beforeCreatedAt?: string;
-  afterUpdatedAt?: string;
-  beforeUpdatedAt?: string;
-  bookingUid?: string;
-  sortStart?: "asc" | "desc";
-  sortEnd?: "asc" | "desc";
-  sortCreated?: "asc" | "desc";
-  sortUpdatedAt?: "asc" | "desc";
-  take?: number;
-  skip?: number;
-}) {
+export async function getBookings(params: BookingFilterParams & BookingTeamFilterParams) {
   try {
-    const qp: Record<string, string | number | undefined> = {};
-    if (params.status !== undefined) qp.status = params.status;
-    if (params.attendeeEmail !== undefined) qp.attendeeEmail = params.attendeeEmail;
-    if (params.attendeeName !== undefined) qp.attendeeName = params.attendeeName;
-    if (params.eventTypeId !== undefined) qp.eventTypeId = params.eventTypeId;
-    if (params.eventTypeIds !== undefined) qp.eventTypeIds = params.eventTypeIds;
-    if (params.teamId !== undefined) qp.teamId = params.teamId;
-    if (params.teamsIds !== undefined) qp.teamsIds = params.teamsIds;
-    if (params.afterStart !== undefined) qp.afterStart = params.afterStart;
-    if (params.beforeEnd !== undefined) qp.beforeEnd = params.beforeEnd;
-    if (params.afterCreatedAt !== undefined) qp.afterCreatedAt = params.afterCreatedAt;
-    if (params.beforeCreatedAt !== undefined) qp.beforeCreatedAt = params.beforeCreatedAt;
-    if (params.afterUpdatedAt !== undefined) qp.afterUpdatedAt = params.afterUpdatedAt;
-    if (params.beforeUpdatedAt !== undefined) qp.beforeUpdatedAt = params.beforeUpdatedAt;
-    if (params.bookingUid !== undefined) qp.bookingUid = params.bookingUid;
-    if (params.sortStart !== undefined) qp.sortStart = params.sortStart;
-    if (params.sortEnd !== undefined) qp.sortEnd = params.sortEnd;
-    if (params.sortCreated !== undefined) qp.sortCreated = params.sortCreated;
-    if (params.sortUpdatedAt !== undefined) qp.sortUpdatedAt = params.sortUpdatedAt;
-    if (params.take !== undefined) qp.take = params.take;
-    if (params.skip !== undefined) qp.skip = params.skip;
+    const qp = buildBookingQueryParams(params, { includeTeamFilters: true });
     const data = await calApi("bookings", { params: qp });
     return ok(data);
   } catch (err) {

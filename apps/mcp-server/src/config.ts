@@ -53,7 +53,7 @@ const httpSchema = baseSchema.extend({
   calOAuthScopes: z
     .string()
     .default(
-      "EVENT_TYPE_READ EVENT_TYPE_WRITE BOOKING_READ BOOKING_WRITE SCHEDULE_READ SCHEDULE_WRITE APPS_READ APPS_WRITE PROFILE_READ PROFILE_WRITE ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ"
+      "EVENT_TYPE_READ EVENT_TYPE_WRITE BOOKING_READ BOOKING_WRITE SCHEDULE_READ SCHEDULE_WRITE APPS_READ APPS_WRITE PROFILE_READ PROFILE_WRITE ORG_BOOKING_READ TEAM_BOOKING_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ"
     ),
   rateLimitWindowMs: z.coerce.number().int().positive().default(60_000),
   rateLimitMax: z.coerce.number().int().positive().default(30),
@@ -79,7 +79,7 @@ const httpSchema = baseSchema.extend({
             .split(",")
             .map((h) => h.trim().toLowerCase())
             .filter(Boolean)
-        : [],
+        : []
     ),
   trustProxy: z
     .enum(["true", "false", "1", "0"])
