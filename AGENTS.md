@@ -25,6 +25,12 @@ Note: Biome's `files.includes` in `biome.json` only covers `js/jsx/ts/tsx/json`,
 so `bun run format` / `format:check` do **not** touch Markdown. Validate docs with
 `git diff --check` (whitespace) and a manual read.
 
+## When Touching Mobile App Tests
+
+Before adding or changing tests for `apps/mobile`, start with
+[.agents/rules/testing-mobile.md](.agents/rules/testing-mobile.md). It routes
+agents to the correct Jest, Maestro, or AI-assisted authoring rule.
+
 ## When Touching MCP Tools
 
 Before adding or changing tools in `apps/mcp-server` that wrap Cal.com API v2,
@@ -38,10 +44,15 @@ To locate the OpenAPI spec, see
 
 ## Scope of These Rules
 
-The `.agents/rules` here are intentionally narrow. The MCP/OpenAPI rules apply
-**only** to `apps/mcp-server` (and other API-v2-wrapping code). They do **not**
-apply to unrelated `apps/chat`, `apps/mobile`, `apps/extension`, or `packages/cli`
-work — don't burden those areas with MCP-specific constraints.
+The `.agents/rules` here are intentionally narrow and scoped by area.
+
+The mobile testing rules apply to `apps/mobile` test strategy, Jest
+unit/component tests, Maestro E2E flows, and AI-assisted mobile test authoring.
+
+The MCP/OpenAPI rules apply **only** to `apps/mcp-server` (and other
+API-v2-wrapping code). They do **not** apply to unrelated `apps/chat`,
+`apps/mobile`, `apps/extension`, or `packages/cli` work — don't burden those
+areas with MCP-specific constraints.
 
 ## Extended Documentation
 
