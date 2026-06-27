@@ -1,0 +1,17 @@
+appId: ${APP_ID}
+name: Launch login screen
+tags:
+  - smoke
+  - ios
+  - android
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    stopApp: true
+- extendedWaitUntil:
+    visible: "Continue with Cal.com"
+    timeout: 15000
+- assertVisible: "Data region"
+- assertVisible: "United States"
+- assertVisible: "Continue with Cal.com"
