@@ -1,16 +1,17 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, jest, test } from "@jest/globals";
+import { useBookingListItemData } from "./useBookingListItemData";
 
-mock.module("@/utils/booking", () => ({
+jest.mock("@/utils/booking", () => ({
   getMeetingUrl: () => null,
 }));
 
-mock.module("@/utils/bookings-utils", () => ({
+jest.mock("@/utils/bookings-utils", () => ({
   formatDate: () => "",
   formatTime: () => "",
   getHostAndAttendeesDisplay: () => null,
 }));
 
-mock.module("@/utils/meetings-utils", () => ({
+jest.mock("@/utils/meetings-utils", () => ({
   getMeetingInfo: () => null,
 }));
 
@@ -29,7 +30,6 @@ function createBooking(overrides = {}) {
 
 describe("useBookingListItemData", () => {
   test("treats requires_confirmation status as pending for booking request UI", async () => {
-    const { useBookingListItemData } = await import("./useBookingListItemData");
     const booking = createBooking({
       status: "requires_confirmation",
     });
@@ -38,7 +38,6 @@ describe("useBookingListItemData", () => {
   });
 
   test("does not treat accepted requires-confirmation bookings as pending", async () => {
-    const { useBookingListItemData } = await import("./useBookingListItemData");
     const booking = createBooking({
       requiresConfirmation: true,
     });
