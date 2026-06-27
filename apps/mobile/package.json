@@ -78,7 +78,7 @@
   "devDependencies": {
     "@babel/plugin-transform-react-jsx": "^7.28.6",
     "@jest/globals": "30.4.1",
-    "@testing-library/react-native": "^14.0.1",
+    "@testing-library/react-native": "14.0.1",
     "@types/chrome": "0.1.31",
     "@types/jest": "30.0.0",
     "@types/node": "22.19.6",
