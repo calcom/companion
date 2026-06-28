@@ -2,13 +2,17 @@
   "name": "cal-companion",
   "version": "1.7.6",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "mobile": "cd apps/mobile && bunx expo start",
     "mobile:ios": "cd apps/mobile && bunx expo run:ios",
     "mobile:android": "cd apps/mobile && bunx expo run:android",
     "mobile:web": "cd apps/mobile && bunx expo start --web",
     "mobile:export": "cd apps/mobile && bunx expo export",
+    "mobile:test": "cd apps/mobile && bun run test",
     "ext": "bun --filter extension dev",
     "ext:build": "bun --filter extension build",
     "ext:build:prod": "bun --filter extension build:prod",
@@ -40,6 +44,23 @@
     ]
   },
   "overrides": {
-    "axios": "^1.15.0"
+    "axios": "1.18.0",
+    "shell-quote": "1.8.4",
+    "qs": "6.15.2",
+    "tar": "7.5.16",
+    "defu": "6.1.7",
+    "follow-redirects": "1.16.0",
+    "undici": "6.27.0",
+    "form-data": "4.0.6",
+    "tmp": "0.2.7",
+    "flatted": "3.4.2",
+    "node-forge": "1.4.0",
+    "postcss": "8.5.10",
+    "ws": "8.21.0",
+    "micromatch": "4.0.8",
+    "path-to-regexp": "8.4.0",
+    "yaml": "2.8.3",
+    "vite": "7.3.5",
+    "@xmldom/xmldom": "0.8.13"
   }
 }

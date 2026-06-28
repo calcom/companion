@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "@jest/globals";
 import { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/config/cache.config";
 import * as bookingCache from "@/utils/booking-cache";

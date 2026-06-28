@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **52 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **54 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
 - **Per-user token storage** — encrypted at rest with AES-256-GCM in SQLite
@@ -57,9 +57,11 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 | `CAL_OAUTH_CLIENT_SECRET` | Yes | — | Cal.com OAuth client secret |
 | `TOKEN_ENCRYPTION_KEY` | Yes | — | 64-char hex string (32 bytes) for AES-256-GCM token encryption |
 | `MCP_SERVER_URL` | Yes | — | Public URL of this server (e.g. `https://mcp.example.com`) |
+| `CAL_OAUTH_SCOPES` | No | Core scopes plus `ORG_BOOKING_READ TEAM_BOOKING_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ` | Space-separated Cal.com OAuth scopes requested during authorization |
 | `DATABASE_PATH` | No | `mcp-server.db` | SQLite database file path |
 | `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate limit window in ms (per IP) |
 | `RATE_LIMIT_MAX` | No | `30` | Max OAuth requests per window per IP |
+| `ALLOWED_REDIRECT_HOSTS` | No | — | Comma-separated allowlist of hostnames for non-loopback `https` redirect URIs at client registration. Loopback is always allowed; non-loopback cleartext `http` is always rejected. When unset, any `https` host is accepted (open DCR) but logged. |
 | `OPENAI_APPS_CHALLENGE_TOKEN` | No | — | Token served at `/.well-known/openai-apps-challenge` for OpenAI Apps domain verification. When unset, the endpoint returns 404. |
 
 ## Transport Modes
@@ -177,8 +179,9 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - Auth codes are single-use
 - Expired tokens are cleaned up automatically every 5 minutes
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
+- Redirect URIs registered via dynamic client registration are constrained: loopback (`localhost` / `127.0.0.0/8` / `::1`) is always allowed, cleartext `http` to non-loopback hosts is always rejected, and non-loopback `https` hosts can be restricted to a vetted allowlist via `ALLOWED_REDIRECT_HOSTS` (recommended in production to limit the open-DCR phishing surface)
 
-## Tools (52)
+## Tools (54)
 
 Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specification/draft/server/tools#tool-annotations) — a human-readable `title` plus behaviour hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP clients can render them appropriately and apply safety policies.
 
@@ -267,6 +270,12 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 | `assign_attribute_to_user` | Assign Attribute to User | Create | Assign an attribute option or value to a user |
 | `update_user_attribute` | Update User Attribute Assignment | Update | Update an existing user attribute assignment |
 | `unassign_attribute_from_user` | Unassign Attribute from User | Destructive | Remove an attribute option assignment from a user |
+
+### Organizations: Bookings (2)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_org_team_bookings` | List Org Team Bookings | Read | List bookings for a team within an organization |
+| `get_org_user_bookings` | List Org User Bookings | Read | List bookings for a specific user within an organization |
 
 ### Organizations: Memberships (5)
 | Tool | Title | Hint | Description |

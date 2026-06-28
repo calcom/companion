@@ -13,12 +13,16 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppPressable } from "@/components/AppPressable";
-import { BookingDetailRequestActions } from "@/components/screens/BookingDetailRequestActions";
+import {
+  BookingDetailRequestActions,
+  getBookingRequestActionState,
+} from "@/components/screens/BookingDetailRequestActions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCancelBooking, useConfirmBooking, useDeclineBooking } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
 import { getBookingPaymentStatus } from "@/utils/booking-payment-status";
+import { isBookingRequestPending } from "@/utils/booking-request-actions";
 
 const CopyButton = ({
   text,
@@ -432,7 +436,12 @@ export function BookingDetailScreen({
 
   const normalizedStatus = booking.status.toLowerCase();
   const { isPendingPayment } = getBookingPaymentStatus(booking);
-  const isUnconfirmed = normalizedStatus === "pending";
+  const isUnconfirmed = isBookingRequestPending(booking);
+  const bookingRequestActionState = getBookingRequestActionState({
+    booking,
+    currentUserId: userInfo?.id,
+    currentUserEmail: userInfo?.email,
+  });
 
   const getAttendeeStatusIcon = (attendee: { noShow?: boolean; absent?: boolean }) => {
     const isNoShow = attendee.noShow || attendee.absent;
@@ -445,7 +454,7 @@ export function BookingDetailScreen({
       };
     }
 
-    if (normalizedStatus === "pending") {
+    if (isUnconfirmed) {
       return {
         name: "help-circle" as const,
         color: "#A3A3A3",
@@ -543,7 +552,11 @@ export function BookingDetailScreen({
               ) : null}
               {isUnconfirmed ? (
                 <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
-                  <Text className="text-xs font-medium text-white">Unconfirmed</Text>
+                  <Text className="text-xs font-medium text-white">
+                    {bookingRequestActionState.showPendingHostConfirmation
+                      ? "Pending host confirmation"
+                      : "Unconfirmed"}
+                  </Text>
                 </View>
               ) : null}
             </View>
