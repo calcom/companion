@@ -2,13 +2,8 @@ appId: ${APP_ID}
 name: Launch login screen
 tags:
   - smoke
-  - ios
-  - android
 ---
-- launchApp:
-    clearState: true
-    clearKeychain: true
-    stopApp: true
+- runFlow: ../../helpers/launch-app.yaml
 - extendedWaitUntil:
     visible: "Continue with Cal.com"
     timeout: 15000
