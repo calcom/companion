@@ -704,9 +704,7 @@ export default function EventTypeDetail() {
 
     const calendarEventNameValue =
       typeof eventType.customName === "string" ? eventType.customName : metadata?.calendarEventName;
-    if (typeof calendarEventNameValue === "string") {
-      setCalendarEventName(calendarEventNameValue);
-    }
+    setCalendarEventName(typeof calendarEventNameValue === "string" ? calendarEventNameValue : "");
 
     // Load booker layouts
     const bookerLayouts = eventType.bookerLayouts;
