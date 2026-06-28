@@ -229,6 +229,28 @@ describe("buildPartialUpdatePayload", () => {
     });
   });
 
+  test("includes metadata fields when calendar settings are cleared", () => {
+    expect(
+      buildPayload(
+        {
+          calendarEventName: "",
+          addToCalendarEmail: "",
+        },
+        {
+          metadata: {
+            calendarEventName: "Quick Chat",
+            addToCalendarEmail: "owner@example.com",
+          },
+        }
+      )
+    ).toEqual({
+      metadata: {
+        calendarEventName: "",
+        addToCalendarEmail: "",
+      },
+    });
+  });
+
   test("emits disabled objects when advanced limits are turned off", () => {
     expect(
       buildPayload(

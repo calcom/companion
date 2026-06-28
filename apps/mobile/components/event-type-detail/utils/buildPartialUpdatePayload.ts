@@ -777,15 +777,11 @@ export function buildPartialUpdatePayload(
   }
 
   if ((currentState.calendarEventName || "") !== (originalMetadata.calendarEventName || "")) {
-    if (currentState.calendarEventName) {
-      metadataChanges.calendarEventName = currentState.calendarEventName;
-    }
+    metadataChanges.calendarEventName = currentState.calendarEventName;
   }
 
   if ((currentState.addToCalendarEmail || "") !== (originalMetadata.addToCalendarEmail || "")) {
-    if (currentState.addToCalendarEmail) {
-      metadataChanges.addToCalendarEmail = currentState.addToCalendarEmail;
-    }
+    metadataChanges.addToCalendarEmail = currentState.addToCalendarEmail;
   }
 
   if (Object.keys(metadataChanges).length > 0) {
