@@ -104,7 +104,6 @@ function createFormState(overrides = {}) {
     eventTypeColorLight: "#292929",
     eventTypeColorDark: "#FAFAFA",
     calendarEventName: "",
-    addToCalendarEmail: "",
     selectedLayouts: [],
     defaultLayout: "month",
     disableCancelling: false,
@@ -259,21 +258,6 @@ describe("buildPartialUpdatePayload", () => {
     ).toEqual({
       customName: "Updated event name",
     });
-  });
-
-  test("does not emit unsupported add-to-calendar metadata changes", () => {
-    expect(
-      buildPayload(
-        {
-          addToCalendarEmail: "",
-        },
-        {
-          metadata: {
-            addToCalendarEmail: "owner@example.com",
-          },
-        }
-      )
-    ).toEqual({});
   });
 
   test("emits disabled objects when advanced limits are turned off", () => {

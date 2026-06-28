@@ -227,7 +227,6 @@ export default function EventTypeDetail() {
 
   // Advanced tab state
   const [calendarEventName, setCalendarEventName] = useState("");
-  const [addToCalendarEmail, setAddToCalendarEmail] = useState("");
   const [selectedLayouts, setSelectedLayouts] = useState<string[]>(["MONTH_VIEW"]);
   const [defaultLayout, setDefaultLayout] = useState("MONTH_VIEW");
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
@@ -709,13 +708,6 @@ export default function EventTypeDetail() {
       setCalendarEventName(calendarEventNameValue);
     }
 
-    if (metadata) {
-      const addToCalendarEmailValue = metadata.addToCalendarEmail;
-      if (typeof addToCalendarEmailValue === "string") {
-        setAddToCalendarEmail(addToCalendarEmailValue);
-      }
-    }
-
     // Load booker layouts
     const bookerLayouts = eventType.bookerLayouts;
     if (bookerLayouts) {
@@ -1078,7 +1070,6 @@ export default function EventTypeDetail() {
       eventTypeColorLight,
       eventTypeColorDark,
       calendarEventName,
-      addToCalendarEmail,
       selectedLayouts,
       defaultLayout,
       disableCancelling,
@@ -1145,7 +1136,6 @@ export default function EventTypeDetail() {
       eventTypeColorLight,
       eventTypeColorDark,
       calendarEventName,
-      addToCalendarEmail,
       selectedLayouts,
       defaultLayout,
       disableCancelling,

@@ -118,7 +118,6 @@ interface EventTypeFormState {
   eventTypeColorLight: string;
   eventTypeColorDark: string;
   calendarEventName: string;
-  addToCalendarEmail: string;
   selectedLayouts: string[];
   defaultLayout: string;
   disableCancelling: boolean;
