@@ -233,7 +233,6 @@ export interface EventType {
   hidden?: boolean;
   eventTypeColor?: EventTypeColor;
   customName?: string;
-  useDestinationCalendarEmail?: boolean;
 
   // Ownership
   userId?: number;
@@ -336,7 +335,6 @@ export interface CreateEventTypeInput {
   eventTypeColor?: EventTypeColor;
   emailSettings?: EmailSettings;
   customName?: string;
-  useDestinationCalendarEmail?: boolean;
 
   // Additional fields
   requiresConfirmation?: boolean;
