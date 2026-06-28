@@ -232,6 +232,8 @@ export interface EventType {
   bookingFields?: BookingField[];
   hidden?: boolean;
   eventTypeColor?: EventTypeColor;
+  customName?: string;
+  useDestinationCalendarEmail?: boolean;
 
   // Ownership
   userId?: number;
@@ -333,6 +335,8 @@ export interface CreateEventTypeInput {
   hidden?: boolean;
   eventTypeColor?: EventTypeColor;
   emailSettings?: EmailSettings;
+  customName?: string;
+  useDestinationCalendarEmail?: boolean;
 
   // Additional fields
   requiresConfirmation?: boolean;

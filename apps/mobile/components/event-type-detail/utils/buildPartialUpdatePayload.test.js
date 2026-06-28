@@ -229,26 +229,51 @@ describe("buildPartialUpdatePayload", () => {
     });
   });
 
-  test("includes metadata fields when calendar settings are cleared", () => {
+  test("uses API v2 customName when the calendar event name is cleared", () => {
     expect(
       buildPayload(
         {
           calendarEventName: "",
-          addToCalendarEmail: "",
+        },
+        {
+          customName: "Quick Chat",
+        }
+      )
+    ).toEqual({
+      customName: "",
+    });
+  });
+
+  test("falls back to legacy metadata when comparing the original calendar event name", () => {
+    expect(
+      buildPayload(
+        {
+          calendarEventName: "Updated event name",
         },
         {
           metadata: {
             calendarEventName: "Quick Chat",
-            addToCalendarEmail: "owner@example.com",
           },
         }
       )
     ).toEqual({
-      metadata: {
-        calendarEventName: "",
-        addToCalendarEmail: "",
-      },
+      customName: "Updated event name",
     });
+  });
+
+  test("does not emit unsupported add-to-calendar metadata changes", () => {
+    expect(
+      buildPayload(
+        {
+          addToCalendarEmail: "",
+        },
+        {
+          metadata: {
+            addToCalendarEmail: "owner@example.com",
+          },
+        }
+      )
+    ).toEqual({});
   });
 
   test("emits disabled objects when advanced limits are turned off", () => {

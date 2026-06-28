@@ -47,13 +47,13 @@ import {
   showSuccessAlert,
 } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
-import { getCalAppUrl } from "@/utils/region";
 import {
   buildLocationOptions,
   mapApiLocationToItem,
   mapItemToApiLocation,
   validateLocationItem,
 } from "@/utils/locationHelpers";
+import { getCalAppUrl } from "@/utils/region";
 import { safeLogError } from "@/utils/safeLogger";
 
 // Type definitions for extended EventType fields not in the base type
@@ -703,11 +703,13 @@ export default function EventTypeDetail() {
       setShowOptimizedSlots(eventTypeExt.showOptimizedSlots);
     }
 
+    const calendarEventNameValue =
+      typeof eventType.customName === "string" ? eventType.customName : metadata?.calendarEventName;
+    if (typeof calendarEventNameValue === "string") {
+      setCalendarEventName(calendarEventNameValue);
+    }
+
     if (metadata) {
-      const calendarEventNameValue = metadata.calendarEventName;
-      if (typeof calendarEventNameValue === "string") {
-        setCalendarEventName(calendarEventNameValue);
-      }
       const addToCalendarEmailValue = metadata.addToCalendarEmail;
       if (typeof addToCalendarEmailValue === "string") {
         setAddToCalendarEmail(addToCalendarEmailValue);
