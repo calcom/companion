@@ -4,6 +4,7 @@ import { SvgImage } from "@/components/SvgImage";
 import { getColors } from "@/constants/colors";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
+import { BOOKING_REQUEST_BADGE_LABEL } from "@/utils/booking-request-actions";
 import type { BookingListItemData } from "./useBookingListItemData";
 
 interface TimeAndDateRowProps {
@@ -25,14 +26,9 @@ export function TimeAndDateRow({ formattedDate, formattedTimeRange }: TimeAndDat
 interface BadgesRowProps {
   isPending: boolean;
   isPendingPayment?: boolean;
-  showPendingHostConfirmation?: boolean;
 }
 
-export function BadgesRow({
-  isPending,
-  isPendingPayment,
-  showPendingHostConfirmation,
-}: BadgesRowProps) {
+export function BadgesRow({ isPending, isPendingPayment }: BadgesRowProps) {
   return (
     <View className="mb-3 flex-row flex-wrap items-center">
       {isPendingPayment ? (
@@ -42,9 +38,7 @@ export function BadgesRow({
       ) : null}
       {isPending ? (
         <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
-          <Text className="text-xs font-medium text-white">
-            {showPendingHostConfirmation ? "Pending host confirmation" : "Unconfirmed"}
-          </Text>
+          <Text className="text-xs font-medium text-white">{BOOKING_REQUEST_BADGE_LABEL}</Text>
         </View>
       ) : null}
     </View>

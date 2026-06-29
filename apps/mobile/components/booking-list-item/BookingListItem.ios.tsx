@@ -189,11 +189,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
                 formattedDate={formattedDate}
                 formattedTimeRange={formattedTimeRange}
               />
-              <BadgesRow
-                isPending={isPending}
-                isPendingPayment={isPendingPayment}
-                showPendingHostConfirmation={requestActionState.showPendingHostConfirmation}
-              />
+              <BadgesRow isPending={isPending} isPendingPayment={isPendingPayment} />
               <BookingTitle
                 title={booking.title}
                 isCancelled={isCancelled}

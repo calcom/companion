@@ -1,5 +1,6 @@
 import { describe, expect, test } from "@jest/globals";
 import {
+  BOOKING_REQUEST_BADGE_LABEL,
   getBookingRequestActionState,
   getBookingRequestBulkActionState,
   isBookingRequestPending,
@@ -145,7 +146,7 @@ describe("getBookingRequestActionState", () => {
     });
   });
 
-  test("shows pending host confirmation when the current user cannot respond to the request", () => {
+  test("marks attendee-facing requests as awaiting a host response", () => {
     const booking = createBooking({
       attendees: [
         {
@@ -168,5 +169,9 @@ describe("getBookingRequestActionState", () => {
       canReject: false,
       showPendingHostConfirmation: true,
     });
+  });
+
+  test("defines the booking request badge label as unconfirmed", () => {
+    expect(BOOKING_REQUEST_BADGE_LABEL).toBe("Unconfirmed");
   });
 });

@@ -28,6 +28,8 @@ type BookingRequestBulkActionStateParams = {
   now?: Date;
 };
 
+export const BOOKING_REQUEST_BADGE_LABEL = "Unconfirmed";
+
 const getBookingStatus = (booking: Booking): string => booking.status?.toLowerCase() || "";
 
 const getBookingEndTime = (booking: Booking): string => booking.endTime || booking.end || "";
