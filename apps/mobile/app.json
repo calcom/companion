@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Calcom",
+    "name": "Cal.com",
     "slug": "calcom-companion",
     "scheme": ["calcom", "expo-wxt-app"],
     "version": "1.0.8",
