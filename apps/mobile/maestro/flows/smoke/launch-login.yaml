@@ -8,5 +8,14 @@ tags:
     visible: "Continue with Cal.com"
     timeout: 15000
 - assertVisible: "Data region"
-- assertVisible: "United States.*"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible: "United States"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible: "United States,.*"
 - assertVisible: "Continue with Cal.com"

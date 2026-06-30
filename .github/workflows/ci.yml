@@ -196,7 +196,7 @@ jobs:
             ~/.maestro/bin
             ~/.maestro/lib
             ~/.maestro/deps
-          key: maestro-${{ runner.os }}-${{ env.MAESTRO_VERSION }}
+          key: maestro-${{ runner.os }}-${{ runner.arch }}-${{ env.MAESTRO_VERSION }}
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Install Maestro
@@ -232,7 +232,7 @@ jobs:
         timeout-minutes: 15
         run: |
           xcrun simctl shutdown all || true
-          SIMULATOR_UDID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ && /(Shutdown|Booted)/ { print $2; exit }')"
+          SIMULATOR_UDID="$(xcrun simctl list devices available | awk '/iPhone/ && /(Shutdown|Booted)/ { if (match($0, /[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}/)) { print substr($0, RSTART, RLENGTH); exit } }')"
           if [ -z "$SIMULATOR_UDID" ]; then
             echo "No available iPhone simulator found"
             xcrun simctl list devices available
