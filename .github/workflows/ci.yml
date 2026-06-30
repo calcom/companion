@@ -169,6 +169,7 @@ jobs:
       CI: true
       EXPO_NO_TELEMETRY: 1
       MAESTRO_VERSION: 2.6.1
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
     steps:
       - uses: actions/checkout@v4
       - name: Setup Bun
@@ -182,11 +183,27 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Configure iOS simulator
+        run: |
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+          defaults write com.apple.iphonesimulator SlowAnimations -bool false
+          defaults write com.apple.iphonesimulator PasteboardAutomaticSync -bool false
+      - name: Cache Maestro
+        id: cache-maestro-ios
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.maestro/bin
+            ~/.maestro/lib
+            ~/.maestro/deps
+          key: maestro-${{ runner.os }}-${{ env.MAESTRO_VERSION }}
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Install Maestro
+        if: steps.cache-maestro-ios.outputs.cache-hit != 'true'
+        run: curl -fsSL "https://get.maestro.mobile.dev" | bash
+      - name: Add Maestro to PATH
         run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
       - name: Validate Maestro flow syntax
         run: bun run mobile:e2e:check
@@ -212,6 +229,7 @@ jobs:
             build
           test -d ios/build/Build/Products/Release-iphonesimulator/Calcom.app
       - name: Boot iOS simulator
+        timeout-minutes: 15
         run: |
           xcrun simctl shutdown all || true
           SIMULATOR_UDID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ && /(Shutdown|Booted)/ { print $2; exit }')"
@@ -223,7 +241,10 @@ jobs:
           echo "IOS_SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
           xcrun simctl boot "$SIMULATOR_UDID"
           xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          xcrun simctl spawn "$SIMULATOR_UDID" defaults write -g UIAnimationDragCoefficient -float 0.0001
+          xcrun simctl list devices | grep Booted
       - name: Run iOS Maestro smoke flows
+        timeout-minutes: 15
         run: |
           xcrun simctl install "$IOS_SIMULATOR_UDID" apps/mobile/ios/build/Build/Products/Release-iphonesimulator/Calcom.app
           mkdir -p apps/mobile/maestro-results/ios
