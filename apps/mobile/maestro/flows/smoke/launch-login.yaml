@@ -8,5 +8,5 @@ tags:
     visible: "Continue with Cal.com"
     timeout: 15000
 - assertVisible: "Data region"
-- assertVisible: "United States"
+- assertVisible: "United States.*"
 - assertVisible: "Continue with Cal.com"

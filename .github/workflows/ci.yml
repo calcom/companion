@@ -161,6 +161,81 @@ jobs:
           path: apps/mobile/maestro-results/android
           if-no-files-found: ignore
 
+  mobile-maestro-ios:
+    name: Mobile Maestro iOS
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      CI: true
+      EXPO_NO_TELEMETRY: 1
+      MAESTRO_VERSION: 2.6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.3.0
+          cache: true
+          cache-dependency-path: bun.lock
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Validate Maestro flow syntax
+        run: bun run mobile:e2e:check
+      - name: Generate iOS project
+        working-directory: apps/mobile
+        run: EXPO_NO_GIT_STATUS=1 bunx expo prebuild --platform ios --no-install
+      - name: Install CocoaPods dependencies
+        working-directory: apps/mobile/ios
+        run: pod install
+      - name: Build iOS simulator app
+        working-directory: apps/mobile
+        run: |
+          xcodebuild \
+            -workspace ios/Calcom.xcworkspace \
+            -scheme Calcom \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          test -d ios/build/Build/Products/Release-iphonesimulator/Calcom.app
+      - name: Boot iOS simulator
+        run: |
+          xcrun simctl shutdown all || true
+          SIMULATOR_UDID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ && /(Shutdown|Booted)/ { print $2; exit }')"
+          if [ -z "$SIMULATOR_UDID" ]; then
+            echo "No available iPhone simulator found"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "IOS_SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$SIMULATOR_UDID"
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+      - name: Run iOS Maestro smoke flows
+        run: |
+          xcrun simctl install "$IOS_SIMULATOR_UDID" apps/mobile/ios/build/Build/Products/Release-iphonesimulator/Calcom.app
+          mkdir -p apps/mobile/maestro-results/ios
+          maestro test -e APP_ID=com.cal.companion --exclude-tags=android-only --format JUNIT --output apps/mobile/maestro-results/ios/report.xml --test-output-dir apps/mobile/maestro-results/ios/artifacts --debug-output apps/mobile/maestro-results/ios/debug --flatten-debug-output apps/mobile/maestro
+      - name: Upload Maestro artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-maestro-ios
+          path: apps/mobile/maestro-results/ios
+          if-no-files-found: ignore
+
   build:
     name: Build
     runs-on: blacksmith-4vcpu-ubuntu-2404

@@ -51,9 +51,14 @@ The `Mobile Maestro Android` PR check builds a release Android APK from the
 generated native project, installs it on a GitHub-hosted emulator, and runs the
 current smoke flows with `APP_ID=com.calcom.companion`.
 
-The job also runs `bun run mobile:e2e:check` before building so YAML syntax
-failures are reported quickly. Runtime failures upload the JUnit report and
-Maestro debug artifacts as the `mobile-maestro-android` workflow artifact.
+The `Mobile Maestro iOS` PR check builds a simulator `.app` from the generated
+Xcode workspace, installs it on a GitHub-hosted iPhone simulator, and runs the
+current smoke flows with `APP_ID=com.cal.companion`.
+
+Both jobs run `bun run mobile:e2e:check` before building so YAML syntax failures
+are reported quickly. Runtime failures upload the JUnit report and Maestro
+debug artifacts as `mobile-maestro-android` or `mobile-maestro-ios` workflow
+artifacts.
 
 The logged-out smoke build uses a CI-only dummy Google services file and does
 not require production Firebase secrets.
