@@ -151,17 +151,8 @@ jobs:
           disable-animations: true
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-            cd apps/mobile
-            mkdir -p maestro-results/android
-            maestro test \
-              -e APP_ID=com.calcom.companion \
-              --exclude-tags=ios-only \
-              --format JUNIT \
-              --output maestro-results/android/report.xml \
-              --test-output-dir maestro-results/android/artifacts \
-              --debug-output maestro-results/android/debug \
-              --flatten-debug-output \
-              maestro
+            mkdir -p apps/mobile/maestro-results/android
+            maestro test -e APP_ID=com.calcom.companion --exclude-tags=ios-only --format JUNIT --output apps/mobile/maestro-results/android/report.xml --test-output-dir apps/mobile/maestro-results/android/artifacts --debug-output apps/mobile/maestro-results/android/debug --flatten-debug-output apps/mobile/maestro
       - name: Upload Maestro artifacts
         if: always()
         uses: actions/upload-artifact@v4
