@@ -11,6 +11,7 @@ import type { Booking } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 import { getBookingActions } from "@/utils/booking-actions";
 import {
+  BOOKING_REQUEST_BADGE_LABEL,
   getBookingRequestBulkActionState,
   isBookingRequestPending,
 } from "@/utils/booking-request-actions";
@@ -97,7 +98,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
       }),
     [group.bookings, userId, userEmail]
   );
-  const { canConfirmAll, canRejectAll, showPendingHostConfirmation } = bulkRequestActionState;
+  const { canConfirmAll, canRejectAll } = bulkRequestActionState;
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -235,9 +236,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
                 paddingVertical: 2,
               }}
             >
-              <Text className="text-xs font-medium text-white">
-                {showPendingHostConfirmation ? "Pending host confirmation" : "Unconfirmed"}
-              </Text>
+              <Text className="text-xs font-medium text-white">{BOOKING_REQUEST_BADGE_LABEL}</Text>
             </View>
           )}
         </View>
