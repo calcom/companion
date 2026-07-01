@@ -183,6 +183,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.2.app
+          xcodebuild -version
+          xcrun simctl list runtimes | grep "iOS 26.2"
       - name: Configure iOS simulator
         run: |
           defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
