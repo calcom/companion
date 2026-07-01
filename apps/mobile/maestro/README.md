@@ -45,6 +45,19 @@ The default `mobile:e2e` script runs the Maestro folder with the app ID from
 - iOS: `com.cal.companion`
 - Android: `com.calcom.companion`
 
+## CI
+
+The `Mobile Maestro Android` PR check builds a release Android APK from the
+generated native project, installs it on a GitHub-hosted emulator, and runs the
+current smoke flows with `APP_ID=com.calcom.companion`.
+
+The job also runs `bun run mobile:e2e:check` before building so YAML syntax
+failures are reported quickly. Runtime failures upload the JUnit report and
+Maestro debug artifacts as the `mobile-maestro-android` workflow artifact.
+
+The logged-out smoke build uses a CI-only dummy Google services file and does
+not require production Firebase secrets.
+
 ## Authoring Notes
 
 - Use Maestro MCP or `maestro hierarchy` to inspect the running screen before
