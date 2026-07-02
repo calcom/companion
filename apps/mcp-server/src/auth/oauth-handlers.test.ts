@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 // oauth-handlers transitively imports the token store, which creates a Postgres
 // pool at import time. Mock it so these pure-function tests need no database.
@@ -11,7 +11,11 @@ vi.mock("@vercel/postgres", () => {
 const { isLoopbackHost, validateRedirectUri } = await import("./oauth-handlers.js");
 type RedirectUriPolicy = import("./oauth-handlers.js").RedirectUriPolicy;
 
-const OPEN: RedirectUriPolicy = { allowedHosts: [] };
+const CLOSED: RedirectUriPolicy = {
+  allowedHosts: [],
+  allowExternalRedirectsWithoutAllowlist: false,
+};
+const OPEN: RedirectUriPolicy = { allowedHosts: [], allowExternalRedirectsWithoutAllowlist: true };
 const ALLOWLIST: RedirectUriPolicy = { allowedHosts: ["claude.ai", "chatgpt.com"] };
 
 describe("isLoopbackHost", () => {
@@ -36,27 +40,33 @@ describe("isLoopbackHost", () => {
 
 describe("validateRedirectUri", () => {
   it("allows loopback over http (desktop clients)", () => {
-    expect(validateRedirectUri("http://localhost:8765/callback", OPEN).ok).toBe(true);
-    expect(validateRedirectUri("http://127.0.0.5:9000/cb", OPEN).ok).toBe(true);
-    expect(validateRedirectUri("http://[::1]:9000/cb", OPEN).ok).toBe(true);
+    expect(validateRedirectUri("http://localhost:8765/callback", CLOSED).ok).toBe(true);
+    expect(validateRedirectUri("http://127.0.0.5:9000/cb", CLOSED).ok).toBe(true);
+    expect(validateRedirectUri("http://[::1]:9000/cb", CLOSED).ok).toBe(true);
   });
 
   it("rejects cleartext http to non-loopback hosts", () => {
-    const res = validateRedirectUri("http://evil.com/callback", OPEN);
+    const res = validateRedirectUri("http://evil.com/callback", CLOSED);
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.reason).toContain("https");
   });
 
   it("rejects non-http(s) schemes", () => {
-    expect(validateRedirectUri("ftp://example.com/cb", OPEN).ok).toBe(false);
-    expect(validateRedirectUri("javascript:alert(1)", OPEN).ok).toBe(false);
+    expect(validateRedirectUri("ftp://example.com/cb", CLOSED).ok).toBe(false);
+    expect(validateRedirectUri("javascript:alert(1)", CLOSED).ok).toBe(false);
   });
 
   it("rejects malformed URLs", () => {
-    expect(validateRedirectUri("not a url", OPEN).ok).toBe(false);
+    expect(validateRedirectUri("not a url", CLOSED).ok).toBe(false);
   });
 
-  it("with no allowlist, accepts any https host (open DCR default)", () => {
+  it("with no allowlist, rejects external https hosts by default", () => {
+    const res = validateRedirectUri("https://evil.com/callback", CLOSED);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.reason).toContain("ALLOWED_REDIRECT_HOSTS");
+  });
+
+  it("with the explicit open-DCR override, accepts any https host", () => {
     expect(validateRedirectUri("https://evil.com/callback", OPEN).ok).toBe(true);
   });
 

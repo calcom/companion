@@ -1,26 +1,27 @@
-import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { createServer } from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { authContext } from "./auth/context.js";
-import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
+import type { OAuthConfig } from "./auth/oauth-handlers.js";
+import {
+  handleAuthorize,
+  handleCallback,
+  handleRegister,
+  handleRevoke,
+  handleToken,
+  resolveCalAuthHeaders,
+} from "./auth/oauth-handlers.js";
 import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
 } from "./auth/oauth-metadata.js";
-import {
-  handleRegister,
-  handleAuthorize,
-  handleCallback,
-  handleToken,
-  handleRevoke,
-  resolveCalAuthHeaders,
-} from "./auth/oauth-handlers.js";
-import type { OAuthConfig } from "./auth/oauth-handlers.js";
-import { initDb, endPool, sql } from "./storage/db.js";
+import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
+import { endPool, initDb, sql } from "./storage/db.js";
 import { cleanupExpired, countRegisteredClients } from "./storage/token-store.js";
+import { resolveCorsOrigin } from "./utils/http-security.js";
 import { logger, withLogContext } from "./utils/logger.js";
-import { RateLimiter, getClientIp, sendRateLimited } from "./utils/rate-limiter.js";
+import { getClientIp, RateLimiter, sendRateLimited } from "./utils/rate-limiter.js";
 
 export interface HttpServerConfig {
   port: number;
@@ -30,8 +31,9 @@ export interface HttpServerConfig {
   maxSessions?: number;
   sessionIdleTimeoutMs?: number;
   maxRegisteredClients?: number;
-  /** Allowlist of hostnames permitted for non-loopback https redirect URIs (empty = any https host). */
+  /** Allowlist of hostnames permitted for non-loopback https redirect URIs. */
   allowedRedirectHosts?: string[];
+  allowOpenRedirectRegistration?: boolean;
   corsOrigin?: string;
   shutdownTimeoutMs?: number;
   /**
@@ -66,31 +68,45 @@ const startedAt = Date.now();
 
 export async function startHttpServer(
   registerTools: (server: McpServer) => void,
-  config: HttpServerConfig,
+  config: HttpServerConfig
 ): Promise<void> {
   const { port, oauthConfig } = config;
   const maxSessions = config.maxSessions ?? (Number(process.env.MAX_SESSIONS) || 10_000);
-  const sessionIdleTimeoutMs = config.sessionIdleTimeoutMs ?? (Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60 * 1000);
-  const maxRegisteredClients = config.maxRegisteredClients ?? (Number(process.env.MAX_REGISTERED_CLIENTS) || 10_000);
-  const redirectUriPolicy = { allowedHosts: config.allowedRedirectHosts ?? [] };
-  const corsOrigin = config.corsOrigin ?? process.env.CORS_ORIGIN;
-  const shutdownTimeoutMs = config.shutdownTimeoutMs ?? (Number(process.env.SHUTDOWN_TIMEOUT_MS) || 10_000);
-  const openaiAppsChallengeToken = config.openaiAppsChallengeToken ?? process.env.OPENAI_APPS_CHALLENGE_TOKEN;
+  const sessionIdleTimeoutMs =
+    config.sessionIdleTimeoutMs ?? (Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60 * 1000);
+  const maxRegisteredClients =
+    config.maxRegisteredClients ?? (Number(process.env.MAX_REGISTERED_CLIENTS) || 10_000);
+  const redirectUriPolicy = {
+    allowedHosts: config.allowedRedirectHosts ?? [],
+    allowExternalRedirectsWithoutAllowlist: config.allowOpenRedirectRegistration ?? false,
+  };
+  const corsOrigin = resolveCorsOrigin(
+    config.corsOrigin ?? process.env.CORS_ORIGIN,
+    oauthConfig.serverUrl
+  );
+  const shutdownTimeoutMs =
+    config.shutdownTimeoutMs ?? (Number(process.env.SHUTDOWN_TIMEOUT_MS) || 10_000);
+  const openaiAppsChallengeToken =
+    config.openaiAppsChallengeToken ?? process.env.OPENAI_APPS_CHALLENGE_TOKEN;
 
   await initDb();
 
-  const rateLimitWindowMs = config.rateLimitWindowMs ?? (Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000);
+  const rateLimitWindowMs =
+    config.rateLimitWindowMs ?? (Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000);
   const rateLimitMax = config.rateLimitMax ?? (Number(process.env.RATE_LIMIT_MAX) || 30);
   const oauthRateLimiter = new RateLimiter({ windowMs: rateLimitWindowMs, max: rateLimitMax });
   oauthRateLimiter.startGc();
   const mcpRateLimiter = new RateLimiter({ windowMs: rateLimitWindowMs, max: rateLimitMax * 3 });
   mcpRateLimiter.startGc();
 
-  const cleanupInterval = setInterval(() => {
-    cleanupExpired().catch((err) => {
-      logger.error("Cleanup error", { error: String(err) });
-    });
-  }, 5 * 60 * 1000);
+  const cleanupInterval = setInterval(
+    () => {
+      cleanupExpired().catch((err) => {
+        logger.error("Cleanup error", { error: String(err) });
+      });
+    },
+    5 * 60 * 1000
+  );
 
   const sessions = new Map<
     string,
@@ -120,14 +136,11 @@ export async function startHttpServer(
 
   /** Add CORS headers if configured. */
   function setCorsHeaders(res: import("node:http").ServerResponse): void {
-    const origin = corsOrigin ?? "*";
-    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Origin", corsOrigin);
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id");
     res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
-    if (origin !== "*") {
-      res.setHeader("Vary", "Origin");
-    }
+    res.setHeader("Vary", "Origin");
   }
 
   const httpServer = createServer(async (req, res) => {
@@ -148,16 +161,20 @@ export async function startHttpServer(
       try {
         await sql`SELECT 1`;
         dbOk = true;
-      } catch { /* db not healthy */ }
+      } catch {
+        /* db not healthy */
+      }
       const status = dbOk ? "ok" : "degraded";
       const code = dbOk ? 200 : 503;
       res.writeHead(code, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        status,
-        sessions: sessions.size,
-        db: dbOk ? "ok" : "error",
-        uptime: Math.floor((Date.now() - startedAt) / 1000),
-      }));
+      res.end(
+        JSON.stringify({
+          status,
+          sessions: sessions.size,
+          db: dbOk ? "ok" : "error",
+          uptime: Math.floor((Date.now() - startedAt) / 1000),
+        })
+      );
       return;
     }
 
@@ -204,7 +221,12 @@ export async function startHttpServer(
         const currentCount = await countRegisteredClients();
         if (currentCount >= maxRegisteredClients) {
           res.writeHead(503, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "server_error", error_description: "Maximum number of registered clients reached" }));
+          res.end(
+            JSON.stringify({
+              error: "server_error",
+              error_description: "Maximum number of registered clients reached",
+            })
+          );
           return;
         }
         await handleRegister(req, res, redirectUriPolicy);
@@ -244,7 +266,9 @@ export async function startHttpServer(
           "Content-Type": "application/json",
           "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
         });
-        res.end(JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" }));
+        res.end(
+          JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" })
+        );
         return;
       }
 
@@ -255,7 +279,12 @@ export async function startHttpServer(
             "Content-Type": "application/json",
             "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
           });
-          res.end(JSON.stringify({ error: "invalid_token", error_description: "Invalid or expired access token" }));
+          res.end(
+            JSON.stringify({
+              error: "invalid_token",
+              error_description: "Invalid or expired access token",
+            })
+          );
           return;
         }
         const sessionId = req.headers["mcp-session-id"] as string | undefined;
@@ -276,13 +305,20 @@ export async function startHttpServer(
 
       const existingSession = sessionId ? sessions.get(sessionId) : undefined;
       if (sessionId && existingSession) {
-        const freshHeaders = bearerToken ? await resolveCalAuthHeaders(bearerToken, oauthConfig) : undefined;
+        const freshHeaders = bearerToken
+          ? await resolveCalAuthHeaders(bearerToken, oauthConfig)
+          : undefined;
         if (!freshHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
             "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
           });
-          res.end(JSON.stringify({ error: "invalid_token", error_description: "Cal.com token expired and could not be refreshed" }));
+          res.end(
+            JSON.stringify({
+              error: "invalid_token",
+              error_description: "Cal.com token expired and could not be refreshed",
+            })
+          );
           return;
         }
         existingSession.lastActivityAt = Date.now();
@@ -306,7 +342,12 @@ export async function startHttpServer(
         // Enforce max sessions limit
         if (sessions.size >= maxSessions) {
           res.writeHead(503, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "server_error", error_description: "Maximum number of sessions reached" }));
+          res.end(
+            JSON.stringify({
+              error: "server_error",
+              error_description: "Maximum number of sessions reached",
+            })
+          );
           return;
         }
 
@@ -316,7 +357,12 @@ export async function startHttpServer(
             "Content-Type": "application/json",
             "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
           });
-          res.end(JSON.stringify({ error: "invalid_token", error_description: "Invalid or expired access token" }));
+          res.end(
+            JSON.stringify({
+              error: "invalid_token",
+              error_description: "Invalid or expired access token",
+            })
+          );
           return;
         }
 
@@ -331,7 +377,7 @@ export async function startHttpServer(
           },
           {
             instructions: SERVER_INSTRUCTIONS,
-          },
+          }
         );
 
         registerTools(server);
@@ -354,7 +400,12 @@ export async function startHttpServer(
 
         const newSessionId = transport.sessionId;
         if (newSessionId) {
-          sessions.set(newSessionId, { transport, server, calAuthHeaders, lastActivityAt: Date.now() });
+          sessions.set(newSessionId, {
+            transport,
+            server,
+            calAuthHeaders,
+            lastActivityAt: Date.now(),
+          });
           logger.info("New session created", { sessionId: newSessionId });
         }
         return;
@@ -395,9 +446,11 @@ export async function startHttpServer(
       Array.from(sessions.entries()).map(async ([id, session]) => {
         try {
           await session.transport.close();
-        } catch { /* best effort */ }
+        } catch {
+          /* best effort */
+        }
         sessions.delete(id);
-      }),
+      })
     );
 
     const timeout = new Promise<void>((resolve) => setTimeout(resolve, shutdownTimeoutMs));
@@ -409,9 +462,13 @@ export async function startHttpServer(
   };
 
   process.on("SIGINT", () => {
-    shutdown().then(() => process.exit(0)).catch(() => process.exit(1));
+    shutdown()
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
   });
   process.on("SIGTERM", () => {
-    shutdown().then(() => process.exit(0)).catch(() => process.exit(1));
+    shutdown()
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
   });
 }

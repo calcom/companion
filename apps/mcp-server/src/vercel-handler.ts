@@ -5,23 +5,24 @@ import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 
 import { authContext } from "./auth/context.js";
 import {
-  buildAuthorizationServerMetadata,
-  buildProtectedResourceMetadata,
-} from "./auth/oauth-metadata.js";
-import {
   handleAuthorize,
   handleCallback,
   handleRegister,
   handleRevoke,
   handleToken,
-  resolveCalAuthHeaders,
   type OAuthConfig,
+  resolveCalAuthHeaders,
 } from "./auth/oauth-handlers.js";
-import { loadConfig, type HttpConfig } from "./config.js";
+import {
+  buildAuthorizationServerMetadata,
+  buildProtectedResourceMetadata,
+} from "./auth/oauth-metadata.js";
+import { type HttpConfig, loadConfig } from "./config.js";
 import { registerTools } from "./register-tools.js";
 import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import { initDb, sql } from "./storage/db.js";
 import { countRegisteredClients } from "./storage/token-store.js";
+import { resolveCorsOrigin } from "./utils/http-security.js";
 
 /**
  * Vercel serverless entry point.
@@ -74,10 +75,12 @@ function oauthConfigFromHttpConfig(config: HttpConfig): OAuthConfig {
   };
 }
 
-function setCorsHeaders(req: IncomingMessage, res: ServerResponse, corsOrigin: string | undefined): void {
-  // Credentialed requests (Authorization header) require an explicit origin,
-  // not "*". Fall back to echoing the request's Origin header.
-  const origin = corsOrigin ?? req.headers.origin ?? "*";
+function setCorsHeaders(
+  res: ServerResponse,
+  corsOrigin: string | undefined,
+  serverUrl: string
+): void {
+  const origin = resolveCorsOrigin(corsOrigin, serverUrl);
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   // Include mcp-protocol-version and last-event-id: the MCP client adds these custom
@@ -85,7 +88,7 @@ function setCorsHeaders(req: IncomingMessage, res: ServerResponse, corsOrigin: s
   // preflight fails with "header not allowed".
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, Mcp-Session-Id, mcp-protocol-version, last-event-id",
+    "Content-Type, Authorization, Mcp-Session-Id, mcp-protocol-version, last-event-id"
   );
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -102,7 +105,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const oauthConfig = oauthConfigFromHttpConfig(config);
   await ensureDb();
 
-  setCorsHeaders(req, res, config.corsOrigin);
+  setCorsHeaders(res, config.corsOrigin, config.serverUrl);
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
@@ -163,7 +166,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       jsonError(res, 503, "server_error", "Maximum number of registered clients reached");
       return;
     }
-    await handleRegister(req, res, { allowedHosts: config.allowedRedirectHosts });
+    await handleRegister(req, res, {
+      allowedHosts: config.allowedRedirectHosts,
+      allowExternalRedirectsWithoutAllowlist: config.allowOpenRedirectRegistration,
+    });
     return;
   }
   if (url.pathname === "/oauth/authorize" && req.method === "GET") {
@@ -205,7 +211,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         "Content-Type": "application/json",
         "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl.replace(/\/+$/, "")}/.well-known/oauth-protected-resource"`,
       });
-      res.end(JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" }));
+      res.end(
+        JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" })
+      );
       return;
     }
 
@@ -215,7 +223,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         "Content-Type": "application/json",
         "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl.replace(/\/+$/, "")}/.well-known/oauth-protected-resource"`,
       });
-      res.end(JSON.stringify({ error: "invalid_token", error_description: "Invalid or expired access token" }));
+      res.end(
+        JSON.stringify({
+          error: "invalid_token",
+          error_description: "Invalid or expired access token",
+        })
+      );
       return;
     }
 
@@ -232,7 +245,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     // mode — no error, it just skips the standalone stream.
     if (req.method === "GET") {
       res.writeHead(405, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "method_not_allowed", error_description: "SSE stream not supported in serverless mode" }));
+      res.end(
+        JSON.stringify({
+          error: "method_not_allowed",
+          error_description: "SSE stream not supported in serverless mode",
+        })
+      );
       return;
     }
 
@@ -265,7 +283,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
-    const messages: JSONRPCMessage[] = (Array.isArray(rawMessage) ? rawMessage : [rawMessage]) as JSONRPCMessage[];
+    const messages: JSONRPCMessage[] = (
+      Array.isArray(rawMessage) ? rawMessage : [rawMessage]
+    ) as JSONRPCMessage[];
 
     // JSON-RPC requests have an `id` field; notifications do not.
     const requestIds = messages
@@ -282,7 +302,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     // -- 2. Build minimal Transport --------------------------------------------
     const collectedResponses = new Map<string | number, JSONRPCMessage>();
     let resolveAll!: () => void;
-    const allDone = new Promise<void>((r) => { resolveAll = r; });
+    const allDone = new Promise<void>((r) => {
+      resolveAll = r;
+    });
 
     const transport: Transport = {
       // These callbacks are set by McpServer.connect() before start() returns.
@@ -290,8 +312,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       onclose: undefined,
       onerror: undefined,
 
-      async start() { /* nothing to set up */ },
-      async close() { transport.onclose?.(); },
+      async start() {
+        /* nothing to set up */
+      },
+      async close() {
+        transport.onclose?.();
+      },
 
       async send(msg: JSONRPCMessage) {
         // Only capture responses (they have `id` + `result`/`error`, but no `method`);
@@ -306,7 +332,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     // -- 3. Connect McpServer and drive messages --------------------------------
     const server = new McpServer(
       { name: "calcom-mcp-server", version: "0.1.0" },
-      { instructions: SERVER_INSTRUCTIONS },
+      { instructions: SERVER_INSTRUCTIONS }
     );
     registerTools(server);
     await server.connect(transport);
@@ -322,7 +348,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         await Promise.race([
           allDone,
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error(`MCP handler timed out after ${timeoutMs} ms`)), timeoutMs),
+            setTimeout(
+              () => reject(new Error(`MCP handler timed out after ${timeoutMs} ms`)),
+              timeoutMs
+            )
           ),
         ]);
       });
@@ -333,7 +362,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     // -- 4. Return JSON --------------------------------------------------------
     const responsePayload = Array.isArray(rawMessage)
       ? requestIds.map((id) => collectedResponses.get(id) ?? null)
-      : collectedResponses.get(requestIds[0]) ?? null;
+      : (collectedResponses.get(requestIds[0]) ?? null);
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(responsePayload));
