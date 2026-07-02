@@ -22,7 +22,7 @@ import { registerTools } from "./register-tools.js";
 import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import { initDb, sql } from "./storage/db.js";
 import { countRegisteredClients } from "./storage/token-store.js";
-import { resolveCorsOrigin } from "./utils/http-security.js";
+import { applyCorsHeaders, resolveCorsOrigin } from "./utils/http-security.js";
 
 /**
  * Vercel serverless entry point.
@@ -81,18 +81,7 @@ function setCorsHeaders(
   serverUrl: string
 ): void {
   const origin = resolveCorsOrigin(corsOrigin, serverUrl);
-  res.setHeader("Access-Control-Allow-Origin", origin);
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-  // Include mcp-protocol-version and last-event-id: the MCP client adds these custom
-  // headers on every request after initialization. Without them the browser's CORS
-  // preflight fails with "header not allowed".
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, Mcp-Session-Id, mcp-protocol-version, last-event-id"
-  );
-  res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Vary", "Origin");
+  applyCorsHeaders(res, origin);
 }
 
 function jsonError(res: ServerResponse, status: number, error: string, description?: string): void {

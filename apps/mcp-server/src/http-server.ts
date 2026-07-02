@@ -19,7 +19,7 @@ import {
 import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import { endPool, initDb, sql } from "./storage/db.js";
 import { cleanupExpired, countRegisteredClients } from "./storage/token-store.js";
-import { resolveCorsOrigin } from "./utils/http-security.js";
+import { applyCorsHeaders, resolveCorsOrigin } from "./utils/http-security.js";
 import { logger, withLogContext } from "./utils/logger.js";
 import { getClientIp, RateLimiter, sendRateLimited } from "./utils/rate-limiter.js";
 
@@ -136,11 +136,7 @@ export async function startHttpServer(
 
   /** Add CORS headers if configured. */
   function setCorsHeaders(res: import("node:http").ServerResponse): void {
-    res.setHeader("Access-Control-Allow-Origin", corsOrigin);
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id");
-    res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
-    res.setHeader("Vary", "Origin");
+    applyCorsHeaders(res, corsOrigin);
   }
 
   const httpServer = createServer(async (req, res) => {
