@@ -7,6 +7,10 @@ export function validateExternalRedirectUrl(value: string): RedirectUrlValidatio
   const trimmed = value.trim();
   if (!trimmed) return { valid: true };
 
+  if (!/^https?:\/\//.test(trimmed)) {
+    return { valid: false, error: "Redirect URL must start with http:// or https://." };
+  }
+
   let parsed: URL;
   try {
     parsed = new URL(trimmed);

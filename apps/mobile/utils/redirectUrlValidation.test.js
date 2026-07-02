@@ -30,6 +30,13 @@ describe("validateExternalRedirectUrl", () => {
     const result = validateExternalRedirectUrl("ftp://example.com/file");
 
     expect(result.valid).toBe(false);
-    expect(result.error).toContain("HTTP");
+    expect(result.error).toContain("http://");
+  });
+
+  test("rejects http URLs without an explicit double-slash prefix", () => {
+    expect(validateExternalRedirectUrl("https:example.com").valid).toBe(false);
+    expect(validateExternalRedirectUrl("http:example.com").valid).toBe(false);
+    expect(validateExternalRedirectUrl("https:/example.com").valid).toBe(false);
+    expect(validateExternalRedirectUrl("http:/example.com").valid).toBe(false);
   });
 });
