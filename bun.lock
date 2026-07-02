@@ -47,6 +47,7 @@
       },
       "devDependencies": {
         "@types/chrome": "0.1.31",
+        "vitest": "4.1.8",
         "wxt": "0.20.11",
       },
     },

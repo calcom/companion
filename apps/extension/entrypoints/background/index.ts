@@ -1,5 +1,9 @@
 /// <reference types="chrome" />
 
+import {
+  validateExtensionOAuthAuthorizeUrl,
+  validateExtensionOAuthTokenEndpoint,
+} from "../../lib/utils";
 import type { Booking } from "../../types/bookings.types";
 import type { OAuthTokens } from "../../types/oauth";
 
@@ -378,6 +382,12 @@ export default defineBackground(() => {
 
       if (message.action === "start-extension-oauth") {
         const authUrl = message.authUrl as string;
+        const expectedRedirectUrl = getIdentityAPI()?.getRedirectURL?.();
+        const authUrlValidation = validateExtensionOAuthAuthorizeUrl(authUrl, expectedRedirectUrl);
+        if (!authUrlValidation.ok) {
+          sendResponse({ success: false, error: authUrlValidation.reason });
+          return true;
+        }
         const state = new URL(authUrl).searchParams.get("state");
 
         // Store state before starting OAuth to prevent race conditions
@@ -781,6 +791,11 @@ async function handleTokenExchange(
   tokenEndpoint: string,
   state?: string
 ): Promise<OAuthTokens> {
+  const tokenEndpointValidation = validateExtensionOAuthTokenEndpoint(tokenEndpoint);
+  if (!tokenEndpointValidation.ok) {
+    throw new Error(tokenEndpointValidation.reason);
+  }
+
   if (state) {
     await validateOAuthState(state);
   }
