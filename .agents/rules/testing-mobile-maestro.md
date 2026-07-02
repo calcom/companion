@@ -140,3 +140,66 @@ Mobile E2E tests must account for native storage and routing behavior:
 - Tests that depend on server data need deterministic seed data, a stable test
   account, or a mock API. Do not rely on whatever data happens to exist locally.
 - Upload screenshots, videos, or logs from CI when a flow fails.
+
+## Auth and test data strategy
+
+Logged-out launch coverage may run without backend data. Authenticated Maestro
+flows must declare their auth and data contract before they become blocking.
+Until the repo has a checked-in auth bootstrap helper, keep blocking Maestro
+coverage limited to logged-out flows and flows that can start from the app's
+public state.
+
+Authenticated flows must use a dedicated E2E identity, not a developer's
+personal account. The identity should be safe to reset, scoped to the selected
+Cal.com region, and provisioned with only the data the flow needs. Secrets such
+as OAuth credentials, API keys, access tokens, refresh tokens, or passwords must
+come from CI secrets or a local ignored env file such as `apps/mobile/.env.local`.
+Do not encode secrets in Maestro YAML, screenshots, debug logs, or repository
+docs.
+
+Prefer auth bootstrap in this order:
+
+1. A checked-in test-only app helper that writes the same auth markers the app
+   normally owns (`cal_oauth_tokens`, `cal_auth_type`, and the cache owner) from
+   CI-provided secrets, then launches the authenticated app.
+2. A backend-supported token minting or fixture API that returns short-lived
+   tokens for the dedicated E2E identity.
+3. Interactive OAuth through the installed app only for local exploratory
+   debugging, not for blocking CI.
+
+Any auth bootstrap must match the app's region behavior. The login screen stores
+the selected region separately from auth state, and logout clears it so the next
+user starts from the default. If a flow authenticates against EU, it must set or
+seed the matching region before API calls; otherwise the app can send a valid
+token to the wrong regional API.
+
+Every authenticated flow must also document its data setup at the top of the
+flow or in the suite README:
+
+```yaml
+# Data contract:
+# - Account: dedicated mobile E2E account in the US region.
+# - Required records: one upcoming booking with title "Mobile E2E Booking".
+# - Cleanup: flow is read-only; fixture is reset by the seed job.
+```
+
+Use these data rules for future flows:
+
+- **Read-only smoke flows** should prefer stable fixtures that a seed job can
+  repair before the suite runs.
+- **Mutation flows** must create their own disposable records, use a unique run
+  prefix such as `mobile-e2e-${CI_RUN_ID}`, and clean up by id when possible.
+- **Bookings** should target a known booking title or uid owned by the E2E
+  account. Do not select the first booking in an arbitrary list.
+- **Event Types** should target a dedicated E2E event type or create one with a
+  unique prefix before editing/deleting it.
+- **Availability** should target a dedicated E2E schedule and reset it before
+  tests that edit weekly hours, names, or overrides.
+- **More/settings** flows may assert navigation and logout reachability, but
+  settings mutations need either a disposable account or a reset step.
+- **Notifications and deep links** need explicit payloads and fixture ids; do
+  not rely on previous simulator notification state.
+
+When a flow cannot meet this contract yet, keep it non-blocking or leave it as a
+documented manual/local flow until the seed/auth path exists. Blocking CI should
+fail because the app regressed, not because an account had unexpected data.
