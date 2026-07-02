@@ -1292,32 +1292,6 @@ export default defineContentScript({
             }
           }
 
-          function _copyEventTypeLink(eventType: {
-            slug: string;
-            users?: Array<{ username?: string }>;
-            bookingUrl?: string;
-          }): void {
-            // Construct the Cal.com booking link
-            const bookingUrl = buildSafeBookingUrl(eventType);
-
-            // Try to insert at cursor position in the compose field
-            const inserted = insertTextAtCursor(bookingUrl);
-
-            if (inserted) {
-              showNotification("Link inserted", "success");
-            } else {
-              // Fallback: copy to clipboard if insertion fails
-              navigator.clipboard
-                .writeText(bookingUrl)
-                .then(() => {
-                  showNotification("Link copied!", "success");
-                })
-                .catch(() => {
-                  showNotification("Failed to copy link", "error");
-                });
-            }
-          }
-
           function insertTextAtCursor(text: string): boolean {
             // Find the active compose field
             // Gmail uses contenteditable divs for the compose body

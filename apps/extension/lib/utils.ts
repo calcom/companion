@@ -9,6 +9,7 @@ export function escapeHtml(text: string): string {
   return div.innerHTML;
 }
 
+// Custom booking domains intentionally fall back until we have a trusted allowlist source.
 const SAFE_BOOKING_HOSTS = new Set(["cal.com", "www.cal.com", "cal.eu", "www.cal.eu"]);
 const SAFE_OAUTH_APP_ORIGINS = new Set([
   "https://app.cal.com",
@@ -45,9 +46,30 @@ export function buildSafeBookingUrl(eventType: BookingLinkSource): string {
   return `https://cal.com/${encodeURIComponent(username)}/${encodeURIComponent(eventType.slug)}`;
 }
 
+function normalizeRedirectPath(pathname: string): string {
+  const normalized = pathname.replace(/\/$/, "");
+  return normalized || "/";
+}
+
+function redirectUriMatchesExpected(redirectUri: string, expectedRedirectUrl: string): boolean {
+  try {
+    const actual = new URL(redirectUri);
+    const expected = new URL(expectedRedirectUrl);
+
+    return (
+      actual.protocol === expected.protocol &&
+      actual.hostname === expected.hostname &&
+      actual.port === expected.port &&
+      normalizeRedirectPath(actual.pathname) === normalizeRedirectPath(expected.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function validateExtensionOAuthAuthorizeUrl(
   authUrl: string,
-  expectedRedirectUrl?: string
+  expectedRedirectUrl?: string | string[]
 ): UrlValidationResult {
   let url: URL;
   try {
@@ -74,11 +96,16 @@ export function validateExtensionOAuthAuthorizeUrl(
     return { ok: false, reason: "redirect_uri not found in auth URL" };
   }
 
-  if (expectedRedirectUrl) {
-    const expected = expectedRedirectUrl.replace(/\/$/, "");
-    if (!redirectUri.startsWith(expected)) {
-      return { ok: false, reason: "redirect_uri does not match extension redirect URL" };
-    }
+  const expectedRedirectUrls = (
+    Array.isArray(expectedRedirectUrl) ? expectedRedirectUrl : [expectedRedirectUrl]
+  ).filter((url): url is string => Boolean(url?.trim()));
+
+  if (expectedRedirectUrls.length === 0) {
+    return { ok: false, reason: "Extension redirect URL is unavailable" };
+  }
+
+  if (!expectedRedirectUrls.some((expected) => redirectUriMatchesExpected(redirectUri, expected))) {
+    return { ok: false, reason: "redirect_uri does not match extension redirect URL" };
   }
 
   return { ok: true };

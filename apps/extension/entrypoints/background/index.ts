@@ -11,6 +11,47 @@ const DEV_API_KEY = import.meta.env.EXPO_PUBLIC_CAL_API_KEY as string | undefine
 const IS_DEV_MODE = Boolean(DEV_API_KEY && DEV_API_KEY.length > 0);
 const BROWSER_TARGET = import.meta.env.BROWSER_TARGET || "chrome";
 
+function compactRedirectUrls(urls: Array<string | undefined>): string[] {
+  return urls.filter((url): url is string => Boolean(url?.trim()));
+}
+
+function getConfiguredOAuthRedirectUrls(): string[] {
+  const defaultRedirectUrls = compactRedirectUrls([
+    import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI,
+    import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EU,
+  ]);
+
+  switch (BROWSER_TARGET) {
+    case "firefox":
+      return compactRedirectUrls([
+        import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX,
+        import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX_EU,
+        ...defaultRedirectUrls,
+      ]);
+    case "safari":
+      return compactRedirectUrls([
+        import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI,
+        import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI_EU,
+        ...defaultRedirectUrls,
+      ]);
+    case "edge":
+      return compactRedirectUrls([
+        import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE,
+        import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE_EU,
+        ...defaultRedirectUrls,
+      ]);
+    default:
+      return defaultRedirectUrls;
+  }
+}
+
+function getExpectedOAuthRedirectUrls(): string[] {
+  return compactRedirectUrls([
+    getIdentityAPI()?.getRedirectURL?.(),
+    ...getConfiguredOAuthRedirectUrls(),
+  ]);
+}
+
 const devLog = {
   log: (...args: unknown[]) => IS_DEV_MODE && console.log("[Cal.com]", ...args),
   warn: (...args: unknown[]) => IS_DEV_MODE && console.warn("[Cal.com]", ...args),
@@ -382,8 +423,8 @@ export default defineBackground(() => {
 
       if (message.action === "start-extension-oauth") {
         const authUrl = message.authUrl as string;
-        const expectedRedirectUrl = getIdentityAPI()?.getRedirectURL?.();
-        const authUrlValidation = validateExtensionOAuthAuthorizeUrl(authUrl, expectedRedirectUrl);
+        const expectedRedirectUrls = getExpectedOAuthRedirectUrls();
+        const authUrlValidation = validateExtensionOAuthAuthorizeUrl(authUrl, expectedRedirectUrls);
         if (!authUrlValidation.ok) {
           sendResponse({ success: false, error: authUrlValidation.reason });
           return true;
@@ -565,7 +606,7 @@ async function handleExtensionOAuth(authUrl: string): Promise<string> {
     devLog.log("Expected redirect URL:", expectedRedirectUrl);
     devLog.log("Auth URL redirect_uri:", redirectUri);
 
-    if (redirectUri && !redirectUri.startsWith(expectedRedirectUrl.replace(/\/$/, ""))) {
+    if (redirectUri && !validateExtensionOAuthAuthorizeUrl(authUrl, expectedRedirectUrl).ok) {
       devLog.warn(
         "MISMATCH! redirect_uri does not match expected URL.",
         "\nExpected:",

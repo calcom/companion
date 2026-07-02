@@ -56,11 +56,46 @@ describe("validateExtensionOAuthAuthorizeUrl", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("rejects redirect URIs that only share the extension redirect origin prefix", () => {
+    const result = validateExtensionOAuthAuthorizeUrl(
+      "https://app.cal.com/auth/oauth2/authorize?state=s&redirect_uri=https%3A%2F%2Fextension.example.evil.com%2Fcallback",
+      "https://extension.example"
+    );
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects redirect URIs that only share the extension redirect path prefix", () => {
+    const result = validateExtensionOAuthAuthorizeUrl(
+      "https://app.cal.com/auth/oauth2/authorize?state=s&redirect_uri=https%3A%2F%2Fextension.example%2Fcallback-extra",
+      "https://extension.example/callback"
+    );
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects authorize URLs when the extension redirect URL is unavailable", () => {
+    const result = validateExtensionOAuthAuthorizeUrl(
+      "https://app.cal.com/auth/oauth2/authorize?state=s&redirect_uri=https%3A%2F%2Fextension.example%2Fcallback"
+    );
+
+    expect(result.ok).toBe(false);
+  });
+
   it("accepts Cal authorize URLs with matching extension redirects", () => {
     expect(
       validateExtensionOAuthAuthorizeUrl(
         "https://app.cal.com/auth/oauth2/authorize?state=s&redirect_uri=https%3A%2F%2Fextension.example%2Fcallback",
         "https://extension.example/callback"
+      )
+    ).toEqual({ ok: true });
+  });
+
+  it("accepts Cal authorize URLs matching any configured extension redirect", () => {
+    expect(
+      validateExtensionOAuthAuthorizeUrl(
+        "https://app.cal.com/auth/oauth2/authorize?state=s&redirect_uri=https%3A%2F%2Feu-extension.example%2Fcallback",
+        ["https://extension.example/callback", "https://eu-extension.example/callback"]
       )
     ).toEqual({ ok: true });
   });
