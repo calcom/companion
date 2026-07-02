@@ -60,7 +60,9 @@ function redirectUriMatchesExpected(redirectUri: string, expectedRedirectUrl: st
       actual.protocol === expected.protocol &&
       actual.hostname === expected.hostname &&
       actual.port === expected.port &&
-      normalizeRedirectPath(actual.pathname) === normalizeRedirectPath(expected.pathname)
+      normalizeRedirectPath(actual.pathname) === normalizeRedirectPath(expected.pathname) &&
+      actual.search === expected.search &&
+      actual.hash === expected.hash
     );
   } catch {
     return false;
