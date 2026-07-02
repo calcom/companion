@@ -28,7 +28,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.12.1",
+    "@modelcontextprotocol/sdk": "1.29.0",
     "@vercel/postgres": "0.10.0",
     "zod": "3.24.4"
   },
