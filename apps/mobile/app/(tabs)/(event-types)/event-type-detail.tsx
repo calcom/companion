@@ -53,6 +53,7 @@ import {
   mapItemToApiLocation,
   validateLocationItem,
 } from "@/utils/locationHelpers";
+import { validateExternalRedirectUrl } from "@/utils/redirectUrlValidation";
 import { getCalAppUrl } from "@/utils/region";
 import { safeLogError } from "@/utils/safeLogger";
 
@@ -1204,6 +1205,12 @@ export default function EventTypeDetail() {
       }
     }
 
+    const redirectValidation = validateExternalRedirectUrl(successRedirectUrl);
+    if (!redirectValidation.valid) {
+      showErrorAlert("Error", redirectValidation.error || "Invalid redirect URL");
+      return;
+    }
+
     // Detect create vs update mode
     const isCreateMode = id === "new";
 
@@ -1278,6 +1285,7 @@ export default function EventTypeDetail() {
     currentFormState,
     eventTypeData,
     updateEventType,
+    successRedirectUrl,
   ]);
 
   const headerTitle = id === "new" ? "Create Event Type" : truncateTitle(title);
