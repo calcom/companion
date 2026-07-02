@@ -1,6 +1,6 @@
 import * as net from "node:net";
 import { describe, expect, it, vi } from "vitest";
-import { OAuthAuth } from "./auth";
+import { getBrowserLaunchCommand, OAuthAuth } from "./auth";
 
 const { getOAuth2Token } = vi.hoisted(() => ({
   getOAuth2Token: vi.fn(async () => ({
@@ -38,7 +38,10 @@ type OAuthAuthTestAccess = {
     clientSecret: string,
     redirectUri: string,
     expectedState: string
-  ): Promise<void>;
+  ): {
+    ready: Promise<void>;
+    completion: Promise<void>;
+  };
 };
 
 async function getAvailablePort(): Promise<number> {
@@ -59,6 +62,16 @@ async function getAvailablePort(): Promise<number> {
 }
 
 describe("OAuthAuth", () => {
+  it("opens OAuth URLs on Windows without cmd shell query parsing", () => {
+    const url =
+      "https://app.cal.com/auth/oauth2/authorize?client_id=client-id&redirect_uri=http%3A%2F%2Flocalhost%3A8019%2Fcallback&state=state";
+
+    expect(getBrowserLaunchCommand(url, "win32")).toEqual({
+      command: "rundll32",
+      args: ["url.dll,FileProtocolHandler", url],
+    });
+  });
+
   it("generates a high-entropy OAuth state value", () => {
     const auth = new OAuthAuth();
     const authorizeUrl = (auth as unknown as OAuthAuthTestAccess).buildAuthorizeUrl(
@@ -73,13 +86,14 @@ describe("OAuthAuth", () => {
   it("rejects callback requests when the OAuth state does not match", async () => {
     const port = await getAvailablePort();
     const auth = new OAuthAuth({ port });
-    const callbackPromise = (auth as unknown as OAuthAuthTestAccess).handleOAuthCallback(
+    const callback = (auth as unknown as OAuthAuthTestAccess).handleOAuthCallback(
       "client-id",
       "client-secret",
       `http://localhost:${port}/callback`,
       "expected-state"
     );
-    const rejection = expect(callbackPromise).rejects.toThrow("Invalid OAuth state");
+    await callback.ready;
+    const rejection = expect(callback.completion).rejects.toThrow("Invalid OAuth state");
 
     const response = await fetch(
       `http://127.0.0.1:${port}/callback?code=attacker-code&state=attacker-state`
