@@ -27,6 +27,7 @@
     "clean": "rm -rf dist .turbo node_modules",
     "type-check": "tsc --noEmit",
     "type-check:ci": "yarn generate && tsc --noEmit",
+    "test": "vitest run",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "prepack": "yarn build"
@@ -40,6 +41,7 @@
     "@hey-api/openapi-ts": "0.94.0",
     "@types/node": "^20.17.23",
     "ts-node": "10.9.2",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "4.1.8"
   }
 }

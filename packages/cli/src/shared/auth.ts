@@ -1,4 +1,5 @@
-import { exec } from "node:child_process";
+import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import * as http from "node:http";
 import process from "node:process";
 import * as readline from "node:readline";
@@ -77,20 +78,24 @@ function promptMasked(question: string): Promise<string> {
   });
 }
 
+function generateOAuthState(): string {
+  return randomBytes(32).toString("base64url");
+}
+
 function openBrowser(url: string): void {
   const platform = process.platform;
-  const cmd =
-    platform === "darwin"
-      ? `open "${url}"`
-      : platform === "win32"
-        ? `start "" "${url}"`
-        : `xdg-open "${url}"`;
-
-  exec(cmd, (err) => {
-    if (err) {
-      renderError(`Could not open browser automatically. Please visit:\n  ${url}`);
-    }
+  const command = platform === "darwin" ? "open" : platform === "win32" ? "cmd" : "xdg-open";
+  const args = platform === "win32" ? ["/c", "start", "", url] : [url];
+  const child = spawn(command, args, {
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true,
   });
+
+  child.once("error", () => {
+    renderError(`Could not open browser automatically. Please visit:\n  ${url}`);
+  });
+  child.unref();
 }
 
 export class ApiKeyAuth {
@@ -153,7 +158,8 @@ export class OAuthAuth {
       throw new Error("OAuth Client ID is required.");
     }
 
-    const clientSecret = this.clientSecret || (await promptMasked("Enter your OAuth Client Secret: "));
+    const clientSecret =
+      this.clientSecret || (await promptMasked("Enter your OAuth Client Secret: "));
     if (!clientSecret) {
       throw new Error("OAuth Client Secret is required.");
     }
@@ -170,20 +176,24 @@ export class OAuthAuth {
     }
 
     const redirectUri = `http://localhost:${this.port}/callback`;
-    const authorizeUrl = this.buildAuthorizeUrl(clientId, redirectUri);
+    const state = generateOAuthState();
+    const authorizeUrl = this.buildAuthorizeUrl(clientId, redirectUri, state);
 
     console.log("\nOpening browser for authorization...");
     console.log(`If the browser doesn't open, visit this URL:\n  ${authorizeUrl}\n`);
     openBrowser(authorizeUrl);
 
     console.log("Waiting for authorization callback...");
-    await this.handleOAuthCallback(clientId, clientSecret, redirectUri);
+    await this.handleOAuthCallback(clientId, clientSecret, redirectUri, state);
     renderSuccess("OAuth login successful!");
   }
 
-  private buildAuthorizeUrl(clientId: string, redirectUri: string): string {
+  private buildAuthorizeUrl(
+    clientId: string,
+    redirectUri: string,
+    state = generateOAuthState()
+  ): string {
     const baseUrl = getAppUrl();
-    const state = Math.random().toString(36).substring(2, 15);
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -196,7 +206,12 @@ export class OAuthAuth {
     return `${baseUrl}${OAuthAuth.AUTHORIZE_PATH}?${params.toString()}`;
   }
 
-  private handleOAuthCallback(clientId: string, clientSecret: string, redirectUri: string): Promise<void> {
+  private handleOAuthCallback(
+    clientId: string,
+    clientSecret: string,
+    redirectUri: string,
+    expectedState: string
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         server.close();
@@ -212,6 +227,7 @@ export class OAuthAuth {
 
         const url = new URL(req.url, `http://localhost:${this.port}`);
         const code = url.searchParams.get("code");
+        const state = url.searchParams.get("state");
         const error = url.searchParams.get("error");
 
         if (error) {
@@ -221,6 +237,15 @@ export class OAuthAuth {
           clearTimeout(timeout);
           server.close();
           reject(new Error(`OAuth error: ${error}`));
+          return;
+        }
+
+        if (!state || state !== expectedState) {
+          res.writeHead(400, { "Content-Type": "text/html" });
+          res.end(errorPage("Invalid OAuth state. Please try logging in again."));
+          clearTimeout(timeout);
+          server.close();
+          reject(new Error("Invalid OAuth state"));
           return;
         }
 
