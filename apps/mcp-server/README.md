@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **54 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **55 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
 - **Per-user token storage** — encrypted at rest with AES-256-GCM in SQLite
@@ -181,7 +181,7 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
 - Redirect URIs registered via dynamic client registration are constrained: loopback (`localhost` / `127.0.0.0/8` / `::1`) is always allowed, cleartext `http` to non-loopback hosts is always rejected, and non-loopback `https` hosts can be restricted to a vetted allowlist via `ALLOWED_REDIRECT_HOSTS` (recommended in production to limit the open-DCR phishing surface)
 
-## Tools (54)
+## Tools (55)
 
 Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specification/draft/server/tools#tool-annotations) — a human-readable `title` plus behaviour hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP clients can render them appropriately and apply safety policies.
 
@@ -260,13 +260,14 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 |---|---|---|---|
 | `calculate_routing_form_slots` | Calculate Routing Form Slots | Create | Submit a routing form response and get available slots |
 
-### Organizations: Attributes (7)
+### Organizations: Attributes (8)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_org_attributes` | List Org Attributes | Read | List attributes defined for an organization |
 | `get_org_attribute` | Get Org Attribute | Read | Get a single organization attribute by ID |
 | `get_attribute_options` | List Attribute Options | Read | List available options for a select attribute |
 | `get_user_attributes` | Get User Attributes | Read | Get attribute options assigned to a user |
+| `get_user_attribute_history` | Get User Attribute History | Read | Get the attribute assignment history (audit log) for a user |
 | `assign_attribute_to_user` | Assign Attribute to User | Create | Assign an attribute option or value to a user |
 | `update_user_attribute` | Update User Attribute Assignment | Update | Update an existing user attribute assignment |
 | `unassign_attribute_from_user` | Unassign Attribute from User | Destructive | Remove an attribute option assignment from a user |
