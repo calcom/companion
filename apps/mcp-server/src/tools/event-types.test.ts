@@ -12,6 +12,8 @@ import {
   deleteEventType,
   deleteEventTypeSchema,
   getEventType,
+  getEventTypeHistory,
+  getEventTypeHistorySchema,
   getEventTypeSchema,
   getEventTypes,
   getEventTypesSchema,
@@ -174,6 +176,67 @@ describe("deleteEventType", () => {
     await deleteEventType({ eventTypeId: 42 });
 
     expect(mockCalApi).toHaveBeenCalledWith("event-types/42", { method: "DELETE" });
+  });
+});
+
+describe("getEventTypeHistory schema", () => {
+  it("exports getEventTypeHistorySchema with eventTypeId, limit and cursor", () => {
+    expect(getEventTypeHistorySchema.eventTypeId).toBeDefined();
+    expect(getEventTypeHistorySchema.limit).toBeDefined();
+    expect(getEventTypeHistorySchema.cursor).toBeDefined();
+  });
+
+  it("requires eventTypeId to be an integer", () => {
+    expect(getEventTypeHistorySchema.eventTypeId.safeParse(42).success).toBe(true);
+    expect(getEventTypeHistorySchema.eventTypeId.safeParse(1.5).success).toBe(false);
+    expect(getEventTypeHistorySchema.eventTypeId.safeParse("abc").success).toBe(false);
+  });
+
+  it("enforces OpenAPI limit bounds (1-50)", () => {
+    expect(getEventTypeHistorySchema.limit.safeParse(0).success).toBe(false);
+    expect(getEventTypeHistorySchema.limit.safeParse(1).success).toBe(true);
+    expect(getEventTypeHistorySchema.limit.safeParse(50).success).toBe(true);
+    expect(getEventTypeHistorySchema.limit.safeParse(51).success).toBe(false);
+    expect(getEventTypeHistorySchema.limit.safeParse(1.5).success).toBe(false);
+    expect(getEventTypeHistorySchema.limit.safeParse(undefined).success).toBe(true);
+  });
+
+  it("enforces the cursor max length (2048)", () => {
+    expect(getEventTypeHistorySchema.cursor.safeParse("abc").success).toBe(true);
+    expect(getEventTypeHistorySchema.cursor.safeParse("a".repeat(2048)).success).toBe(true);
+    expect(getEventTypeHistorySchema.cursor.safeParse("a".repeat(2049)).success).toBe(false);
+    expect(getEventTypeHistorySchema.cursor.safeParse(undefined).success).toBe(true);
+  });
+});
+
+describe("getEventTypeHistory", () => {
+  it("calls the correct API path with no query params", async () => {
+    mockCalApi.mockResolvedValueOnce({ eventTypeId: 42, auditLogs: [] });
+
+    const result = await getEventTypeHistory({ eventTypeId: 42 });
+
+    expect(mockCalApi).toHaveBeenCalledWith("event-types/42/history", { params: {} });
+    expect(JSON.parse(result.content[0].text)).toHaveProperty("eventTypeId", 42);
+  });
+
+  it("passes limit and cursor query params", async () => {
+    mockCalApi.mockResolvedValueOnce({ eventTypeId: 42, auditLogs: [] });
+
+    await getEventTypeHistory({ eventTypeId: 42, limit: 10, cursor: "abc" });
+
+    const [path, opts] = mockCalApi.mock.calls[0];
+    expect(path).toBe("event-types/42/history");
+    const params = (opts as { params: Record<string, unknown> }).params;
+    expect(params).toHaveProperty("limit", 10);
+    expect(params).toHaveProperty("cursor", "abc");
+  });
+
+  it("handles errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(404, "Event type not found", {}));
+
+    const result = await getEventTypeHistory({ eventTypeId: 99 });
+
+    expect(result).toHaveProperty("isError", true);
   });
 });
 
