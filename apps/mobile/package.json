@@ -10,6 +10,11 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "prewidget": "EXPO_NO_GIT_STATUS=1 npx expo prebuild --template ./node_modules/@bacons/apple-targets/prebuild-blank.tgz --clean",
+    "test": "TZ=UTC jest",
+    "e2e": "maestro test -e APP_ID=${APP_ID:-com.cal.companion} maestro",
+    "e2e:check": "bash scripts/check-maestro-flows.sh",
+    "e2e:ios": "maestro test -e APP_ID=com.cal.companion --exclude-tags=android-only maestro",
+    "e2e:android": "maestro test -e APP_ID=com.calcom.companion --exclude-tags=ios-only maestro",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "export": "expo export",
     "export:ios": "expo export --platform ios",
@@ -76,7 +81,10 @@
   },
   "devDependencies": {
     "@babel/plugin-transform-react-jsx": "^7.28.6",
+    "@jest/globals": "30.4.1",
+    "@testing-library/react-native": "14.0.1",
     "@types/chrome": "0.1.31",
+    "@types/jest": "30.0.0",
     "@types/node": "22.19.6",
     "@types/react": "19.2.10",
     "@types/react-dom": "19.2.3",
@@ -84,8 +92,11 @@
     "babel-preset-expo": "54.0.7",
     "eslint": "9.28.0",
     "eslint-plugin-react-compiler": "19.0.0-beta-af1b7da-20250417",
+    "jest": "30.4.2",
+    "jest-expo": "55.0.0-canary-20251230-fc48ddc",
     "sf-symbols-typescript": "^2.0.0",
     "tailwindcss": "3.4.17",
+    "test-renderer": "1.2.0",
     "typescript-eslint": "8.50.1"
   }
 }

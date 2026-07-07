@@ -11,12 +11,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Text } from "@/components/ui/text";
 import { getColors } from "@/constants/colors";
-import {
-  getBookingActions,
-  isUserHost,
-  isUserOrganizer,
-  normalizeBooking,
-} from "@/utils/booking-actions";
+import { getBookingActions } from "@/utils/booking-actions";
+import { getBookingRequestActionState } from "@/utils/booking-request-actions";
 import {
   BadgesRow,
   BookingDescription,
@@ -31,6 +27,7 @@ import { useBookingListItemData } from "./useBookingListItemData";
 
 export const BookingListItem: React.FC<BookingListItemProps> = ({
   booking,
+  userId,
   userEmail,
   isConfirming,
   isDeclining,
@@ -88,14 +85,15 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
       isOnline: true,
     });
   }, [booking, userEmail]);
-  const canConfirmOrReject = React.useMemo(() => {
-    const normalizedBooking = normalizeBooking(booking);
-    return (
-      isPending &&
-      (isUserOrganizer(normalizedBooking, undefined, userEmail) ||
-        isUserHost(normalizedBooking, undefined, userEmail))
-    );
-  }, [booking, isPending, userEmail]);
+  const requestActionState = React.useMemo(
+    () =>
+      getBookingRequestActionState({
+        booking,
+        currentUserId: userId,
+        currentUserEmail: userEmail,
+      }),
+    [booking, userId, userEmail]
+  );
 
   type DropdownAction = {
     label: string;
@@ -210,7 +208,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
         <ConfirmRejectButtons
           booking={booking}
           isPending={isPending}
-          canConfirmOrReject={canConfirmOrReject}
+          canConfirmOrReject={requestActionState.canReject}
           isConfirming={isConfirming}
           isDeclining={isDeclining}
           onConfirm={onConfirm}

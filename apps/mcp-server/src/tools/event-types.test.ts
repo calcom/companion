@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CalApiError } from "../utils/errors.js";
 
 vi.mock("../utils/api-client.js", () => ({
@@ -7,18 +7,22 @@ vi.mock("../utils/api-client.js", () => ({
 
 import { calApi } from "../utils/api-client.js";
 import {
-  getEventTypes,
-  getEventType,
   createEventType,
-  updateEventType,
-  deleteEventType,
-  getEventTypeSettings,
-  getEventTypesSchema,
-  getEventTypeSchema,
   createEventTypeSchema,
-  updateEventTypeSchema,
+  deleteEventType,
   deleteEventTypeSchema,
+  getEventType,
+  getEventTypeHistory,
+  getEventTypeHistorySchema,
+  getEventTypeSchema,
+  getEventTypeSettings,
   getEventTypeSettingsSchema,
+  getEventTypes,
+  getEventTypesSchema,
+  getSchedulingConfig,
+  getSchedulingConfigSchema,
+  updateEventType,
+  updateEventTypeSchema,
 } from "./event-types.js";
 
 const mockCalApi = vi.mocked(calApi);
@@ -242,6 +246,142 @@ describe("getEventTypeSettings", () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(404, "Not found", {}));
 
     const result = await getEventTypeSettings({ eventTypeId: 999 });
+
+    expect(result).toHaveProperty("isError", true);
+  });
+});
+
+describe("getEventTypeHistory schema", () => {
+  it("exports getEventTypeHistorySchema with eventTypeId, limit and cursor", () => {
+    expect(getEventTypeHistorySchema.eventTypeId).toBeDefined();
+    expect(getEventTypeHistorySchema.limit).toBeDefined();
+    expect(getEventTypeHistorySchema.cursor).toBeDefined();
+  });
+
+  it("requires eventTypeId to be an integer", () => {
+    expect(getEventTypeHistorySchema.eventTypeId.safeParse(42).success).toBe(true);
+    expect(getEventTypeHistorySchema.eventTypeId.safeParse(1.5).success).toBe(false);
+    expect(getEventTypeHistorySchema.eventTypeId.safeParse("abc").success).toBe(false);
+  });
+
+  it("enforces OpenAPI limit bounds (1-50)", () => {
+    expect(getEventTypeHistorySchema.limit.safeParse(0).success).toBe(false);
+    expect(getEventTypeHistorySchema.limit.safeParse(1).success).toBe(true);
+    expect(getEventTypeHistorySchema.limit.safeParse(50).success).toBe(true);
+    expect(getEventTypeHistorySchema.limit.safeParse(51).success).toBe(false);
+    expect(getEventTypeHistorySchema.limit.safeParse(1.5).success).toBe(false);
+    expect(getEventTypeHistorySchema.limit.safeParse(undefined).success).toBe(true);
+  });
+
+  it("enforces the cursor max length (2048)", () => {
+    expect(getEventTypeHistorySchema.cursor.safeParse("abc").success).toBe(true);
+    expect(getEventTypeHistorySchema.cursor.safeParse("a".repeat(2048)).success).toBe(true);
+    expect(getEventTypeHistorySchema.cursor.safeParse("a".repeat(2049)).success).toBe(false);
+    expect(getEventTypeHistorySchema.cursor.safeParse(undefined).success).toBe(true);
+  });
+});
+
+describe("getEventTypeHistory", () => {
+  it("calls the correct API path with no query params", async () => {
+    mockCalApi.mockResolvedValueOnce({ eventTypeId: 42, auditLogs: [] });
+
+    const result = await getEventTypeHistory({ eventTypeId: 42 });
+
+    expect(mockCalApi).toHaveBeenCalledWith("event-types/42/history", { params: {} });
+    expect(JSON.parse(result.content[0].text)).toHaveProperty("eventTypeId", 42);
+  });
+
+  it("passes limit and cursor query params", async () => {
+    mockCalApi.mockResolvedValueOnce({ eventTypeId: 42, auditLogs: [] });
+
+    await getEventTypeHistory({ eventTypeId: 42, limit: 10, cursor: "abc" });
+
+    const [path, opts] = mockCalApi.mock.calls[0];
+    expect(path).toBe("event-types/42/history");
+    const params = (opts as { params: Record<string, unknown> }).params;
+    expect(params).toHaveProperty("limit", 10);
+    expect(params).toHaveProperty("cursor", "abc");
+  });
+
+  it("handles errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(404, "Event type not found", {}));
+
+    const result = await getEventTypeHistory({ eventTypeId: 99 });
+
+    expect(result).toHaveProperty("isError", true);
+  });
+});
+
+describe("getSchedulingConfig schema", () => {
+  it("exports getSchedulingConfigSchema with eventTypeId", () => {
+    expect(getSchedulingConfigSchema.eventTypeId).toBeDefined();
+  });
+
+  it("requires eventTypeId to be a positive integer", () => {
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(1).success).toBe(true);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(0).success).toBe(false);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(-1).success).toBe(false);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(1.5).success).toBe(false);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse("abc").success).toBe(false);
+  });
+});
+
+describe("getSchedulingConfig", () => {
+  it("calls the correct API path", async () => {
+    mockCalApi.mockResolvedValueOnce({
+      eventTypeId: 10,
+      schedulingType: "roundRobin",
+      hosts: [],
+      hostGroups: [],
+    });
+
+    const result = await getSchedulingConfig({ eventTypeId: 10 });
+
+    expect(mockCalApi).toHaveBeenCalledWith("event-types/10/scheduling-config");
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.schedulingType).toBe("roundRobin");
+  });
+
+  it("returns full round-robin config data", async () => {
+    const mockResponse = {
+      eventTypeId: 10,
+      schedulingType: "roundRobin",
+      hosts: [
+        {
+          userId: 1,
+          name: "Alice",
+          username: "alice",
+          mandatory: false,
+          priority: "high",
+          weight: 150,
+          avatarUrl: null,
+          groupId: "group-1",
+        },
+      ],
+      hostGroups: [{ id: "group-1", name: "Sales Team" }],
+      assignAllTeamMembers: false,
+      rescheduleWithSameRoundRobinHost: true,
+      isRRWeightsEnabled: true,
+      maxLeadThreshold: 3,
+      includeNoShowInRRCalculation: false,
+      crmRecordOwnerFallbackWindowHours: 24,
+    };
+    mockCalApi.mockResolvedValueOnce(mockResponse);
+
+    const result = await getSchedulingConfig({ eventTypeId: 10 });
+
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.hosts).toHaveLength(1);
+    expect(parsed.hosts[0].weight).toBe(150);
+    expect(parsed.hostGroups[0].name).toBe("Sales Team");
+    expect(parsed.isRRWeightsEnabled).toBe(true);
+    expect(parsed.maxLeadThreshold).toBe(3);
+  });
+
+  it("handles errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(422, "Not a team event type", {}));
+
+    const result = await getSchedulingConfig({ eventTypeId: 99 });
 
     expect(result).toHaveProperty("isError", true);
   });

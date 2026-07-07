@@ -3,7 +3,8 @@ import { Linking, Text, TouchableOpacity, useColorScheme, View } from "react-nat
 import { SvgImage } from "@/components/SvgImage";
 import { getColors } from "@/constants/colors";
 import type { Booking } from "@/services/calcom";
-import { showErrorAlert, showInfoAlert } from "@/utils/alerts";
+import { showErrorAlert } from "@/utils/alerts";
+import { BOOKING_REQUEST_BADGE_LABEL } from "@/utils/booking-request-actions";
 import type { BookingListItemData } from "./useBookingListItemData";
 
 interface TimeAndDateRowProps {
@@ -37,7 +38,7 @@ export function BadgesRow({ isPending, isPendingPayment }: BadgesRowProps) {
       ) : null}
       {isPending ? (
         <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
-          <Text className="text-xs font-medium text-white">Unconfirmed</Text>
+          <Text className="text-xs font-medium text-white">{BOOKING_REQUEST_BADGE_LABEL}</Text>
         </View>
       ) : null}
     </View>
@@ -164,7 +165,7 @@ export function ConfirmRejectButtons({
   const endDateStr = booking.endTime || booking.end;
   const isPast = endDateStr ? new Date(endDateStr) < new Date() : false;
 
-  if (!isPending || isPast) return null;
+  if (!isPending || isPast || !canConfirmOrReject) return null;
   return (
     <>
       <TouchableOpacity
@@ -177,10 +178,6 @@ export function ConfirmRejectButtons({
         disabled={isConfirming || isDeclining}
         onPress={(e) => {
           e.stopPropagation();
-          if (!canConfirmOrReject) {
-            showInfoAlert("Not authorized", "You are not authorized to reject this booking.");
-            return;
-          }
           onReject(booking);
         }}
       >
@@ -199,10 +196,6 @@ export function ConfirmRejectButtons({
         disabled={isConfirming || isDeclining}
         onPress={(e) => {
           e.stopPropagation();
-          if (!canConfirmOrReject) {
-            showInfoAlert("Not authorized", "You are not authorized to confirm this booking.");
-            return;
-          }
           onConfirm(booking);
         }}
       >

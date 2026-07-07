@@ -15,12 +15,18 @@ import { getColors } from "@/constants/colors";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 import { getBookingActions } from "@/utils/booking-actions";
+import {
+  BOOKING_REQUEST_BADGE_LABEL,
+  getBookingRequestBulkActionState,
+  isBookingRequestPending,
+} from "@/utils/booking-request-actions";
 import type { RecurringBookingGroup } from "@/utils/bookings-utils";
 import { formatDate, formatTime, getHostAndAttendeesDisplay } from "@/utils/bookings-utils";
 import { getMeetingInfo } from "@/utils/meetings-utils";
 
 export interface RecurringBookingListItemProps {
   group: RecurringBookingGroup;
+  userId?: number;
   userEmail?: string;
   isConfirmingAll?: boolean;
   isDecliningAll?: boolean;
@@ -41,6 +47,7 @@ export interface RecurringBookingListItemProps {
 
 export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> = ({
   group,
+  userId,
   userEmail,
   isConfirmingAll = false,
   isDecliningAll = false,
@@ -74,7 +81,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
   const isUpcoming = new Date(endTime) >= new Date();
   const isCancelled = booking.status?.toLowerCase() === "cancelled";
   const isRejected = booking.status?.toLowerCase() === "rejected";
-  const isPending = booking.status?.toLowerCase() === "pending" || booking.requiresConfirmation;
+  const isPending = isBookingRequestPending(booking);
 
   const hostAndAttendeesDisplay = getHostAndAttendeesDisplay(booking, userEmail);
   const meetingInfo = getMeetingInfo(booking.location);
@@ -101,6 +108,17 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
       isOnline: true,
     });
   }, [booking, userEmail]);
+
+  const bulkRequestActionState = React.useMemo(
+    () =>
+      getBookingRequestBulkActionState({
+        bookings: group.bookings,
+        currentUserId: userId,
+        currentUserEmail: userEmail,
+      }),
+    [group.bookings, userId, userEmail]
+  );
+  const { canConfirmAll, canRejectAll } = bulkRequestActionState;
 
   type DropdownAction = {
     label: string;
@@ -219,7 +237,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
           {/* Unconfirmed Badge */}
           {group.hasUnconfirmed && (
             <View className="rounded bg-cal-accent-warning px-2 py-0.5">
-              <Text className="text-xs font-medium text-white">Unconfirmed</Text>
+              <Text className="text-xs font-medium text-white">{BOOKING_REQUEST_BADGE_LABEL}</Text>
             </View>
           )}
         </View>
@@ -294,7 +312,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
         style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 8 }}
       >
         {/* Confirm All / Reject All for unconfirmed recurring */}
-        {group.hasUnconfirmed && onRejectAll && (
+        {group.hasUnconfirmed && canRejectAll && onRejectAll && (
           <TouchableOpacity
             className="flex-row items-center justify-center rounded-lg border border-cal-border bg-white dark:border-cal-border-dark dark:bg-[#171717]"
             style={{
@@ -315,7 +333,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
           </TouchableOpacity>
         )}
 
-        {group.hasUnconfirmed && onConfirmAll && (
+        {group.hasUnconfirmed && canConfirmAll && onConfirmAll && (
           <TouchableOpacity
             className="flex-row items-center justify-center rounded-lg bg-black dark:bg-white"
             style={{

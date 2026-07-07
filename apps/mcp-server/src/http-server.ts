@@ -30,6 +30,8 @@ export interface HttpServerConfig {
   maxSessions?: number;
   sessionIdleTimeoutMs?: number;
   maxRegisteredClients?: number;
+  /** Allowlist of hostnames permitted for non-loopback https redirect URIs (empty = any https host). */
+  allowedRedirectHosts?: string[];
   corsOrigin?: string;
   shutdownTimeoutMs?: number;
   /**
@@ -70,6 +72,7 @@ export async function startHttpServer(
   const maxSessions = config.maxSessions ?? (Number(process.env.MAX_SESSIONS) || 10_000);
   const sessionIdleTimeoutMs = config.sessionIdleTimeoutMs ?? (Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60 * 1000);
   const maxRegisteredClients = config.maxRegisteredClients ?? (Number(process.env.MAX_REGISTERED_CLIENTS) || 10_000);
+  const redirectUriPolicy = { allowedHosts: config.allowedRedirectHosts ?? [] };
   const corsOrigin = config.corsOrigin ?? process.env.CORS_ORIGIN;
   const shutdownTimeoutMs = config.shutdownTimeoutMs ?? (Number(process.env.SHUTDOWN_TIMEOUT_MS) || 10_000);
   const openaiAppsChallengeToken = config.openaiAppsChallengeToken ?? process.env.OPENAI_APPS_CHALLENGE_TOKEN;
@@ -204,7 +207,7 @@ export async function startHttpServer(
           res.end(JSON.stringify({ error: "server_error", error_description: "Maximum number of registered clients reached" }));
           return;
         }
-        await handleRegister(req, res);
+        await handleRegister(req, res, redirectUriPolicy);
         return;
       }
       if (url.pathname === "/oauth/authorize" && req.method === "GET") {

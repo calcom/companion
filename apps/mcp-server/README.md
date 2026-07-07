@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **35 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Routing Forms, Organizations, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **55 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
 - **Per-user token storage** — encrypted at rest with AES-256-GCM in SQLite
@@ -57,9 +57,11 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 | `CAL_OAUTH_CLIENT_SECRET` | Yes | — | Cal.com OAuth client secret |
 | `TOKEN_ENCRYPTION_KEY` | Yes | — | 64-char hex string (32 bytes) for AES-256-GCM token encryption |
 | `MCP_SERVER_URL` | Yes | — | Public URL of this server (e.g. `https://mcp.example.com`) |
+| `CAL_OAUTH_SCOPES` | No | Core scopes plus `ORG_BOOKING_READ TEAM_BOOKING_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ` | Space-separated Cal.com OAuth scopes requested during authorization |
 | `DATABASE_PATH` | No | `mcp-server.db` | SQLite database file path |
 | `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate limit window in ms (per IP) |
 | `RATE_LIMIT_MAX` | No | `30` | Max OAuth requests per window per IP |
+| `ALLOWED_REDIRECT_HOSTS` | No | — | Comma-separated allowlist of hostnames for non-loopback `https` redirect URIs at client registration. Loopback is always allowed; non-loopback cleartext `http` is always rejected. When unset, any `https` host is accepted (open DCR) but logged. |
 | `OPENAI_APPS_CHALLENGE_TOKEN` | No | — | Token served at `/.well-known/openai-apps-challenge` for OpenAI Apps domain verification. When unset, the endpoint returns 404. |
 
 ## Transport Modes
@@ -177,8 +179,9 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - Auth codes are single-use
 - Expired tokens are cleaned up automatically every 5 minutes
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
+- Redirect URIs registered via dynamic client registration are constrained: loopback (`localhost` / `127.0.0.0/8` / `::1`) is always allowed, cleartext `http` to non-loopback hosts is always rejected, and non-loopback `https` hosts can be restricted to a vetted allowlist via `ALLOWED_REDIRECT_HOSTS` (recommended in production to limit the open-DCR phishing surface)
 
-## Tools (35)
+## Tools (55)
 
 Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specification/draft/server/tools#tool-annotations) — a human-readable `title` plus behaviour hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP clients can render them appropriately and apply safety policies.
 
@@ -197,11 +200,13 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 | `get_me` | Get My Profile | Read | Get authenticated user profile |
 | `update_me` | Update My Profile | Update | Update user profile |
 
-### Event Types (5)
+### Event Types (7)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_event_types` | List Event Types | Read | List all event types |
 | `get_event_type` | Get Event Type | Read | Get a specific event type by ID |
+| `get_event_type_history` | Get Event Type History | Read | Get the audit history (change log) for an event type |
+| `get_scheduling_config` | Get Scheduling Config | Read | Get scheduling configuration for a team event type |
 | `create_event_type` | Create Event Type | Create | Create a new event type |
 | `update_event_type` | Update Event Type | Update | Update an event type |
 | `delete_event_type` | Delete Event Type | Destructive | Delete an event type |
@@ -246,25 +251,64 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 |---|---|---|---|
 | `get_conferencing_apps` | List Conferencing Apps | Read | List conferencing applications |
 
+### Booking Routing Trace (1)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_booking_routing_trace` | Get Booking Routing Trace | Read | Get the step-by-step routing decision path for a booking (routing form evaluation, CRM lookups, host selection). Only for bookings that completed routing. |
+
 ### Routing Forms (1)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `calculate_routing_form_slots` | Calculate Routing Form Slots | Create | Submit a routing form response and get available slots |
 
+### Organizations: Attributes (8)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_org_attributes` | List Org Attributes | Read | List attributes defined for an organization |
+| `get_org_attribute` | Get Org Attribute | Read | Get a single organization attribute by ID |
+| `get_attribute_options` | List Attribute Options | Read | List available options for a select attribute |
+| `get_user_attributes` | Get User Attributes | Read | Get attribute options assigned to a user |
+| `get_user_attribute_history` | Get User Attribute History | Read | Get the attribute assignment history (audit log) for a user |
+| `assign_attribute_to_user` | Assign Attribute to User | Create | Assign an attribute option or value to a user |
+| `update_user_attribute` | Update User Attribute Assignment | Update | Update an existing user attribute assignment |
+| `unassign_attribute_from_user` | Unassign Attribute from User | Destructive | Remove an attribute option assignment from a user |
+
+### Organizations: Bookings (2)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_org_team_bookings` | List Org Team Bookings | Read | List bookings for a team within an organization |
+| `get_org_user_bookings` | List Org User Bookings | Read | List bookings for a specific user within an organization |
+
 ### Organizations: Memberships (5)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
-| `get_org_memberships` | List Org Memberships | Read | Get all organization memberships |
+| `get_org_memberships` | List Org Memberships | Read | Get all organization memberships; supports `take`/`skip` pagination (`take` max 250) |
 | `create_org_membership` | Create Org Membership | Create | Create an organization membership |
 | `get_org_membership` | Get Org Membership | Read | Get an organization membership |
 | `update_org_membership` | Update Org Membership | Update | Update an organization membership (role, accepted, impersonation) |
 | `delete_org_membership` | Delete Org Membership | Destructive | Delete an organization membership |
+
+### Organizations: Teams (2)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_org_teams` | List All Org Teams | Read | List all teams in an organization; requires org admin access; supports `take`/`skip` pagination (`take` max 250) |
+| `get_my_teams` | List My Teams | Read | List teams the authenticated user belongs to; supports `take`/`skip` pagination (`take` max 250) |
 
 ### Organizations: Routing Forms (2)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_org_routing_forms` | List Org Routing Forms | Read | Get organization routing forms |
 | `get_org_routing_form_responses` | List Org Routing Form Responses | Read | Get routing form responses |
+
+### Teams: Memberships (6)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_team_memberships` | List Team Memberships | Read | Get all team memberships; supports `take`/`skip` pagination (`take` max 250) and email filtering |
+| `get_team_membership` | Get Team Membership | Read | Get a team membership |
+| `create_team_membership` | Create Team Membership | Create | Create a team membership (role defaults to `MEMBER`) |
+| `update_team_membership` | Update Team Membership | Update | Update a team membership (accepted, role, impersonation) |
+| `delete_team_membership` | Delete Team Membership | Destructive | Delete a team membership |
+| `create_team_invite` | Create Team Invite | Create | Generate a team invite link |
 
 ### API Version Notes
 

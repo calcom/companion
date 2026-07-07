@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Calcom",
+    "name": "Cal.com",
     "slug": "calcom-companion",
     "scheme": ["calcom", "expo-wxt-app"],
     "version": "1.0.8",
@@ -11,7 +11,11 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#ffffff",
+      "dark": {
+        "image": "./assets/splash-icon-dark.png",
+        "backgroundColor": "#000000"
+      }
     },
     "ios": {
       "supportsTablet": false,
@@ -54,7 +58,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/notification-icon.png",
           "color": "#000000",
           "defaultChannel": "default"
         }
@@ -67,6 +71,10 @@
         {
           "backgroundColor": "#ffffff",
           "image": "./assets/splash-icon.png",
+          "dark": {
+            "backgroundColor": "#000000",
+            "image": "./assets/splash-icon-dark.png"
+          },
           "imageWidth": 200
         }
       ],

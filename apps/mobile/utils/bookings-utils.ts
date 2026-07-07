@@ -2,6 +2,7 @@ import type { BookingFilter } from "@/hooks";
 import type { Booking } from "@/services/calcom";
 
 import { shouldShowRecurringPendingPaymentBadge } from "./booking-payment-status";
+import { isBookingRequestPending } from "./booking-request-actions";
 import { safeLogError, safeLogWarn } from "./safeLogger";
 
 export const getEmptyStateContent = (activeFilter: BookingFilter) => {
@@ -305,12 +306,7 @@ export const groupRecurringBookings = (bookings: Booking[]): RecurringBookingGro
     const remainingCount = upcomingBookings.length;
 
     // Check if any booking requires confirmation
-    const hasUnconfirmed = sortedBookings.some(
-      (b) =>
-        b.status?.toLowerCase() === "pending" ||
-        b.status?.toLowerCase() === "requires_confirmation" ||
-        b.requiresConfirmation
-    );
+    const hasUnconfirmed = sortedBookings.some((booking) => isBookingRequestPending(booking));
 
     const hasPendingPayment = shouldShowRecurringPendingPaymentBadge([firstUpcoming]);
 

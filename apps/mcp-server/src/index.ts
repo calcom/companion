@@ -33,6 +33,7 @@ async function main(): Promise<void> {
       maxSessions: httpConfig.maxSessions,
       sessionIdleTimeoutMs: httpConfig.sessionIdleTimeoutMs,
       maxRegisteredClients: httpConfig.maxRegisteredClients,
+      allowedRedirectHosts: httpConfig.allowedRedirectHosts,
       corsOrigin: httpConfig.corsOrigin,
       shutdownTimeoutMs: httpConfig.shutdownTimeoutMs,
       openaiAppsChallengeToken: httpConfig.openaiAppsChallengeToken,

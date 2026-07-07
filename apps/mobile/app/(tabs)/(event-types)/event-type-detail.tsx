@@ -47,13 +47,13 @@ import {
   showSuccessAlert,
 } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
-import { getCalAppUrl } from "@/utils/region";
 import {
   buildLocationOptions,
   mapApiLocationToItem,
   mapItemToApiLocation,
   validateLocationItem,
 } from "@/utils/locationHelpers";
+import { getCalAppUrl } from "@/utils/region";
 import { safeLogError } from "@/utils/safeLogger";
 
 // Type definitions for extended EventType fields not in the base type
@@ -227,7 +227,6 @@ export default function EventTypeDetail() {
 
   // Advanced tab state
   const [calendarEventName, setCalendarEventName] = useState("");
-  const [addToCalendarEmail, setAddToCalendarEmail] = useState("");
   const [selectedLayouts, setSelectedLayouts] = useState<string[]>(["MONTH_VIEW"]);
   const [defaultLayout, setDefaultLayout] = useState("MONTH_VIEW");
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
@@ -703,16 +702,9 @@ export default function EventTypeDetail() {
       setShowOptimizedSlots(eventTypeExt.showOptimizedSlots);
     }
 
-    if (metadata) {
-      const calendarEventNameValue = metadata.calendarEventName;
-      if (typeof calendarEventNameValue === "string") {
-        setCalendarEventName(calendarEventNameValue);
-      }
-      const addToCalendarEmailValue = metadata.addToCalendarEmail;
-      if (typeof addToCalendarEmailValue === "string") {
-        setAddToCalendarEmail(addToCalendarEmailValue);
-      }
-    }
+    const calendarEventNameValue =
+      typeof eventType.customName === "string" ? eventType.customName : metadata?.calendarEventName;
+    setCalendarEventName(typeof calendarEventNameValue === "string" ? calendarEventNameValue : "");
 
     // Load booker layouts
     const bookerLayouts = eventType.bookerLayouts;
@@ -1076,7 +1068,6 @@ export default function EventTypeDetail() {
       eventTypeColorLight,
       eventTypeColorDark,
       calendarEventName,
-      addToCalendarEmail,
       selectedLayouts,
       defaultLayout,
       disableCancelling,
@@ -1143,7 +1134,6 @@ export default function EventTypeDetail() {
       eventTypeColorLight,
       eventTypeColorDark,
       calendarEventName,
-      addToCalendarEmail,
       selectedLayouts,
       defaultLayout,
       disableCancelling,

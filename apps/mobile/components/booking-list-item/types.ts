@@ -2,6 +2,7 @@ import type { Booking } from "@/services/calcom";
 
 export interface BookingListItemProps {
   booking: Booking;
+  userId?: number;
   userEmail?: string;
   isConfirming: boolean;
   isDeclining: boolean;
