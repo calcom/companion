@@ -47,6 +47,8 @@ import {
   deleteEventType,
   deleteEventTypeSchema,
   getEventType,
+  getEventTypeHistory,
+  getEventTypeHistorySchema,
   getEventTypeSchema,
   getEventTypes,
   getEventTypesSchema,
@@ -211,7 +213,7 @@ export function registerTools(server: McpServer): void {
     updateMe
   );
 
-  // ── Event Types (6) ──
+  // ── Event Types (7) ──
   server.registerTool(
     "get_event_types",
     {
@@ -277,6 +279,17 @@ export function registerTools(server: McpServer): void {
       annotations: READ_ONLY,
     },
     getSchedulingConfig
+  );
+  server.registerTool(
+    "get_event_type_history",
+    {
+      title: "Get Event Type History",
+      description:
+        "Get the audit history (change log) for an event type by ID (use get_event_types to find IDs). Returns audit log entries showing what changed, who made the change, when, and the previous/new field values, ordered most recent first. Supports cursor pagination via limit (1-50, default 25) and cursor. Requires audit-history access to the event type — general read access alone is not sufficient.",
+      inputSchema: getEventTypeHistorySchema,
+      annotations: READ_ONLY,
+    },
+    getEventTypeHistory
   );
 
   // ── Bookings (10) ──
