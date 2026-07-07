@@ -261,13 +261,14 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 |---|---|---|---|
 | `calculate_routing_form_slots` | Calculate Routing Form Slots | Create | Submit a routing form response and get available slots |
 
-### Organizations: Attributes (7)
+### Organizations: Attributes (8)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_org_attributes` | List Org Attributes | Read | List attributes defined for an organization |
 | `get_org_attribute` | Get Org Attribute | Read | Get a single organization attribute by ID |
 | `get_attribute_options` | List Attribute Options | Read | List available options for a select attribute |
 | `get_user_attributes` | Get User Attributes | Read | Get attribute options assigned to a user |
+| `get_user_attribute_history` | Get User Attribute History | Read | Get the attribute assignment history (audit log) for a user |
 | `assign_attribute_to_user` | Assign Attribute to User | Create | Assign an attribute option or value to a user |
 | `update_user_attribute` | Update User Attribute Assignment | Update | Update an existing user attribute assignment |
 | `unassign_attribute_from_user` | Unassign Attribute from User | Destructive | Remove an attribute option assignment from a user |

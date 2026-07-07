@@ -22,7 +22,7 @@ CAPABILITIES — what you CAN do with the available tools:
 - Manage organization memberships
 - Manage team memberships and team invite links
 - List organization teams and list teams the authenticated user belongs to
-- Read organization attributes, list attribute options, and manage user attribute assignments
+- Read organization attributes, list attribute options, manage user attribute assignments, and view a user's attribute assignment history (audit log)
 
 LIMITATIONS — what you CANNOT do (do NOT attempt to use other tools for these):
 - Delete or remove attendees from a booking

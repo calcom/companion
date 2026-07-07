@@ -67,6 +67,8 @@ import {
   getOrgAttributeSchema,
   getOrgAttributes,
   getOrgAttributesSchema,
+  getUserAttributeHistory,
+  getUserAttributeHistorySchema,
   getUserAttributes,
   getUserAttributesSchema,
   unassignAttributeFromUser,
@@ -545,7 +547,7 @@ export function registerTools(server: McpServer): void {
     calculateRoutingFormSlots
   );
 
-  // ── Organizations: Attributes (7) ──
+  // ── Organizations: Attributes (8) ──
   server.registerTool(
     "get_org_attributes",
     {
@@ -589,6 +591,17 @@ export function registerTools(server: McpServer): void {
       annotations: READ_ONLY,
     },
     getUserAttributes
+  );
+  server.registerTool(
+    "get_user_attribute_history",
+    {
+      title: "Get User Attribute History",
+      description:
+        "Get the attribute assignment history (audit log) for a user within an organization. Returns a chronological log of attribute assignment changes (assigned, updated, unassigned). Supports pagination with limit (1-50) and cursor. Requires org admin role.",
+      inputSchema: getUserAttributeHistorySchema,
+      annotations: READ_ONLY,
+    },
+    getUserAttributeHistory
   );
   server.registerTool(
     "assign_attribute_to_user",

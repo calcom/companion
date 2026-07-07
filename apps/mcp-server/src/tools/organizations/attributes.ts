@@ -83,6 +83,48 @@ export async function getUserAttributes(params: { orgId: number; userId: number 
   }
 }
 
+// ── Read: Attribute Assignment History (audit log) ──
+
+export const getUserAttributeHistorySchema = {
+  orgId: z
+    .number()
+    .int()
+    .describe("Organization ID. Use get_me to obtain your organizationId — never guess."),
+  userId: z.number().int().describe("User ID whose attribute assignment history to retrieve."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .optional()
+    .describe("Maximum number of audit log entries to return (1-50, default 25)."),
+  cursor: z
+    .string()
+    .uuid()
+    .optional()
+    .describe("Cursor from the previous response, used to fetch the next page."),
+};
+
+export async function getUserAttributeHistory(params: {
+  orgId: number;
+  userId: number;
+  limit?: number;
+  cursor?: string;
+}) {
+  try {
+    const qp: Record<string, string | number | boolean | undefined> = {};
+    if (params.limit !== undefined) qp.limit = params.limit;
+    if (params.cursor !== undefined) qp.cursor = params.cursor;
+    const data = await calApi(
+      `organizations/${params.orgId}/attributes/assignments/${params.userId}/history`,
+      { params: qp }
+    );
+    return ok(data);
+  } catch (err) {
+    return handleError("get_user_attribute_history", err);
+  }
+}
+
 // ── Write: Assign / Update / Unassign ──
 
 export const assignAttributeToUserSchema = {
