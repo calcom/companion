@@ -468,8 +468,18 @@ export async function updateEventType(params: {
 
 export const getEventTypeSettingsSchema = {
   eventTypeId: z.number().int().describe("Event type ID. Use get_event_types to find this."),
-  orgId: z.number().int().optional().describe("Organization ID for org-scoped team event types. Use get_me to obtain your organizationId."),
-  teamId: z.number().int().optional().describe("Team ID for org-scoped team event types. Required together with orgId."),
+  orgId: z
+    .number()
+    .int()
+    .optional()
+    .describe(
+      "Organization ID for org-scoped team event types. Use get_me to obtain your organizationId."
+    ),
+  teamId: z
+    .number()
+    .int()
+    .optional()
+    .describe("Team ID for org-scoped team event types. Required together with orgId."),
 };
 
 export async function getEventTypeSettings(params: {
@@ -478,8 +488,22 @@ export async function getEventTypeSettings(params: {
   teamId?: number;
 }) {
   try {
+    const hasOrgId = params.orgId !== undefined;
+    const hasTeamId = params.teamId !== undefined;
+    if (hasOrgId !== hasTeamId) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: "orgId and teamId must be provided together to look up an org-scoped team event type.",
+          },
+        ],
+        isError: true as const,
+      };
+    }
+
     const path =
-      params.orgId !== undefined && params.teamId !== undefined
+      hasOrgId && hasTeamId
         ? `organizations/${params.orgId}/teams/${params.teamId}/event-types/${params.eventTypeId}`
         : `event-types/${params.eventTypeId}`;
 

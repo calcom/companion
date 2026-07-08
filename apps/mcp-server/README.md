@@ -57,7 +57,7 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 | `CAL_OAUTH_CLIENT_SECRET` | Yes | — | Cal.com OAuth client secret |
 | `TOKEN_ENCRYPTION_KEY` | Yes | — | 64-char hex string (32 bytes) for AES-256-GCM token encryption |
 | `MCP_SERVER_URL` | Yes | — | Public URL of this server (e.g. `https://mcp.example.com`) |
-| `CAL_OAUTH_SCOPES` | No | Core scopes plus `ORG_BOOKING_READ TEAM_BOOKING_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ` | Space-separated Cal.com OAuth scopes requested during authorization |
+| `CAL_OAUTH_SCOPES` | No | Core scopes plus `ORG_BOOKING_READ TEAM_BOOKING_READ TEAM_EVENT_TYPE_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ` | Space-separated Cal.com OAuth scopes requested during authorization |
 | `DATABASE_PATH` | No | `mcp-server.db` | SQLite database file path |
 | `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate limit window in ms (per IP) |
 | `RATE_LIMIT_MAX` | No | `30` | Max OAuth requests per window per IP |
@@ -200,11 +200,12 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 | `get_me` | Get My Profile | Read | Get authenticated user profile |
 | `update_me` | Update My Profile | Update | Update user profile |
 
-### Event Types (7)
+### Event Types (8)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_event_types` | List Event Types | Read | List all event types |
 | `get_event_type` | Get Event Type | Read | Get a specific event type by ID |
+| `get_event_type_settings` | Get Event Type Settings | Read | Get the full event type settings; supports org-scoped team event types via orgId + teamId |
 | `get_event_type_history` | Get Event Type History | Read | Get the audit history (change log) for an event type |
 | `get_scheduling_config` | Get Scheduling Config | Read | Get scheduling configuration for a team event type |
 | `create_event_type` | Create Event Type | Create | Create a new event type |

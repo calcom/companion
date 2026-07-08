@@ -242,6 +242,22 @@ describe("getEventTypeSettings", () => {
     expect(parsed).toEqual(apiResponse);
   });
 
+  it("returns an error when only orgId is provided without teamId", async () => {
+    const result = await getEventTypeSettings({ eventTypeId: 5, orgId: 100 });
+
+    expect(mockCalApi).not.toHaveBeenCalled();
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("orgId and teamId must be provided together");
+  });
+
+  it("returns an error when only teamId is provided without orgId", async () => {
+    const result = await getEventTypeSettings({ eventTypeId: 5, teamId: 200 });
+
+    expect(mockCalApi).not.toHaveBeenCalled();
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("orgId and teamId must be provided together");
+  });
+
   it("handles errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(404, "Not found", {}));
 
