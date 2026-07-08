@@ -12,7 +12,9 @@ export interface OAuthServerConfig {
  * Build OAuth Authorization Server metadata per RFC 8414.
  * Returned at GET /.well-known/oauth-authorization-server
  */
-export function buildAuthorizationServerMetadata(config: OAuthServerConfig): Record<string, unknown> {
+export function buildAuthorizationServerMetadata(
+  config: OAuthServerConfig
+): Record<string, unknown> {
   const serverUrl = config.serverUrl.replace(/\/+$/, "");
   return {
     issuer: serverUrl,
@@ -41,4 +43,44 @@ export function buildProtectedResourceMetadata(config: OAuthServerConfig): Recor
     authorization_servers: [serverUrl],
     bearer_methods_supported: ["header"],
   };
+}
+
+/** Kind of OAuth discovery metadata a request path maps to. */
+export type OAuthMetadataKind = "authorization-server" | "protected-resource";
+
+const OAUTH_METADATA_NAMES: Record<OAuthMetadataKind, string> = {
+  "authorization-server": "oauth-authorization-server",
+  "protected-resource": "oauth-protected-resource",
+};
+
+/**
+ * Match a request path against the OAuth discovery well-known locations.
+ *
+ * MCP clients derive the well-known URL from the server URL they were given.
+ * When that URL carries a path (e.g. `https://mcp.cal.com/mcp`), clients probe
+ * the "path-aware" layouts from RFC 9728 (protected resource) and RFC 8414
+ * (authorization server) in addition to the plain root layout:
+ *
+ *   - `/.well-known/<name>`       (root)
+ *   - `/.well-known/<name>/mcp`   (well-known inserted before the resource path)
+ *   - `/mcp/.well-known/<name>`   (well-known appended after the resource path)
+ *
+ * We serve identical metadata for all three so discovery succeeds whether the
+ * user configured the base URL or the `/mcp` endpoint. Returning 404 for the
+ * `/mcp`-scoped variants breaks connectors (e.g. Claude) that only probe the
+ * path-aware URL, surfacing as "Couldn't register with cal.com's sign-in service".
+ */
+export function matchOAuthMetadataPath(pathname: string): OAuthMetadataKind | undefined {
+  const normalized = pathname.replace(/\/+$/, "") || "/";
+  for (const kind of Object.keys(OAUTH_METADATA_NAMES) as OAuthMetadataKind[]) {
+    const name = OAUTH_METADATA_NAMES[kind];
+    if (
+      normalized === `/.well-known/${name}` ||
+      normalized === `/.well-known/${name}/mcp` ||
+      normalized === `/mcp/.well-known/${name}`
+    ) {
+      return kind;
+    }
+  }
+  return undefined;
 }

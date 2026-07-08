@@ -7,6 +7,7 @@ import { authContext } from "./auth/context.js";
 import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
+  matchOAuthMetadataPath,
 } from "./auth/oauth-metadata.js";
 import {
   handleAuthorize,
@@ -74,7 +75,11 @@ function oauthConfigFromHttpConfig(config: HttpConfig): OAuthConfig {
   };
 }
 
-function setCorsHeaders(req: IncomingMessage, res: ServerResponse, corsOrigin: string | undefined): void {
+function setCorsHeaders(
+  req: IncomingMessage,
+  res: ServerResponse,
+  corsOrigin: string | undefined
+): void {
   // Credentialed requests (Authorization header) require an explicit origin,
   // not "*". Fall back to echoing the request's Origin header.
   const origin = corsOrigin ?? req.headers.origin ?? "*";
@@ -85,7 +90,7 @@ function setCorsHeaders(req: IncomingMessage, res: ServerResponse, corsOrigin: s
   // preflight fails with "header not allowed".
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, Mcp-Session-Id, mcp-protocol-version, last-event-id",
+    "Content-Type, Authorization, Mcp-Session-Id, mcp-protocol-version, last-event-id"
   );
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -145,12 +150,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   // ── OAuth metadata ──
-  if (url.pathname === "/.well-known/oauth-authorization-server" && req.method === "GET") {
+  // Served at both the root well-known locations and their `/mcp`-scoped
+  // path-aware variants so connectors that probe the path-aware URL (per
+  // RFC 9728 / RFC 8414) can complete discovery.
+  const metadataKind = req.method === "GET" ? matchOAuthMetadataPath(url.pathname) : undefined;
+  if (metadataKind === "authorization-server") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(buildAuthorizationServerMetadata({ serverUrl: oauthConfig.serverUrl })));
     return;
   }
-  if (url.pathname === "/.well-known/oauth-protected-resource" && req.method === "GET") {
+  if (metadataKind === "protected-resource") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(buildProtectedResourceMetadata({ serverUrl: oauthConfig.serverUrl })));
     return;
@@ -205,7 +214,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         "Content-Type": "application/json",
         "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl.replace(/\/+$/, "")}/.well-known/oauth-protected-resource"`,
       });
-      res.end(JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" }));
+      res.end(
+        JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" })
+      );
       return;
     }
 
@@ -215,7 +226,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         "Content-Type": "application/json",
         "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl.replace(/\/+$/, "")}/.well-known/oauth-protected-resource"`,
       });
-      res.end(JSON.stringify({ error: "invalid_token", error_description: "Invalid or expired access token" }));
+      res.end(
+        JSON.stringify({
+          error: "invalid_token",
+          error_description: "Invalid or expired access token",
+        })
+      );
       return;
     }
 
@@ -232,7 +248,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     // mode — no error, it just skips the standalone stream.
     if (req.method === "GET") {
       res.writeHead(405, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "method_not_allowed", error_description: "SSE stream not supported in serverless mode" }));
+      res.end(
+        JSON.stringify({
+          error: "method_not_allowed",
+          error_description: "SSE stream not supported in serverless mode",
+        })
+      );
       return;
     }
 
@@ -265,7 +286,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
-    const messages: JSONRPCMessage[] = (Array.isArray(rawMessage) ? rawMessage : [rawMessage]) as JSONRPCMessage[];
+    const messages: JSONRPCMessage[] = (
+      Array.isArray(rawMessage) ? rawMessage : [rawMessage]
+    ) as JSONRPCMessage[];
 
     // JSON-RPC requests have an `id` field; notifications do not.
     const requestIds = messages
@@ -282,7 +305,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     // -- 2. Build minimal Transport --------------------------------------------
     const collectedResponses = new Map<string | number, JSONRPCMessage>();
     let resolveAll!: () => void;
-    const allDone = new Promise<void>((r) => { resolveAll = r; });
+    const allDone = new Promise<void>((r) => {
+      resolveAll = r;
+    });
 
     const transport: Transport = {
       // These callbacks are set by McpServer.connect() before start() returns.
@@ -290,8 +315,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       onclose: undefined,
       onerror: undefined,
 
-      async start() { /* nothing to set up */ },
-      async close() { transport.onclose?.(); },
+      async start() {
+        /* nothing to set up */
+      },
+      async close() {
+        transport.onclose?.();
+      },
 
       async send(msg: JSONRPCMessage) {
         // Only capture responses (they have `id` + `result`/`error`, but no `method`);
@@ -306,7 +335,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     // -- 3. Connect McpServer and drive messages --------------------------------
     const server = new McpServer(
       { name: "calcom-mcp-server", version: "0.1.0" },
-      { instructions: SERVER_INSTRUCTIONS },
+      { instructions: SERVER_INSTRUCTIONS }
     );
     registerTools(server);
     await server.connect(transport);
@@ -322,7 +351,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         await Promise.race([
           allDone,
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error(`MCP handler timed out after ${timeoutMs} ms`)), timeoutMs),
+            setTimeout(
+              () => reject(new Error(`MCP handler timed out after ${timeoutMs} ms`)),
+              timeoutMs
+            )
           ),
         ]);
       });
@@ -333,7 +365,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     // -- 4. Return JSON --------------------------------------------------------
     const responsePayload = Array.isArray(rawMessage)
       ? requestIds.map((id) => collectedResponses.get(id) ?? null)
-      : collectedResponses.get(requestIds[0]) ?? null;
+      : (collectedResponses.get(requestIds[0]) ?? null);
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(responsePayload));

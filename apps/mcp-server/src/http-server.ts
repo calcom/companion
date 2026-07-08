@@ -7,6 +7,7 @@ import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
+  matchOAuthMetadataPath,
 } from "./auth/oauth-metadata.js";
 import {
   handleRegister,
@@ -66,31 +67,39 @@ const startedAt = Date.now();
 
 export async function startHttpServer(
   registerTools: (server: McpServer) => void,
-  config: HttpServerConfig,
+  config: HttpServerConfig
 ): Promise<void> {
   const { port, oauthConfig } = config;
   const maxSessions = config.maxSessions ?? (Number(process.env.MAX_SESSIONS) || 10_000);
-  const sessionIdleTimeoutMs = config.sessionIdleTimeoutMs ?? (Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60 * 1000);
-  const maxRegisteredClients = config.maxRegisteredClients ?? (Number(process.env.MAX_REGISTERED_CLIENTS) || 10_000);
+  const sessionIdleTimeoutMs =
+    config.sessionIdleTimeoutMs ?? (Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60 * 1000);
+  const maxRegisteredClients =
+    config.maxRegisteredClients ?? (Number(process.env.MAX_REGISTERED_CLIENTS) || 10_000);
   const redirectUriPolicy = { allowedHosts: config.allowedRedirectHosts ?? [] };
   const corsOrigin = config.corsOrigin ?? process.env.CORS_ORIGIN;
-  const shutdownTimeoutMs = config.shutdownTimeoutMs ?? (Number(process.env.SHUTDOWN_TIMEOUT_MS) || 10_000);
-  const openaiAppsChallengeToken = config.openaiAppsChallengeToken ?? process.env.OPENAI_APPS_CHALLENGE_TOKEN;
+  const shutdownTimeoutMs =
+    config.shutdownTimeoutMs ?? (Number(process.env.SHUTDOWN_TIMEOUT_MS) || 10_000);
+  const openaiAppsChallengeToken =
+    config.openaiAppsChallengeToken ?? process.env.OPENAI_APPS_CHALLENGE_TOKEN;
 
   await initDb();
 
-  const rateLimitWindowMs = config.rateLimitWindowMs ?? (Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000);
+  const rateLimitWindowMs =
+    config.rateLimitWindowMs ?? (Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000);
   const rateLimitMax = config.rateLimitMax ?? (Number(process.env.RATE_LIMIT_MAX) || 30);
   const oauthRateLimiter = new RateLimiter({ windowMs: rateLimitWindowMs, max: rateLimitMax });
   oauthRateLimiter.startGc();
   const mcpRateLimiter = new RateLimiter({ windowMs: rateLimitWindowMs, max: rateLimitMax * 3 });
   mcpRateLimiter.startGc();
 
-  const cleanupInterval = setInterval(() => {
-    cleanupExpired().catch((err) => {
-      logger.error("Cleanup error", { error: String(err) });
-    });
-  }, 5 * 60 * 1000);
+  const cleanupInterval = setInterval(
+    () => {
+      cleanupExpired().catch((err) => {
+        logger.error("Cleanup error", { error: String(err) });
+      });
+    },
+    5 * 60 * 1000
+  );
 
   const sessions = new Map<
     string,
@@ -148,16 +157,20 @@ export async function startHttpServer(
       try {
         await sql`SELECT 1`;
         dbOk = true;
-      } catch { /* db not healthy */ }
+      } catch {
+        /* db not healthy */
+      }
       const status = dbOk ? "ok" : "degraded";
       const code = dbOk ? 200 : 503;
       res.writeHead(code, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        status,
-        sessions: sessions.size,
-        db: dbOk ? "ok" : "error",
-        uptime: Math.floor((Date.now() - startedAt) / 1000),
-      }));
+      res.end(
+        JSON.stringify({
+          status,
+          sessions: sessions.size,
+          db: dbOk ? "ok" : "error",
+          uptime: Math.floor((Date.now() - startedAt) / 1000),
+        })
+      );
       return;
     }
 
@@ -179,13 +192,17 @@ export async function startHttpServer(
     }
 
     // ── OAuth metadata endpoints ──
-    if (url.pathname === "/.well-known/oauth-authorization-server" && req.method === "GET") {
+    // Served at both the root well-known locations and their `/mcp`-scoped
+    // path-aware variants so connectors that probe the path-aware URL (per
+    // RFC 9728 / RFC 8414) can complete discovery.
+    const metadataKind = req.method === "GET" ? matchOAuthMetadataPath(url.pathname) : undefined;
+    if (metadataKind === "authorization-server") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(asMetadata));
       return;
     }
 
-    if (url.pathname === "/.well-known/oauth-protected-resource" && req.method === "GET") {
+    if (metadataKind === "protected-resource") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(prMetadata));
       return;
@@ -204,7 +221,12 @@ export async function startHttpServer(
         const currentCount = await countRegisteredClients();
         if (currentCount >= maxRegisteredClients) {
           res.writeHead(503, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "server_error", error_description: "Maximum number of registered clients reached" }));
+          res.end(
+            JSON.stringify({
+              error: "server_error",
+              error_description: "Maximum number of registered clients reached",
+            })
+          );
           return;
         }
         await handleRegister(req, res, redirectUriPolicy);
@@ -244,7 +266,9 @@ export async function startHttpServer(
           "Content-Type": "application/json",
           "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
         });
-        res.end(JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" }));
+        res.end(
+          JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" })
+        );
         return;
       }
 
@@ -255,7 +279,12 @@ export async function startHttpServer(
             "Content-Type": "application/json",
             "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
           });
-          res.end(JSON.stringify({ error: "invalid_token", error_description: "Invalid or expired access token" }));
+          res.end(
+            JSON.stringify({
+              error: "invalid_token",
+              error_description: "Invalid or expired access token",
+            })
+          );
           return;
         }
         const sessionId = req.headers["mcp-session-id"] as string | undefined;
@@ -276,13 +305,20 @@ export async function startHttpServer(
 
       const existingSession = sessionId ? sessions.get(sessionId) : undefined;
       if (sessionId && existingSession) {
-        const freshHeaders = bearerToken ? await resolveCalAuthHeaders(bearerToken, oauthConfig) : undefined;
+        const freshHeaders = bearerToken
+          ? await resolveCalAuthHeaders(bearerToken, oauthConfig)
+          : undefined;
         if (!freshHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
             "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
           });
-          res.end(JSON.stringify({ error: "invalid_token", error_description: "Cal.com token expired and could not be refreshed" }));
+          res.end(
+            JSON.stringify({
+              error: "invalid_token",
+              error_description: "Cal.com token expired and could not be refreshed",
+            })
+          );
           return;
         }
         existingSession.lastActivityAt = Date.now();
@@ -306,7 +342,12 @@ export async function startHttpServer(
         // Enforce max sessions limit
         if (sessions.size >= maxSessions) {
           res.writeHead(503, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "server_error", error_description: "Maximum number of sessions reached" }));
+          res.end(
+            JSON.stringify({
+              error: "server_error",
+              error_description: "Maximum number of sessions reached",
+            })
+          );
           return;
         }
 
@@ -316,7 +357,12 @@ export async function startHttpServer(
             "Content-Type": "application/json",
             "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
           });
-          res.end(JSON.stringify({ error: "invalid_token", error_description: "Invalid or expired access token" }));
+          res.end(
+            JSON.stringify({
+              error: "invalid_token",
+              error_description: "Invalid or expired access token",
+            })
+          );
           return;
         }
 
@@ -331,7 +377,7 @@ export async function startHttpServer(
           },
           {
             instructions: SERVER_INSTRUCTIONS,
-          },
+          }
         );
 
         registerTools(server);
@@ -354,7 +400,12 @@ export async function startHttpServer(
 
         const newSessionId = transport.sessionId;
         if (newSessionId) {
-          sessions.set(newSessionId, { transport, server, calAuthHeaders, lastActivityAt: Date.now() });
+          sessions.set(newSessionId, {
+            transport,
+            server,
+            calAuthHeaders,
+            lastActivityAt: Date.now(),
+          });
           logger.info("New session created", { sessionId: newSessionId });
         }
         return;
@@ -395,9 +446,11 @@ export async function startHttpServer(
       Array.from(sessions.entries()).map(async ([id, session]) => {
         try {
           await session.transport.close();
-        } catch { /* best effort */ }
+        } catch {
+          /* best effort */
+        }
         sessions.delete(id);
-      }),
+      })
     );
 
     const timeout = new Promise<void>((resolve) => setTimeout(resolve, shutdownTimeoutMs));
@@ -409,9 +462,13 @@ export async function startHttpServer(
   };
 
   process.on("SIGINT", () => {
-    shutdown().then(() => process.exit(0)).catch(() => process.exit(1));
+    shutdown()
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
   });
   process.on("SIGTERM", () => {
-    shutdown().then(() => process.exit(0)).catch(() => process.exit(1));
+    shutdown()
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
   });
 }
