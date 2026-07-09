@@ -57,7 +57,7 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 | `CAL_OAUTH_CLIENT_SECRET` | Yes | — | Cal.com OAuth client secret |
 | `TOKEN_ENCRYPTION_KEY` | Yes | — | 64-char hex string (32 bytes) for AES-256-GCM token encryption |
 | `MCP_SERVER_URL` | Yes | — | Public URL of this server (e.g. `https://mcp.example.com`) |
-| `CAL_OAUTH_SCOPES` | No | Core scopes plus `ORG_BOOKING_READ TEAM_BOOKING_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ ORG_ATTRIBUTES_READ` | Space-separated Cal.com OAuth scopes requested during authorization |
+| `CAL_OAUTH_SCOPES` | No | Core scopes plus `ORG_BOOKING_READ TEAM_BOOKING_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ ORG_ATTRIBUTES_READ ORG_ATTRIBUTES_WRITE` | Space-separated Cal.com OAuth scopes requested during authorization |
 | `DATABASE_PATH` | No | `mcp-server.db` | SQLite database file path |
 | `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate limit window in ms (per IP) |
 | `RATE_LIMIT_MAX` | No | `30` | Max OAuth requests per window per IP |
