@@ -1,24 +1,26 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CalApiError } from "../../utils/errors.js";
 
 vi.mock("../../utils/api-client.js", () => ({ calApi: vi.fn() }));
 
 import { calApi } from "../../utils/api-client.js";
 import {
-  getOrgAttributes,
-  getOrgAttributesSchema,
-  getOrgAttribute,
-  getOrgAttributeSchema,
-  getAttributeOptions,
-  getAttributeOptionsSchema,
-  getUserAttributes,
-  getUserAttributesSchema,
   assignAttributeToUser,
   assignAttributeToUserSchema,
-  updateUserAttribute,
-  updateUserAttributeSchema,
+  getAttributeOptions,
+  getAttributeOptionsSchema,
+  getOrgAttribute,
+  getOrgAttributeSchema,
+  getOrgAttributes,
+  getOrgAttributesSchema,
+  getUserAttributeHistory,
+  getUserAttributeHistorySchema,
+  getUserAttributes,
+  getUserAttributesSchema,
   unassignAttributeFromUser,
   unassignAttributeFromUserSchema,
+  updateUserAttribute,
+  updateUserAttributeSchema,
 } from "./attributes.js";
 
 const mockCalApi = vi.mocked(calApi);
@@ -122,6 +124,56 @@ describe("getUserAttributes", () => {
   it("handles API errors", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(403, "Forbidden", {}));
     const result = await getUserAttributes({ orgId: 1, userId: 42 });
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("403");
+  });
+});
+
+describe("getUserAttributeHistory", () => {
+  it("exports getUserAttributeHistorySchema", () => {
+    expect(getUserAttributeHistorySchema).toBeDefined();
+  });
+  it("returns data on success", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success", data: {} });
+    const result = await getUserAttributeHistory({ orgId: 1, userId: 42 });
+    expect(result.content[0].type).toBe("text");
+    expect(JSON.parse(result.content[0].text)).toEqual({ status: "success", data: {} });
+  });
+  it("calls correct endpoint without query params", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success" });
+    await getUserAttributeHistory({ orgId: 1, userId: 42 });
+    expect(mockCalApi).toHaveBeenCalledWith("organizations/1/attributes/assignments/42/history", {
+      params: {},
+    });
+  });
+  it("passes limit and cursor query params", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success" });
+    await getUserAttributeHistory({
+      orgId: 1,
+      userId: 42,
+      limit: 10,
+      cursor: "018ff5cd-6dc4-7d57-bcbc-374702ca8b38",
+    });
+    expect(mockCalApi).toHaveBeenCalledWith("organizations/1/attributes/assignments/42/history", {
+      params: { limit: 10, cursor: "018ff5cd-6dc4-7d57-bcbc-374702ca8b38" },
+    });
+  });
+  it("enforces OpenAPI limit bounds", () => {
+    expect(getUserAttributeHistorySchema.limit.safeParse(0).success).toBe(false);
+    expect(getUserAttributeHistorySchema.limit.safeParse(1).success).toBe(true);
+    expect(getUserAttributeHistorySchema.limit.safeParse(50).success).toBe(true);
+    expect(getUserAttributeHistorySchema.limit.safeParse(51).success).toBe(false);
+    expect(getUserAttributeHistorySchema.limit.safeParse(1.5).success).toBe(false);
+  });
+  it("rejects a non-uuid cursor", () => {
+    expect(getUserAttributeHistorySchema.cursor.safeParse("not-a-uuid").success).toBe(false);
+    expect(
+      getUserAttributeHistorySchema.cursor.safeParse("018ff5cd-6dc4-7d57-bcbc-374702ca8b38").success
+    ).toBe(true);
+  });
+  it("handles API errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(403, "Forbidden", {}));
+    const result = await getUserAttributeHistory({ orgId: 1, userId: 42 });
     expect(result).toHaveProperty("isError", true);
     expect(result.content[0].text).toContain("403");
   });

@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **54 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **56 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
 - **Per-user token storage** — encrypted at rest with AES-256-GCM in Postgres
@@ -57,7 +57,7 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 | `CAL_OAUTH_CLIENT_SECRET` | Yes | — | Cal.com OAuth client secret |
 | `TOKEN_ENCRYPTION_KEY` | Yes | — | 64-char hex string (32 bytes) for AES-256-GCM token encryption |
 | `MCP_SERVER_URL` | Yes | — | Public URL of this server (e.g. `https://mcp.example.com`) |
-| `CAL_OAUTH_SCOPES` | No | Core scopes plus `ORG_BOOKING_READ TEAM_BOOKING_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ` | Space-separated Cal.com OAuth scopes requested during authorization |
+| `CAL_OAUTH_SCOPES` | No | Core scopes plus `ORG_BOOKING_READ TEAM_BOOKING_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ ORG_ATTRIBUTES_WRITE` | Space-separated Cal.com OAuth scopes requested during authorization |
 | `DATABASE_URL` | Yes | — | Postgres connection string for HTTP OAuth state and token storage |
 | `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate limit window in ms (per IP) |
 | `RATE_LIMIT_MAX` | No | `30` | Max OAuth requests per window per IP |
@@ -183,7 +183,7 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
 - Redirect URIs registered via dynamic client registration are constrained: loopback (`localhost` / `127.0.0.0/8` / `::1`) is always allowed, cleartext `http` to non-loopback hosts is always rejected, and non-loopback `https` hosts require `ALLOWED_REDIRECT_HOSTS` unless `ALLOW_OPEN_REDIRECT_REGISTRATION=true` is explicitly set for unsafe/dev use
 
-## Tools (54)
+## Tools (56)
 
 Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specification/draft/server/tools#tool-annotations) — a human-readable `title` plus behaviour hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP clients can render them appropriately and apply safety policies.
 
@@ -202,11 +202,12 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 | `get_me` | Get My Profile | Read | Get authenticated user profile |
 | `update_me` | Update My Profile | Update | Update user profile |
 
-### Event Types (6)
+### Event Types (7)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_event_types` | List Event Types | Read | List all event types |
 | `get_event_type` | Get Event Type | Read | Get a specific event type by ID |
+| `get_event_type_history` | Get Event Type History | Read | Get the audit history (change log) for an event type |
 | `get_scheduling_config` | Get Scheduling Config | Read | Get scheduling configuration for a team event type |
 | `create_event_type` | Create Event Type | Create | Create a new event type |
 | `update_event_type` | Update Event Type | Update | Update an event type |
@@ -262,13 +263,14 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 |---|---|---|---|
 | `calculate_routing_form_slots` | Calculate Routing Form Slots | Create | Submit a routing form response and get available slots |
 
-### Organizations: Attributes (7)
+### Organizations: Attributes (8)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_org_attributes` | List Org Attributes | Read | List attributes defined for an organization |
 | `get_org_attribute` | Get Org Attribute | Read | Get a single organization attribute by ID |
 | `get_attribute_options` | List Attribute Options | Read | List available options for a select attribute |
 | `get_user_attributes` | Get User Attributes | Read | Get attribute options assigned to a user |
+| `get_user_attribute_history` | Get User Attribute History | Read | Get the attribute assignment history (audit log) for a user |
 | `assign_attribute_to_user` | Assign Attribute to User | Create | Assign an attribute option or value to a user |
 | `update_user_attribute` | Update User Attribute Assignment | Update | Update an existing user attribute assignment |
 | `unassign_attribute_from_user` | Unassign Attribute from User | Destructive | Remove an attribute option assignment from a user |
