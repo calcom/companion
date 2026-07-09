@@ -14,6 +14,36 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect Changed Paths
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 5
+    outputs:
+      mobile: ${{ steps.mobile.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check mobile-affecting changes
+        id: mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git diff --name-only "${{ github.event.pull_request.base.sha }}" "$GITHUB_SHA" > changed-files.txt
+          elif [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+            git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" > changed-files.txt
+          else
+            git diff --name-only "${{ github.event.before }}" "$GITHUB_SHA" > changed-files.txt
+          fi
+
+          if grep -Eq '^(apps/mobile(/|$)|bun\.lock$|package\.json$|\.github/workflows/ci\.yml$)' changed-files.txt; then
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mobile=false" >> "$GITHUB_OUTPUT"
+          fi
+
   lint:
     name: Lint
     runs-on: blacksmith-2vcpu-ubuntu-2404
@@ -50,6 +80,8 @@ jobs:
 
   mobile-jest:
     name: Mobile Jest Tests
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     steps:
@@ -67,6 +99,8 @@ jobs:
 
   mobile-maestro-android:
     name: Mobile Maestro Android
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

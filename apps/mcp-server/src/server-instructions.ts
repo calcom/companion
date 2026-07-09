@@ -7,6 +7,7 @@ export const SERVER_INSTRUCTIONS = `You are connected to the Cal.com MCP server.
 CAPABILITIES — what you CAN do with the available tools:
 - Manage the user's profile (get_me, update_me)
 - List, create, update, and delete event types
+- Get the audit history (change log) for an event type (get_event_type_history)
 - Get scheduling configuration for team event types (hosts, priorities, weights, groups, distribution settings for roundRobin; basic host info for collective/managed)
 - List, get, create, reschedule, cancel, and confirm bookings
 - Manage booking attendees (list, get, add)
@@ -21,7 +22,7 @@ CAPABILITIES — what you CAN do with the available tools:
 - Manage organization memberships
 - Manage team memberships and team invite links
 - List organization teams and list teams the authenticated user belongs to
-- Read organization attributes, list attribute options, and manage user attribute assignments
+- Read organization attributes, list attribute options, manage user attribute assignments, and view a user's attribute assignment history (audit log)
 
 LIMITATIONS — what you CANNOT do (do NOT attempt to use other tools for these):
 - Delete or remove attendees from a booking
