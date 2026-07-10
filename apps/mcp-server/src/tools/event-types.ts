@@ -482,6 +482,43 @@ export async function deleteEventType(params: { eventTypeId: number }) {
   }
 }
 
+export const getEventTypeHistorySchema = {
+  eventTypeId: z
+    .number()
+    .int()
+    .describe("Event type ID whose audit history to fetch. Use get_event_types to find this."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .optional()
+    .describe("Number of audit log entries to return (1-50). Defaults to 25."),
+  cursor: z
+    .string()
+    .max(2048)
+    .optional()
+    .describe(
+      "Pagination cursor. Pass the `pagination.nextCursor` value from the previous response to fetch the next page. Omit for the first page."
+    ),
+};
+
+export async function getEventTypeHistory(params: {
+  eventTypeId: number;
+  limit?: number;
+  cursor?: string;
+}) {
+  try {
+    const qp: Record<string, string | number | undefined> = {};
+    if (params.limit !== undefined) qp.limit = params.limit;
+    if (params.cursor !== undefined) qp.cursor = params.cursor;
+    const data = await calApi(`event-types/${params.eventTypeId}/history`, { params: qp });
+    return ok(data);
+  } catch (err) {
+    return handleError("get_event_type_history", err);
+  }
+}
+
 export const getSchedulingConfigSchema = {
   eventTypeId: z
     .number()
