@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **56 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **56 tools** covering Bookings, Event Types, CRM Sync Errors, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
 - **Per-user token storage** — encrypted at rest with AES-256-GCM in Postgres
@@ -202,11 +202,12 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 | `get_me` | Get My Profile | Read | Get authenticated user profile |
 | `update_me` | Update My Profile | Update | Update user profile |
 
-### Event Types (7)
+### Event Types (8)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_event_types` | List Event Types | Read | List all event types |
 | `get_event_type` | Get Event Type | Read | Get a specific event type by ID |
+| `get_crm_sync_errors` | List CRM Sync Errors | Read | List active/current CRM sync errors for an event type and app slug; optionally include dismissed historical errors |
 | `get_event_type_history` | Get Event Type History | Read | Get the audit history (change log) for an event type |
 | `get_scheduling_config` | Get Scheduling Config | Read | Get scheduling configuration for a team event type |
 | `create_event_type` | Create Event Type | Create | Create a new event type |
