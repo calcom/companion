@@ -46,6 +46,8 @@ import {
   createEventTypeSchema,
   deleteEventType,
   deleteEventTypeSchema,
+  getCrmSyncErrors,
+  getCrmSyncErrorsSchema,
   getEventType,
   getEventTypeHistory,
   getEventTypeHistorySchema,
@@ -215,7 +217,7 @@ export function registerTools(server: McpServer): void {
     updateMe
   );
 
-  // ── Event Types (7) ──
+  // ── Event Types (8) ──
   server.registerTool(
     "get_event_types",
     {
@@ -237,6 +239,17 @@ export function registerTools(server: McpServer): void {
       annotations: READ_ONLY,
     },
     getEventType
+  );
+  server.registerTool(
+    "get_crm_sync_errors",
+    {
+      title: "List CRM Sync Errors",
+      description:
+        "List CRM sync errors for an event type and CRM app slug, such as salesforce. By default returns active/current errors only; set includeDismissed=true to include dismissed historical errors. Use eventTypeId plus appSlug, not credentialId. Supports cursor pagination via limit (1-100, default 50) and cursor. Requires read access to the event type.",
+      inputSchema: getCrmSyncErrorsSchema,
+      annotations: READ_ONLY,
+    },
+    getCrmSyncErrors
   );
   server.registerTool(
     "create_event_type",
