@@ -11,6 +11,8 @@ import {
   createEventTypeSchema,
   deleteEventType,
   deleteEventTypeSchema,
+  getCrmSyncErrors,
+  getCrmSyncErrorsSchema,
   getEventType,
   getEventTypeHistory,
   getEventTypeHistorySchema,
@@ -43,6 +45,14 @@ describe("event-types schemas", () => {
     expect(getEventTypeSchema.eventTypeId).toBeDefined();
   });
 
+  it("exports getCrmSyncErrorsSchema with eventTypeId, appSlug and pagination params", () => {
+    expect(getCrmSyncErrorsSchema.eventTypeId).toBeDefined();
+    expect(getCrmSyncErrorsSchema.appSlug).toBeDefined();
+    expect(getCrmSyncErrorsSchema.includeDismissed).toBeDefined();
+    expect(getCrmSyncErrorsSchema.cursor).toBeDefined();
+    expect(getCrmSyncErrorsSchema.limit).toBeDefined();
+  });
+
   it("exports createEventTypeSchema with required and optional fields", () => {
     expect(createEventTypeSchema.title).toBeDefined();
     expect(createEventTypeSchema.slug).toBeDefined();
@@ -68,6 +78,92 @@ describe("event-types schemas", () => {
 
   it("exports deleteEventTypeSchema", () => {
     expect(deleteEventTypeSchema.eventTypeId).toBeDefined();
+  });
+});
+
+describe("getCrmSyncErrors schema", () => {
+  it("requires eventTypeId to be an integer", () => {
+    expect(getCrmSyncErrorsSchema.eventTypeId.safeParse(42).success).toBe(true);
+    expect(getCrmSyncErrorsSchema.eventTypeId.safeParse(1.5).success).toBe(false);
+    expect(getCrmSyncErrorsSchema.eventTypeId.safeParse("abc").success).toBe(false);
+  });
+
+  it("requires a non-empty appSlug", () => {
+    expect(getCrmSyncErrorsSchema.appSlug.safeParse("salesforce").success).toBe(true);
+    expect(getCrmSyncErrorsSchema.appSlug.safeParse("").success).toBe(false);
+  });
+
+  it("enforces OpenAPI limit bounds (1-100)", () => {
+    expect(getCrmSyncErrorsSchema.limit.safeParse(0).success).toBe(false);
+    expect(getCrmSyncErrorsSchema.limit.safeParse(1).success).toBe(true);
+    expect(getCrmSyncErrorsSchema.limit.safeParse(100).success).toBe(true);
+    expect(getCrmSyncErrorsSchema.limit.safeParse(101).success).toBe(false);
+    expect(getCrmSyncErrorsSchema.limit.safeParse(1.5).success).toBe(false);
+    expect(getCrmSyncErrorsSchema.limit.safeParse(undefined).success).toBe(true);
+  });
+});
+
+describe("getCrmSyncErrors", () => {
+  it("calls the correct API path with required query params", async () => {
+    const mockResponse = {
+      status: "success",
+      data: [
+        {
+          id: "019ea850-efc7-7a48-8508-aed31b72ce68",
+          credentialId: 123,
+          eventTypeId: 49,
+          appSlug: "salesforce",
+          timestamp: "2026-06-08T17:38:57.107Z",
+          errorCode: "FIELD_CUSTOM_VALIDATION_EXCEPTION",
+          errorMessage: "Validation rule blocked this update",
+          droppedFields: ["Custom_Field__c"],
+          dismissedAt: null,
+        },
+      ],
+      pagination: {
+        nextCursor: null,
+        hasMore: false,
+      },
+    };
+    mockCalApi.mockResolvedValueOnce(mockResponse);
+
+    const result = await getCrmSyncErrors({ eventTypeId: 49, appSlug: "salesforce" });
+
+    expect(mockCalApi).toHaveBeenCalledWith("event-types/49/crm-sync-errors", {
+      params: { appSlug: "salesforce" },
+    });
+    expect(JSON.parse(result.content[0].text)).toEqual(mockResponse);
+  });
+
+  it("passes optional includeDismissed and pagination query params", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success", data: [], pagination: {} });
+
+    await getCrmSyncErrors({
+      eventTypeId: 49,
+      appSlug: "salesforce",
+      includeDismissed: true,
+      cursor: "eyJ2IjoxLCJzb3J0VXVpZCI6IjAxOWVhODUwIn0",
+      limit: 25,
+    });
+
+    const [path, opts] = mockCalApi.mock.calls[0];
+    expect(path).toBe("event-types/49/crm-sync-errors");
+    const params = (opts as { params: Record<string, unknown> }).params;
+    expect(params).toEqual({
+      appSlug: "salesforce",
+      includeDismissed: true,
+      cursor: "eyJ2IjoxLCJzb3J0VXVpZCI6IjAxOWVhODUwIn0",
+      limit: 25,
+    });
+  });
+
+  it("handles API errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(403, "Forbidden", {}));
+
+    const result = await getCrmSyncErrors({ eventTypeId: 49, appSlug: "salesforce" });
+
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("403");
   });
 });
 
