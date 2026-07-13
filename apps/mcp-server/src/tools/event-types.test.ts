@@ -135,7 +135,7 @@ describe("getCrmSyncErrors", () => {
     expect(JSON.parse(result.content[0].text)).toEqual(mockResponse);
   });
 
-  it("passes optional history and pagination query params", async () => {
+  it("passes optional includeDismissed and pagination query params", async () => {
     mockCalApi.mockResolvedValueOnce({ status: "success", data: [], pagination: {} });
 
     await getCrmSyncErrors({
