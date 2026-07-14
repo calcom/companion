@@ -60,6 +60,60 @@ export async function getEventType(params: { eventTypeId: number }) {
   }
 }
 
+export const getCrmSyncErrorsSchema = {
+  eventTypeId: z
+    .number()
+    .int()
+    .describe("Event type ID whose CRM sync errors to fetch. Use get_event_types to find this."),
+  appSlug: z
+    .string()
+    .min(1)
+    .describe("CRM app slug connected to the event type, for example `salesforce`."),
+  includeDismissed: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true, returns dismissed historical errors as well as active errors. Defaults to false."
+    ),
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      "Opaque cursor from `pagination.nextCursor`. Omit to fetch the first page of CRM sync errors."
+    ),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum number of CRM sync errors to return (1-100). Defaults to 50."),
+};
+
+export async function getCrmSyncErrors(params: {
+  eventTypeId: number;
+  appSlug: string;
+  includeDismissed?: boolean;
+  cursor?: string;
+  limit?: number;
+}) {
+  try {
+    const qp: Record<string, string | number | boolean | undefined> = {
+      appSlug: params.appSlug,
+    };
+    if (params.includeDismissed !== undefined) qp.includeDismissed = params.includeDismissed;
+    if (params.cursor !== undefined) qp.cursor = params.cursor;
+    if (params.limit !== undefined) qp.limit = params.limit;
+
+    const data = await calApi(`event-types/${params.eventTypeId}/crm-sync-errors`, {
+      params: qp,
+    });
+    return ok(data);
+  } catch (err) {
+    return handleError("get_crm_sync_errors", err);
+  }
+}
+
 export const createEventTypeSchema = {
   title: z.string().describe("Event type title"),
   slug: z.string().describe("URL-friendly slug (e.g. '30min')"),
