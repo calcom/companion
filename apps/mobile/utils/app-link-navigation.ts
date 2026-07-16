@@ -1,4 +1,4 @@
-import { CAL_APP_HOSTNAMES } from "@/utils/region";
+import { CAL_APP_HOSTNAMES } from "@/utils/cal-app-url";
 
 const BOOKING_FILTERS = new Set(["upcoming", "unconfirmed", "recurring", "past", "cancelled"]);
 const APP_LINK_SOURCE = "app-link";

@@ -1,10 +1,9 @@
 import { describe, expect, test } from "@jest/globals";
 import { getNativeRouteFromAppLink } from "@/utils/app-link-navigation";
-import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
+import { CAL_APP_URLS } from "@/utils/cal-app-url";
 
 describe("getNativeRouteFromAppLink", () => {
-  const usAppUrl = getCalAppUrl("us");
-  const euAppUrl = getCalAppUrl("eu");
+  const { us: usAppUrl, eu: euAppUrl } = CAL_APP_URLS;
 
   test.each([
     [`${usAppUrl}/bookings`, "/(tabs)/(bookings)?source=app-link"],
@@ -36,7 +35,7 @@ describe("getNativeRouteFromAppLink", () => {
   });
 
   test.each([
-    `${getCalWebUrl("us")}/peer`,
+    `${usAppUrl.replace("://app.", "://")}/peer`,
     `${usAppUrl}/apps`,
     `${usAppUrl}/bookings/invalid`,
     `${usAppUrl}/event-types/not-an-id`,

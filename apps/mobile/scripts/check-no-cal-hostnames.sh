@@ -21,7 +21,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PATTERN='\bcal\.(com|eu)\b'
-ALLOWLIST='^(\./)?(utils/region\.ts|utils/booking\.ts|app\.json|\.env\.example|scripts/check-no-cal-hostnames\.sh):'
+ALLOWLIST='^(\./)?(utils/region\.ts|utils/cal-app-url\.ts|utils/booking\.ts|app\.json|\.env\.example|scripts/check-no-cal-hostnames\.sh):'
 
 raw=$(rg -n --no-heading "$PATTERN" . 2>/dev/null || true)
 hits=$(echo "$raw" | grep -Ev "$ALLOWLIST" | grep -Ev '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' || true)
