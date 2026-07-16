@@ -14,13 +14,14 @@
 # - Lines whose content starts with `//`, `*`, or `/*` are filtered, since
 #   documentation prose / docstring @example URLs don't cause runtime bugs.
 # - `ALLOWLIST` exempts files that legitimately reference the bare hostnames:
-#   the region helpers themselves, the env template, the hostname match-set
-#   used for video-call URL detection, and this script.
+#   the region helpers themselves, native app-link configuration, the env
+#   template, the hostname match-set used for video-call URL detection, and
+#   this script.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PATTERN='\bcal\.(com|eu)\b'
-ALLOWLIST='^(\./)?(utils/region\.ts|utils/booking\.ts|\.env\.example|scripts/check-no-cal-hostnames\.sh):'
+ALLOWLIST='^(\./)?(utils/region\.ts|utils/booking\.ts|app\.json|\.env\.example|scripts/check-no-cal-hostnames\.sh):'
 
 raw=$(rg -n --no-heading "$PATTERN" . 2>/dev/null || true)
 hits=$(echo "$raw" | grep -Ev "$ALLOWLIST" | grep -Ev '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' || true)
