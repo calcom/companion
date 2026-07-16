@@ -47,6 +47,16 @@ describe("getInitialLandingRedirectDecision", () => {
     ).toBe("skip");
   });
 
+  test("skips redirect for app links to the bookings index", () => {
+    expect(
+      getInitialLandingRedirectDecision({
+        landingPage: "event-types",
+        segments: ["(tabs)", "(bookings)"],
+        isAppLink: true,
+      })
+    ).toBe("skip");
+  });
+
   test("waits while segments are empty or outside the tabs layout", () => {
     expect(
       getInitialLandingRedirectDecision({
