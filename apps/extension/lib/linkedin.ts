@@ -1,5 +1,5 @@
 /// <reference types="chrome" />
-import { escapeHtml } from "./utils";
+import { buildSafeBookingUrl, escapeHtml } from "./utils";
 
 // LinkedIn integration: inject a Cal.com scheduling button in LinkedIn messaging
 
@@ -666,10 +666,7 @@ export function initLinkedInIntegration() {
   }
 
   function buildBookingUrl(eventType: EventType): string {
-    return (
-      eventType.bookingUrl ||
-      `https://cal.com/${eventType.users?.[0]?.username || "user"}/${eventType.slug}`
-    );
+    return buildSafeBookingUrl(eventType);
   }
 
   function handleFetchError(error: unknown, menu: HTMLElement, tooltipsToCleanup: HTMLElement[]) {

@@ -1,7 +1,7 @@
 /// <reference types="chrome" />
 import { initGoogleCalendarIntegration } from "../lib/google-calendar";
 import { initLinkedInIntegration } from "../lib/linkedin";
-import { escapeHtml } from "../lib/utils";
+import { buildSafeBookingUrl, escapeHtml } from "../lib/utils";
 
 /**
  * Development-only logging utility for content scripts.
@@ -87,6 +87,10 @@ export default defineContentScript({
     `;
 
     iframeContainer.appendChild(iframe);
+
+    function postToCompanionIframe(iframeWindow: Window | null, message: unknown): void {
+      iframeWindow?.postMessage(message, new URL(iframe.src).origin);
+    }
 
     // Listen for messages from iframe to control width and handle OAuth
     window.addEventListener("message", (event) => {
@@ -188,36 +192,27 @@ export default defineContentScript({
               "Failed to communicate with background script:",
               chrome.runtime.lastError.message
             );
-            iframeWindow?.postMessage(
-              {
-                type: "cal-extension-oauth-result",
-                success: false,
-                error: `Extension communication failed: ${chrome.runtime.lastError.message}`,
-              },
-              "*"
-            );
+            postToCompanionIframe(iframeWindow, {
+              type: "cal-extension-oauth-result",
+              success: false,
+              error: `Extension communication failed: ${chrome.runtime.lastError.message}`,
+            });
             return;
           }
 
           // Forward the response back to iframe
           if (response.success) {
-            iframeWindow?.postMessage(
-              {
-                type: "cal-extension-oauth-result",
-                success: true,
-                responseUrl: response.responseUrl,
-              },
-              "*"
-            );
+            postToCompanionIframe(iframeWindow, {
+              type: "cal-extension-oauth-result",
+              success: true,
+              responseUrl: response.responseUrl,
+            });
           } else {
-            iframeWindow?.postMessage(
-              {
-                type: "cal-extension-oauth-result",
-                success: false,
-                error: response.error || "OAuth flow failed",
-              },
-              "*"
-            );
+            postToCompanionIframe(iframeWindow, {
+              type: "cal-extension-oauth-result",
+              success: false,
+              error: response.error || "OAuth flow failed",
+            });
           }
         }
       );
@@ -244,36 +239,27 @@ export default defineContentScript({
               "Failed to communicate with background script:",
               chrome.runtime.lastError.message
             );
-            iframeWindow?.postMessage(
-              {
-                type: "cal-extension-token-exchange-result",
-                success: false,
-                error: `Extension communication failed: ${chrome.runtime.lastError.message}`,
-              },
-              "*"
-            );
+            postToCompanionIframe(iframeWindow, {
+              type: "cal-extension-token-exchange-result",
+              success: false,
+              error: `Extension communication failed: ${chrome.runtime.lastError.message}`,
+            });
             return;
           }
 
           // Forward the response back to iframe
           if (response.success) {
-            iframeWindow?.postMessage(
-              {
-                type: "cal-extension-token-exchange-result",
-                success: true,
-                tokens: response.tokens,
-              },
-              "*"
-            );
+            postToCompanionIframe(iframeWindow, {
+              type: "cal-extension-token-exchange-result",
+              success: true,
+              tokens: response.tokens,
+            });
           } else {
-            iframeWindow?.postMessage(
-              {
-                type: "cal-extension-token-exchange-result",
-                success: false,
-                error: response.error || "Token exchange failed",
-              },
-              "*"
-            );
+            postToCompanionIframe(iframeWindow, {
+              type: "cal-extension-token-exchange-result",
+              success: false,
+              error: response.error || "Token exchange failed",
+            });
           }
         }
       );
@@ -290,25 +276,19 @@ export default defineContentScript({
             "Failed to communicate with background script:",
             chrome.runtime.lastError.message
           );
-          iframeWindow?.postMessage(
-            {
-              type: "cal-extension-sync-tokens-result",
-              success: false,
-              error: `Extension communication failed: ${chrome.runtime.lastError.message}`,
-            },
-            "*"
-          );
+          postToCompanionIframe(iframeWindow, {
+            type: "cal-extension-sync-tokens-result",
+            success: false,
+            error: `Extension communication failed: ${chrome.runtime.lastError.message}`,
+          });
           return;
         }
 
-        iframeWindow?.postMessage(
-          {
-            type: "cal-extension-sync-tokens-result",
-            success: response?.success ?? false,
-            error: response?.error,
-          },
-          "*"
-        );
+        postToCompanionIframe(iframeWindow, {
+          type: "cal-extension-sync-tokens-result",
+          success: response?.success ?? false,
+          error: response?.error,
+        });
       });
     }
 
@@ -319,25 +299,19 @@ export default defineContentScript({
             "Failed to communicate with background script:",
             chrome.runtime.lastError.message
           );
-          iframeWindow?.postMessage(
-            {
-              type: "cal-extension-clear-tokens-result",
-              success: false,
-              error: `Extension communication failed: ${chrome.runtime.lastError.message}`,
-            },
-            "*"
-          );
+          postToCompanionIframe(iframeWindow, {
+            type: "cal-extension-clear-tokens-result",
+            success: false,
+            error: `Extension communication failed: ${chrome.runtime.lastError.message}`,
+          });
           return;
         }
 
-        iframeWindow?.postMessage(
-          {
-            type: "cal-extension-clear-tokens-result",
-            success: response?.success ?? false,
-            error: response?.error,
-          },
-          "*"
-        );
+        postToCompanionIframe(iframeWindow, {
+          type: "cal-extension-clear-tokens-result",
+          success: response?.success ?? false,
+          error: response?.error,
+        });
       });
     }
 
@@ -453,7 +427,7 @@ export default defineContentScript({
 
       // Send message to iframe to reload cache
       if (iframe.contentWindow) {
-        iframe.contentWindow.postMessage({ type: "cal-companion-reload-cache" }, "*");
+        postToCompanionIframe(iframe.contentWindow, { type: "cal-companion-reload-cache" });
       }
     });
 
@@ -1089,11 +1063,7 @@ export default defineContentScript({
 
                   previewBtn.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    const bookingUrl =
-                      eventType.bookingUrl ||
-                      `https://cal.com/${
-                        eventType.users?.[0]?.username || "user"
-                      }/${eventType.slug}`;
+                    const bookingUrl = buildSafeBookingUrl(eventType);
                     window.open(bookingUrl, "_blank");
                   });
                   previewBtn.addEventListener("mouseenter", () => {
@@ -1133,11 +1103,7 @@ export default defineContentScript({
                   copyBtn.addEventListener("click", (e) => {
                     e.stopPropagation();
                     // Copy to clipboard
-                    const bookingUrl =
-                      eventType.bookingUrl ||
-                      `https://cal.com/${
-                        eventType.users?.[0]?.username || "user"
-                      }/${eventType.slug}`;
+                    const bookingUrl = buildSafeBookingUrl(eventType);
                     navigator.clipboard
                       .writeText(bookingUrl)
                       .then(() => {
@@ -1265,7 +1231,7 @@ export default defineContentScript({
                       Something went wrong
                     </div>
                     <div style="font-size: 13px; color: #6B7280; margin-bottom: 16px;">
-                      ${errorMessage || "Failed to load event types"}
+                      ${escapeHtml(errorMessage || "Failed to load event types")}
                     </div>
                     <button class="cal-gmail-close-btn" style="
                       background: #F3F4F6;
@@ -1306,37 +1272,7 @@ export default defineContentScript({
             bookingUrl?: string;
           }): void {
             // Construct the Cal.com booking link
-            const bookingUrl =
-              eventType.bookingUrl ||
-              `https://cal.com/${eventType.users?.[0]?.username || "user"}/${eventType.slug}`;
-
-            // Try to insert at cursor position in the compose field
-            const inserted = insertTextAtCursor(bookingUrl);
-
-            if (inserted) {
-              showNotification("Link inserted", "success");
-            } else {
-              // Fallback: copy to clipboard if insertion fails
-              navigator.clipboard
-                .writeText(bookingUrl)
-                .then(() => {
-                  showNotification("Link copied!", "success");
-                })
-                .catch(() => {
-                  showNotification("Failed to copy link", "error");
-                });
-            }
-          }
-
-          function _copyEventTypeLink(eventType: {
-            slug: string;
-            users?: Array<{ username?: string }>;
-            bookingUrl?: string;
-          }): void {
-            // Construct the Cal.com booking link
-            const bookingUrl =
-              eventType.bookingUrl ||
-              `https://cal.com/${eventType.users?.[0]?.username || "user"}/${eventType.slug}`;
+            const bookingUrl = buildSafeBookingUrl(eventType);
 
             // Try to insert at cursor position in the compose field
             const inserted = insertTextAtCursor(bookingUrl);
@@ -1838,9 +1774,7 @@ export default defineContentScript({
 
               previewBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
-                const bookingUrl =
-                  eventType.bookingUrl ||
-                  `https://cal.com/${eventType.users?.[0]?.username || "user"}/${eventType.slug}`;
+                const bookingUrl = buildSafeBookingUrl(eventType);
                 window.open(bookingUrl, "_blank");
               });
               previewBtn.addEventListener("mouseenter", () => {
@@ -1880,9 +1814,7 @@ export default defineContentScript({
               copyBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 // Copy to clipboard
-                const bookingUrl =
-                  eventType.bookingUrl ||
-                  `https://cal.com/${eventType.users?.[0]?.username || "user"}/${eventType.slug}`;
+                const bookingUrl = buildSafeBookingUrl(eventType);
                 navigator.clipboard
                   .writeText(bookingUrl)
                   .then(() => {
@@ -2010,7 +1942,7 @@ export default defineContentScript({
                   Something went wrong
                 </div>
                 <div style="font-size: 13px; color: #6B7280; margin-bottom: 16px;">
-                  ${errorMessage || "Failed to load event types"}
+                  ${escapeHtml(errorMessage || "Failed to load event types")}
                 </div>
                 <button class="cal-linkedin-close-btn" style="
                   background: #F3F4F6;
@@ -2051,9 +1983,7 @@ export default defineContentScript({
         bookingUrl?: string;
       }) {
         // Construct the Cal.com booking link
-        const bookingUrl =
-          eventType.bookingUrl ||
-          `https://cal.com/${eventType.users?.[0]?.username || "user"}/${eventType.slug}`;
+        const bookingUrl = buildSafeBookingUrl(eventType);
 
         // Try to insert at cursor position in the message field
         const inserted = insertTextAtCursor(bookingUrl);
