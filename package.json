@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "husky",
     "mobile": "cd apps/mobile && bunx expo start",
     "mobile:ios": "cd apps/mobile && bunx expo run:ios",
     "mobile:android": "cd apps/mobile && bunx expo run:android",
