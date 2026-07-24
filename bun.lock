@@ -77,6 +77,7 @@
         "@react-native-community/datetimepicker": "8.4.4",
         "@react-native-community/netinfo": "11.4.1",
         "@react-native-segmented-control/segmented-control": "2.5.7",
+        "@react-navigation/bottom-tabs": "^7.0.0",
         "@react-navigation/native": "^7.0.0",
         "@react-navigation/native-stack": "^7.0.0",
         "@rn-primitives/alert-dialog": "1.2.0",
