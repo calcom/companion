@@ -520,6 +520,54 @@ export async function updateEventType(params: {
   }
 }
 
+export const getEventTypeSettingsSchema = {
+  eventTypeId: z.number().int().describe("Event type ID. Use get_event_types to find this."),
+  orgId: z
+    .number()
+    .int()
+    .optional()
+    .describe(
+      "Organization ID for org-scoped team event types. Use get_me to obtain your organizationId."
+    ),
+  teamId: z
+    .number()
+    .int()
+    .optional()
+    .describe("Team ID for org-scoped team event types. Required together with orgId."),
+};
+
+export async function getEventTypeSettings(params: {
+  eventTypeId: number;
+  orgId?: number;
+  teamId?: number;
+}) {
+  try {
+    const hasOrgId = params.orgId !== undefined;
+    const hasTeamId = params.teamId !== undefined;
+    if (hasOrgId !== hasTeamId) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: "orgId and teamId must be provided together to look up an org-scoped team event type.",
+          },
+        ],
+        isError: true as const,
+      };
+    }
+
+    const path =
+      hasOrgId && hasTeamId
+        ? `organizations/${params.orgId}/teams/${params.teamId}/event-types/${params.eventTypeId}`
+        : `event-types/${params.eventTypeId}`;
+
+    const data = await calApi(path);
+    return ok(data);
+  } catch (err) {
+    return handleError("get_event_type_settings", err);
+  }
+}
+
 export const deleteEventTypeSchema = {
   eventTypeId: z
     .number()

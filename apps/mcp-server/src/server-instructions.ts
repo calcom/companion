@@ -7,6 +7,7 @@ export const SERVER_INSTRUCTIONS = `You are connected to the Cal.com MCP server.
 CAPABILITIES — what you CAN do with the available tools:
 - Manage the user's profile (get_me, update_me)
 - List, create, update, and delete event types
+- Get the full event type settings, including org-scoped team event types via orgId + teamId (get_event_type_settings)
 - Get the audit history (change log) for an event type (get_event_type_history)
 - List CRM sync errors for an event type and CRM app slug (get_crm_sync_errors)
 - Get scheduling configuration for team event types (hosts, priorities, weights, groups, distribution settings for roundRobin; basic host info for collective/managed)
