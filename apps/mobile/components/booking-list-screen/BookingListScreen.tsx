@@ -19,6 +19,7 @@ import { RecurringBookingListItem } from "@/components/booking-list-item/Recurri
 import { BookingModals } from "@/components/booking-modals/BookingModals";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { FullScreenModal } from "@/components/FullScreenModal";
+import { ResponsiveContentContainer } from "@/components/ResponsiveContentContainer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -785,18 +786,22 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
         (isManualRefreshing ? (
           <BookingListSkeleton count={4} iosStyle={iosStyle} />
         ) : iosStyle ? (
-          <FlatList
-            data={listItems}
-            keyExtractor={(item) => item.key}
-            renderItem={renderListItem}
-            contentContainerStyle={{ paddingBottom: 90 }}
-            refreshControl={<RefreshControl refreshing={false} onRefresh={manualRefresh} />}
-            showsVerticalScrollIndicator={false}
-            contentInsetAdjustmentBehavior="automatic"
-            style={{ backgroundColor: isDark ? "#000000" : "white" }}
-          />
+          <View className="flex-1" style={{ backgroundColor: isDark ? "#000000" : "white" }}>
+            <ResponsiveContentContainer className="flex-1">
+              <FlatList
+                data={listItems}
+                keyExtractor={(item) => item.key}
+                renderItem={renderListItem}
+                contentContainerStyle={{ paddingBottom: 90 }}
+                refreshControl={<RefreshControl refreshing={false} onRefresh={manualRefresh} />}
+                showsVerticalScrollIndicator={false}
+                contentInsetAdjustmentBehavior="automatic"
+                style={{ backgroundColor: isDark ? "#000000" : "white" }}
+              />
+            </ResponsiveContentContainer>
+          </View>
         ) : (
-          <View className="flex-1 px-2 pt-4 md:px-4">
+          <ResponsiveContentContainer className="flex-1 px-2 pt-4 md:px-4">
             <View className="flex-1 overflow-hidden rounded-lg border border-[#E5E5EA] bg-white dark:border-[#4D4D4D] dark:bg-black">
               <FlatList
                 data={listItems}
@@ -807,7 +812,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
                 showsVerticalScrollIndicator={false}
               />
             </View>
-          </View>
+          </ResponsiveContentContainer>
         ))}
 
       {/* Modals */}
