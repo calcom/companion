@@ -1,4 +1,4 @@
-const { isTabletSize, TABLET_MIN_SHORTEST_SIDE } = require("./useIsTablet");
+const { isTabletSize, TABLET_MIN_SHORTEST_SIDE } = require("./is-tablet-size");
 
 describe("isTabletSize", () => {
   it("classifies typical phone portrait dimensions as non-tablet", () => {
