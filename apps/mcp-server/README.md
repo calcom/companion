@@ -7,7 +7,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 - **57 tools** covering Bookings, Event Types, CRM Sync Errors, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
-- **Per-user token storage** — encrypted at rest with AES-256-GCM in SQLite
+- **Per-user token storage** — encrypted at rest with AES-256-GCM in Postgres
 - **Structured error handling** with clean MCP error responses
 - **Zod-validated inputs** for every tool
 
@@ -58,10 +58,12 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 | `TOKEN_ENCRYPTION_KEY` | Yes | — | 64-char hex string (32 bytes) for AES-256-GCM token encryption |
 | `MCP_SERVER_URL` | Yes | — | Public URL of this server (e.g. `https://mcp.example.com`) |
 | `CAL_OAUTH_SCOPES` | No | Core scopes plus `ORG_BOOKING_READ TEAM_BOOKING_READ TEAM_EVENT_TYPE_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ ORG_ATTRIBUTES_READ ORG_ATTRIBUTES_WRITE` | Space-separated Cal.com OAuth scopes requested during authorization |
-| `DATABASE_PATH` | No | `mcp-server.db` | SQLite database file path |
+| `DATABASE_URL` | Yes | — | Postgres connection string for HTTP OAuth state and token storage |
 | `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate limit window in ms (per IP) |
 | `RATE_LIMIT_MAX` | No | `30` | Max OAuth requests per window per IP |
-| `ALLOWED_REDIRECT_HOSTS` | No | — | Comma-separated allowlist of hostnames for non-loopback `https` redirect URIs at client registration. Loopback is always allowed; non-loopback cleartext `http` is always rejected. When unset, any `https` host is accepted (open DCR) but logged. |
+| `ALLOWED_REDIRECT_HOSTS` | No | — | Comma-separated allowlist of hostnames for non-loopback `https` redirect URIs at client registration. Loopback is always allowed; non-loopback cleartext `http` is always rejected. When unset, external hosts are rejected. |
+| `ALLOW_OPEN_REDIRECT_REGISTRATION` | No | `false` | Unsafe/dev-only escape hatch that allows any external `https` redirect URI when no allowlist is configured. Do not set in production. |
+| `CORS_ORIGIN` | No | `MCP_SERVER_URL` origin | Browser CORS origin for remote HTTP clients. Set this when the browser client origin differs from the MCP server origin. |
 | `OPENAI_APPS_CHALLENGE_TOKEN` | No | — | Token served at `/.well-known/openai-apps-challenge` for OpenAI Apps domain verification. When unset, the endpoint returns 404. |
 
 ## Transport Modes
@@ -166,12 +168,12 @@ The HTTP server implements a full OAuth 2.1 Authorization Server. MCP clients co
 2. **Client starts auth** → `GET /oauth/authorize` with `client_id`, `redirect_uri`, `code_challenge` (S256), `state`
 3. **Server redirects to Cal.com** → user authorizes on Cal.com
 4. **Cal.com redirects back** → `GET /oauth/callback` with `code` + `state`
-5. **Server exchanges code** → calls Cal.com token endpoint, stores encrypted Cal.com tokens in SQLite
+5. **Server exchanges code** → calls Cal.com token endpoint, stores encrypted Cal.com tokens in Postgres
 6. **Server redirects to client** → with an authorization `code` + original `state`
 7. **Client exchanges code** → `POST /oauth/token` with `code`, `code_verifier`, `redirect_uri` → receives `access_token` + `refresh_token`
 8. **Client uses token** → `POST /mcp` with `Authorization: Bearer <access_token>`
 
-The server acts as an intermediary: it issues its own access tokens to MCP clients, and each token maps to encrypted Cal.com credentials stored in SQLite. When Cal.com tokens expire, the server auto-refreshes them transparently.
+The server acts as an intermediary: it issues its own access tokens to MCP clients, and each token maps to encrypted Cal.com credentials stored in Postgres. When Cal.com tokens expire, the server auto-refreshes them transparently.
 
 **Security:**
 - All Cal.com tokens are encrypted at rest with AES-256-GCM (via `TOKEN_ENCRYPTION_KEY`)
@@ -179,7 +181,7 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - Auth codes are single-use
 - Expired tokens are cleaned up automatically every 5 minutes
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
-- Redirect URIs registered via dynamic client registration are constrained: loopback (`localhost` / `127.0.0.0/8` / `::1`) is always allowed, cleartext `http` to non-loopback hosts is always rejected, and non-loopback `https` hosts can be restricted to a vetted allowlist via `ALLOWED_REDIRECT_HOSTS` (recommended in production to limit the open-DCR phishing surface)
+- Redirect URIs registered via dynamic client registration are constrained: loopback (`localhost` / `127.0.0.0/8` / `::1`) is always allowed, cleartext `http` to non-loopback hosts is always rejected, and non-loopback `https` hosts require `ALLOWED_REDIRECT_HOSTS` unless `ALLOW_OPEN_REDIRECT_REGISTRATION=true` is explicitly set for unsafe/dev use
 
 ## Tools (56)
 

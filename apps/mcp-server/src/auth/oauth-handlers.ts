@@ -1,22 +1,27 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { CAL_API_VERSION } from "../config.js";
-import { logger } from "../utils/logger.js";
-import { generateCodeVerifier, generateCodeChallenge, generateState, verifyCodeChallenge } from "./pkce.js";
 import {
-  createRegisteredClient,
-  getRegisteredClient,
-  createPendingAuth,
-  getPendingAuth,
-  deletePendingAuth,
-  createAuthCode,
   consumeAuthCode,
   createAccessToken,
-  rotateAccessToken,
+  createAuthCode,
+  createPendingAuth,
+  createRegisteredClient,
   deleteAccessToken,
   deleteAccessTokenByRefresh,
+  deletePendingAuth,
   getAccessToken,
+  getPendingAuth,
+  getRegisteredClient,
+  rotateAccessToken,
   updateCalTokens,
 } from "../storage/token-store.js";
+import { logger } from "../utils/logger.js";
+import {
+  generateCodeChallenge,
+  generateCodeVerifier,
+  generateState,
+  verifyCodeChallenge,
+} from "./pkce.js";
 
 export interface OAuthConfig {
   /** Public URL of the MCP server */
@@ -39,10 +44,12 @@ const MAX_BODY_SIZE = 1024 * 1024; // 1 MB
 export interface RedirectUriPolicy {
   /**
    * Lowercased exact hostnames permitted for non-loopback `https` redirect URIs.
-   * When empty, any `https` host is accepted (loopback is always accepted, and
-   * cleartext `http` to non-loopback hosts is always rejected).
+   * When empty, non-loopback external hosts are rejected unless the explicit
+   * open-DCR override is enabled. Loopback is always accepted, and cleartext
+   * `http` to non-loopback hosts is always rejected.
    */
   allowedHosts: string[];
+  allowExternalRedirectsWithoutAllowlist?: boolean;
 }
 
 /**
@@ -68,7 +75,7 @@ export function isLoopbackHost(hostname: string): boolean {
  */
 export function validateRedirectUri(
   uri: string,
-  policy: RedirectUriPolicy,
+  policy: RedirectUriPolicy
 ): { ok: true } | { ok: false; reason: string } {
   let parsed: URL;
   try {
@@ -77,7 +84,10 @@ export function validateRedirectUri(
     return { ok: false, reason: "not a valid URL" };
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    return { ok: false, reason: `invalid scheme: ${parsed.protocol} — only http and https are allowed` };
+    return {
+      ok: false,
+      reason: `invalid scheme: ${parsed.protocol} — only http and https are allowed`,
+    };
   }
   if (isLoopbackHost(parsed.hostname)) {
     return { ok: true };
@@ -85,8 +95,21 @@ export function validateRedirectUri(
   if (parsed.protocol !== "https:") {
     return { ok: false, reason: "non-loopback redirect_uri must use https" };
   }
-  if (policy.allowedHosts.length > 0 && !policy.allowedHosts.includes(parsed.hostname.toLowerCase())) {
-    return { ok: false, reason: `redirect_uri host '${parsed.hostname.toLowerCase()}' is not in the allowed list` };
+  if (policy.allowedHosts.length === 0 && !policy.allowExternalRedirectsWithoutAllowlist) {
+    return {
+      ok: false,
+      reason:
+        "external redirect_uri hosts require ALLOWED_REDIRECT_HOSTS or ALLOW_OPEN_REDIRECT_REGISTRATION=true",
+    };
+  }
+  if (
+    policy.allowedHosts.length > 0 &&
+    !policy.allowedHosts.includes(parsed.hostname.toLowerCase())
+  ) {
+    return {
+      ok: false,
+      reason: `redirect_uri host '${parsed.hostname.toLowerCase()}' is not in the allowed list`,
+    };
   }
   return { ok: true };
 }
@@ -121,7 +144,7 @@ function jsonResponse(res: ServerResponse, status: number, body: unknown): void 
 export async function handleRegister(
   req: IncomingMessage,
   res: ServerResponse,
-  policy: RedirectUriPolicy,
+  policy: RedirectUriPolicy
 ): Promise<void> {
   if (req.method !== "POST") {
     jsonResponse(res, 405, { error: "method_not_allowed" });
@@ -148,24 +171,33 @@ export async function handleRegister(
   const redirectUris: string[] = [];
   for (const uri of body.redirect_uris) {
     if (typeof uri !== "string") {
-      jsonResponse(res, 400, { error: "invalid_request", error_description: "Each redirect_uri must be a string" });
+      jsonResponse(res, 400, {
+        error: "invalid_request",
+        error_description: "Each redirect_uri must be a string",
+      });
       return;
     }
     const check = validateRedirectUri(uri, policy);
     if (!check.ok) {
-      jsonResponse(res, 400, { error: "invalid_request", error_description: `Invalid redirect_uri: ${check.reason}` });
+      jsonResponse(res, 400, {
+        error: "invalid_request",
+        error_description: `Invalid redirect_uri: ${check.reason}`,
+      });
       return;
     }
     redirectUris.push(uri);
   }
 
-  // Surface external (non-loopback) registrations: with no allowlist configured these
-  // are still accepted, but they are the surface a confused-deputy phishing attack uses.
-  if (policy.allowedHosts.length === 0) {
+  // Surface explicitly open external registrations: this is the surface a
+  // confused-deputy phishing attack uses, so production should prefer an allowlist.
+  if (policy.allowedHosts.length === 0 && policy.allowExternalRedirectsWithoutAllowlist) {
     for (const uri of redirectUris) {
       const host = new URL(uri).hostname;
       if (!isLoopbackHost(host)) {
-        logger.warn("Registered client with non-loopback redirect_uri and no allowlist configured", { host });
+        logger.warn(
+          "Registered client with non-loopback redirect_uri and no allowlist configured",
+          { host }
+        );
       }
     }
   }
@@ -186,7 +218,7 @@ export async function handleRegister(
 export async function handleAuthorize(
   req: IncomingMessage,
   res: ServerResponse,
-  config: OAuthConfig,
+  config: OAuthConfig
 ): Promise<void> {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 
@@ -204,12 +236,16 @@ export async function handleAuthorize(
   if (!clientId || !redirectUri || !codeChallenge || !clientState) {
     jsonResponse(res, 400, {
       error: "invalid_request",
-      error_description: "Missing required parameters: client_id, redirect_uri, code_challenge, state",
+      error_description:
+        "Missing required parameters: client_id, redirect_uri, code_challenge, state",
     });
     return;
   }
   if (codeChallengeMethod && codeChallengeMethod !== "S256") {
-    jsonResponse(res, 400, { error: "invalid_request", error_description: "Only S256 code_challenge_method is supported" });
+    jsonResponse(res, 400, {
+      error: "invalid_request",
+      error_description: "Only S256 code_challenge_method is supported",
+    });
     return;
   }
 
@@ -219,7 +255,10 @@ export async function handleAuthorize(
     return;
   }
   if (!client.redirectUris.includes(redirectUri)) {
-    jsonResponse(res, 400, { error: "invalid_request", error_description: "redirect_uri not registered for this client" });
+    jsonResponse(res, 400, {
+      error: "invalid_request",
+      error_description: "redirect_uri not registered for this client",
+    });
     return;
   }
 
@@ -265,7 +304,7 @@ export async function handleAuthorize(
 export async function handleCallback(
   req: IncomingMessage,
   res: ServerResponse,
-  config: OAuthConfig,
+  config: OAuthConfig
 ): Promise<void> {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 
@@ -282,13 +321,19 @@ export async function handleCallback(
   }
 
   if (!code || !state) {
-    jsonResponse(res, 400, { error: "invalid_request", error_description: "Missing code or state" });
+    jsonResponse(res, 400, {
+      error: "invalid_request",
+      error_description: "Missing code or state",
+    });
     return;
   }
 
   const pending = await getPendingAuth(state);
   if (!pending) {
-    jsonResponse(res, 400, { error: "invalid_request", error_description: "Unknown or expired state parameter" });
+    jsonResponse(res, 400, {
+      error: "invalid_request",
+      error_description: "Unknown or expired state parameter",
+    });
     return;
   }
 
@@ -318,7 +363,10 @@ export async function handleCallback(
     // Do not log response body — it may contain sensitive Cal.com error details
     logger.error("Cal.com token exchange failed", { status: exchangeRes.status });
     await deletePendingAuth(state);
-    jsonResponse(res, 502, { error: "server_error", error_description: "Token exchange with Cal.com failed" });
+    jsonResponse(res, 502, {
+      error: "server_error",
+      error_description: "Token exchange with Cal.com failed",
+    });
     return;
   }
 
@@ -355,10 +403,7 @@ export async function handleCallback(
 
 // ── Token Exchange (POST /oauth/token) ──
 
-export async function handleToken(
-  req: IncomingMessage,
-  res: ServerResponse,
-): Promise<void> {
+export async function handleToken(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== "POST") {
     jsonResponse(res, 405, { error: "method_not_allowed" });
     return;
@@ -379,7 +424,10 @@ export async function handleToken(
   jsonResponse(res, 400, { error: "unsupported_grant_type" });
 }
 
-async function handleAuthorizationCodeGrant(params: URLSearchParams, res: ServerResponse): Promise<void> {
+async function handleAuthorizationCodeGrant(
+  params: URLSearchParams,
+  res: ServerResponse
+): Promise<void> {
   const code = params.get("code");
   const redirectUri = params.get("redirect_uri");
   const codeVerifier = params.get("code_verifier");
@@ -388,24 +436,34 @@ async function handleAuthorizationCodeGrant(params: URLSearchParams, res: Server
   if (!code || !redirectUri || !codeVerifier || !clientId) {
     jsonResponse(res, 400, {
       error: "invalid_request",
-      error_description: "Missing required parameters: code, redirect_uri, code_verifier, client_id",
+      error_description:
+        "Missing required parameters: code, redirect_uri, code_verifier, client_id",
     });
     return;
   }
 
   const authCode = await consumeAuthCode(code);
   if (!authCode) {
-    jsonResponse(res, 400, { error: "invalid_grant", error_description: "Invalid, expired, or already-used authorization code" });
+    jsonResponse(res, 400, {
+      error: "invalid_grant",
+      error_description: "Invalid, expired, or already-used authorization code",
+    });
     return;
   }
 
   if (authCode.clientId !== clientId || authCode.redirectUri !== redirectUri) {
-    jsonResponse(res, 400, { error: "invalid_grant", error_description: "client_id or redirect_uri mismatch" });
+    jsonResponse(res, 400, {
+      error: "invalid_grant",
+      error_description: "client_id or redirect_uri mismatch",
+    });
     return;
   }
 
   if (!verifyCodeChallenge(codeVerifier, authCode.codeChallenge)) {
-    jsonResponse(res, 400, { error: "invalid_grant", error_description: "PKCE code_verifier verification failed" });
+    jsonResponse(res, 400, {
+      error: "invalid_grant",
+      error_description: "PKCE code_verifier verification failed",
+    });
     return;
   }
 
@@ -424,10 +482,16 @@ async function handleAuthorizationCodeGrant(params: URLSearchParams, res: Server
   });
 }
 
-async function handleRefreshTokenGrant(params: URLSearchParams, res: ServerResponse): Promise<void> {
+async function handleRefreshTokenGrant(
+  params: URLSearchParams,
+  res: ServerResponse
+): Promise<void> {
   const refreshToken = params.get("refresh_token");
   if (!refreshToken) {
-    jsonResponse(res, 400, { error: "invalid_request", error_description: "Missing refresh_token" });
+    jsonResponse(res, 400, {
+      error: "invalid_request",
+      error_description: "Missing refresh_token",
+    });
     return;
   }
 
@@ -447,10 +511,7 @@ async function handleRefreshTokenGrant(params: URLSearchParams, res: ServerRespo
 
 // ── Token Revocation (POST /oauth/revoke) ──
 
-export async function handleRevoke(
-  req: IncomingMessage,
-  res: ServerResponse,
-): Promise<void> {
+export async function handleRevoke(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== "POST") {
     jsonResponse(res, 405, { error: "method_not_allowed" });
     return;
@@ -477,8 +538,10 @@ export async function handleRevoke(
 export async function refreshCalTokens(
   accessTokenValue: string,
   calRefreshToken: string,
-  config: OAuthConfig,
-): Promise<{ calAccessToken: string; calRefreshToken: string; calTokenExpiresAt: number } | undefined> {
+  config: OAuthConfig
+): Promise<
+  { calAccessToken: string; calRefreshToken: string; calTokenExpiresAt: number } | undefined
+> {
   const refreshUrl = `${config.calApiBaseUrl}/v2/auth/oauth2/token`;
 
   const tokenFetchTimeoutMs = Number(process.env.TOKEN_FETCH_TIMEOUT_MS) || 10_000;
@@ -511,7 +574,12 @@ export async function refreshCalTokens(
   const newCalRefreshToken = data.refresh_token;
   const newCalTokenExpiresAt = Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600);
 
-  await updateCalTokens(accessTokenValue, newCalAccessToken, newCalRefreshToken, newCalTokenExpiresAt);
+  await updateCalTokens(
+    accessTokenValue,
+    newCalAccessToken,
+    newCalRefreshToken,
+    newCalTokenExpiresAt
+  );
 
   return {
     calAccessToken: newCalAccessToken,
@@ -527,7 +595,7 @@ export async function refreshCalTokens(
  */
 export async function resolveCalAuthHeaders(
   bearerToken: string,
-  config: OAuthConfig,
+  config: OAuthConfig
 ): Promise<Record<string, string> | undefined> {
   const record = await getAccessToken(bearerToken);
   if (!record) return undefined;

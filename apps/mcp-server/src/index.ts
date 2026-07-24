@@ -3,11 +3,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { getApiKeyHeaders } from "./auth.js";
-import { loadConfig } from "./config.js";
 import type { HttpConfig, StdioConfig } from "./config.js";
+import { loadConfig } from "./config.js";
+import { startHttpServer } from "./http-server.js";
 import { registerTools } from "./register-tools.js";
 import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
-import { startHttpServer } from "./http-server.js";
 import { logger, setLogLevel } from "./utils/logger.js";
 
 async function main(): Promise<void> {
@@ -34,6 +34,7 @@ async function main(): Promise<void> {
       sessionIdleTimeoutMs: httpConfig.sessionIdleTimeoutMs,
       maxRegisteredClients: httpConfig.maxRegisteredClients,
       allowedRedirectHosts: httpConfig.allowedRedirectHosts,
+      allowOpenRedirectRegistration: httpConfig.allowOpenRedirectRegistration,
       corsOrigin: httpConfig.corsOrigin,
       shutdownTimeoutMs: httpConfig.shutdownTimeoutMs,
       openaiAppsChallengeToken: httpConfig.openaiAppsChallengeToken,
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
       },
       {
         instructions: SERVER_INSTRUCTIONS,
-      },
+      }
     );
 
     registerTools(server);
