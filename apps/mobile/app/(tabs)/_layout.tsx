@@ -4,6 +4,8 @@ import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useEffect, useRef } from "react";
 import type { ColorValue, ImageSourcePropType } from "react-native";
 import { Platform, useColorScheme } from "react-native";
+import { TabletSidebar } from "@/components/TabletSidebar";
+import { useIsTablet } from "@/hooks/useIsTablet";
 import { getRouteFromPreference, useUserPreferences } from "@/hooks/useUserPreferences";
 import { getInitialLandingRedirectDecision } from "@/utils/landing-page-navigation";
 
@@ -20,6 +22,7 @@ export default function TabLayout() {
   const hasNavigated = useRef(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const isTablet = useIsTablet();
 
   const colors = {
     selected: isDark ? "#FFFFFF" : "#000000",
@@ -65,9 +68,12 @@ export default function TabLayout() {
     return <WebTabs colors={colors} />;
   }
 
+  if (isTablet) {
+    return <SidebarTabs colors={colors} />;
+  }
+
   return (
     <NativeTabs
-      sidebarAdaptable
       tintColor={colors.selected}
       iconColor={Platform.select({ android: colors.inactive, ios: undefined })}
       indicatorColor={Platform.select({ android: colors.indicator, ios: undefined })}
@@ -140,6 +146,30 @@ type TabColors = {
   border: string;
   indicator: string;
 };
+
+// Tablet (iPad / large Android) layout: a left sidebar with the Cal.com wordmark,
+// mirroring the web app. Uses React Navigation's left tab bar position with a
+// custom sidebar renderer so tab state is preserved across sections.
+function SidebarTabs({ colors }: { colors: TabColors }) {
+  return (
+    <Tabs
+      tabBar={(props) => <TabletSidebar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        tabBarPosition: "left",
+        tabBarActiveTintColor: colors.selected,
+        tabBarInactiveTintColor: colors.inactive,
+        sceneStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <Tabs.Screen name="index" options={{ href: null }} />
+      <Tabs.Screen name="(bookings)" options={{ title: "Bookings" }} />
+      <Tabs.Screen name="(event-types)" options={{ title: "Event Types" }} />
+      <Tabs.Screen name="(availability)" options={{ title: "Availability" }} />
+      <Tabs.Screen name="(more)" options={{ title: "More" }} />
+    </Tabs>
+  );
+}
 
 // TODO: Remove this once native tabs are supported on web
 function WebTabs({ colors }: { colors: TabColors }) {
