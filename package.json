@@ -69,7 +69,6 @@
     "vite": "7.3.5",
     "@xmldom/xmldom": "0.8.13",
     "adm-zip": "0.6.0",
-    "brace-expansion": "2.1.2",
     "next": "16.2.11",
     "sharp": "0.35.3",
     "js-yaml": "4.3.0"
