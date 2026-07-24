@@ -67,6 +67,7 @@ export default function TabLayout() {
 
   return (
     <NativeTabs
+      sidebarAdaptable
       tintColor={colors.selected}
       iconColor={Platform.select({ android: colors.inactive, ios: undefined })}
       indicatorColor={Platform.select({ android: colors.indicator, ios: undefined })}
