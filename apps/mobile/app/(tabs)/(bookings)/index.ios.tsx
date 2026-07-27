@@ -151,7 +151,7 @@ export default function Bookings() {
 
     return {
       type: "menu" as const,
-      label: "Filter by Event Type",
+      label: "Filter by Link",
       icon: {
         name: "line.3.horizontal.decrease",
         type: "sfSymbol",
@@ -161,7 +161,7 @@ export default function Bookings() {
         color: textColor,
       },
       menu: {
-        title: menuItems.length > 0 ? "Filter by Event Type" : "No Event Types",
+        title: menuItems.length > 0 ? "Filter by Link" : "No Links",
         items: [
           ...menuItems,
           // Show message if no event types available
@@ -169,7 +169,7 @@ export default function Bookings() {
             ? [
                 {
                   type: "action",
-                  label: "No event types available",
+                  label: "No links available",
                   onPress: () => {},
                 } satisfies NativeStackHeaderItemMenuAction,
               ]

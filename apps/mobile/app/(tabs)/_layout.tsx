@@ -100,7 +100,7 @@ export default function TabLayout() {
             />
           ),
         })}
-        <NativeTabs.Trigger.Label>Event Types</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Links</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="(availability)">
@@ -167,7 +167,7 @@ function WebTabs({ colors }: { colors: TabColors }) {
       <Tabs.Screen
         name="(event-types)"
         options={{
-          title: "Event Types",
+          title: "Links",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "link" : "link-outline"} size={24} color={color} />
           ),

@@ -24,7 +24,7 @@ Cal.com Companion lets you manage your [Cal.com](https://cal.com) schedule from 
 A native companion app built with [Expo](https://expo.dev) and React Native.
 
 - **Bookings** — View, cancel, reschedule, add guests, and mark no-shows
-- **Event Types** — Browse and edit event types including duration, recurrence, limits, and availability
+- **Links** — Browse and edit booking links including duration, recurrence, limits, and availability
 - **Availability** — Manage schedules, working hours, and date overrides
 - **Widgets** — Home-screen widgets for iOS (WidgetKit) and Android show your upcoming bookings at a glance
 - **Dark mode** — Full light/dark theme support that follows your system preference

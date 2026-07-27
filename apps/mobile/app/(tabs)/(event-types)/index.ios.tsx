@@ -63,7 +63,7 @@ export default function EventTypesIOS() {
   const { mutate: deleteEventTypeMutation } = useDeleteEventType();
   const { mutate: duplicateEventTypeMutation } = useDuplicateEventType();
 
-  const error = getDisplayError(queryError, "event types");
+  const error = getDisplayError(queryError, "links");
 
   // No modal state needed for iOS - using native Alert for delete confirmation
 
@@ -109,12 +109,12 @@ export default function EventTypesIOS() {
 
   const handleCopyLink = async (eventType: EventType) => {
     if (!eventType.bookingUrl) {
-      showErrorAlert("Error", "Booking URL not available for this event type.");
+      showErrorAlert("Error", "Booking URL not available for this link.");
       return;
     }
     try {
       await Clipboard.setStringAsync(eventType.bookingUrl);
-      showSuccessAlert("Link Copied", "Event type link copied!");
+      showSuccessAlert("Link Copied", "Booking link copied!");
     } catch {
       showErrorAlert("Error", "Failed to copy link. Please try again.");
     }
@@ -122,7 +122,7 @@ export default function EventTypesIOS() {
 
   const _handleShare = async (eventType: EventType) => {
     if (!eventType.bookingUrl) {
-      showErrorAlert("Error", "Booking URL not available for this event type.");
+      showErrorAlert("Error", "Booking URL not available for this link.");
       return;
     }
     try {
@@ -154,7 +154,7 @@ export default function EventTypesIOS() {
   const handleDelete = (eventType: EventType) => {
     // Use native iOS Alert for confirmation
     Alert.alert(
-      "Delete Event Type",
+      "Delete Link",
       `Are you sure you want to delete "${eventType.title}"? This action cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
@@ -164,7 +164,7 @@ export default function EventTypesIOS() {
           onPress: () => {
             deleteEventTypeMutation(eventType.id, {
               onSuccess: () => {
-                showSuccessAlert("Success", "Event type deleted successfully");
+                showSuccessAlert("Success", "Link deleted successfully");
               },
               onError: (deleteError) => {
                 const message =
@@ -177,7 +177,7 @@ export default function EventTypesIOS() {
                     stack,
                   });
                 }
-                showErrorAlert("Error", "Failed to delete event type. Please try again.");
+                showErrorAlert("Error", "Failed to delete link. Please try again.");
               },
             });
           },
@@ -191,7 +191,7 @@ export default function EventTypesIOS() {
       { eventType, existingEventTypes: eventTypes },
       {
         onSuccess: (duplicatedEventType) => {
-          showSilentSuccessAlert("Success", "Event type duplicated successfully");
+          showSilentSuccessAlert("Success", "Link duplicated successfully");
 
           const duration = getEventDuration(eventType);
 
@@ -222,7 +222,7 @@ export default function EventTypesIOS() {
               stack,
             });
           }
-          showErrorAlert("Error", "Failed to duplicate event type. Please try again.");
+          showErrorAlert("Error", "Failed to duplicate link. Please try again.");
         },
       }
     );
@@ -230,11 +230,11 @@ export default function EventTypesIOS() {
 
   const handlePreview = async (eventType: EventType) => {
     if (!eventType.bookingUrl) {
-      showErrorAlert("Error", "Booking URL not available for this event type.");
+      showErrorAlert("Error", "Booking URL not available for this link.");
       return;
     }
     try {
-      await openInAppBrowser(eventType.bookingUrl, "event type preview");
+      await openInAppBrowser(eventType.bookingUrl, "link preview");
     } catch {
       console.error("Failed to open preview");
       showErrorAlert("Error", "Failed to open preview. Please try again.");
@@ -245,15 +245,15 @@ export default function EventTypesIOS() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Use native iOS Alert.prompt for a native look
     Alert.prompt(
-      "Add a new event type",
-      "Set up event types to offer different types of meetings.",
+      "Add a new link",
+      "Set up links to offer different types of meetings.",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Continue",
           onPress: (title?: string) => {
             if (!title?.trim()) {
-              showErrorAlert("Error", "Please enter a title for your event type");
+              showErrorAlert("Error", "Please enter a title for your link");
               return;
             }
 
@@ -299,7 +299,7 @@ export default function EventTypesIOS() {
                       stack,
                     });
                   }
-                  showErrorAlert("Error", "Failed to create event type. Please try again.");
+                  showErrorAlert("Error", "Failed to create link. Please try again.");
                 },
               }
             );
@@ -336,7 +336,7 @@ export default function EventTypesIOS() {
           style={{ backgroundColor: "transparent", shadowColor: "transparent" }}
           blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
         >
-          <Stack.Header.Title large>Event Types</Stack.Header.Title>
+          <Stack.Header.Title large>Links</Stack.Header.Title>
         </Stack.Header>
         <ScrollView
           style={{ backgroundColor: theme.background }}
@@ -361,7 +361,7 @@ export default function EventTypesIOS() {
           className="mb-2 mt-4 text-center text-xl font-bold text-gray-800"
           style={{ color: theme.text }}
         >
-          Unable to load event types
+          Unable to load links
         </Text>
         <Text
           className="mb-6 text-center text-base text-gray-500"
@@ -390,7 +390,7 @@ export default function EventTypesIOS() {
       <>
         <Stack.Screen
           options={{
-            title: "Event Types",
+            title: "Links",
             headerBlurEffect: isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light",
             headerStyle: { backgroundColor: "transparent" },
             headerLargeTitleEnabled: true,
@@ -402,8 +402,8 @@ export default function EventTypesIOS() {
         >
           <EmptyScreen
             icon="link-outline"
-            headline="Create your first event type"
-            description="Event types enable you to share links that show available times on your calendar and allow people to make bookings with you."
+            headline="Create your first link"
+            description="Links let you share your available times on your calendar so people can book with you."
             buttonText="New"
             onButtonPress={handleOpenCreateModal}
           />
@@ -419,7 +419,7 @@ export default function EventTypesIOS() {
         style={{ backgroundColor: "transparent", shadowColor: "transparent" }}
         blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
       >
-        <Stack.Header.Title large>Event Types</Stack.Header.Title>
+        <Stack.Header.Title large>Links</Stack.Header.Title>
 
         <Stack.Header.Right>
           {/* Filter/Sort Menu */}
@@ -511,14 +511,14 @@ export default function EventTypesIOS() {
 
         {/* Search Bar */}
         <Stack.Header.SearchBar
-          placeholder="Search event types"
+          placeholder="Search links"
           onChangeText={(e) => handleSearch(e.nativeEvent.text)}
           obscureBackground={false}
           barTintColor={isDark ? "#171717" : "#fff"}
         />
       </Stack.Header>
 
-      {/* Event Types List */}
+      {/* Links List */}
       <ScrollView
         style={{ backgroundColor: theme.background }}
         contentContainerStyle={{ paddingBottom: 120 }}
@@ -546,8 +546,8 @@ export default function EventTypesIOS() {
           >
             <EmptyScreen
               icon="filter-outline"
-              headline="No event types match your filters"
-              description="Try adjusting your filter criteria or clear all filters to see all event types"
+              headline="No links match your filters"
+              description="Try adjusting your filter criteria or clear all filters to see all links"
               buttonText="Clear Filters"
               onButtonPress={resetFilters}
               className="border-0"
@@ -582,7 +582,7 @@ export default function EventTypesIOS() {
         )}
       </ScrollView>
 
-      {/* Floating Action Button for New Event Type with Glass UI Menu */}
+      {/* Floating Action Button for New Link with Glass UI Menu */}
       <View className="absolute right-6" style={{ bottom: 100 }}>
         <TouchableOpacity
           onPress={handleOpenCreateModal}

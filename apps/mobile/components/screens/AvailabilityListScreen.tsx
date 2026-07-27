@@ -362,7 +362,7 @@ export function AvailabilityListScreen({
           <EmptyScreen
             icon="time-outline"
             headline="Create an availability schedule"
-            description="Creating availability schedules allows you to manage availability across event types. They can be applied to one or more event types."
+            description="Creating availability schedules allows you to manage availability across links. They can be applied to one or more links."
             buttonText="New"
             onButtonPress={handleCreateNew}
           />

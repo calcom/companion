@@ -19,14 +19,14 @@ export interface LandingPageOption {
 }
 
 export const LANDING_PAGE_OPTIONS: LandingPageOption[] = [
-  { value: "event-types", label: "Event Types" },
+  { value: "event-types", label: "Links" },
   { value: "bookings", label: "Bookings" },
   { value: "bookings:unconfirmed", label: "Bookings (Unconfirmed)" },
 ];
 
 export function getLandingPageLabel(landingPage: LandingPage): string {
   const option = LANDING_PAGE_OPTIONS.find((opt) => opt.value === landingPage);
-  return option?.label ?? "Event Types";
+  return option?.label ?? "Links";
 }
 
 export function getRouteFromPreference(landingPage: LandingPage): string {
