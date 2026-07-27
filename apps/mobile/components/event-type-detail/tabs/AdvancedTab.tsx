@@ -478,7 +478,7 @@ export function AdvancedTab(props: AdvancedTabProps) {
             if (props.eventTypeId && props.eventTypeId !== "new") {
               showNotAvailableAlert();
             } else {
-              showInfoAlert("Info", "Save the event type first to configure this setting.");
+              showInfoAlert("Info", "Save the link first to configure this setting.");
             }
           }}
         />
@@ -488,16 +488,16 @@ export function AdvancedTab(props: AdvancedTabProps) {
             if (props.eventTypeId && props.eventTypeId !== "new") {
               showNotAvailableAlert();
             } else {
-              showInfoAlert("Info", "Save the event type first to configure this setting.");
+              showInfoAlert("Info", "Save the link first to configure this setting.");
             }
           }}
           isLast
         />
       </SettingsGroup>
 
-      {/* Event type colors */}
-      {/* Event type colors */}
-      <SettingsGroup header="Event Type Colors">
+      {/* Link colors */}
+      {/* Link colors */}
+      <SettingsGroup header="Link Colors">
         <View className="bg-white pl-4" style={{ backgroundColor: theme.backgroundSecondary }}>
           <View
             className="pt-4 pb-3 pr-4"

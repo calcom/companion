@@ -77,7 +77,7 @@ export default function EventTypes() {
   const { mutate: deleteEventTypeMutation, isPending: isDeleting } = useDeleteEventType();
   const { mutate: duplicateEventTypeMutation } = useDuplicateEventType();
 
-  const error = getDisplayError(queryError, "event types");
+  const error = getDisplayError(queryError, "links");
 
   // Modal state for web platform action sheet
   const [showActionModal, setShowActionModal] = useState(false);
@@ -133,12 +133,12 @@ export default function EventTypes() {
 
   const handleCopyLink = async (eventType: EventType) => {
     if (!eventType.bookingUrl) {
-      showErrorAlert("Error", "Booking URL not available for this event type.");
+      showErrorAlert("Error", "Booking URL not available for this link.");
       return;
     }
     try {
       await Clipboard.setStringAsync(eventType.bookingUrl);
-      showSuccessAlert("Link Copied", "Event type link copied!");
+      showSuccessAlert("Link Copied", "Booking link copied!");
     } catch {
       showErrorAlert("Error", "Failed to copy link. Please try again.");
     }
@@ -146,7 +146,7 @@ export default function EventTypes() {
 
   const _handleShare = async (eventType: EventType) => {
     if (!eventType.bookingUrl) {
-      showErrorAlert("Error", "Booking URL not available for this event type.");
+      showErrorAlert("Error", "Booking URL not available for this link.");
       return;
     }
     try {
@@ -179,8 +179,8 @@ export default function EventTypes() {
     // Use native Alert.alert on Android for simple yes/no confirmation
     if (Platform.OS === "android") {
       Alert.alert(
-        "Delete Event Type",
-        `This will permanently delete the "${eventType.title}" event type. This action cannot be undone.`,
+        "Delete Link",
+        `This will permanently delete the "${eventType.title}" link. This action cannot be undone.`,
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -189,7 +189,7 @@ export default function EventTypes() {
             onPress: () => {
               deleteEventTypeMutation(eventType.id, {
                 onSuccess: () => {
-                  showSuccessAlert("Success", "Event type deleted successfully");
+                  showSuccessAlert("Success", "Link deleted successfully");
                 },
                 onError: (error) => {
                   const message = error instanceof Error ? error.message : String(error);
@@ -201,7 +201,7 @@ export default function EventTypes() {
                       stack,
                     });
                   }
-                  showErrorAlert("Error", "Failed to delete event type. Please try again.");
+                  showErrorAlert("Error", "Failed to delete link. Please try again.");
                 },
               });
             },
@@ -225,7 +225,7 @@ export default function EventTypes() {
         setShowDeleteModal(false);
         setEventTypeToDelete(null);
 
-        showSuccessAlert("Success", "Event type deleted successfully");
+        showSuccessAlert("Success", "Link deleted successfully");
       },
       onError: (error) => {
         const message = error instanceof Error ? error.message : String(error);
@@ -237,7 +237,7 @@ export default function EventTypes() {
             stack,
           });
         }
-        showErrorAlert("Error", "Failed to delete event type. Please try again.");
+        showErrorAlert("Error", "Failed to delete link. Please try again.");
       },
     });
   };
@@ -247,7 +247,7 @@ export default function EventTypes() {
       { eventType, existingEventTypes: eventTypes },
       {
         onSuccess: (duplicatedEventType) => {
-          showSilentSuccessAlert("Success", "Event type duplicated successfully");
+          showSilentSuccessAlert("Success", "Link duplicated successfully");
 
           const duration = getEventDuration(eventType);
 
@@ -277,7 +277,7 @@ export default function EventTypes() {
               stack,
             });
           }
-          showErrorAlert("Error", "Failed to duplicate event type. Please try again.");
+          showErrorAlert("Error", "Failed to duplicate link. Please try again.");
         },
       }
     );
@@ -285,14 +285,14 @@ export default function EventTypes() {
 
   const handlePreview = async (eventType: EventType) => {
     if (!eventType.bookingUrl) {
-      showErrorAlert("Error", "Booking URL not available for this event type.");
+      showErrorAlert("Error", "Booking URL not available for this link.");
       return;
     }
     try {
       if (Platform.OS === "web") {
         window.open(eventType.bookingUrl, "_blank");
       } else {
-        await openInAppBrowser(eventType.bookingUrl, "event type preview");
+        await openInAppBrowser(eventType.bookingUrl, "link preview");
       }
     } catch {
       console.error("Failed to open preview");
@@ -321,9 +321,9 @@ export default function EventTypes() {
     if (!newEventTitle.trim()) {
       // Use inline error for Android AlertDialog, showErrorAlert for others
       if (Platform.OS === "android") {
-        setTitleError("Please enter a title for your event type");
+        setTitleError("Please enter a title for your link");
       } else {
-        showErrorAlert("Error", "Please enter a title for your event type");
+        showErrorAlert("Error", "Please enter a title for your link");
       }
       return;
     }
@@ -372,7 +372,7 @@ export default function EventTypes() {
               stack,
             });
           }
-          showErrorAlert("Error", "Failed to create event type. Please try again.");
+          showErrorAlert("Error", "Failed to create link. Please try again.");
         },
       }
     );
@@ -407,7 +407,7 @@ export default function EventTypes() {
             className="mb-2 mt-4 text-center text-xl font-bold text-gray-800"
             style={{ color: theme.text }}
           >
-            Unable to load event types
+            Unable to load links
           </Text>
           <Text
             className="mb-6 text-center text-base text-gray-500"
@@ -442,8 +442,8 @@ export default function EventTypes() {
         >
           <EmptyScreen
             icon="link-outline"
-            headline="Create your first event type"
-            description="Event types enable you to share links that show available times on your calendar and allow people to make bookings with you."
+            headline="Create your first link"
+            description="Links let you share your available times on your calendar so people can book with you."
             buttonText="New"
             onButtonPress={handleCreateNew}
           />
@@ -484,7 +484,7 @@ export default function EventTypes() {
                     paddingRight: searchQuery.length > 0 ? 32 : 12,
                   }}
                   className="rounded-lg border px-3 py-2 text-[17px]"
-                  placeholder="Search event types"
+                  placeholder="Search links"
                   placeholderTextColor={theme.textSecondary}
                   value={searchQuery}
                   onChangeText={handleSearch}
@@ -533,14 +533,14 @@ export default function EventTypes() {
         blurEffect={isLiquidGlassAvailable() ? undefined : "light"} // Only looks cool on iOS 18 and below
         hidden={Platform.OS === "android" || Platform.OS === "web"}
       >
-        <Stack.Header.Title large>Event Types</Stack.Header.Title>
+        <Stack.Header.Title large>Links</Stack.Header.Title>
         <Stack.Header.Right>
           <Stack.Header.Button onPress={handleCreateNew} tintColor="#000" variant="prominent">
             New
           </Stack.Header.Button>
         </Stack.Header.Right>
         <Stack.Header.SearchBar
-          placeholder="Search event types"
+          placeholder="Search links"
           onChangeText={(e) => handleSearch(e.nativeEvent.text)}
           obscureBackground={false}
           barTintColor="#fff"
@@ -575,7 +575,7 @@ export default function EventTypes() {
                   paddingRight: searchQuery.length > 0 ? 32 : 12,
                 }}
                 className="rounded-lg border px-3 py-2 text-[17px]"
-                placeholder="Search event types"
+                placeholder="Search links"
                 placeholderTextColor={theme.textSecondary}
                 value={searchQuery}
                 onChangeText={handleSearch}
@@ -620,8 +620,8 @@ export default function EventTypes() {
           >
             <EmptyScreen
               icon="filter-outline"
-              headline="No event types match your filters"
-              description="Try adjusting your filter criteria or clear all filters to see all event types"
+              headline="No links match your filters"
+              description="Try adjusting your filter criteria or clear all filters to see all links"
               buttonText="Clear Filters"
               onButtonPress={resetFilters}
               className="border-0"
@@ -652,7 +652,7 @@ export default function EventTypes() {
         )}
       </ScrollView>
 
-      {/* Create Event Type Modal - Android uses AlertDialog */}
+      {/* Create Link Modal - Android uses AlertDialog */}
       {Platform.OS === "android" ? (
         <AlertDialog
           open={showCreateModal}
@@ -664,12 +664,12 @@ export default function EventTypes() {
             <AlertDialogHeader className="items-start">
               <AlertDialogTitle>
                 <AlertDialogText className="text-left text-lg font-semibold">
-                  Add a new event type
+                  Add a new link
                 </AlertDialogText>
               </AlertDialogTitle>
               <AlertDialogDescription>
                 <AlertDialogText className="text-left text-sm text-muted-foreground">
-                  Set up event types to offer different types of meetings.
+                  Set up links to offer different types of meetings.
                 </AlertDialogText>
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -733,10 +733,10 @@ export default function EventTypes() {
                   className="mb-2 text-2xl font-semibold text-gray-900"
                   style={{ color: theme.text }}
                 >
-                  Add a new event type
+                  Add a new link
                 </Text>
                 <Text className="text-sm text-gray-500" style={{ color: theme.textSecondary }}>
-                  Set up event types to offer different types of meetings.
+                  Set up links to offer different types of meetings.
                 </Text>
               </View>
 
@@ -923,7 +923,7 @@ export default function EventTypes() {
 
             {/* Options List */}
             <View className="p-2">
-              {/* New Event Type */}
+              {/* New Link */}
               <TouchableOpacity
                 onPress={() => {
                   setShowNewModal(false);
@@ -935,7 +935,7 @@ export default function EventTypes() {
                 className="flex-row items-center p-2 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] md:p-4"
               >
                 <Ionicons name="calendar-outline" size={20} color={theme.textSecondary} />
-                <Text className="ml-3 text-base text-gray-900 dark:text-white">New Event Type</Text>
+                <Text className="ml-3 text-base text-gray-900 dark:text-white">New Link</Text>
               </TouchableOpacity>
             </View>
 
@@ -978,12 +978,12 @@ export default function EventTypes() {
                 {/* Title and description */}
                 <View className="flex-1">
                   <Text className="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-                    Delete Event Type
+                    Delete Link
                   </Text>
                   <Text className="text-sm leading-5 text-gray-600 dark:text-gray-400">
                     {eventTypeToDelete ? (
                       <>
-                        This will permanently delete the "{eventTypeToDelete.title}" event type.
+                        This will permanently delete the "{eventTypeToDelete.title}" link.
                         This action cannot be undone.
                       </>
                     ) : null}
