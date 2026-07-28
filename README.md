@@ -80,23 +80,31 @@ bun install
 
 ### Environment
 
-Copy the example env file and fill in your Cal.com OAuth credentials:
+Copy the example env files and fill in your Cal.com OAuth credentials (or API keys where noted):
 
 ```sh
 cp .env.example .env
+cp apps/mobile/.env.example apps/mobile/.env
+cp apps/extension/.env.example apps/extension/.env
+# Optional surfaces:
+cp apps/chat/.env.example apps/chat/.env
+cp apps/mcp-server/.env.example apps/mcp-server/.env
 ```
 
 ### Run the mobile app
 
 ```sh
-# iOS
-bun run ios
+# Expo dev server
+bun run mobile
 
-# Android
-bun run android
+# iOS (macOS + Xcode)
+bun run mobile:ios
+
+# Android (Android Studio / emulator)
+bun run mobile:android
 
 # Web (Expo)
-bun run web
+bun run mobile:web
 ```
 
 ### Run the browser extension
@@ -105,56 +113,73 @@ bun run web
 # Dev mode (Chrome, hot reload)
 bun run ext
 
-# Build for a specific browser
-bun run ext:build-chrome
-bun run ext:build-firefox
-bun run ext:build-safari
-bun run ext:build-edge
+# Build default target
+bun run ext:build
 
 # Build all browsers
-bun run ext:build-all
+bun run ext:build:all
+
+# Per-browser builds (via the extension workspace)
+bun --filter extension build:chrome
+bun --filter extension build:firefox
+bun --filter extension build:safari
+bun --filter extension build:edge
 ```
 
-Production builds (for store submission) use the `-prod` variants which point to `https://companion.cal.com`:
+Production / store builds use the `:prod` variants (points to `https://companion.cal.com`):
 
 ```sh
-bun run ext:build-chrome-prod
-bun run ext:zip-chrome-prod
+bun run ext:build:prod
+bun run ext:zip:prod
+bun --filter extension build:chrome:prod
+bun --filter extension zip:chrome:prod
+```
+
+### Other workspaces
+
+```sh
+# CLI
+bun run --filter @calcom/cli dev -- --help
+
+# MCP server (set CAL_API_KEY in apps/mcp-server/.env for stdio mode)
+bun --filter @calcom/mcp-server build
+bun --filter @calcom/mcp-server start
+
+# Chat bot (see apps/chat/README.md)
+bun --filter @calcom/chat dev
 ```
 
 ## Project Structure
 
 ```
 ├── apps/
-│   ├── mobile/           # Expo Router screens (tabs, modals, sheets)
-│   └── extension/        # Browser extension source (WXT)
+│   ├── mobile/           # Expo (React Native) app + widgets
+│   ├── extension/        # Browser extension (WXT)
+│   ├── chat/             # Slack / Telegram bot gateway
+│   └── mcp-server/       # Cal.com API v2 MCP server
 ├── packages/
 │   └── cli/              # Cal.com CLI (@calcom/cli)
-│       └── src/commands/ # CLI commands (bookings, event-types, etc.)
-├── components/           # Shared React Native components
-├── hooks/                # Custom React hooks
-├── services/             # Cal.com API client & OAuth service
-├── contexts/             # React context providers (Auth, Query, Toast)
-├── widgets/              # Android home-screen widget
-├── targets/widget/       # iOS WidgetKit target (SwiftUI)
-├── utils/                # Shared utilities
-├── config/               # Cache configuration
-├── constants/            # Colors, timezones
-└── types/                # Shared TypeScript types
+├── docs/
+│   └── api-reference/    # Local OpenAPI reference material
+└── package.json          # Root workspace scripts (Bun)
 ```
+
+Mobile app source (screens, components, hooks, services, widgets) lives under `apps/mobile/`.
 
 ## Scripts
 
 | Command | Description |
 |---|---|
-| `bun run start` | Start the Expo dev server |
-| `bun run ios` | Run on iOS simulator |
-| `bun run android` | Run on Android emulator |
-| `bun run web` | Run in the browser via Expo |
+| `bun run mobile` | Start the Expo dev server |
+| `bun run mobile:ios` | Run on iOS simulator |
+| `bun run mobile:android` | Run on Android emulator |
+| `bun run mobile:web` | Run in the browser via Expo |
 | `bun run ext` | Start extension dev server (WXT) |
-| `bun run ext:build-all` | Build extension for all browsers |
-| `bun run typecheck` | Type-check the mobile app |
-| `bun run typecheck:extension` | Type-check the browser extension |
+| `bun run ext:build` | Build the extension (default browser) |
+| `bun run ext:build:all` | Build extension for all browsers |
+| `bun run ext:build:prod` | Production extension build |
+| `bun run typecheck` | Type-check all workspaces |
+| `bun run typecheck:chat` | Type-check the chat app |
 | `bun run lint` | Lint with Biome |
 | `bun run format` | Format with Biome |
 | `bun run check:ci` | Run Biome CI checks |
@@ -165,12 +190,12 @@ This repo uses [Biome](https://biomejs.dev/) for linting and formatting, enforce
 
 ```sh
 bun run check:ci
-bun run typecheck:all
+bun run typecheck
 ```
 
 ## Chat Bot — Telegram Setup
 
-The `chat/` directory contains a multi-platform chat bot. Slack is the primary adapter; Telegram is optional.
+The `apps/chat/` directory contains a multi-platform chat bot. Slack is the primary adapter; Telegram is optional. See [`apps/chat/README.md`](apps/chat/README.md) for full setup.
 
 ### Prerequisites
 
@@ -179,7 +204,7 @@ The `chat/` directory contains a multi-platform chat bot. Slack is the primary a
 
 ### Environment Variables
 
-Add to your `chat/.env`:
+Add to your `apps/chat/.env`:
 
 ```
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
