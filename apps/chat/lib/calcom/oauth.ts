@@ -8,7 +8,7 @@ const APP_URL = () => process.env.NEXT_PUBLIC_APP_URL ?? "";
 
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-const CALCOM_OAUTH_SCOPES = [
+export const CALCOM_OAUTH_SCOPES = [
   "EVENT_TYPE_READ",
   "EVENT_TYPE_WRITE",
   "BOOKING_READ",
