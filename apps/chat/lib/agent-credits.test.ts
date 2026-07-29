@@ -1,7 +1,11 @@
 import { strictEqual } from "node:assert/strict";
 import { describe, it } from "node:test";
 import { CalcomApiError } from "./calcom/client";
-import { agentNoCreditsMessage, getAgentCreditBlockReason } from "./agent-credits";
+import {
+  agentNoCreditsMessage,
+  getAgentCreditBlockReason,
+  shouldShowLowCreditWarning,
+} from "./agent-credits";
 
 describe("agent credit errors", () => {
   it("asks Slack users to reconnect when the credit check lacks CREDITS_READ", () => {
@@ -23,5 +27,47 @@ describe("agent credit errors", () => {
     const error = new CalcomApiError("Service unavailable", 503);
 
     strictEqual(getAgentCreditBlockReason(error), "verification_failed");
+  });
+});
+
+describe("shouldShowLowCreditWarning", () => {
+  it("shows the warning only for credit-based users with a low balance", () => {
+    const zeroBalance = { monthlyRemaining: 0, additional: 0 };
+
+    strictEqual(
+      shouldShowLowCreditWarning(
+        { calcomOrganizationId: 42, calcomOrgIsPlatform: false },
+        zeroBalance
+      ),
+      false
+    );
+    strictEqual(
+      shouldShowLowCreditWarning(
+        { calcomOrganizationId: null, calcomOrgIsPlatform: null },
+        zeroBalance
+      ),
+      true
+    );
+    strictEqual(
+      shouldShowLowCreditWarning(
+        { calcomOrganizationId: 42, calcomOrgIsPlatform: true },
+        zeroBalance
+      ),
+      true
+    );
+    strictEqual(
+      shouldShowLowCreditWarning(
+        { calcomOrganizationId: 42, calcomOrgIsPlatform: null },
+        zeroBalance
+      ),
+      true
+    );
+    strictEqual(
+      shouldShowLowCreditWarning(
+        { calcomOrganizationId: null, calcomOrgIsPlatform: null },
+        { monthlyRemaining: 10, additional: 0 }
+      ),
+      false
+    );
   });
 });

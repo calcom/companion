@@ -28,7 +28,7 @@ import {
 import { createHash } from "node:crypto";
 import type { LookupPlatformUserFn, UserContext } from "./agent";
 import { isAIRateLimitError, isAIToolCallError, runAgentStream } from "./agent";
-import { requireAgentCredits } from "./agent-credits";
+import { requireAgentCredits, shouldShowLowCreditWarning } from "./agent-credits";
 import { CalcomApiError, chargeCredits } from "./calcom/client";
 import { generateAuthUrl } from "./calcom/oauth";
 import { validateRequiredEnv } from "./env";
@@ -943,17 +943,15 @@ async function runAgentHandler(opts: AgentHandlerOptions): Promise<void> {
       log.info("Credits charged", { userId: opts.ctx.userId, externalRef, remaining: chargeResult.remainingBalance });
 
       // Warn if balance is running low
-      if (chargeResult.remainingBalance) {
+      if (chargeResult.remainingBalance && shouldShowLowCreditWarning(linked, chargeResult.remainingBalance)) {
         const remaining = chargeResult.remainingBalance.monthlyRemaining + chargeResult.remainingBalance.additional;
-        if (remaining < 10) {
-          const lowBalanceMsg = opts.ctx.platform === "slack"
-            ? `_Your AI credits are running low (${remaining} remaining). Visit <https://cal.com/settings/billing|cal.com/settings/billing> to purchase more._`
-            : `_Your AI credits are running low (${remaining} remaining). Visit [cal.com/settings/billing](https://cal.com/settings/billing) to purchase more._`;
-          if (opts.ctx.platform === "slack") {
-            await withSlackToken(opts.ctx.teamId, () => opts.thread.post(lowBalanceMsg));
-          } else {
-            await opts.thread.post(lowBalanceMsg);
-          }
+        const lowBalanceMsg = opts.ctx.platform === "slack"
+          ? `_Your AI credits are running low (${remaining} remaining). Visit <https://cal.com/settings/billing|cal.com/settings/billing> to purchase more._`
+          : `_Your AI credits are running low (${remaining} remaining). Visit [cal.com/settings/billing](https://cal.com/settings/billing) to purchase more._`;
+        if (opts.ctx.platform === "slack") {
+          await withSlackToken(opts.ctx.teamId, () => opts.thread.post(lowBalanceMsg));
+        } else {
+          await opts.thread.post(lowBalanceMsg);
         }
       }
     } catch (err) {
