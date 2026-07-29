@@ -1,5 +1,6 @@
 import type { Logger } from "chat";
 import { CalcomApiError, checkCredits } from "./calcom/client";
+import { isOrgPlanUser, type LinkedUser } from "./user-linking";
 
 export interface AgentCreditContext {
   platform: string;
@@ -31,6 +32,13 @@ export function getAgentCreditBlockReason(error: unknown): AgentCreditsBlockReas
   }
 
   return "verification_failed";
+}
+
+export function shouldShowLowCreditWarning(
+  linked: Pick<LinkedUser, "calcomOrganizationId" | "calcomOrgIsPlatform">,
+  balance: { monthlyRemaining: number; additional: number }
+): boolean {
+  return !isOrgPlanUser(linked) && balance.monthlyRemaining + balance.additional < 10;
 }
 
 export function agentNoCreditsMessage(platform: string, reason: AgentCreditsBlockReason): string {
