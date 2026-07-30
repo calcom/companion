@@ -49,9 +49,7 @@ function filterBookingsArray(bookings: unknown[], currentUser: CurrentUser): unk
   return bookings.filter((booking) => isParticipatingBooking(booking, currentUser));
 }
 
-export function filterBookingsForCurrentUser(data: unknown, currentUser: CurrentUser | undefined): unknown {
-  if (!currentUser) return data;
-
+export function filterBookingsForCurrentUser(data: unknown, currentUser: CurrentUser): unknown {
   if (Array.isArray(data)) {
     return filterBookingsArray(data, currentUser);
   }

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { calApi } from "../utils/api-client.js";
 import { extractCurrentUser, filterBookingsForCurrentUser } from "../utils/booking-participation.js";
+import { CalApiError } from "../utils/errors.js";
 import { sanitizePathSegment } from "../utils/path-sanitizer.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 import {
@@ -33,6 +34,9 @@ export async function getBookings(
     }
     const [meRaw, data] = await Promise.all([calApi("me"), calApi("bookings", { params: qp })]);
     const currentUser = extractCurrentUser(meRaw);
+    if (!currentUser) {
+      throw new CalApiError(502, "Unable to determine the authenticated user", undefined);
+    }
     return ok(filterBookingsForCurrentUser(data, currentUser));
   } catch (err) {
     return handleError("get_bookings", err);

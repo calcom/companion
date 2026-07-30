@@ -206,6 +206,18 @@ describe("getBookings", () => {
     });
   });
 
+  it("returns an error instead of unfiltered bookings when current-user data is malformed", async () => {
+    mockCalApi
+      .mockResolvedValueOnce({ status: "success", data: { username: "admin" } })
+      .mockResolvedValueOnce({ bookings: [{ uid: "other-admin-booking" }] });
+
+    const result = await getBookings({});
+
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("Unable to determine the authenticated user");
+    expect(result.content[0].text).not.toContain("other-admin-booking");
+  });
+
   it("returns error response on CalApiError", async () => {
     mockCalApi.mockRejectedValueOnce(new CalApiError(403, "Forbidden", {}));
 
