@@ -38,7 +38,12 @@ export type {
 
 // Import all functions from submodules
 import {
+  beginAuthGeneration,
   clearAuth,
+  clearAuthCallbacks,
+  getAuthGeneration,
+  invalidateAuthSession,
+  runAuthTransition,
   setAccessToken,
   setAuthFailureCallback,
   setRefreshTokenFunction,
@@ -68,6 +73,7 @@ import {
   getEventTypes,
   updateEventType,
 } from "./event-types";
+import { registerAppPushSubscription, removeAppPushSubscription } from "./notifications";
 import {
   createEventTypePrivateLink,
   deleteEventTypePrivateLink,
@@ -110,8 +116,13 @@ export const CalComAPIService = {
   setAccessToken,
   setRefreshTokenFunction,
   clearAuth,
+  clearAuthCallbacks,
   setTokenRefreshCallback,
   setAuthFailureCallback,
+  beginAuthGeneration,
+  getAuthGeneration,
+  invalidateAuthSession,
+  runAuthTransition,
 
   // User
   getCurrentUser,
@@ -171,4 +182,8 @@ export const CalComAPIService = {
   createEventTypePrivateLink,
   updateEventTypePrivateLink,
   deleteEventTypePrivateLink,
+
+  // Notifications
+  registerAppPushSubscription,
+  removeAppPushSubscription,
 };

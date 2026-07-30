@@ -1,6 +1,7 @@
 import type { Booking } from "@/services/calcom";
 import { getMeetingUrl } from "@/utils/booking";
 import { getBookingPaymentStatus } from "@/utils/booking-payment-status";
+import { isBookingRequestPending } from "@/utils/booking-request-actions";
 import { formatDate, formatTime, getHostAndAttendeesDisplay } from "@/utils/bookings-utils";
 import { getMeetingInfo } from "@/utils/meetings-utils";
 
@@ -27,7 +28,7 @@ export function useBookingListItemData(booking: Booking, userEmail?: string): Bo
   const startTime = booking.start || booking.startTime || "";
   const endTime = booking.end || booking.endTime || "";
   const isUpcoming = new Date(endTime) >= new Date();
-  const isPending = booking.status?.toLowerCase() === "pending";
+  const isPending = isBookingRequestPending(booking);
   const isCancelled = booking.status?.toLowerCase() === "cancelled";
   const isRejected = booking.status?.toLowerCase() === "rejected";
 

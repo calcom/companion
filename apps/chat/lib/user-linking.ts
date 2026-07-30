@@ -94,7 +94,9 @@ export interface LinkedUser {
  * Platform (API-tier) orgs and free/individual users return false.
  * Existing Redis entries without org fields are treated as non-org (safe default).
  */
-export function isOrgPlanUser(linked: LinkedUser): boolean {
+export function isOrgPlanUser(
+  linked: Pick<LinkedUser, "calcomOrganizationId" | "calcomOrgIsPlatform">
+): boolean {
   return linked.calcomOrganizationId != null && linked.calcomOrgIsPlatform === false;
 }
 

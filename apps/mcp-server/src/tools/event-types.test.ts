@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CalApiError } from "../utils/errors.js";
 
 vi.mock("../utils/api-client.js", () => ({
@@ -7,16 +7,24 @@ vi.mock("../utils/api-client.js", () => ({
 
 import { calApi } from "../utils/api-client.js";
 import {
-  getEventTypes,
-  getEventType,
   createEventType,
-  updateEventType,
-  deleteEventType,
-  getEventTypesSchema,
-  getEventTypeSchema,
   createEventTypeSchema,
-  updateEventTypeSchema,
+  deleteEventType,
   deleteEventTypeSchema,
+  getCrmSyncErrors,
+  getCrmSyncErrorsSchema,
+  getEventType,
+  getEventTypeHistory,
+  getEventTypeHistorySchema,
+  getEventTypeSchema,
+  getEventTypeSettings,
+  getEventTypeSettingsSchema,
+  getEventTypes,
+  getEventTypesSchema,
+  getSchedulingConfig,
+  getSchedulingConfigSchema,
+  updateEventType,
+  updateEventTypeSchema,
 } from "./event-types.js";
 
 const mockCalApi = vi.mocked(calApi);
@@ -37,6 +45,14 @@ describe("event-types schemas", () => {
 
   it("exports getEventTypeSchema with eventTypeId", () => {
     expect(getEventTypeSchema.eventTypeId).toBeDefined();
+  });
+
+  it("exports getCrmSyncErrorsSchema with eventTypeId, appSlug and pagination params", () => {
+    expect(getCrmSyncErrorsSchema.eventTypeId).toBeDefined();
+    expect(getCrmSyncErrorsSchema.appSlug).toBeDefined();
+    expect(getCrmSyncErrorsSchema.includeDismissed).toBeDefined();
+    expect(getCrmSyncErrorsSchema.cursor).toBeDefined();
+    expect(getCrmSyncErrorsSchema.limit).toBeDefined();
   });
 
   it("exports createEventTypeSchema with required and optional fields", () => {
@@ -64,6 +80,98 @@ describe("event-types schemas", () => {
 
   it("exports deleteEventTypeSchema", () => {
     expect(deleteEventTypeSchema.eventTypeId).toBeDefined();
+  });
+
+  it("exports getEventTypeSettingsSchema with required and optional fields", () => {
+    expect(getEventTypeSettingsSchema.eventTypeId).toBeDefined();
+    expect(getEventTypeSettingsSchema.orgId).toBeDefined();
+    expect(getEventTypeSettingsSchema.teamId).toBeDefined();
+  });
+});
+
+describe("getCrmSyncErrors schema", () => {
+  it("requires eventTypeId to be an integer", () => {
+    expect(getCrmSyncErrorsSchema.eventTypeId.safeParse(42).success).toBe(true);
+    expect(getCrmSyncErrorsSchema.eventTypeId.safeParse(1.5).success).toBe(false);
+    expect(getCrmSyncErrorsSchema.eventTypeId.safeParse("abc").success).toBe(false);
+  });
+
+  it("requires a non-empty appSlug", () => {
+    expect(getCrmSyncErrorsSchema.appSlug.safeParse("salesforce").success).toBe(true);
+    expect(getCrmSyncErrorsSchema.appSlug.safeParse("").success).toBe(false);
+  });
+
+  it("enforces OpenAPI limit bounds (1-100)", () => {
+    expect(getCrmSyncErrorsSchema.limit.safeParse(0).success).toBe(false);
+    expect(getCrmSyncErrorsSchema.limit.safeParse(1).success).toBe(true);
+    expect(getCrmSyncErrorsSchema.limit.safeParse(100).success).toBe(true);
+    expect(getCrmSyncErrorsSchema.limit.safeParse(101).success).toBe(false);
+    expect(getCrmSyncErrorsSchema.limit.safeParse(1.5).success).toBe(false);
+    expect(getCrmSyncErrorsSchema.limit.safeParse(undefined).success).toBe(true);
+  });
+});
+
+describe("getCrmSyncErrors", () => {
+  it("calls the correct API path with required query params", async () => {
+    const mockResponse = {
+      status: "success",
+      data: [
+        {
+          id: "019ea850-efc7-7a48-8508-aed31b72ce68",
+          credentialId: 123,
+          eventTypeId: 49,
+          appSlug: "salesforce",
+          timestamp: "2026-06-08T17:38:57.107Z",
+          errorCode: "FIELD_CUSTOM_VALIDATION_EXCEPTION",
+          errorMessage: "Validation rule blocked this update",
+          droppedFields: ["Custom_Field__c"],
+          dismissedAt: null,
+        },
+      ],
+      pagination: {
+        nextCursor: null,
+        hasMore: false,
+      },
+    };
+    mockCalApi.mockResolvedValueOnce(mockResponse);
+
+    const result = await getCrmSyncErrors({ eventTypeId: 49, appSlug: "salesforce" });
+
+    expect(mockCalApi).toHaveBeenCalledWith("event-types/49/crm-sync-errors", {
+      params: { appSlug: "salesforce" },
+    });
+    expect(JSON.parse(result.content[0].text)).toEqual(mockResponse);
+  });
+
+  it("passes optional includeDismissed and pagination query params", async () => {
+    mockCalApi.mockResolvedValueOnce({ status: "success", data: [], pagination: {} });
+
+    await getCrmSyncErrors({
+      eventTypeId: 49,
+      appSlug: "salesforce",
+      includeDismissed: true,
+      cursor: "eyJ2IjoxLCJzb3J0VXVpZCI6IjAxOWVhODUwIn0",
+      limit: 25,
+    });
+
+    const [path, opts] = mockCalApi.mock.calls[0];
+    expect(path).toBe("event-types/49/crm-sync-errors");
+    const params = (opts as { params: Record<string, unknown> }).params;
+    expect(params).toEqual({
+      appSlug: "salesforce",
+      includeDismissed: true,
+      cursor: "eyJ2IjoxLCJzb3J0VXVpZCI6IjAxOWVhODUwIn0",
+      limit: 25,
+    });
+  });
+
+  it("handles API errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(403, "Forbidden", {}));
+
+    const result = await getCrmSyncErrors({ eventTypeId: 49, appSlug: "salesforce" });
+
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("403");
   });
 });
 
@@ -172,5 +280,221 @@ describe("deleteEventType", () => {
     await deleteEventType({ eventTypeId: 42 });
 
     expect(mockCalApi).toHaveBeenCalledWith("event-types/42", { method: "DELETE" });
+  });
+});
+
+describe("getEventTypeSettings", () => {
+  it("returns full event type settings from the API", async () => {
+    const apiResponse = {
+      id: 10,
+      title: "Team Meeting",
+      slug: "team-meeting",
+      schedulingType: "roundRobin",
+      assignAllTeamMembers: false,
+      lengthInMinutes: 30,
+      hosts: [
+        { userId: 1, name: "Alice", isFixed: false, priority: 2, weight: 100, scheduleId: 456 },
+        { userId: 2, name: "Bob", isFixed: true, priority: 1, weight: 50, scheduleId: null },
+      ],
+    };
+    mockCalApi.mockResolvedValueOnce(apiResponse);
+
+    const result = await getEventTypeSettings({ eventTypeId: 10 });
+
+    expect(mockCalApi).toHaveBeenCalledWith("event-types/10");
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed).toEqual(apiResponse);
+  });
+
+  it("uses org-scoped path when orgId and teamId are provided", async () => {
+    const apiResponse = {
+      id: 5,
+      schedulingType: "roundRobin",
+      assignAllTeamMembers: true,
+      hosts: [],
+    };
+    mockCalApi.mockResolvedValueOnce(apiResponse);
+
+    const result = await getEventTypeSettings({ eventTypeId: 5, orgId: 100, teamId: 200 });
+
+    expect(mockCalApi).toHaveBeenCalledWith("organizations/100/teams/200/event-types/5");
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed).toEqual(apiResponse);
+  });
+
+  it("returns whatever the API exposes without transformation", async () => {
+    const apiResponse = {
+      id: 7,
+      schedulingType: "collective",
+      hosts: [{ userId: 3, name: "Carol", isFixed: true }],
+      bookingLimitsCount: { day: 2 },
+      locations: [{ type: "inPerson", address: "123 Main St" }],
+    };
+    mockCalApi.mockResolvedValueOnce(apiResponse);
+
+    const result = await getEventTypeSettings({ eventTypeId: 7 });
+
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed).toEqual(apiResponse);
+  });
+
+  it("returns an error when only orgId is provided without teamId", async () => {
+    const result = await getEventTypeSettings({ eventTypeId: 5, orgId: 100 });
+
+    expect(mockCalApi).not.toHaveBeenCalled();
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("orgId and teamId must be provided together");
+  });
+
+  it("returns an error when only teamId is provided without orgId", async () => {
+    const result = await getEventTypeSettings({ eventTypeId: 5, teamId: 200 });
+
+    expect(mockCalApi).not.toHaveBeenCalled();
+    expect(result).toHaveProperty("isError", true);
+    expect(result.content[0].text).toContain("orgId and teamId must be provided together");
+  });
+
+  it("handles errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(404, "Not found", {}));
+
+    const result = await getEventTypeSettings({ eventTypeId: 999 });
+
+    expect(result).toHaveProperty("isError", true);
+  });
+});
+
+describe("getEventTypeHistory schema", () => {
+  it("exports getEventTypeHistorySchema with eventTypeId, limit and cursor", () => {
+    expect(getEventTypeHistorySchema.eventTypeId).toBeDefined();
+    expect(getEventTypeHistorySchema.limit).toBeDefined();
+    expect(getEventTypeHistorySchema.cursor).toBeDefined();
+  });
+
+  it("requires eventTypeId to be an integer", () => {
+    expect(getEventTypeHistorySchema.eventTypeId.safeParse(42).success).toBe(true);
+    expect(getEventTypeHistorySchema.eventTypeId.safeParse(1.5).success).toBe(false);
+    expect(getEventTypeHistorySchema.eventTypeId.safeParse("abc").success).toBe(false);
+  });
+
+  it("enforces OpenAPI limit bounds (1-50)", () => {
+    expect(getEventTypeHistorySchema.limit.safeParse(0).success).toBe(false);
+    expect(getEventTypeHistorySchema.limit.safeParse(1).success).toBe(true);
+    expect(getEventTypeHistorySchema.limit.safeParse(50).success).toBe(true);
+    expect(getEventTypeHistorySchema.limit.safeParse(51).success).toBe(false);
+    expect(getEventTypeHistorySchema.limit.safeParse(1.5).success).toBe(false);
+    expect(getEventTypeHistorySchema.limit.safeParse(undefined).success).toBe(true);
+  });
+
+  it("enforces the cursor max length (2048)", () => {
+    expect(getEventTypeHistorySchema.cursor.safeParse("abc").success).toBe(true);
+    expect(getEventTypeHistorySchema.cursor.safeParse("a".repeat(2048)).success).toBe(true);
+    expect(getEventTypeHistorySchema.cursor.safeParse("a".repeat(2049)).success).toBe(false);
+    expect(getEventTypeHistorySchema.cursor.safeParse(undefined).success).toBe(true);
+  });
+});
+
+describe("getEventTypeHistory", () => {
+  it("calls the correct API path with no query params", async () => {
+    mockCalApi.mockResolvedValueOnce({ eventTypeId: 42, auditLogs: [] });
+
+    const result = await getEventTypeHistory({ eventTypeId: 42 });
+
+    expect(mockCalApi).toHaveBeenCalledWith("event-types/42/history", { params: {} });
+    expect(JSON.parse(result.content[0].text)).toHaveProperty("eventTypeId", 42);
+  });
+
+  it("passes limit and cursor query params", async () => {
+    mockCalApi.mockResolvedValueOnce({ eventTypeId: 42, auditLogs: [] });
+
+    await getEventTypeHistory({ eventTypeId: 42, limit: 10, cursor: "abc" });
+
+    const [path, opts] = mockCalApi.mock.calls[0];
+    expect(path).toBe("event-types/42/history");
+    const params = (opts as { params: Record<string, unknown> }).params;
+    expect(params).toHaveProperty("limit", 10);
+    expect(params).toHaveProperty("cursor", "abc");
+  });
+
+  it("handles errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(404, "Event type not found", {}));
+
+    const result = await getEventTypeHistory({ eventTypeId: 99 });
+
+    expect(result).toHaveProperty("isError", true);
+  });
+});
+
+describe("getSchedulingConfig schema", () => {
+  it("exports getSchedulingConfigSchema with eventTypeId", () => {
+    expect(getSchedulingConfigSchema.eventTypeId).toBeDefined();
+  });
+
+  it("requires eventTypeId to be a positive integer", () => {
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(1).success).toBe(true);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(0).success).toBe(false);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(-1).success).toBe(false);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse(1.5).success).toBe(false);
+    expect(getSchedulingConfigSchema.eventTypeId.safeParse("abc").success).toBe(false);
+  });
+});
+
+describe("getSchedulingConfig", () => {
+  it("calls the correct API path", async () => {
+    mockCalApi.mockResolvedValueOnce({
+      eventTypeId: 10,
+      schedulingType: "roundRobin",
+      hosts: [],
+      hostGroups: [],
+    });
+
+    const result = await getSchedulingConfig({ eventTypeId: 10 });
+
+    expect(mockCalApi).toHaveBeenCalledWith("event-types/10/scheduling-config");
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.schedulingType).toBe("roundRobin");
+  });
+
+  it("returns full round-robin config data", async () => {
+    const mockResponse = {
+      eventTypeId: 10,
+      schedulingType: "roundRobin",
+      hosts: [
+        {
+          userId: 1,
+          name: "Alice",
+          username: "alice",
+          mandatory: false,
+          priority: "high",
+          weight: 150,
+          avatarUrl: null,
+          groupId: "group-1",
+        },
+      ],
+      hostGroups: [{ id: "group-1", name: "Sales Team" }],
+      assignAllTeamMembers: false,
+      rescheduleWithSameRoundRobinHost: true,
+      isRRWeightsEnabled: true,
+      maxLeadThreshold: 3,
+      includeNoShowInRRCalculation: false,
+      crmRecordOwnerFallbackWindowHours: 24,
+    };
+    mockCalApi.mockResolvedValueOnce(mockResponse);
+
+    const result = await getSchedulingConfig({ eventTypeId: 10 });
+
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.hosts).toHaveLength(1);
+    expect(parsed.hosts[0].weight).toBe(150);
+    expect(parsed.hostGroups[0].name).toBe("Sales Team");
+    expect(parsed.isRRWeightsEnabled).toBe(true);
+    expect(parsed.maxLeadThreshold).toBe(3);
+  });
+
+  it("handles errors", async () => {
+    mockCalApi.mockRejectedValueOnce(new CalApiError(422, "Not a team event type", {}));
+
+    const result = await getSchedulingConfig({ eventTypeId: 99 });
+
+    expect(result).toHaveProperty("isError", true);
   });
 });

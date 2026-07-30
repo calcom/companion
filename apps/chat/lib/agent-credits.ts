@@ -1,5 +1,6 @@
 import type { Logger } from "chat";
 import { CalcomApiError, checkCredits } from "./calcom/client";
+import { isOrgPlanUser, type LinkedUser } from "./user-linking";
 
 export interface AgentCreditContext {
   platform: string;
@@ -15,13 +16,42 @@ interface RequireAgentCreditsParams {
   postNoCredits: (message: string) => Promise<unknown>;
 }
 
-type AgentCreditsBlockReason = "no_credits" | "verification_failed";
+export type AgentCreditsBlockReason =
+  | "no_credits"
+  | "scope_upgrade_required"
+  | "verification_failed";
+
+export function getAgentCreditBlockReason(error: unknown): AgentCreditsBlockReason {
+  if (
+    error instanceof CalcomApiError &&
+    error.statusCode === 403 &&
+    error.message.includes("insufficient_scope") &&
+    error.message.includes("CREDITS_READ")
+  ) {
+    return "scope_upgrade_required";
+  }
+
+  return "verification_failed";
+}
+
+export function shouldShowLowCreditWarning(
+  linked: Pick<LinkedUser, "calcomOrganizationId" | "calcomOrgIsPlatform">,
+  balance: { monthlyRemaining: number; additional: number }
+): boolean {
+  return !isOrgPlanUser(linked) && balance.monthlyRemaining + balance.additional < 10;
+}
 
 export function agentNoCreditsMessage(platform: string, reason: AgentCreditsBlockReason): string {
   if (reason === "no_credits") {
     return platform === "slack"
       ? "You don't have AI credits available right now. Use `/cal help` to see the regular slash commands you can still use."
       : "You don't have AI credits available right now. Use /help to see the regular commands you can still use.";
+  }
+
+  if (reason === "scope_upgrade_required") {
+    return platform === "slack"
+      ? "To use AI features, reconnect your Cal.com account by running `/cal unlink`, then `/cal link`."
+      : "To use AI features, reconnect your Cal.com account by running /unlink, then /link.";
   }
 
   return platform === "slack"
@@ -97,7 +127,7 @@ export async function requireAgentCredits({
       statusCode: err instanceof CalcomApiError ? err.statusCode : undefined,
       code: err instanceof CalcomApiError ? err.code : undefined,
     });
-    await postNoCredits(agentNoCreditsMessage(ctx.platform, "verification_failed"));
+    await postNoCredits(agentNoCreditsMessage(ctx.platform, getAgentCreditBlockReason(err)));
     return false;
   }
 }

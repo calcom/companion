@@ -230,7 +230,7 @@ export function LimitsTab(props: LimitsTabProps) {
         />
         <SettingRow
           title="First slot only"
-          description="Only show the first slot of each day as available. This will limit your availability for this event type to one slot per day, scheduled at the earliest available time."
+          description="Only show the first slot of each day as available. This will limit your availability for this link to one slot per day, scheduled at the earliest available time."
           value={props.onlyShowFirstAvailableSlot}
           onValueChange={props.setOnlyShowFirstAvailableSlot}
         />
@@ -242,7 +242,7 @@ export function LimitsTab(props: LimitsTabProps) {
         />
         <SettingRow
           title="Limit active bookings"
-          description="Limit the number of active bookings a booker can make for this event type."
+          description="Limit the number of active bookings a booker can make for this link."
           value={props.maxActiveBookingsPerBooker}
           onValueChange={props.setMaxActiveBookingsPerBooker}
         />

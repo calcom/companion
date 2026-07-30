@@ -47,13 +47,13 @@ import {
   showSuccessAlert,
 } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
-import { getCalAppUrl } from "@/utils/region";
 import {
   buildLocationOptions,
   mapApiLocationToItem,
   mapItemToApiLocation,
   validateLocationItem,
 } from "@/utils/locationHelpers";
+import { getCalAppUrl } from "@/utils/region";
 import { safeLogError } from "@/utils/safeLogger";
 
 // Type definitions for extended EventType fields not in the base type
@@ -227,7 +227,6 @@ export default function EventTypeDetail() {
 
   // Advanced tab state
   const [calendarEventName, setCalendarEventName] = useState("");
-  const [addToCalendarEmail, setAddToCalendarEmail] = useState("");
   const [selectedLayouts, setSelectedLayouts] = useState<string[]>(["MONTH_VIEW"]);
   const [defaultLayout, setDefaultLayout] = useState("MONTH_VIEW");
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
@@ -703,16 +702,9 @@ export default function EventTypeDetail() {
       setShowOptimizedSlots(eventTypeExt.showOptimizedSlots);
     }
 
-    if (metadata) {
-      const calendarEventNameValue = metadata.calendarEventName;
-      if (typeof calendarEventNameValue === "string") {
-        setCalendarEventName(calendarEventNameValue);
-      }
-      const addToCalendarEmailValue = metadata.addToCalendarEmail;
-      if (typeof addToCalendarEmailValue === "string") {
-        setAddToCalendarEmail(addToCalendarEmailValue);
-      }
-    }
+    const calendarEventNameValue =
+      typeof eventType.customName === "string" ? eventType.customName : metadata?.calendarEventName;
+    setCalendarEventName(typeof calendarEventNameValue === "string" ? calendarEventNameValue : "");
 
     // Load booker layouts
     const bookerLayouts = eventType.bookerLayouts;
@@ -977,15 +969,15 @@ export default function EventTypeDetail() {
 
   const handlePreview = async () => {
     if (!bookingUrl) {
-      showErrorAlert("Error", "Booking URL not available. Please save the event type first.");
+      showErrorAlert("Error", "Booking URL not available. Please save the link first.");
       return;
     }
-    await openInAppBrowser(bookingUrl, "event type preview");
+    await openInAppBrowser(bookingUrl, "link preview");
   };
 
   const handleCopyLink = async () => {
     if (!bookingUrl) {
-      showErrorAlert("Error", "Booking URL not available. Please save the event type first.");
+      showErrorAlert("Error", "Booking URL not available. Please save the link first.");
       return;
     }
     await Clipboard.setStringAsync(bookingUrl);
@@ -993,7 +985,7 @@ export default function EventTypeDetail() {
   };
 
   const handleDelete = () => {
-    Alert.alert("Delete Event Type", `Are you sure you want to delete "${eventTitle}"?`, [
+    Alert.alert("Delete Link", `Are you sure you want to delete "${eventTitle}"?`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -1002,18 +994,18 @@ export default function EventTypeDetail() {
           const eventTypeId = parseInt(id, 10);
 
           if (Number.isNaN(eventTypeId)) {
-            showErrorAlert("Error", "Invalid event type ID");
+            showErrorAlert("Error", "Invalid link ID");
             return;
           }
 
           try {
             await deleteEventType(eventTypeId);
 
-            showSuccessAlert("Success", "Event type deleted successfully");
+            showSuccessAlert("Success", "Link deleted successfully");
             router.back();
           } catch (error) {
             safeLogError("Failed to delete event type:", error);
-            showErrorAlert("Error", "Failed to delete event type. Please try again.");
+            showErrorAlert("Error", "Failed to delete link. Please try again.");
           }
         },
       },
@@ -1076,7 +1068,6 @@ export default function EventTypeDetail() {
       eventTypeColorLight,
       eventTypeColorDark,
       calendarEventName,
-      addToCalendarEmail,
       selectedLayouts,
       defaultLayout,
       disableCancelling,
@@ -1143,7 +1134,6 @@ export default function EventTypeDetail() {
       eventTypeColorLight,
       eventTypeColorDark,
       calendarEventName,
-      addToCalendarEmail,
       selectedLayouts,
       defaultLayout,
       disableCancelling,
@@ -1187,7 +1177,7 @@ export default function EventTypeDetail() {
 
   const handleSave = useCallback(async () => {
     if (!id) {
-      showErrorAlert("Error", "Event type ID is missing");
+      showErrorAlert("Error", "Link ID is missing");
       return;
     }
 
@@ -1247,10 +1237,10 @@ export default function EventTypeDetail() {
         await createEventType(payload);
       } catch (error) {
         safeLogError("Failed to save event type:", error);
-        showErrorAlert("Error", "Failed to create event type. Please try again.");
+        showErrorAlert("Error", "Failed to create link. Please try again.");
         return;
       }
-      showSilentSuccessAlert("Success", "Event type created successfully");
+      showSilentSuccessAlert("Success", "Link created successfully");
       router.back();
     } else {
       // For UPDATE mode, use partial update - only send changed fields
@@ -1268,10 +1258,10 @@ export default function EventTypeDetail() {
         await updateEventType({ id: parseInt(id, 10), updates: payload });
       } catch (error) {
         safeLogError("Failed to save event type:", error);
-        showErrorAlert("Error", "Failed to update event type. Please try again.");
+        showErrorAlert("Error", "Failed to update link. Please try again.");
         return;
       }
-      showSilentSuccessAlert("Success", "Event type updated successfully");
+      showSilentSuccessAlert("Success", "Link updated successfully");
       // No need to manually refresh - cache is updated by the mutation hook
     }
   }, [
@@ -1290,7 +1280,7 @@ export default function EventTypeDetail() {
     updateEventType,
   ]);
 
-  const headerTitle = id === "new" ? "Create Event Type" : truncateTitle(title);
+  const headerTitle = id === "new" ? "Create Link" : truncateTitle(title);
   const saveButtonText = id === "new" ? "Create" : "Save";
 
   const renderHeaderLeft = useCallback(
@@ -2344,7 +2334,7 @@ export default function EventTypeDetail() {
                         if (id === "new") {
                           showInfoAlert(
                             "Info",
-                            "Save the event type first to configure this setting."
+                            "Save the link first to configure this setting."
                           );
                         } else if (Platform.OS === "ios") {
                           showNotAvailableAlert();
@@ -2379,7 +2369,7 @@ export default function EventTypeDetail() {
                         if (id === "new") {
                           showInfoAlert(
                             "Info",
-                            "Save the event type first to configure this setting."
+                            "Save the link first to configure this setting."
                           );
                         } else if (Platform.OS === "ios") {
                           showNotAvailableAlert();
@@ -2414,7 +2404,7 @@ export default function EventTypeDetail() {
                         if (id === "new") {
                           showInfoAlert(
                             "Info",
-                            "Save the event type first to configure this setting."
+                            "Save the link first to configure this setting."
                           );
                         } else if (Platform.OS === "ios") {
                           showNotAvailableAlert();
@@ -2523,7 +2513,7 @@ export default function EventTypeDetail() {
                       onPress={handleDelete}
                       activeOpacity={0.5}
                     >
-                      <Text className="text-[17px] text-[#FF3B30]">Delete Event Type</Text>
+                      <Text className="text-[17px] text-[#FF3B30]">Delete Link</Text>
                       <Ionicons name="trash-outline" size={18} color="#FF3B30" />
                     </TouchableOpacity>
                   </View>

@@ -14,6 +14,9 @@
 import type { Booking, BookingStatus } from "@/services/types/bookings.types";
 import type { EventType } from "@/services/types/event-types.types";
 import { getMeetingUrl, isCalVideoMeetingUrl } from "./booking";
+import { isUserHost, isUserOrganizer } from "./booking-user-roles";
+
+export { isUserHost, isUserOrganizer } from "./booking-user-roles";
 
 // ============================================================================
 // Types
@@ -210,39 +213,6 @@ export function isBookingConfirmed(booking: NormalizedBooking): boolean {
 // ============================================================================
 // Role Detection Functions
 // ============================================================================
-
-/**
- * Check if the current user is the organizer of the booking.
- */
-export function isUserOrganizer(
-  booking: NormalizedBooking,
-  userId?: number,
-  userEmail?: string
-): boolean {
-  if (!booking.user) return false;
-
-  if (userId && booking.user.id === userId) return true;
-  if (userEmail && booking.user.email?.toLowerCase() === userEmail.toLowerCase()) return true;
-
-  return false;
-}
-
-/**
- * Check if the current user is a host of the booking.
- */
-export function isUserHost(
-  booking: NormalizedBooking,
-  userId?: number,
-  userEmail?: string
-): boolean {
-  if (!booking.hosts || booking.hosts.length === 0) return false;
-
-  return booking.hosts.some((host) => {
-    if (userId && host.id !== undefined && String(host.id) === String(userId)) return true;
-    if (userEmail && host.email?.toLowerCase() === userEmail.toLowerCase()) return true;
-    return false;
-  });
-}
 
 /**
  * Check if the current user is an attendee of the booking.
@@ -681,9 +651,9 @@ export function getDisabledReasonMessage(reason: DisabledReason): string {
     BOOKING_REJECTED: "This booking has been rejected",
     BOOKING_PENDING: "This booking is pending confirmation",
     WITHIN_MINIMUM_NOTICE: "Within minimum reschedule notice period",
-    RESCHEDULING_DISABLED: "Rescheduling is disabled for this event type",
-    CANCELLING_DISABLED: "Cancelling is disabled for this event type",
-    GUESTS_DISABLED: "Adding guests is disabled for this event type",
+    RESCHEDULING_DISABLED: "Rescheduling is disabled for this link",
+    CANCELLING_DISABLED: "Cancelling is disabled for this link",
+    GUESTS_DISABLED: "Adding guests is disabled for this link",
     NOT_CAL_VIDEO: "Only available for Cal Video meetings",
     NO_RECORDINGS: "No recordings available for this meeting",
     NO_ATTENDEE_DATA: "Attendee information not available",

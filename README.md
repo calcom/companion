@@ -24,7 +24,7 @@ Cal.com Companion lets you manage your [Cal.com](https://cal.com) schedule from 
 A native companion app built with [Expo](https://expo.dev) and React Native.
 
 - **Bookings** — View, cancel, reschedule, add guests, and mark no-shows
-- **Event Types** — Browse and edit event types including duration, recurrence, limits, and availability
+- **Links** — Browse and edit booking links including duration, recurrence, limits, and availability
 - **Availability** — Manage schedules, working hours, and date overrides
 - **Widgets** — Home-screen widgets for iOS (WidgetKit) and Android show your upcoming bookings at a glance
 - **Dark mode** — Full light/dark theme support that follows your system preference
@@ -89,14 +89,17 @@ cp .env.example .env
 ### Run the mobile app
 
 ```sh
+# Expo dev server
+bun run mobile
+
 # iOS
-bun run ios
+bun run mobile:ios
 
 # Android
-bun run android
+bun run mobile:android
 
 # Web (Expo)
-bun run web
+bun run mobile:web
 ```
 
 ### Run the browser extension
@@ -105,58 +108,65 @@ bun run web
 # Dev mode (Chrome, hot reload)
 bun run ext
 
-# Build for a specific browser
-bun run ext:build-chrome
-bun run ext:build-firefox
-bun run ext:build-safari
-bun run ext:build-edge
+# Build the default extension target
+bun run ext:build
 
 # Build all browsers
-bun run ext:build-all
+bun run ext:build:all
 ```
 
-Production builds (for store submission) use the `-prod` variants which point to `https://companion.cal.com`:
+Production builds (for store submission) use the `:prod` variants which point to `https://companion.cal.com`:
 
 ```sh
-bun run ext:build-chrome-prod
-bun run ext:zip-chrome-prod
+bun run ext:build:prod
+bun run ext:zip:prod
 ```
 
 ## Project Structure
 
 ```
 ├── apps/
-│   ├── mobile/           # Expo Router screens (tabs, modals, sheets)
-│   └── extension/        # Browser extension source (WXT)
+│   ├── mobile/           # Expo mobile app, native widgets, and mobile services
+│   ├── extension/        # Browser extension source (WXT)
+│   ├── chat/             # Next.js chat bot app
+│   └── mcp-server/       # Cal.com MCP server app
 ├── packages/
 │   └── cli/              # Cal.com CLI (@calcom/cli)
-│       └── src/commands/ # CLI commands (bookings, event-types, etc.)
-├── components/           # Shared React Native components
-├── hooks/                # Custom React hooks
-├── services/             # Cal.com API client & OAuth service
-├── contexts/             # React context providers (Auth, Query, Toast)
-├── widgets/              # Android home-screen widget
-├── targets/widget/       # iOS WidgetKit target (SwiftUI)
-├── utils/                # Shared utilities
-├── config/               # Cache configuration
-├── constants/            # Colors, timezones
-└── types/                # Shared TypeScript types
+├── package.json          # Root workspace scripts
+├── bun.lock              # Bun lockfile
+└── biome.json            # Root Biome configuration
 ```
 
 ## Scripts
 
 | Command | Description |
 |---|---|
-| `bun run start` | Start the Expo dev server |
-| `bun run ios` | Run on iOS simulator |
-| `bun run android` | Run on Android emulator |
-| `bun run web` | Run in the browser via Expo |
+| `bun run mobile` | Start the Expo dev server |
+| `bun run mobile:ios` | Run the mobile app on an iOS simulator |
+| `bun run mobile:android` | Run the mobile app on an Android emulator |
+| `bun run mobile:web` | Run the mobile app in the browser via Expo |
+| `bun run mobile:export` | Export the mobile app bundle |
+| `bun run mobile:test` | Run the mobile Jest test suite |
+| `bun run mobile:e2e` | Run the default Maestro e2e flow |
+| `bun run mobile:e2e:check` | Validate Maestro e2e flow files |
+| `bun run mobile:e2e:ios` | Run Maestro e2e flows on iOS |
+| `bun run mobile:e2e:android` | Run Maestro e2e flows on Android |
 | `bun run ext` | Start extension dev server (WXT) |
-| `bun run ext:build-all` | Build extension for all browsers |
-| `bun run typecheck` | Type-check the mobile app |
-| `bun run typecheck:extension` | Type-check the browser extension |
+| `bun run ext:build` | Build the default extension target |
+| `bun run ext:build:prod` | Build the default extension target for store submission |
+| `bun run ext:zip` | Package the default extension target |
+| `bun run ext:zip:prod` | Package the default extension target for store submission |
+| `bun run ext:build:all` | Build all configured extension browser targets |
+| `bun run ext:build:all:prod` | Build all configured extension targets for store submission |
+| `bun run typecheck` | Type-check every workspace that exposes a `typecheck` script |
+| `bun run typecheck:chat` | Type-check the chat app only |
 | `bun run lint` | Lint with Biome |
+| `bun run lint:react-compiler` | Run the mobile React Compiler lint |
+| `bun run check:no-cal-hostnames` | Check mobile source for disallowed Cal.com hostnames |
+| `bun run lint:all` | Run lint, React Compiler lint, and hostname checks |
 | `bun run format` | Format with Biome |
+| `bun run format:check` | Check Biome formatting |
+| `bun run check` | Run Biome checks and apply safe fixes |
 | `bun run check:ci` | Run Biome CI checks |
 
 ## Contributing
@@ -165,12 +175,13 @@ This repo uses [Biome](https://biomejs.dev/) for linting and formatting, enforce
 
 ```sh
 bun run check:ci
-bun run typecheck:all
+bun run typecheck
+bun run lint:all
 ```
 
 ## Chat Bot — Telegram Setup
 
-The `chat/` directory contains a multi-platform chat bot. Slack is the primary adapter; Telegram is optional.
+The `apps/chat/` directory contains a multi-platform chat bot. Slack is the primary adapter; Telegram is optional.
 
 ### Prerequisites
 
@@ -179,7 +190,7 @@ The `chat/` directory contains a multi-platform chat bot. Slack is the primary a
 
 ### Environment Variables
 
-Add to your `chat/.env`:
+Add to your `apps/chat/.env`:
 
 ```
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF...

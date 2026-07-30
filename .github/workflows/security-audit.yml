@@ -31,4 +31,4 @@ jobs:
       - name: Report all vulnerabilities
         run: bun pm untrusted || true
       - name: Fail on known vulnerabilities
-        run: bun audit --prod --audit-level=critical
+        run: bun audit --prod --audit-level=high

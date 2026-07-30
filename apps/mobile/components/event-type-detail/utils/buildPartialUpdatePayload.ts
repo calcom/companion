@@ -118,7 +118,6 @@ interface EventTypeFormState {
   eventTypeColorLight: string;
   eventTypeColorDark: string;
   calendarEventName: string;
-  addToCalendarEmail: string;
   selectedLayouts: string[];
   defaultLayout: string;
   disableCancelling: boolean;
@@ -734,7 +733,6 @@ export function buildPartialUpdatePayload(
     };
   }
 
-  const metadataChanges: Record<string, unknown> = {};
   const originalMetadata = original.metadata || {};
 
   // Disable Cancelling
@@ -776,20 +774,15 @@ export function buildPartialUpdatePayload(
     payload.showOptimizedSlots = currentState.showOptimizedSlots;
   }
 
-  if ((currentState.calendarEventName || "") !== (originalMetadata.calendarEventName || "")) {
-    if (currentState.calendarEventName) {
-      metadataChanges.calendarEventName = currentState.calendarEventName;
-    }
-  }
+  const originalCalendarEventName =
+    typeof original.customName === "string"
+      ? original.customName
+      : typeof originalMetadata.calendarEventName === "string"
+        ? originalMetadata.calendarEventName
+        : "";
 
-  if ((currentState.addToCalendarEmail || "") !== (originalMetadata.addToCalendarEmail || "")) {
-    if (currentState.addToCalendarEmail) {
-      metadataChanges.addToCalendarEmail = currentState.addToCalendarEmail;
-    }
-  }
-
-  if (Object.keys(metadataChanges).length > 0) {
-    payload.metadata = metadataChanges;
+  if ((currentState.calendarEventName || "") !== originalCalendarEventName) {
+    payload.customName = currentState.calendarEventName;
   }
 
   if (

@@ -1,6 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef } from "react";
 import { useColorScheme } from "react-native";
 import { BookingDetailScreen } from "@/components/screens/BookingDetailScreen";
@@ -10,6 +11,7 @@ import { useBookingByUid } from "@/hooks/useBookings";
 import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
 import { getMeetingUrl } from "@/utils/booking";
 import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
+import { getBookingForCacheUpdate, updateBookingCaches } from "@/utils/booking-cache";
 import { openInDefaultBrowser } from "@/utils/browser";
 
 // Empty actions result for when no booking is loaded
@@ -44,9 +46,12 @@ const getMonthName = (dateString: string | undefined): string => {
 };
 
 export default function BookingDetailIOS() {
-  const { uid } = useLocalSearchParams<{ uid: string }>();
+  const { uid, source } = useLocalSearchParams<{ uid: string; source?: string }>();
   const { userInfo } = useAuth();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const colorScheme = useColorScheme();
+  const openedFromNotification = source === "notification";
 
   // Use React Query hook for booking data - single source of truth
   const { data: booking, isLoading, error, refetch, isRefetching } = useBookingByUid(uid);
@@ -81,6 +86,7 @@ export default function BookingDetailIOS() {
     const startTime = enrichedBooking?.start || enrichedBooking?.startTime;
     return getMonthName(startTime);
   }, [enrichedBooking?.start, enrichedBooking?.startTime]);
+  const backTitle = openedFromNotification ? "Bookings" : monthName;
 
   // Get meeting URL for Join button
   const meetingUrl = useMemo(() => getMeetingUrl(enrichedBooking ?? null), [enrichedBooking]);
@@ -91,6 +97,17 @@ export default function BookingDetailIOS() {
       openInDefaultBrowser(meetingUrl, "meeting link");
     }
   }, [meetingUrl]);
+
+  const handleBackToBookings = useCallback(() => {
+    const bookingForCacheUpdate = getBookingForCacheUpdate(queryClient, uid, enrichedBooking);
+    if (bookingForCacheUpdate) {
+      updateBookingCaches(queryClient, bookingForCacheUpdate);
+    }
+    router.replace({
+      pathname: "/(tabs)/(bookings)",
+      params: { sync: Date.now().toString() },
+    });
+  }, [enrichedBooking, queryClient, router, uid]);
 
   // Handle copy meeting link
   const handleCopyMeetingLink = useCallback(async () => {
@@ -224,7 +241,7 @@ export default function BookingDetailIOS() {
       <Stack.Screen
         options={{
           title: "Booking", // This appears in long-press navigation history
-          headerBackTitle: monthName, // This shows on the back button
+          headerBackTitle: backTitle, // This shows on the back button
           headerBackButtonDisplayMode: "default",
           headerTitle: "", // Hide the title in the header bar itself
           headerShadowVisible: false,
@@ -236,6 +253,20 @@ export default function BookingDetailIOS() {
         style={{ backgroundColor: "transparent", shadowColor: "transparent" }}
         blurEffect={isLiquidGlassAvailable() ? undefined : "light"}
       >
+        {openedFromNotification ? (
+          <Stack.Header.Left>
+            <Stack.Header.Button
+              accessibilityLabel="Back to bookings"
+              onPress={handleBackToBookings}
+              tintColor={colorScheme === "dark" ? "#FFF" : "#000"}
+            >
+              <Stack.Header.Icon sf="chevron.backward" />
+            </Stack.Header.Button>
+          </Stack.Header.Left>
+        ) : (
+          <Stack.Header.BackButton displayMode="default">{backTitle}</Stack.Header.BackButton>
+        )}
+
         <Stack.Header.Right>
           {/* Actions Menu */}
           <Stack.Header.Menu>

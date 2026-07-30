@@ -131,13 +131,13 @@ export const BookingModals: React.FC<BookingModalsProps> = ({
               className="w-[85%] max-w-[350px] rounded-2xl bg-white p-5"
             >
               <Text className="mb-4 text-center text-lg font-semibold text-[#333]">
-                Filter by Event Type
+                Filter by Link
               </Text>
 
               {eventTypesLoading ? (
                 <View className="items-center py-4">
                   <ActivityIndicator size="small" color="#333" />
-                  <Text className="mt-2 text-sm text-[#666]">Loading event types...</Text>
+                  <Text className="mt-2 text-sm text-[#666]">Loading links...</Text>
                 </View>
               ) : (
                 <ScrollView showsVerticalScrollIndicator={true} style={{ maxHeight: 400 }}>
@@ -164,7 +164,7 @@ export const BookingModals: React.FC<BookingModalsProps> = ({
 
                   {eventTypes?.length === 0 ? (
                     <View className="items-center py-4">
-                      <Text className="text-sm text-[#666]">No event types found</Text>
+                      <Text className="text-sm text-[#666]">No links found</Text>
                     </View>
                   ) : null}
                 </ScrollView>

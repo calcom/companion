@@ -258,7 +258,7 @@ export function AvailabilityListScreen({
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.backgroundSecondary }}>
-        <Header />
+        {Platform.OS !== "ios" && <Header />}
         <View className="flex-1 px-2 pt-4 md:px-4">
           <AvailabilityListSkeleton iosStyle={Platform.OS === "ios"} />
         </View>
@@ -269,7 +269,7 @@ export function AvailabilityListScreen({
   if (error) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.backgroundSecondary }}>
-        <Header />
+        {Platform.OS !== "ios" && <Header />}
         <View className="flex-1 items-center justify-center p-5">
           <Ionicons name="alert-circle" size={64} color={theme.destructive} />
           <Text style={{ color: colors.text }} className="mb-2 mt-4 text-center text-xl font-bold">
@@ -362,7 +362,7 @@ export function AvailabilityListScreen({
           <EmptyScreen
             icon="time-outline"
             headline="Create an availability schedule"
-            description="Creating availability schedules allows you to manage availability across event types. They can be applied to one or more event types."
+            description="Creating availability schedules allows you to manage availability across links. They can be applied to one or more links."
             buttonText="New"
             onButtonPress={handleCreateNew}
           />
@@ -540,7 +540,9 @@ export function AvailabilityListScreen({
                   onPress={handleCreateSchedule}
                   disabled={creating}
                 >
-                  <Text className="text-center text-base font-medium text-white dark:text-black">Continue</Text>
+                  <Text className="text-center text-base font-medium text-white dark:text-black">
+                    Continue
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -699,7 +701,9 @@ export function AvailabilityListScreen({
                 onPress={confirmDelete}
                 disabled={deleting}
               >
-                <Text className="text-center text-base font-medium text-white dark:text-black">Delete</Text>
+                <Text className="text-center text-base font-medium text-white dark:text-black">
+                  Delete
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity

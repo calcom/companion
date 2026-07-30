@@ -1,0 +1,12 @@
+appId: ${APP_ID}
+name: Launch login screen
+tags:
+  - smoke
+---
+- runFlow: ../../helpers/launch-app.yaml
+- extendedWaitUntil:
+    visible: "Continue with Cal.com"
+    timeout: 15000
+- assertVisible: "Data region"
+- assertVisible: "United States"
+- assertVisible: "Continue with Cal.com"

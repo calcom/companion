@@ -13,10 +13,16 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppPressable } from "@/components/AppPressable";
-import { useCancelBooking } from "@/hooks/useBookings";
+import { BookingDetailRequestActions } from "@/components/screens/BookingDetailRequestActions";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCancelBooking, useConfirmBooking, useDeclineBooking } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showSuccessAlert } from "@/utils/alerts";
 import { getBookingPaymentStatus } from "@/utils/booking-payment-status";
+import {
+  BOOKING_REQUEST_BADGE_LABEL,
+  isBookingRequestPending,
+} from "@/utils/booking-request-actions";
 
 const CopyButton = ({
   text,
@@ -141,6 +147,7 @@ export function BookingDetailScreen({
   onActionsReady,
 }: BookingDetailScreenProps): React.JSX.Element {
   const router = useRouter();
+  const { userInfo } = useAuth();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -160,7 +167,11 @@ export function BookingDetailScreen({
 
   // Cancel booking mutation
   const cancelBookingMutation = useCancelBooking();
+  const confirmBookingMutation = useConfirmBooking();
+  const declineBookingMutation = useDeclineBooking();
   const isCancelling = cancelBookingMutation.isPending;
+  const isConfirming = confirmBookingMutation.isPending;
+  const isDeclining = declineBookingMutation.isPending;
 
   const performCancelBooking = useCallback(
     (reason: string) => {
@@ -223,6 +234,73 @@ export function BookingDetailScreen({
       },
     ]);
   }, [booking, performCancelBooking]);
+
+  const handleConfirmBooking = useCallback(() => {
+    if (!booking || isConfirming || isDeclining) return;
+
+    confirmBookingMutation.mutate(
+      { uid: booking.uid },
+      {
+        onSuccess: () => {
+          showSuccessAlert("Success", "Booking confirmed successfully");
+        },
+        onError: (err) => {
+          console.error("Failed to confirm booking");
+          if (__DEV__) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.debug("[BookingDetailScreen.ios] confirmBooking failed", { message });
+          }
+          showErrorAlert("Error", "Failed to confirm booking. Please try again.");
+        },
+      }
+    );
+  }, [booking, confirmBookingMutation, isConfirming, isDeclining]);
+
+  const performRejectBooking = useCallback(
+    (reason?: string) => {
+      if (!booking || isDeclining) return;
+
+      declineBookingMutation.mutate(
+        { uid: booking.uid, reason },
+        {
+          onSuccess: () => {
+            showSuccessAlert("Success", "Booking rejected successfully");
+          },
+          onError: (err) => {
+            console.error("Failed to reject booking");
+            if (__DEV__) {
+              const message = err instanceof Error ? err.message : String(err);
+              console.debug("[BookingDetailScreen.ios] rejectBooking failed", { message });
+            }
+            showErrorAlert("Error", "Failed to reject booking. Please try again.");
+          },
+        }
+      );
+    },
+    [booking, declineBookingMutation, isDeclining]
+  );
+
+  const handleRejectBooking = useCallback(() => {
+    if (!booking || isConfirming || isDeclining) return;
+
+    Alert.prompt(
+      "Reject Booking",
+      "Add an optional reason for rejecting this booking request:",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reject Booking",
+          style: "destructive",
+          onPress: (reason?: string) => {
+            performRejectBooking(reason?.trim() || undefined);
+          },
+        },
+      ],
+      "plain-text",
+      "",
+      "default"
+    );
+  }, [booking, isConfirming, isDeclining, performRejectBooking]);
 
   const openRescheduleModal = useCallback(() => {
     if (!booking) return;
@@ -358,7 +436,7 @@ export function BookingDetailScreen({
 
   const normalizedStatus = booking.status.toLowerCase();
   const { isPendingPayment } = getBookingPaymentStatus(booking);
-  const isUnconfirmed = normalizedStatus === "pending";
+  const isUnconfirmed = isBookingRequestPending(booking);
 
   const getAttendeeStatusIcon = (attendee: { noShow?: boolean; absent?: boolean }) => {
     const isNoShow = attendee.noShow || attendee.absent;
@@ -371,7 +449,7 @@ export function BookingDetailScreen({
       };
     }
 
-    if (normalizedStatus === "pending") {
+    if (isUnconfirmed) {
       return {
         name: "help-circle" as const,
         color: "#A3A3A3",
@@ -460,7 +538,7 @@ export function BookingDetailScreen({
           )}
 
           {/* Payment and Confirmation Status Badges */}
-          {(isPendingPayment || isUnconfirmed) ? (
+          {isPendingPayment || isUnconfirmed ? (
             <View className="mt-3 flex-row flex-wrap items-center">
               {isPendingPayment ? (
                 <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
@@ -469,12 +547,31 @@ export function BookingDetailScreen({
               ) : null}
               {isUnconfirmed ? (
                 <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
-                  <Text className="text-xs font-medium text-white">Unconfirmed</Text>
+                  <Text className="text-xs font-medium text-white">
+                    {BOOKING_REQUEST_BADGE_LABEL}
+                  </Text>
                 </View>
               ) : null}
             </View>
           ) : null}
         </View>
+
+        <BookingDetailRequestActions
+          booking={booking}
+          currentUserId={userInfo?.id}
+          currentUserEmail={userInfo?.email}
+          isConfirming={isConfirming}
+          isDeclining={isDeclining}
+          onConfirm={handleConfirmBooking}
+          onReject={handleRejectBooking}
+          colors={{
+            cardBackground: colors.cardBackground,
+            text: colors.text,
+            textSecondary: colors.textSecondary,
+            border: colors.border,
+            destructive: colors.destructive,
+          }}
+        />
 
         {/* Participants Card - iOS Calendar Style (Expandable) */}
         <View

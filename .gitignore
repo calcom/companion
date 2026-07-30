@@ -43,6 +43,7 @@ safari-extension/
 .env
 apps/mobile/.env
 apps/mobile/.env*.local
+apps/mobile/google-services.json
 apps/extension/.env
 apps/extension/.env*.local
 

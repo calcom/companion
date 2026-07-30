@@ -24,6 +24,17 @@ import type {
 import { makeRequest } from "./request";
 import { getUserProfile } from "./user";
 
+function getBookingErrorDiagnostics(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+    };
+  }
+
+  return { error };
+}
+
 /**
  * Determine user's participation role in a booking
  */
@@ -282,7 +293,10 @@ export async function confirmBooking(bookingUid: string): Promise<Booking> {
 
     throw new Error("Invalid response from confirm booking API");
   } catch (error) {
-    safeLogError("confirmBooking error", { error, bookingUid });
+    safeLogError("[CalComAPIService] confirmBooking error", {
+      bookingUid,
+      error: getBookingErrorDiagnostics(error),
+    });
     throw error;
   }
 }
@@ -316,7 +330,12 @@ export async function declineBooking(bookingUid: string, reason?: string): Promi
 
     throw new Error("Invalid response from decline booking API");
   } catch (error) {
-    console.error("declineBooking error");
+    safeLogError("[CalComAPIService] declineBooking error", {
+      bookingUid,
+      hasReason: Boolean(reason?.trim()),
+      reasonLength: reason?.length ?? 0,
+      error: getBookingErrorDiagnostics(error),
+    });
     throw error;
   }
 }

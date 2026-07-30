@@ -28,7 +28,7 @@ function isValidBookingFilter(value: string | undefined): value is BookingFilter
 }
 
 export default function Bookings() {
-  const { filter } = useLocalSearchParams<{ filter?: string }>();
+  const { filter, sync } = useLocalSearchParams<{ filter?: string; sync?: string }>();
   const initialFilter = isValidBookingFilter(filter) ? filter : "upcoming";
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -94,7 +94,7 @@ export default function Bookings() {
 
   const renderFilterControls = () => {
     const filterLabel =
-      selectedEventTypeId !== null ? selectedEventTypeLabel || "Event Type" : "Filter";
+      selectedEventTypeId !== null ? selectedEventTypeLabel || "Link" : "Filter";
 
     return (
       <View
@@ -105,7 +105,7 @@ export default function Bookings() {
         }}
       >
         <View className="flex-row items-center gap-3">
-          {/* Dropdown menu for event type filter */}
+          {/* Dropdown menu for link filter */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <AppPressable
@@ -151,11 +151,11 @@ export default function Bookings() {
                 onCheckedChange={() => handleEventTypeSelect(null)}
               >
                 <Text className="text-base" style={{ color: theme.text }}>
-                  All Event Types
+                  All Links
                 </Text>
               </DropdownMenuCheckboxItem>
 
-              {/* Event type options */}
+              {/* Link options */}
               {eventTypes.map((eventType) => (
                 <DropdownMenuCheckboxItem
                   key={eventType.id}
@@ -226,6 +226,7 @@ export default function Bookings() {
       onEventTypeChange={handleEventTypeSelect}
       activeFilter={activeFilter}
       filterParams={filterParams}
+      syncKey={sync}
     />
   );
 }

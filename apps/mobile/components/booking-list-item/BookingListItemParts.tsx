@@ -4,6 +4,7 @@ import { SvgImage } from "@/components/SvgImage";
 import { getColors } from "@/constants/colors";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
+import { BOOKING_REQUEST_BADGE_LABEL } from "@/utils/booking-request-actions";
 import type { BookingListItemData } from "./useBookingListItemData";
 
 interface TimeAndDateRowProps {
@@ -37,7 +38,7 @@ export function BadgesRow({ isPending, isPendingPayment }: BadgesRowProps) {
       ) : null}
       {isPending ? (
         <View className="mb-1 mr-2 rounded bg-cal-accent-warning px-2 py-0.5">
-          <Text className="text-xs font-medium text-white">Unconfirmed</Text>
+          <Text className="text-xs font-medium text-white">{BOOKING_REQUEST_BADGE_LABEL}</Text>
         </View>
       ) : null}
     </View>
@@ -140,6 +141,7 @@ export function MeetingLink({ meetingInfo }: MeetingLinkProps) {
 interface ConfirmRejectButtonsProps {
   booking: Booking;
   isPending: boolean;
+  canConfirmOrReject: boolean;
   isConfirming: boolean;
   isDeclining: boolean;
   onConfirm: (booking: Booking) => void;
@@ -149,6 +151,7 @@ interface ConfirmRejectButtonsProps {
 export function ConfirmRejectButtons({
   booking,
   isPending,
+  canConfirmOrReject,
   isConfirming,
   isDeclining,
   onConfirm,
@@ -162,7 +165,7 @@ export function ConfirmRejectButtons({
   const endDateStr = booking.endTime || booking.end;
   const isPast = endDateStr ? new Date(endDateStr) < new Date() : false;
 
-  if (!isPending || isPast) return null;
+  if (!isPending || isPast || !canConfirmOrReject) return null;
   return (
     <>
       <TouchableOpacity

@@ -1,0 +1,9 @@
+appId: ${APP_ID}
+name: Launch app
+tags:
+  - util
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    stopApp: true

@@ -5,6 +5,7 @@ import React from "react";
 import { Pressable, useColorScheme, View } from "react-native";
 import type { SFSymbols7_0 } from "sf-symbols-typescript";
 import { getBookingActions } from "@/utils/booking-actions";
+import { getBookingRequestActionState } from "@/utils/booking-request-actions";
 import {
   BadgesRow,
   BookingDescription,
@@ -19,6 +20,7 @@ import { useBookingListItemData } from "./useBookingListItemData";
 
 export const BookingListItem: React.FC<BookingListItemProps> = ({
   booking,
+  userId,
   userEmail,
   isConfirming,
   isDeclining,
@@ -57,6 +59,15 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
       isOnline: true, // Assume online
     });
   }, [booking, userEmail]);
+  const requestActionState = React.useMemo(
+    () =>
+      getBookingRequestActionState({
+        booking,
+        currentUserId: userId,
+        currentUserEmail: userEmail,
+      }),
+    [booking, userId, userEmail]
+  );
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -201,6 +212,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
         <ConfirmRejectButtons
           booking={booking}
           isPending={isPending}
+          canConfirmOrReject={requestActionState.canReject}
           isConfirming={isConfirming}
           isDeclining={isDeclining}
           onConfirm={onConfirm}

@@ -26,7 +26,7 @@ const DEFAULT_REGION: CalRegion = "us";
 let currentRegion: CalRegion = DEFAULT_REGION;
 const listeners = new Set<(region: CalRegion) => void>();
 
-function isValidRegion(value: string | null): value is CalRegion {
+export function isValidRegion(value: string | null): value is CalRegion {
   return value === "us" || value === "eu";
 }
 
@@ -64,6 +64,9 @@ export async function preloadRegion(): Promise<CalRegion> {
   }
   return currentRegion;
 }
+
+// Await before calling getRegion() in async contexts that mount before AuthProvider.
+export const regionPreloaded: Promise<CalRegion> = preloadRegion();
 
 export function getRegion(): CalRegion {
   return currentRegion;

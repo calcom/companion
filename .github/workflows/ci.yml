@@ -14,6 +14,36 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect Changed Paths
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 5
+    outputs:
+      mobile: ${{ steps.mobile.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check mobile-affecting changes
+        id: mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git diff --name-only "${{ github.event.pull_request.base.sha }}" "$GITHUB_SHA" > changed-files.txt
+          elif [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+            git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" > changed-files.txt
+          else
+            git diff --name-only "${{ github.event.before }}" "$GITHUB_SHA" > changed-files.txt
+          fi
+
+          if grep -Eq '^(apps/mobile(/|$)|bun\.lock$|package\.json$|\.github/workflows/ci\.yml$)' changed-files.txt; then
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mobile=false" >> "$GITHUB_OUTPUT"
+          fi
+
   lint:
     name: Lint
     runs-on: blacksmith-2vcpu-ubuntu-2404
@@ -47,6 +77,123 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Type check
         run: bun run typecheck
+
+  mobile-jest:
+    name: Mobile Jest Tests
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.3.0
+          cache: true
+          cache-dependency-path: bun.lock
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Run mobile Jest tests
+        run: bun run mobile:test
+
+  mobile-maestro-android:
+    name: Mobile Maestro Android
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: true
+      EXPO_NO_TELEMETRY: 1
+      MAESTRO_VERSION: 2.6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.3.0
+          cache: true
+          cache-dependency-path: bun.lock
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Enable KVM group permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Validate Maestro flow syntax
+        run: bun run mobile:e2e:check
+      - name: Create CI Google services file
+        working-directory: apps/mobile
+        run: |
+          cat > google-services.ci.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "1",
+              "project_id": "cal-companion-ci",
+              "storage_bucket": "cal-companion-ci.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:1:android:ci",
+                  "android_client_info": {
+                    "package_name": "com.calcom.companion"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "ci"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
+          echo "GOOGLE_SERVICES_JSON=./google-services.ci.json" >> "$GITHUB_ENV"
+      - name: Generate Android project
+        working-directory: apps/mobile
+        run: EXPO_NO_GIT_STATUS=1 bunx expo prebuild --platform android --no-install
+      - name: Build Android release APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+      - name: Run Android Maestro smoke flows
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+            mkdir -p apps/mobile/maestro-results/android
+            maestro test -e APP_ID=com.calcom.companion --exclude-tags=ios-only --format JUNIT --output apps/mobile/maestro-results/android/report.xml --test-output-dir apps/mobile/maestro-results/android/artifacts --debug-output apps/mobile/maestro-results/android/debug --flatten-debug-output apps/mobile/maestro
+      - name: Upload Maestro artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-maestro-android
+          path: apps/mobile/maestro-results/android
+          if-no-files-found: ignore
 
   build:
     name: Build

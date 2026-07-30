@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
 import { Platform } from "react-native";
 import { queryKeys } from "@/config/cache.config";
+import { useAuth } from "@/contexts/AuthContext";
 import { type Booking, CalComAPIService } from "@/services/calcom";
 import {
   clearWidgetBookings,
@@ -11,16 +12,10 @@ import {
 
 export function useWidgetSync() {
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
 
   const syncBookingsToWidget = useCallback(async () => {
-    if (__DEV__) {
-      console.log("[Widget Debug] syncBookingsToWidget called, Platform:", Platform.OS);
-    }
-
     if (Platform.OS === "web") {
-      if (__DEV__) {
-        console.log("[Widget Debug] Skipping - web platform");
-      }
       return;
     }
 
@@ -36,14 +31,6 @@ export function useWidgetSync() {
     let cachedBookings: Booking[] | undefined;
     for (const filters of possibleFilters) {
       const cached = queryClient.getQueryData<Booking[]>(queryKeys.bookings.list(filters));
-      if (__DEV__) {
-        console.log(
-          "[Widget Debug] Checking cache for filters:",
-          JSON.stringify(filters),
-          "found:",
-          cached?.length ?? 0
-        );
-      }
       if (cached !== undefined && cached.length > 0) {
         cachedBookings = cached;
         break;
@@ -51,20 +38,6 @@ export function useWidgetSync() {
     }
 
     if (cachedBookings !== undefined && cachedBookings.length > 0) {
-      if (__DEV__) {
-        console.log("[Widget Debug] Using cached bookings, count:", cachedBookings.length);
-        console.log("[Widget Debug] Current time (UTC):", new Date().toISOString());
-      }
-
-      // Log each booking's times for debugging - check both property name formats
-      if (__DEV__) {
-        cachedBookings.slice(0, 3).forEach((booking, i) => {
-          console.log(
-            `[Widget Debug] Booking ${i}: startTime=${booking.startTime}, start=${booking.start}, endTime=${booking.endTime}, end=${booking.end}`
-          );
-        });
-      }
-
       try {
         // Filter bookings that haven't ended yet (includes ongoing meetings)
         // Sort by start time to show soonest first
@@ -73,19 +46,10 @@ export function useWidgetSync() {
           .filter((booking) => {
             const endTimeStr = booking.endTime || booking.end;
             if (!endTimeStr) {
-              if (__DEV__) {
-                console.log(`[Widget Debug] Booking ${booking.id}: No end time found, skipping`);
-              }
               return false;
             }
             const endTime = new Date(endTimeStr);
-            const isUpcoming = endTime > new Date();
-            if (__DEV__) {
-              console.log(
-                `[Widget Debug] Booking ${booking.id}: endTime=${endTime.toISOString()}, isUpcoming=${isUpcoming}`
-              );
-            }
-            return isUpcoming;
+            return endTime > new Date();
           })
           .sort((a, b) => {
             const aStart = new Date(a.startTime || a.start || "").getTime();
@@ -93,27 +57,17 @@ export function useWidgetSync() {
             return aStart - bStart;
           });
 
-        if (__DEV__) {
-          console.log("[Widget Debug] Filtered upcoming bookings, count:", upcomingBookings.length);
-        }
         await updateWidgetBookings(upcomingBookings);
       } catch (error) {
         console.warn("Failed to sync cached bookings to widget:", error);
       }
     } else {
       // No cached data found, fetch from API
-      if (__DEV__) {
-        console.log("[Widget Debug] No cached data, fetching from API...");
-      }
       try {
         const bookings = await CalComAPIService.getBookings({
           status: ["upcoming"],
           limit: 10,
         });
-
-        if (__DEV__) {
-          console.log("[Widget Debug] API returned bookings, count:", bookings.length);
-        }
 
         // Filter bookings that haven't ended yet (includes ongoing meetings)
         const upcomingBookings = bookings
@@ -123,12 +77,6 @@ export function useWidgetSync() {
           })
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
-        if (__DEV__) {
-          console.log(
-            "[Widget Debug] Filtered upcoming bookings from API, count:",
-            upcomingBookings.length
-          );
-        }
         await updateWidgetBookings(upcomingBookings);
       } catch (error) {
         console.warn("Failed to fetch and sync bookings to widget:", error);
@@ -140,13 +88,19 @@ export function useWidgetSync() {
     if (Platform.OS === "web") {
       return;
     }
+    // Skip the initial sync (and the API fallback inside syncBookingsToWidget)
+    // until auth is verified — otherwise the hook fires on every cold start
+    // before tokens are loaded and triggers an unauthenticated /bookings request.
+    if (!isAuthenticated) {
+      return;
+    }
 
     syncBookingsToWidget();
 
     const cleanup = setupWidgetRefreshOnAppStateChange(syncBookingsToWidget);
 
     return cleanup;
-  }, [syncBookingsToWidget]);
+  }, [syncBookingsToWidget, isAuthenticated]);
 
   return {
     syncBookingsToWidget,

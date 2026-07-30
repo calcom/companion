@@ -4,10 +4,10 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **35 tools** covering Bookings, Event Types, Schedules, Availability, Calendars, Conferencing, Routing Forms, Organizations, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **57 tools** covering Bookings, Event Types, CRM Sync Errors, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
-- **Per-user token storage** — encrypted at rest with AES-256-GCM in SQLite
+- **Per-user token storage** — encrypted at rest with AES-256-GCM in Postgres
 - **Structured error handling** with clean MCP error responses
 - **Zod-validated inputs** for every tool
 
@@ -15,7 +15,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ### Prerequisites
 
-- Node.js >= 18
+- Node.js >= 22
 - [Bun](https://bun.sh/) (for workspace install)
 - A Cal.com API key ([get one here](https://app.cal.com/settings/developer/api-keys))
 
@@ -57,9 +57,13 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 | `CAL_OAUTH_CLIENT_SECRET` | Yes | — | Cal.com OAuth client secret |
 | `TOKEN_ENCRYPTION_KEY` | Yes | — | 64-char hex string (32 bytes) for AES-256-GCM token encryption |
 | `MCP_SERVER_URL` | Yes | — | Public URL of this server (e.g. `https://mcp.example.com`) |
-| `DATABASE_PATH` | No | `mcp-server.db` | SQLite database file path |
+| `CAL_OAUTH_SCOPES` | No | Core scopes plus `ORG_BOOKING_READ TEAM_BOOKING_READ TEAM_EVENT_TYPE_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ ORG_ATTRIBUTES_READ ORG_ATTRIBUTES_WRITE` | Space-separated Cal.com OAuth scopes requested during authorization |
+| `DATABASE_URL` | Yes | — | Postgres connection string for HTTP OAuth state and token storage |
 | `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate limit window in ms (per IP) |
 | `RATE_LIMIT_MAX` | No | `30` | Max OAuth requests per window per IP |
+| `ALLOWED_REDIRECT_HOSTS` | No | — | Comma-separated allowlist of hostnames for non-loopback `https` redirect URIs at client registration. Loopback is always allowed; non-loopback cleartext `http` is always rejected. When unset, external hosts are rejected. |
+| `ALLOW_OPEN_REDIRECT_REGISTRATION` | No | `false` | Unsafe/dev-only escape hatch that allows any external `https` redirect URI when no allowlist is configured. Do not set in production. |
+| `CORS_ORIGIN` | No | `MCP_SERVER_URL` origin | Browser CORS origin for remote HTTP clients. Set this when the browser client origin differs from the MCP server origin. |
 | `OPENAI_APPS_CHALLENGE_TOKEN` | No | — | Token served at `/.well-known/openai-apps-challenge` for OpenAI Apps domain verification. When unset, the endpoint returns 404. |
 
 ## Transport Modes
@@ -164,12 +168,12 @@ The HTTP server implements a full OAuth 2.1 Authorization Server. MCP clients co
 2. **Client starts auth** → `GET /oauth/authorize` with `client_id`, `redirect_uri`, `code_challenge` (S256), `state`
 3. **Server redirects to Cal.com** → user authorizes on Cal.com
 4. **Cal.com redirects back** → `GET /oauth/callback` with `code` + `state`
-5. **Server exchanges code** → calls Cal.com token endpoint, stores encrypted Cal.com tokens in SQLite
+5. **Server exchanges code** → calls Cal.com token endpoint, stores encrypted Cal.com tokens in Postgres
 6. **Server redirects to client** → with an authorization `code` + original `state`
 7. **Client exchanges code** → `POST /oauth/token` with `code`, `code_verifier`, `redirect_uri` → receives `access_token` + `refresh_token`
 8. **Client uses token** → `POST /mcp` with `Authorization: Bearer <access_token>`
 
-The server acts as an intermediary: it issues its own access tokens to MCP clients, and each token maps to encrypted Cal.com credentials stored in SQLite. When Cal.com tokens expire, the server auto-refreshes them transparently.
+The server acts as an intermediary: it issues its own access tokens to MCP clients, and each token maps to encrypted Cal.com credentials stored in Postgres. When Cal.com tokens expire, the server auto-refreshes them transparently.
 
 **Security:**
 - All Cal.com tokens are encrypted at rest with AES-256-GCM (via `TOKEN_ENCRYPTION_KEY`)
@@ -177,8 +181,9 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - Auth codes are single-use
 - Expired tokens are cleaned up automatically every 5 minutes
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
+- Redirect URIs registered via dynamic client registration are constrained: loopback (`localhost` / `127.0.0.0/8` / `::1`) is always allowed, cleartext `http` to non-loopback hosts is always rejected, and non-loopback `https` hosts require `ALLOWED_REDIRECT_HOSTS` unless `ALLOW_OPEN_REDIRECT_REGISTRATION=true` is explicitly set for unsafe/dev use
 
-## Tools (35)
+## Tools (56)
 
 Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specification/draft/server/tools#tool-annotations) — a human-readable `title` plus behaviour hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP clients can render them appropriately and apply safety policies.
 
@@ -197,11 +202,15 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 | `get_me` | Get My Profile | Read | Get authenticated user profile |
 | `update_me` | Update My Profile | Update | Update user profile |
 
-### Event Types (5)
+### Event Types (9)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_event_types` | List Event Types | Read | List all event types |
 | `get_event_type` | Get Event Type | Read | Get a specific event type by ID |
+| `get_event_type_settings` | Get Event Type Settings | Read | Get the full event type settings; supports org-scoped team event types via orgId + teamId |
+| `get_crm_sync_errors` | List CRM Sync Errors | Read | List active/current CRM sync errors for an event type and app slug; optionally include dismissed historical errors |
+| `get_event_type_history` | Get Event Type History | Read | Get the audit history (change log) for an event type |
+| `get_scheduling_config` | Get Scheduling Config | Read | Get scheduling configuration for a team event type |
 | `create_event_type` | Create Event Type | Create | Create a new event type |
 | `update_event_type` | Update Event Type | Update | Update an event type |
 | `delete_event_type` | Delete Event Type | Destructive | Delete an event type |
@@ -246,25 +255,64 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 |---|---|---|---|
 | `get_conferencing_apps` | List Conferencing Apps | Read | List conferencing applications |
 
+### Booking Routing Trace (1)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_booking_routing_trace` | Get Booking Routing Trace | Read | Get the step-by-step routing decision path for a booking (routing form evaluation, CRM lookups, host selection). Only for bookings that completed routing. |
+
 ### Routing Forms (1)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `calculate_routing_form_slots` | Calculate Routing Form Slots | Create | Submit a routing form response and get available slots |
 
+### Organizations: Attributes (8)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_org_attributes` | List Org Attributes | Read | List attributes defined for an organization |
+| `get_org_attribute` | Get Org Attribute | Read | Get a single organization attribute by ID |
+| `get_attribute_options` | List Attribute Options | Read | List available options for a select attribute |
+| `get_user_attributes` | Get User Attributes | Read | Get attribute options assigned to a user |
+| `get_user_attribute_history` | Get User Attribute History | Read | Get the attribute assignment history (audit log) for a user |
+| `assign_attribute_to_user` | Assign Attribute to User | Create | Assign an attribute option or value to a user |
+| `update_user_attribute` | Update User Attribute Assignment | Update | Update an existing user attribute assignment |
+| `unassign_attribute_from_user` | Unassign Attribute from User | Destructive | Remove an attribute option assignment from a user |
+
+### Organizations: Bookings (2)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_org_team_bookings` | List Org Team Bookings | Read | List bookings for a team within an organization |
+| `get_org_user_bookings` | List Org User Bookings | Read | List bookings for a specific user within an organization |
+
 ### Organizations: Memberships (5)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
-| `get_org_memberships` | List Org Memberships | Read | Get all organization memberships |
+| `get_org_memberships` | List Org Memberships | Read | Get all organization memberships; supports `take`/`skip` pagination (`take` max 250) |
 | `create_org_membership` | Create Org Membership | Create | Create an organization membership |
 | `get_org_membership` | Get Org Membership | Read | Get an organization membership |
 | `update_org_membership` | Update Org Membership | Update | Update an organization membership (role, accepted, impersonation) |
 | `delete_org_membership` | Delete Org Membership | Destructive | Delete an organization membership |
+
+### Organizations: Teams (2)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_org_teams` | List All Org Teams | Read | List all teams in an organization; requires org admin access; supports `take`/`skip` pagination (`take` max 250) |
+| `get_my_teams` | List My Teams | Read | List teams the authenticated user belongs to; supports `take`/`skip` pagination (`take` max 250) |
 
 ### Organizations: Routing Forms (2)
 | Tool | Title | Hint | Description |
 |---|---|---|---|
 | `get_org_routing_forms` | List Org Routing Forms | Read | Get organization routing forms |
 | `get_org_routing_form_responses` | List Org Routing Form Responses | Read | Get routing form responses |
+
+### Teams: Memberships (6)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_team_memberships` | List Team Memberships | Read | Get all team memberships; supports `take`/`skip` pagination (`take` max 250) and email filtering |
+| `get_team_membership` | Get Team Membership | Read | Get a team membership |
+| `create_team_membership` | Create Team Membership | Create | Create a team membership (role defaults to `MEMBER`) |
+| `update_team_membership` | Update Team Membership | Update | Update a team membership (accepted, role, impersonation) |
+| `delete_team_membership` | Delete Team Membership | Destructive | Delete a team membership |
+| `create_team_invite` | Create Team Invite | Create | Generate a team invite link |
 
 ### API Version Notes
 

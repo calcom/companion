@@ -1,4 +1,5 @@
-import { exec } from "node:child_process";
+import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import * as http from "node:http";
 import process from "node:process";
 import * as readline from "node:readline";
@@ -77,20 +78,42 @@ function promptMasked(question: string): Promise<string> {
   });
 }
 
-function openBrowser(url: string): void {
-  const platform = process.platform;
-  const cmd =
-    platform === "darwin"
-      ? `open "${url}"`
-      : platform === "win32"
-        ? `start "" "${url}"`
-        : `xdg-open "${url}"`;
+function generateOAuthState(): string {
+  return randomBytes(32).toString("base64url");
+}
 
-  exec(cmd, (err) => {
-    if (err) {
-      renderError(`Could not open browser automatically. Please visit:\n  ${url}`);
-    }
+type BrowserLaunchCommand = {
+  command: string;
+  args: string[];
+};
+
+export function getBrowserLaunchCommand(
+  url: string,
+  platform: NodeJS.Platform = process.platform
+): BrowserLaunchCommand {
+  if (platform === "darwin") {
+    return { command: "open", args: [url] };
+  }
+
+  if (platform === "win32") {
+    return { command: "rundll32", args: ["url.dll,FileProtocolHandler", url] };
+  }
+
+  return { command: "xdg-open", args: [url] };
+}
+
+function openBrowser(url: string): void {
+  const { command, args } = getBrowserLaunchCommand(url);
+  const child = spawn(command, args, {
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true,
   });
+
+  child.once("error", () => {
+    renderError(`Could not open browser automatically. Please visit:\n  ${url}`);
+  });
+  child.unref();
 }
 
 export class ApiKeyAuth {
@@ -153,7 +176,8 @@ export class OAuthAuth {
       throw new Error("OAuth Client ID is required.");
     }
 
-    const clientSecret = this.clientSecret || (await promptMasked("Enter your OAuth Client Secret: "));
+    const clientSecret =
+      this.clientSecret || (await promptMasked("Enter your OAuth Client Secret: "));
     if (!clientSecret) {
       throw new Error("OAuth Client Secret is required.");
     }
@@ -170,20 +194,28 @@ export class OAuthAuth {
     }
 
     const redirectUri = `http://localhost:${this.port}/callback`;
-    const authorizeUrl = this.buildAuthorizeUrl(clientId, redirectUri);
+    const state = generateOAuthState();
+    const authorizeUrl = this.buildAuthorizeUrl(clientId, redirectUri, state);
+
+    const callback = this.handleOAuthCallback(clientId, clientSecret, redirectUri, state);
+    callback.completion.catch(() => undefined);
+    await callback.ready;
 
     console.log("\nOpening browser for authorization...");
     console.log(`If the browser doesn't open, visit this URL:\n  ${authorizeUrl}\n`);
     openBrowser(authorizeUrl);
 
     console.log("Waiting for authorization callback...");
-    await this.handleOAuthCallback(clientId, clientSecret, redirectUri);
+    await callback.completion;
     renderSuccess("OAuth login successful!");
   }
 
-  private buildAuthorizeUrl(clientId: string, redirectUri: string): string {
+  private buildAuthorizeUrl(
+    clientId: string,
+    redirectUri: string,
+    state = generateOAuthState()
+  ): string {
     const baseUrl = getAppUrl();
-    const state = Math.random().toString(36).substring(2, 15);
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -196,67 +228,105 @@ export class OAuthAuth {
     return `${baseUrl}${OAuthAuth.AUTHORIZE_PATH}?${params.toString()}`;
   }
 
-  private handleOAuthCallback(clientId: string, clientSecret: string, redirectUri: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        server.close();
-        reject(new Error("OAuth authorization timed out after 5 minutes."));
-      }, OAuthAuth.CALLBACK_TIMEOUT);
+  private handleOAuthCallback(
+    clientId: string,
+    clientSecret: string,
+    redirectUri: string,
+    expectedState: string
+  ): { ready: Promise<void>; completion: Promise<void> } {
+    let resolveCompletion!: () => void;
+    let rejectCompletion!: (reason?: unknown) => void;
+    let settled = false;
 
-      const server = http.createServer(async (req, res) => {
-        if (!req.url) {
-          res.writeHead(400);
-          res.end("Bad request");
-          return;
-        }
-
-        const url = new URL(req.url, `http://localhost:${this.port}`);
-        const code = url.searchParams.get("code");
-        const error = url.searchParams.get("error");
-
-        if (error) {
-          const errorDesc = url.searchParams.get("error_description") || error;
-          res.writeHead(400, { "Content-Type": "text/html" });
-          res.end(errorPage(errorDesc));
-          clearTimeout(timeout);
-          server.close();
-          reject(new Error(`OAuth error: ${error}`));
-          return;
-        }
-
-        if (!code) {
-          res.writeHead(400);
-          res.end("Missing authorization code. Please try again.");
-          return;
-        }
-
-        console.log("Exchanging authorization code for tokens...");
-
-        try {
-          const tokens = await this.exchangeCode(clientId, clientSecret, code, redirectUri);
-          this.saveTokens(clientId, clientSecret, tokens);
-          res.writeHead(200, { "Content-Type": "text/html" });
-          res.end(successPage());
-          clearTimeout(timeout);
-          server.close();
-          resolve();
-        } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : "Token exchange failed";
-          res.writeHead(400, { "Content-Type": "text/html" });
-          res.end(errorPage(errorMsg));
-          clearTimeout(timeout);
-          server.close();
-          reject(err);
-        }
-      });
-
-      server.on("error", (err) => {
-        clearTimeout(timeout);
-        reject(new Error(`Failed to start callback server: ${err.message}`));
-      });
-
-      server.listen(this.port, "127.0.0.1");
+    const completion = new Promise<void>((resolve, reject) => {
+      resolveCompletion = resolve;
+      rejectCompletion = reject;
     });
+
+    const server = http.createServer(async (req, res) => {
+      if (!req.url) {
+        res.writeHead(400);
+        res.end("Bad request");
+        return;
+      }
+
+      const url = new URL(req.url, `http://localhost:${this.port}`);
+      const code = url.searchParams.get("code");
+      const state = url.searchParams.get("state");
+      const error = url.searchParams.get("error");
+
+      if (error) {
+        const errorDesc = url.searchParams.get("error_description") || error;
+        res.writeHead(400, { "Content-Type": "text/html" });
+        res.end(errorPage(errorDesc));
+        finish(new Error(`OAuth error: ${error}`));
+        return;
+      }
+
+      if (!state || state !== expectedState) {
+        res.writeHead(400, { "Content-Type": "text/html" });
+        res.end(errorPage("Invalid OAuth state. Please try logging in again."));
+        finish(new Error("Invalid OAuth state"));
+        return;
+      }
+
+      if (!code) {
+        res.writeHead(400);
+        res.end("Missing authorization code. Please try again.");
+        return;
+      }
+
+      console.log("Exchanging authorization code for tokens...");
+
+      try {
+        const tokens = await this.exchangeCode(clientId, clientSecret, code, redirectUri);
+        this.saveTokens(clientId, clientSecret, tokens);
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(successPage());
+        finish();
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Token exchange failed";
+        res.writeHead(400, { "Content-Type": "text/html" });
+        res.end(errorPage(errorMsg));
+        finish(err);
+      }
+    });
+
+    const timeout = setTimeout(() => {
+      finish(new Error("OAuth authorization timed out after 5 minutes."));
+    }, OAuthAuth.CALLBACK_TIMEOUT);
+
+    function finish(error?: unknown) {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      if (server.listening) {
+        server.close();
+      }
+
+      if (error) {
+        rejectCompletion(error);
+        return;
+      }
+
+      resolveCompletion();
+    }
+
+    const ready = new Promise<void>((resolve, reject) => {
+      server.once("error", (err) => {
+        const error = new Error(`Failed to start callback server: ${err.message}`);
+        reject(error);
+        finish(error);
+      });
+
+      server.listen(this.port, "127.0.0.1", () => {
+        resolve();
+      });
+    });
+
+    return { ready, completion };
   }
 
   private async exchangeCode(

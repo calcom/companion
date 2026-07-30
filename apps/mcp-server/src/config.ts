@@ -53,13 +53,40 @@ const httpSchema = baseSchema.extend({
   calOAuthScopes: z
     .string()
     .default(
-      "EVENT_TYPE_READ EVENT_TYPE_WRITE BOOKING_READ BOOKING_WRITE SCHEDULE_READ SCHEDULE_WRITE APPS_READ APPS_WRITE PROFILE_READ PROFILE_WRITE",
+      "EVENT_TYPE_READ EVENT_TYPE_WRITE BOOKING_READ BOOKING_WRITE SCHEDULE_READ SCHEDULE_WRITE APPS_READ APPS_WRITE PROFILE_READ PROFILE_WRITE ORG_BOOKING_READ TEAM_BOOKING_READ TEAM_EVENT_TYPE_READ ORG_MEMBERSHIP_READ ORG_MEMBERSHIP_WRITE ORG_ROUTING_FORM_READ ORG_ATTRIBUTES_READ ORG_ATTRIBUTES_WRITE"
     ),
   rateLimitWindowMs: z.coerce.number().int().positive().default(60_000),
   rateLimitMax: z.coerce.number().int().positive().default(30),
   maxSessions: z.coerce.number().int().positive().default(10_000),
-  sessionIdleTimeoutMs: z.coerce.number().int().positive().default(30 * 60 * 1000),
+  sessionIdleTimeoutMs: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30 * 60 * 1000),
   maxRegisteredClients: z.coerce.number().int().positive().default(10_000),
+  /**
+   * Comma-separated allowlist of hostnames permitted for non-loopback `https`
+   * redirect URIs at Dynamic Client Registration. Loopback redirect URIs are
+   * always allowed; cleartext `http` to non-loopback hosts is always rejected.
+   * When empty, external `https` hosts are rejected unless
+   * ALLOW_OPEN_REDIRECT_REGISTRATION=true is explicitly set. Loopback redirect
+   * URIs remain allowed for desktop/native clients.
+   */
+  allowedRedirectHosts: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val
+        ? val
+            .split(",")
+            .map((h) => h.trim().toLowerCase())
+            .filter(Boolean)
+        : []
+    ),
+  allowOpenRedirectRegistration: z
+    .enum(["true", "false", "1", "0"])
+    .transform((val) => val === "true" || val === "1")
+    .default("false"),
   trustProxy: z
     .enum(["true", "false", "1", "0"])
     .transform((val) => val === "true" || val === "1")
@@ -101,6 +128,8 @@ function readEnv(): Record<string, unknown> {
     maxSessions: process.env.MAX_SESSIONS || undefined,
     sessionIdleTimeoutMs: process.env.SESSION_IDLE_TIMEOUT_MS || undefined,
     maxRegisteredClients: process.env.MAX_REGISTERED_CLIENTS || undefined,
+    allowedRedirectHosts: process.env.ALLOWED_REDIRECT_HOSTS || undefined,
+    allowOpenRedirectRegistration: process.env.ALLOW_OPEN_REDIRECT_REGISTRATION || undefined,
     trustProxy: process.env.TRUST_PROXY || undefined,
     corsOrigin: process.env.CORS_ORIGIN || undefined,
     fetchTimeoutMs: process.env.FETCH_TIMEOUT_MS || undefined,
@@ -123,7 +152,9 @@ export function loadConfig(): AppConfig {
   if (transport === "http") {
     const result = httpSchema.safeParse(raw);
     if (!result.success) {
-      const issues = result.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
+      const issues = result.error.issues
+        .map((i) => `  ${i.path.join(".")}: ${i.message}`)
+        .join("\n");
       throw new Error(`Invalid HTTP mode configuration:\n${issues}`);
     }
     return result.data;

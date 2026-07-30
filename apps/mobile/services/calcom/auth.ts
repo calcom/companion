@@ -18,11 +18,123 @@ let tokenRefreshCallback:
 
 // Refresh token function - will be set by AuthContext
 let refreshTokenFunction:
-  | ((refreshToken: string) => Promise<{ accessToken: string; refreshToken?: string; expiresAt?: number }>)
+  | ((
+      refreshToken: string
+    ) => Promise<{ accessToken: string; refreshToken?: string; expiresAt?: number }>)
   | null = null;
 
 // Auth failure callback - invoked when 401 + refresh failure leaves the app in a zombie session
 let authFailureCallback: (() => Promise<void>) | null = null;
+
+type RefreshResult = { accessToken: string; refreshToken?: string; expiresAt?: number };
+
+// Single-flight refresh state: dedupe concurrent refreshes for the same
+// refresh token so parallel 401s trigger exactly one network refresh.
+let inFlightRefresh: { refreshToken: string; promise: Promise<RefreshResult> } | null = null;
+
+// Monotonic auth session generation ("epoch"). Bumped on every logout/clear and
+// on every new login/account switch. In-flight refreshes and requests capture
+// the generation when they start; if it changes before they finish, the session
+// they belonged to is gone, so their results must be discarded rather than
+// applied — otherwise a stale refresh could resurrect a logged-out identity or
+// a stale request could replay under a different user. A plain token-string
+// comparison can't tell "same session refreshed" apart from "logged out and
+// back in"; the generation can.
+let authGeneration = 0;
+
+/**
+ * Error thrown when an in-flight refresh resolves after the auth session it
+ * belonged to has been replaced (logout or account switch). Callers should
+ * abort rather than retry under the new identity.
+ */
+export class AuthSessionChangedError extends Error {
+  constructor() {
+    super("Auth session changed before the refresh completed.");
+    this.name = "AuthSessionChangedError";
+  }
+}
+
+/**
+ * Current auth session generation. Capture this when a request/refresh starts
+ * and re-check it before applying any result.
+ */
+export function getAuthGeneration(): number {
+  return authGeneration;
+}
+
+// Serial queue that makes auth/storage marker mutations atomic with respect to
+// one another. The epoch checks guard the *network-await* windows; this guards
+// the *storage read-modify-write* windows that no epoch recheck can close (e.g.
+// a rollback reading `cal_auth_type` and then removing it while a web-session
+// login writes "web_session" in between). Sections passed here MUST be short,
+// MUST NOT perform network I/O, and MUST NOT call runAuthTransition again
+// (nesting would self-deadlock the queue).
+let authTransitionChain: Promise<unknown> = Promise.resolve();
+
+// True only while a section's synchronous prefix runs. Used to catch the common
+// nesting mistake (a section directly calling runAuthTransition) without
+// false-positiving legitimate concurrent callers: a section's sync prefix can't
+// be interrupted, so any caller observing this flag set is nesting.
+//
+// This deliberately does NOT stay set across the section's own awaits: a
+// legitimate concurrent caller calls runAuthTransition synchronously while
+// another section is mid-await, and must be allowed to queue (not throw).
+// The cost is that async re-entry (a section awaiting, then re-calling
+// runAuthTransition) isn't caught and would deadlock — but no section does that
+// (sections are tiny storage writes that never re-enter), and catching it would
+// require AsyncLocalStorage context tracking, which isn't warranted here.
+let inSectionSyncPrefix = false;
+
+/**
+ * Run a storage/auth-marker critical section exclusively, serialized against
+ * every other such section. See the constraints on `authTransitionChain` above.
+ */
+export function runAuthTransition<T>(section: () => Promise<T>): Promise<T> {
+  if (inSectionSyncPrefix) {
+    throw new Error(
+      "runAuthTransition must not be called from within another auth-transition section (nesting would self-deadlock the serial queue)."
+    );
+  }
+  const guarded = (): Promise<T> => {
+    inSectionSyncPrefix = true;
+    try {
+      return section();
+    } finally {
+      inSectionSyncPrefix = false;
+    }
+  };
+  const result = authTransitionChain.then(guarded, guarded);
+  // Keep the chain alive regardless of this section's outcome.
+  authTransitionChain = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
+/**
+ * Begin a new auth session generation. Call at the start of every login /
+ * account switch so any in-flight work from the previous identity is
+ * invalidated. Returns the new generation.
+ */
+export function beginAuthGeneration(): number {
+  authGeneration += 1;
+  inFlightRefresh = null;
+  return authGeneration;
+}
+
+/**
+ * Advance the auth generation WITHOUT clearing the current tokens. Call at the
+ * very start of logout: pre-logout cleanup (e.g. push deregistration) still
+ * needs a valid Bearer token, but any refresh/request/registration that
+ * resolves during the (potentially slow) logout sequence must be treated as
+ * belonging to a now-dead session rather than applied. `clearAuth()` advances
+ * the generation again once the tokens are actually cleared.
+ */
+export function invalidateAuthSession(): void {
+  authGeneration += 1;
+  inFlightRefresh = null;
+}
 
 /**
  * Set OAuth access token for authentication
@@ -38,20 +150,88 @@ export function setAccessToken(accessToken: string, refreshToken?: string): void
  * Set refresh token function for automatic token refresh
  */
 export function setRefreshTokenFunction(
-  refreshFn: (refreshToken: string) => Promise<{ accessToken: string; refreshToken?: string; expiresAt?: number }>
+  refreshFn: (
+    refreshToken: string
+  ) => Promise<{ accessToken: string; refreshToken?: string; expiresAt?: number }>
 ): void {
   refreshTokenFunction = refreshFn;
 }
 
 /**
- * Clear all authentication
+ * Clear authentication token state (access + refresh tokens).
+ *
+ * Deliberately does NOT clear the callback functions: a 401-driven logout or a
+ * normal logout must not erase the mounted AuthProvider's callbacks, otherwise
+ * a subsequent login -> 401 could not refresh (the refresh path requires
+ * `tokenRefreshCallback`). Use `clearAuthCallbacks()` on provider unmount.
  */
 export function clearAuth(): void {
   authConfig.accessToken = undefined;
   authConfig.refreshToken = undefined;
+  inFlightRefresh = null;
+  // Advance the epoch so any in-flight refresh/request from this session is
+  // discarded instead of being applied after logout.
+  authGeneration += 1;
+}
+
+/**
+ * Clear the auth callback functions. Only the AuthProvider should call this,
+ * and only on unmount — not on logout or 401 recovery.
+ */
+export function clearAuthCallbacks(): void {
   tokenRefreshCallback = null;
   refreshTokenFunction = null;
   authFailureCallback = null;
+  inFlightRefresh = null;
+}
+
+/**
+ * Refresh the auth tokens, coalescing concurrent callers that share the same
+ * refresh token into a single network refresh (single-flight). On success the
+ * in-memory auth config is updated and the token-refresh callback is notified
+ * so AuthContext can persist the new tokens.
+ */
+export function refreshAuthTokensSingleFlight(refreshToken: string): Promise<RefreshResult> {
+  if (inFlightRefresh && inFlightRefresh.refreshToken === refreshToken) {
+    return inFlightRefresh.promise;
+  }
+
+  const refreshFn = refreshTokenFunction;
+  if (!refreshFn) {
+    return Promise.reject(new Error("No refresh token function configured."));
+  }
+  const onTokensRefreshed = tokenRefreshCallback;
+  const generationAtStart = authGeneration;
+
+  const promise = (async () => {
+    const newTokens = await refreshFn(refreshToken);
+    // The session was logged out or switched while the refresh was in flight.
+    // Applying these tokens now would resurrect the previous identity, so
+    // discard the result and let the caller abort.
+    if (authGeneration !== generationAtStart) {
+      throw new AuthSessionChangedError();
+    }
+    authConfig.accessToken = newTokens.accessToken;
+    if (newTokens.refreshToken) {
+      authConfig.refreshToken = newTokens.refreshToken;
+    }
+    // Notify AuthContext to persist the new tokens (including expiresAt for
+    // proactive refresh).
+    if (onTokensRefreshed) {
+      await onTokensRefreshed(newTokens.accessToken, newTokens.refreshToken, newTokens.expiresAt);
+    }
+    return newTokens;
+  })();
+
+  inFlightRefresh = { refreshToken, promise };
+  void promise
+    .catch(() => undefined)
+    .finally(() => {
+      if (inFlightRefresh?.promise === promise) {
+        inFlightRefresh = null;
+      }
+    });
+  return promise;
 }
 
 /**
