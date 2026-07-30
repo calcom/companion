@@ -1,4 +1,9 @@
 import { z } from "zod";
+import { calApi } from "../utils/api-client.js";
+import { extractCurrentUser, filterBookingsForCurrentUser } from "../utils/booking-participation.js";
+import { CalApiError } from "../utils/errors.js";
+import { sanitizePathSegment } from "../utils/path-sanitizer.js";
+import { handleError, ok } from "../utils/tool-helpers.js";
 import {
   type BookingFilterParams,
   type BookingTeamFilterParams,
@@ -6,20 +11,33 @@ import {
   bookingTeamFiltersSchema,
   buildBookingQueryParams,
 } from "./booking-filters.js";
-import { calApi } from "../utils/api-client.js";
-import { sanitizePathSegment } from "../utils/path-sanitizer.js";
-import { handleError, ok } from "../utils/tool-helpers.js";
 
 export const getBookingsSchema = {
   ...bookingFiltersSchema,
   ...bookingTeamFiltersSchema,
+  scope: z
+    .enum(["mine", "all"])
+    .optional()
+    .describe(
+      "Whose bookings to return. 'mine' (default) returns only bookings where the authenticated user is organizer, host, or attendee. 'all' returns every booking the API key/token can see — useful for admins who want the org-wide view. Pagination (take/skip) operates on the unfiltered API response, so 'mine' may return fewer than `take` items per page.",
+    ),
 };
 
-export async function getBookings(params: BookingFilterParams & BookingTeamFilterParams) {
+export async function getBookings(
+  params: BookingFilterParams & BookingTeamFilterParams & { scope?: "mine" | "all" }
+) {
   try {
     const qp = buildBookingQueryParams(params, { includeTeamFilters: true });
-    const data = await calApi("bookings", { params: qp });
-    return ok(data);
+    if (params.scope === "all") {
+      const data = await calApi("bookings", { params: qp });
+      return ok(data);
+    }
+    const [meRaw, data] = await Promise.all([calApi("me"), calApi("bookings", { params: qp })]);
+    const currentUser = extractCurrentUser(meRaw);
+    if (!currentUser) {
+      throw new CalApiError(502, "Unable to determine the authenticated user", undefined);
+    }
+    return ok(filterBookingsForCurrentUser(data, currentUser));
   } catch (err) {
     return handleError("get_bookings", err);
   }
