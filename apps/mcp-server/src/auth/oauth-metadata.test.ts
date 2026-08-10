@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildAuthorizationServerMetadata, buildProtectedResourceMetadata } from "./oauth-metadata.js";
+import {
+  buildAuthorizationServerMetadata,
+  buildProtectedResourceMetadata,
+  getMcpResourceUrl,
+  getProtectedResourceMetadataUrl,
+} from "./oauth-metadata.js";
 
 const config = { serverUrl: "https://mcp.example.com" };
 
@@ -23,5 +28,22 @@ describe("buildProtectedResourceMetadata", () => {
     expect(metadata.resource).toBe("https://mcp.example.com");
     expect(metadata.authorization_servers).toEqual(["https://mcp.example.com"]);
     expect(metadata.bearer_methods_supported).toEqual(["header"]);
+  });
+
+  it("identifies the canonical /mcp endpoint when it is the protected resource", () => {
+    const resourceUrl = getMcpResourceUrl(config.serverUrl);
+    const metadata = buildProtectedResourceMetadata(config, resourceUrl);
+
+    expect(resourceUrl).toBe("https://mcp.example.com/mcp");
+    expect(metadata.resource).toBe("https://mcp.example.com/mcp");
+    expect(metadata.authorization_servers).toEqual(["https://mcp.example.com"]);
+  });
+});
+
+describe("getProtectedResourceMetadataUrl", () => {
+  it("inserts the metadata path before the /mcp resource path", () => {
+    expect(getProtectedResourceMetadataUrl("https://mcp.example.com/mcp")).toBe(
+      "https://mcp.example.com/.well-known/oauth-protected-resource/mcp"
+    );
   });
 });

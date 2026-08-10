@@ -15,6 +15,8 @@ import {
 import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
+  getMcpResourceUrl,
+  getProtectedResourceMetadataUrl,
 } from "./auth/oauth-metadata.js";
 import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import { endPool, initDb, sql } from "./storage/db.js";
@@ -57,7 +59,7 @@ export interface HttpServerConfig {
  *   GET  /health — Health check
  *   GET  /.well-known/openai-apps-challenge — OpenAI Apps domain verification token
  *   GET  /.well-known/oauth-authorization-server — OAuth AS metadata
- *   GET  /.well-known/oauth-protected-resource — Protected resource metadata
+ *   GET  /.well-known/oauth-protected-resource/mcp — MCP protected resource metadata
  *   POST /oauth/register — Dynamic client registration
  *   GET  /oauth/authorize — Start OAuth flow (redirects to Cal.com)
  *   GET  /oauth/callback — Cal.com OAuth callback
@@ -133,6 +135,13 @@ export async function startHttpServer(
 
   const asMetadata = buildAuthorizationServerMetadata({ serverUrl: oauthConfig.serverUrl });
   const prMetadata = buildProtectedResourceMetadata({ serverUrl: oauthConfig.serverUrl });
+  const mcpResourceUrl = getMcpResourceUrl(oauthConfig.serverUrl);
+  const mcpResourceMetadataUrl = getProtectedResourceMetadataUrl(mcpResourceUrl);
+  const mcpResourceMetadataPath = new URL(mcpResourceMetadataUrl).pathname;
+  const mcpPrMetadata = buildProtectedResourceMetadata(
+    { serverUrl: oauthConfig.serverUrl },
+    mcpResourceUrl
+  );
 
   /** Add CORS headers if configured. */
   function setCorsHeaders(res: import("node:http").ServerResponse): void {
@@ -204,6 +213,12 @@ export async function startHttpServer(
       return;
     }
 
+    if (url.pathname === mcpResourceMetadataPath && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(mcpPrMetadata));
+      return;
+    }
+
     // ── OAuth flow endpoints (rate-limited) ──
     if (url.pathname.startsWith("/oauth/")) {
       const clientIp = getClientIp(req);
@@ -260,7 +275,7 @@ export async function startHttpServer(
       if (!bearerToken) {
         res.writeHead(401, {
           "Content-Type": "application/json",
-          "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
+          "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
         });
         res.end(
           JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" })
@@ -273,7 +288,7 @@ export async function startHttpServer(
         if (!calAuthHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
-            "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
+            "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
           });
           res.end(
             JSON.stringify({
@@ -307,7 +322,7 @@ export async function startHttpServer(
         if (!freshHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
-            "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
+            "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
           });
           res.end(
             JSON.stringify({
@@ -351,7 +366,7 @@ export async function startHttpServer(
         if (!calAuthHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
-            "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl}/.well-known/oauth-protected-resource"`,
+            "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
           });
           res.end(
             JSON.stringify({
