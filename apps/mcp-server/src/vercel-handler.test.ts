@@ -73,6 +73,26 @@ describe("Vercel OAuth metadata", () => {
     });
   });
 
+  it("serves metadata that identifies the root protected resource", async () => {
+    const { default: handler } = await import("./vercel-handler.js");
+    const response = createResponse();
+
+    await handler(
+      {
+        method: "GET",
+        url: "/.well-known/oauth-protected-resource",
+        headers: { host: "mcp.example.com" },
+      } as IncomingMessage,
+      response
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toMatchObject({
+      resource: "https://mcp.example.com",
+      authorization_servers: ["https://mcp.example.com"],
+    });
+  });
+
   it("challenges an unauthenticated /mcp request with path-aware metadata", async () => {
     const { default: handler } = await import("./vercel-handler.js");
     const response = createResponse();
@@ -89,6 +109,25 @@ describe("Vercel OAuth metadata", () => {
     expect(response.statusCode).toBe(401);
     expect(response.headers["WWW-Authenticate"]).toBe(
       'Bearer resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp"'
+    );
+  });
+
+  it("challenges an unauthenticated root request with root metadata", async () => {
+    const { default: handler } = await import("./vercel-handler.js");
+    const response = createResponse();
+
+    await handler(
+      {
+        method: "GET",
+        url: "/",
+        headers: { host: "mcp.example.com" },
+      } as IncomingMessage,
+      response
+    );
+
+    expect(response.statusCode).toBe(401);
+    expect(response.headers["WWW-Authenticate"]).toBe(
+      'Bearer resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource"'
     );
   });
 });
