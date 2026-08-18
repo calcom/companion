@@ -111,7 +111,7 @@ This starts a StreamableHTTP server with OAuth 2.1 authentication:
 
 **OAuth 2.1 endpoints:**
 - `GET  /.well-known/oauth-authorization-server` — Authorization server metadata (RFC 8414)
-- `GET  /.well-known/oauth-protected-resource` — Protected resource metadata (RFC 9728)
+- `GET  /.well-known/oauth-protected-resource/mcp` — Protected resource metadata for the canonical `/mcp` endpoint (RFC 9728)
 - `POST /oauth/register` — Dynamic client registration (RFC 7591)
 - `GET  /oauth/authorize` — Start authorization flow (redirects to Cal.com)
 - `GET  /oauth/callback` — Cal.com OAuth callback (exchanges code for tokens)

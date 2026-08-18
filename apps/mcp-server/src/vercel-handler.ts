@@ -16,6 +16,8 @@ import {
 import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
+  getMcpResourceUrl,
+  getProtectedResourceMetadataUrl,
 } from "./auth/oauth-metadata.js";
 import { type HttpConfig, loadConfig } from "./config.js";
 import { registerTools } from "./register-tools.js";
@@ -103,6 +105,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+  const mcpResourceUrl = getMcpResourceUrl(oauthConfig.serverUrl);
+  const mcpResourceMetadataUrl = getProtectedResourceMetadataUrl(mcpResourceUrl);
+  const mcpResourceMetadataPath = new URL(mcpResourceMetadataUrl).pathname;
 
   // ── Health check ──
   if (url.pathname === "/health") {
@@ -147,6 +152,15 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.end(JSON.stringify(buildProtectedResourceMetadata({ serverUrl: oauthConfig.serverUrl })));
     return;
   }
+  if (url.pathname === mcpResourceMetadataPath && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify(
+        buildProtectedResourceMetadata({ serverUrl: oauthConfig.serverUrl }, mcpResourceUrl)
+      )
+    );
+    return;
+  }
 
   // ── OAuth endpoints ──
   if (url.pathname === "/oauth/register") {
@@ -182,13 +196,17 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   // Accept both /mcp (canonical) and / (base URL) so that Claude.ai works whether
   // the user enters "https://mcp.cal.com" or "https://mcp.cal.com/mcp".
   if (url.pathname === "/mcp" || url.pathname === "/") {
+    const resourceMetadataUrl =
+      url.pathname === "/mcp"
+        ? mcpResourceMetadataUrl
+        : getProtectedResourceMetadataUrl(oauthConfig.serverUrl);
     const authHeader = req.headers.authorization;
     const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
 
     if (!bearerToken) {
       res.writeHead(401, {
         "Content-Type": "application/json",
-        "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl.replace(/\/+$/, "")}/.well-known/oauth-protected-resource"`,
+        "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`,
       });
       res.end(
         JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" })
@@ -200,7 +218,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (!calAuthHeaders) {
       res.writeHead(401, {
         "Content-Type": "application/json",
-        "WWW-Authenticate": `Bearer resource_metadata="${oauthConfig.serverUrl.replace(/\/+$/, "")}/.well-known/oauth-protected-resource"`,
+        "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`,
       });
       res.end(
         JSON.stringify({
