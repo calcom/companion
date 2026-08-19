@@ -18,13 +18,19 @@
       }
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "appleTeamId": "ADWKXDJV75",
       "deploymentTarget": "18.0",
       "bundleIdentifier": "com.cal.companion",
       "userInterfaceStyle": "automatic",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UISupportedInterfaceOrientations~ipad": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
+        ]
       },
       "entitlements": {
         "com.apple.developer.default-data-protection": "NSFileProtectionComplete",
