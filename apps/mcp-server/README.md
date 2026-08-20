@@ -183,7 +183,7 @@ The server acts as an intermediary: it issues its own access tokens to MCP clien
 - In-process rate limiting on all OAuth endpoints (token bucket per IP, configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`)
 - Redirect URIs registered via dynamic client registration are constrained: loopback (`localhost` / `127.0.0.0/8` / `::1`) is always allowed, cleartext `http` to non-loopback hosts is always rejected, and non-loopback `https` hosts require `ALLOWED_REDIRECT_HOSTS` unless `ALLOW_OPEN_REDIRECT_REGISTRATION=true` is explicitly set for unsafe/dev use
 
-## Tools (56)
+## Tools (62)
 
 Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specification/draft/server/tools#tool-annotations) — a human-readable `title` plus behaviour hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP clients can render them appropriately and apply safety policies.
 
@@ -238,6 +238,14 @@ Each tool exposes MCP [tool annotations](https://modelcontextprotocol.io/specifi
 | `update_schedule` | Update Schedule | Update | Update a schedule |
 | `delete_schedule` | Delete Schedule | Destructive | Delete a schedule |
 | `get_default_schedule` | Get Default Schedule | Read | Get default schedule |
+
+### Out of Office (4)
+| Tool | Title | Hint | Description |
+|---|---|---|---|
+| `get_ooo_entries` | List Out-of-Office Entries | Read | List the authenticated user's day-granular out-of-office entries |
+| `create_ooo_entry` | Create Out-of-Office Entry | Create | Create a day-granular out-of-office entry; use UTC timestamps and discover `toUserId` through membership tools |
+| `update_ooo_entry` | Update Out-of-Office Entry | Update | Update an out-of-office entry; provide both start and end when changing its date range |
+| `delete_ooo_entry` | Delete Out-of-Office Entry | Destructive | Permanently delete an out-of-office entry |
 
 ### Availability / Slots (1)
 | Tool | Title | Hint | Description |
