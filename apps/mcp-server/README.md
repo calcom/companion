@@ -4,7 +4,7 @@ A **Model Context Protocol (MCP)** server that wraps the [Cal.com Platform API v
 
 ## Features
 
-- **57 tools** covering Bookings, Event Types, CRM Sync Errors, Schedules, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
+- **62 tools** covering Bookings, Event Types, CRM Sync Errors, Schedules, Out of Office, Availability, Calendars, Conferencing, Booking Routing Trace, Routing Forms, Organizations, Teams, and User Profile (each with MCP tool annotations: `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - **Dual transport** — stdio for local dev tooling, StreamableHTTP for remote/production
 - **Dual auth** — API key for stdio (local dev), OAuth 2.1 Authorization Code + PKCE for HTTP (production)
 - **Per-user token storage** — encrypted at rest with AES-256-GCM in Postgres

@@ -8,6 +8,12 @@ const utcDateTime = z
     /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d{3})?Z$/,
     "Must be an ISO 8601 UTC timestamp in YYYY-MM-DDTHH:mm:ss(.sss)Z format."
   )
+  .refine((value) => {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return false;
+    const normalizedValue = value.includes(".") ? value : value.replace(/Z$/, ".000Z");
+    return parsed.toISOString() === normalizedValue;
+  }, "Must be a real UTC timestamp with a valid calendar date and time.")
   .describe(
     "ISO 8601 UTC timestamp in YYYY-MM-DDTHH:mm:ss(.sss)Z format, such as 2026-09-01T00:00:00.000Z. Date-only and offset timestamps are not accepted."
   );

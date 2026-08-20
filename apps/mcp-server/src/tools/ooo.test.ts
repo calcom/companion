@@ -51,8 +51,12 @@ describe("OOO schemas", () => {
   it("enforces strict UTC date-time format", () => {
     expect(createOooEntrySchema.start.safeParse(start).success).toBe(true);
     expect(createOooEntrySchema.start.safeParse("2026-09-01T00:00:00Z").success).toBe(true);
+    expect(createOooEntrySchema.start.safeParse("2028-02-29T00:00:00.000Z").success).toBe(true);
     expect(createOooEntrySchema.start.safeParse("2026-09-01").success).toBe(false);
     expect(createOooEntrySchema.start.safeParse("2026-09-01T00:00:00+02:00").success).toBe(false);
+    expect(createOooEntrySchema.start.safeParse("2026-02-31T00:00:00.000Z").success).toBe(false);
+    expect(createOooEntrySchema.start.safeParse("2026-13-01T00:00:00.000Z").success).toBe(false);
+    expect(createOooEntrySchema.start.safeParse("2026-09-01T99:99:99Z").success).toBe(false);
     expect(createOooEntrySchema.start.safeParse(undefined).success).toBe(false);
     expect(createOooEntrySchema.end.safeParse(undefined).success).toBe(false);
     expect(updateOooEntrySchema.start.safeParse(undefined).success).toBe(true);
