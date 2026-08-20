@@ -61,6 +61,17 @@ import {
   updateEventType,
   updateEventTypeSchema,
 } from "./tools/event-types.js";
+// ── Out of Office ──
+import {
+  createOooEntry,
+  createOooEntrySchema,
+  deleteOooEntry,
+  deleteOooEntrySchema,
+  getOooEntries,
+  getOooEntriesSchema,
+  updateOooEntry,
+  updateOooEntrySchema,
+} from "./tools/ooo.js";
 // ── Organizations: Attributes ──
 import {
   assignAttributeToUser,
@@ -495,6 +506,52 @@ export function registerTools(server: McpServer): void {
       annotations: READ_ONLY,
     },
     getDefaultSchedule
+  );
+
+  // ── Out of Office (4) ──
+  server.registerTool(
+    "get_ooo_entries",
+    {
+      title: "List Out-of-Office Entries",
+      description:
+        "List the authenticated user's out-of-office entries. Entries are day-granular: the API normalizes start to 00:00:00.000Z and end to 23:59:59.999Z. Use UTC timestamps matching YYYY-MM-DDTHH:mm:ss(.sss)Z; for partial-day absences, use update_schedule instead.",
+      inputSchema: getOooEntriesSchema,
+      annotations: READ_ONLY,
+    },
+    getOooEntries
+  );
+  server.registerTool(
+    "create_ooo_entry",
+    {
+      title: "Create Out-of-Office Entry",
+      description:
+        "Create a day-granular out-of-office entry. start and end must be UTC timestamps matching YYYY-MM-DDTHH:mm:ss(.sss)Z; the API normalizes them to the start and end of their dates. For partial-day absences, use update_schedule instead. toUserId redirects bookings to a covering user — discover it with get_org_memberships, get_team_memberships, or get_my_teams; never guess an ID.",
+      inputSchema: createOooEntrySchema,
+      annotations: CREATE,
+    },
+    createOooEntry
+  );
+  server.registerTool(
+    "update_ooo_entry",
+    {
+      title: "Update Out-of-Office Entry",
+      description:
+        "Update an out-of-office entry by ID. This is a partial update, but if changing the date range you must provide both start and end; the API rejects exactly one. Use UTC timestamps matching YYYY-MM-DDTHH:mm:ss(.sss)Z. Entries are day-granular; use update_schedule for partial-day absences. Discover toUserId with get_org_memberships, get_team_memberships, or get_my_teams — never guess an ID.",
+      inputSchema: updateOooEntrySchema,
+      annotations: UPDATE,
+    },
+    updateOooEntry
+  );
+  server.registerTool(
+    "delete_ooo_entry",
+    {
+      title: "Delete Out-of-Office Entry",
+      description:
+        "Permanently delete an out-of-office entry by ID. This action is irreversible — confirm with the user before proceeding.",
+      inputSchema: deleteOooEntrySchema,
+      annotations: DESTRUCTIVE,
+    },
+    deleteOooEntry
   );
 
   // ── Availability / Slots (1) ──
