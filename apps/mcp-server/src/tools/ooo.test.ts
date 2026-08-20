@@ -53,6 +53,10 @@ describe("OOO schemas", () => {
     expect(createOooEntrySchema.start.safeParse("2026-09-01T00:00:00Z").success).toBe(true);
     expect(createOooEntrySchema.start.safeParse("2026-09-01").success).toBe(false);
     expect(createOooEntrySchema.start.safeParse("2026-09-01T00:00:00+02:00").success).toBe(false);
+    expect(createOooEntrySchema.start.safeParse(undefined).success).toBe(false);
+    expect(createOooEntrySchema.end.safeParse(undefined).success).toBe(false);
+    expect(updateOooEntrySchema.start.safeParse(undefined).success).toBe(true);
+    expect(updateOooEntrySchema.end.safeParse(undefined).success).toBe(true);
     expect(updateOooEntrySchema.end.safeParse(end).success).toBe(true);
   });
 

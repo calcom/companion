@@ -100,12 +100,16 @@ export async function createOooEntry(params: {
 
 export const updateOooEntrySchema = {
   oooId: z.number().int().describe("Out-of-office entry ID. Use get_ooo_entries to find it."),
-  start: utcDateTime.describe(
-    "Optional new start timestamp in ISO 8601 UTC YYYY-MM-DDTHH:mm:ss(.sss)Z format. If start or end is supplied, supply both; the API rejects exactly one. The API normalizes the date to 00:00:00.000Z. For a partial-day absence, use update_schedule instead."
-  ),
-  end: utcDateTime.describe(
-    "Optional new end timestamp in ISO 8601 UTC YYYY-MM-DDTHH:mm:ss(.sss)Z format. If start or end is supplied, supply both; the API rejects exactly one. The API normalizes the date to 23:59:59.999Z. For a partial-day absence, use update_schedule instead."
-  ),
+  start: utcDateTime
+    .optional()
+    .describe(
+      "Optional new start timestamp in ISO 8601 UTC YYYY-MM-DDTHH:mm:ss(.sss)Z format. If start or end is supplied, supply both; the API rejects exactly one. The API normalizes the date to 00:00:00.000Z. For a partial-day absence, use update_schedule instead."
+    ),
+  end: utcDateTime
+    .optional()
+    .describe(
+      "Optional new end timestamp in ISO 8601 UTC YYYY-MM-DDTHH:mm:ss(.sss)Z format. If start or end is supplied, supply both; the API rejects exactly one. The API normalizes the date to 23:59:59.999Z. For a partial-day absence, use update_schedule instead."
+    ),
   notes: z.string().optional().describe("Optional replacement notes for the out-of-office entry."),
   toUserId: z.number().int().optional().describe(toUserIdDescription),
   reason: reason
