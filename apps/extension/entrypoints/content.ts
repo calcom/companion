@@ -1,6 +1,7 @@
 /// <reference types="chrome" />
 import { initGoogleCalendarIntegration } from "../lib/google-calendar";
 import { initLinkedInIntegration } from "../lib/linkedin";
+import { setSidebarIframeExpanded } from "../lib/sidebar-iframe";
 import { escapeHtml } from "../lib/utils";
 
 /**
@@ -124,19 +125,9 @@ export default defineContentScript({
       };
 
       if (event.data.type === "cal-companion-expand") {
-        // Disable transition for instant expansion
-        iframe.style.transition = "none";
-        iframe.style.width = "100vw";
-        iframeContainer.style.width = "100%";
-        iframeContainer.style.left = "0";
-        iframeContainer.style.right = "0";
+        setSidebarIframeExpanded(iframe, iframeContainer, true);
       } else if (event.data.type === "cal-companion-collapse") {
-        // Disable transition for instant collapse
-        iframe.style.transition = "none";
-        iframe.style.width = "400px";
-        iframeContainer.style.width = "400px";
-        iframeContainer.style.left = "auto";
-        iframeContainer.style.right = "0";
+        setSidebarIframeExpanded(iframe, iframeContainer, false);
       } else if (event.data.type === "cal-extension-oauth-request") {
         // Handle OAuth request from iframe
         handleOAuthRequest(event.data.authUrl, iframe.contentWindow);
