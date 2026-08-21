@@ -1,4 +1,8 @@
-import { getSidebarIframeMode, setSidebarIframeExpanded } from "./sidebar-iframe";
+import {
+  createSidebarIframeState,
+  getSidebarIframeMode,
+  setSidebarIframeExpanded,
+} from "./sidebar-iframe";
 
 function createStyledElement() {
   return {
@@ -56,5 +60,22 @@ describe("setSidebarIframeExpanded", () => {
         expanded: true,
       });
     }
+  });
+
+  test("keeps a later modal expanded when an earlier modal cleanup arrives", () => {
+    const state = createSidebarIframeState();
+
+    state.handleMessage({ type: "cal-companion-expand", source: "modal", modalId: "first-modal" });
+    state.handleMessage({ type: "cal-companion-expand", source: "modal", modalId: "second-modal" });
+    state.handleMessage({
+      type: "cal-companion-collapse",
+      source: "modal",
+      modalId: "first-modal",
+    });
+
+    expect(state.getMode()).toEqual({
+      clickThrough: false,
+      expanded: true,
+    });
   });
 });

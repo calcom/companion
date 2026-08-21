@@ -1,7 +1,7 @@
 /// <reference types="chrome" />
 import { initGoogleCalendarIntegration } from "../lib/google-calendar";
 import { initLinkedInIntegration } from "../lib/linkedin";
-import { getSidebarIframeMode, setSidebarIframeExpanded } from "../lib/sidebar-iframe";
+import { createSidebarIframeState, setSidebarIframeExpanded } from "../lib/sidebar-iframe";
 import { escapeHtml } from "../lib/utils";
 
 /**
@@ -89,15 +89,10 @@ export default defineContentScript({
 
     iframeContainer.appendChild(iframe);
 
-    let isFullScreenModalOpen = false;
-    let isToastVisible = false;
+    const sidebarIframeState = createSidebarIframeState();
 
     function updateSidebarIframeMode() {
-      setSidebarIframeExpanded(
-        iframe,
-        iframeContainer,
-        getSidebarIframeMode({ isFullScreenModalOpen, isToastVisible })
-      );
+      setSidebarIframeExpanded(iframe, iframeContainer, sidebarIframeState.getMode());
     }
 
     // Listen for messages from iframe to control width and handle OAuth
@@ -135,19 +130,11 @@ export default defineContentScript({
         return true;
       };
 
-      if (event.data.type === "cal-companion-expand") {
-        if (event.data.source === "toast") {
-          isToastVisible = true;
-        } else {
-          isFullScreenModalOpen = true;
-        }
-        updateSidebarIframeMode();
-      } else if (event.data.type === "cal-companion-collapse") {
-        if (event.data.source === "toast") {
-          isToastVisible = false;
-        } else {
-          isFullScreenModalOpen = false;
-        }
+      if (
+        event.data.type === "cal-companion-expand" ||
+        event.data.type === "cal-companion-collapse"
+      ) {
+        sidebarIframeState.handleMessage(event.data);
         updateSidebarIframeMode();
       } else if (event.data.type === "cal-extension-oauth-request") {
         // Handle OAuth request from iframe

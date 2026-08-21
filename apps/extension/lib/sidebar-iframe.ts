@@ -7,6 +7,42 @@ interface SidebarIframeMode {
   expanded: boolean;
 }
 
+interface SidebarIframeMessage {
+  modalId?: string;
+  source?: string;
+  type: "cal-companion-collapse" | "cal-companion-expand";
+}
+
+export function createSidebarIframeState() {
+  const activeModalIds = new Set<string>();
+  let isLegacyFullScreenModalOpen = false;
+  let isToastVisible = false;
+
+  return {
+    getMode() {
+      return getSidebarIframeMode({
+        isFullScreenModalOpen: isLegacyFullScreenModalOpen || activeModalIds.size > 0,
+        isToastVisible,
+      });
+    },
+    handleMessage({ modalId, source, type }: SidebarIframeMessage) {
+      const isExpanding = type === "cal-companion-expand";
+
+      if (source === "toast") {
+        isToastVisible = isExpanding;
+      } else if (source === "modal" && modalId) {
+        if (isExpanding) {
+          activeModalIds.add(modalId);
+        } else {
+          activeModalIds.delete(modalId);
+        }
+      } else {
+        isLegacyFullScreenModalOpen = isExpanding;
+      }
+    },
+  };
+}
+
 export function getSidebarIframeMode({
   isFullScreenModalOpen,
   isToastVisible,
