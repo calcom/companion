@@ -1,4 +1,4 @@
-import { setSidebarIframeExpanded } from "./sidebar-iframe";
+import { getSidebarIframeMode, setSidebarIframeExpanded } from "./sidebar-iframe";
 
 function createStyledElement() {
   return {
@@ -17,7 +17,11 @@ describe("setSidebarIframeExpanded", () => {
     const iframe = createStyledElement();
     const container = createStyledElement();
 
-    setSidebarIframeExpanded(iframe, container, true);
+    setSidebarIframeExpanded(
+      iframe,
+      container,
+      getSidebarIframeMode({ isFullScreenModalOpen: false, isToastVisible: true })
+    );
 
     expect(iframe.style).toMatchObject({
       pointerEvents: "none",
@@ -31,7 +35,11 @@ describe("setSidebarIframeExpanded", () => {
     const iframe = createStyledElement();
     const container = createStyledElement();
 
-    setSidebarIframeExpanded(iframe, container, false);
+    setSidebarIframeExpanded(
+      iframe,
+      container,
+      getSidebarIframeMode({ isFullScreenModalOpen: false, isToastVisible: false })
+    );
 
     expect(iframe.style).toMatchObject({
       pointerEvents: "auto",
@@ -39,5 +47,14 @@ describe("setSidebarIframeExpanded", () => {
       width: "400px",
     });
     expect(container.style).toMatchObject({ left: "auto", right: "0", width: "400px" });
+  });
+
+  test("keeps interactive full-screen modals interactive", () => {
+    for (const isToastVisible of [false, true]) {
+      expect(getSidebarIframeMode({ isFullScreenModalOpen: true, isToastVisible })).toEqual({
+        clickThrough: false,
+        expanded: true,
+      });
+    }
   });
 });

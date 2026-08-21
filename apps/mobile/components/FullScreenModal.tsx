@@ -28,16 +28,16 @@ export function FullScreenModal({
 
     if (visible) {
       // Expand the iframe to full width when modal opens
-      window.parent.postMessage({ type: "cal-companion-expand" }, "*");
+      window.parent.postMessage({ type: "cal-companion-expand", source: "modal" }, "*");
     } else {
       // Collapse the iframe back to 400px when modal closes
-      window.parent.postMessage({ type: "cal-companion-collapse" }, "*");
+      window.parent.postMessage({ type: "cal-companion-collapse", source: "modal" }, "*");
     }
 
     // Cleanup: collapse on unmount if still visible
     return () => {
       if (visible && Platform.OS === "web") {
-        window.parent.postMessage({ type: "cal-companion-collapse" }, "*");
+        window.parent.postMessage({ type: "cal-companion-collapse", source: "modal" }, "*");
       }
     };
   }, [visible]);
