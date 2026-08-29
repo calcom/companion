@@ -15,7 +15,7 @@ export async function getAvailableSlots({
   start: string;
   end: string;
   timeZone: string;
-}): Promise<Record<string, Array<{ start: string }>>> {
+}): Promise<Array<{ start: string }>> {
   const params = new URLSearchParams({
     eventTypeId: String(eventTypeId),
     start,
@@ -33,13 +33,13 @@ export async function getAvailableSlots({
   );
 
   if (Array.isArray(response)) {
-    return { slots: response };
+    return response;
   }
   if (response?.data && !Array.isArray(response.data)) {
-    return response.data;
+    return Object.values(response.data).flat();
   }
   if (response?.data && Array.isArray(response.data)) {
-    return { slots: response.data };
+    return response.data;
   }
-  return {};
+  return [];
 }

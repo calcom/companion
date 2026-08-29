@@ -70,6 +70,14 @@ describe("keyboard storage data", () => {
         ],
         "UTC"
       )
-    ).toContain("(times in UTC)");
+    ).toBe(
+      [
+        `${link.title} — pick a time:`,
+        `${day.label} at ${slot.label} — ${slot.url}`,
+        `${day.label} at ${secondSlot.label} — ${secondSlot.url}`,
+        "",
+        "(times in UTC)",
+      ].join("\n")
+    );
   });
 });

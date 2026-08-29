@@ -3,14 +3,16 @@ import { useEffect, useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, Text, useColorScheme, View } from "react-native";
 import { getColors } from "@/constants/colors";
 import { getKeyboardData } from "@/utils/keyboardStorage";
+import { composeKeyboardInsertion } from "@/utils/keyboardStorage.shared";
 
 export default function KeyboardSettings() {
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [keyboardData, setKeyboardData] =
+    useState<Awaited<ReturnType<typeof getKeyboardData>>>(null);
   const isDark = useColorScheme() === "dark";
   const colors = getColors(isDark);
 
   useEffect(() => {
-    getKeyboardData().then((data) => setLastUpdated(data?.lastUpdated ?? null));
+    getKeyboardData().then(setKeyboardData);
   }, []);
 
   const openKeyboardSettings = () => {
@@ -20,6 +22,14 @@ export default function KeyboardSettings() {
       Linking.sendIntent("android.settings.INPUT_METHOD_SETTINGS");
     }
   };
+
+  const exampleLink = keyboardData?.links[0];
+  const exampleSelections =
+    exampleLink?.days.flatMap((day) => day.slots.map((slot) => ({ day, slot }))).slice(0, 2) ?? [];
+  const exampleText =
+    exampleLink && exampleSelections.length > 0
+      ? composeKeyboardInsertion(exampleLink, exampleSelections, keyboardData.timeZone)
+      : null;
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
@@ -64,8 +74,24 @@ export default function KeyboardSettings() {
             Open keyboard settings
           </Text>
         </Pressable>
+        {exampleText && (
+          <View
+            className="mb-4 rounded-lg border p-4"
+            style={{ borderColor: colors.border, backgroundColor: colors.backgroundSecondary }}
+          >
+            <Text className="mb-2 text-sm font-semibold" style={{ color: colors.text }}>
+              Example of what gets inserted
+            </Text>
+            <Text className="text-sm" style={{ color: colors.textSecondary }}>
+              {exampleText}
+            </Text>
+          </View>
+        )}
         <Text className="text-sm" style={{ color: colors.textSecondary }}>
-          Last synced: {lastUpdated ? new Date(lastUpdated).toLocaleString() : "Not yet"}
+          Last synced:{" "}
+          {keyboardData?.lastUpdated
+            ? new Date(keyboardData.lastUpdated).toLocaleString()
+            : "Not yet"}
         </Text>
         <Text className="mt-4 text-sm" style={{ color: colors.textSecondary }}>
           Open the Cal.com app to refresh your keyboard data. The keyboard never fetches network

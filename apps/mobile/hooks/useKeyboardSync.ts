@@ -27,43 +27,42 @@ export function useKeyboardSync() {
       return;
     }
 
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const cachedEventTypes = queryClient.getQueryData<EventType[]>(queryKeys.eventTypes.lists());
-    const eventTypes =
-      cachedEventTypes ??
-      (await CalComAPIService.getEventTypes()).filter((eventType) => !eventType.hidden);
+    const eventTypes = cachedEventTypes ?? (await CalComAPIService.getEventTypes());
     const visibleEventTypes = eventTypes.filter((eventType) => !eventType.hidden).slice(0, 10);
     if (visibleEventTypes.length === 0) {
       await updateKeyboardData({
         links: [],
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timeZone,
         lastUpdated: new Date().toISOString(),
       });
       lastSuccessfulSyncAt = Date.now();
       return;
     }
 
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const start = new Date();
     const end = new Date(start.getTime() + 14 * 24 * 60 * 60 * 1000);
     const slotsByEventType: Record<string, Array<{ start: string }>> = {};
 
     for (const eventType of visibleEventTypes) {
-      slotsByEventType[String(eventType.id)] = Object.values(
-        await CalComAPIService.getAvailableSlots({
-          eventTypeId: eventType.id,
-          start: start.toISOString(),
-          end: end.toISOString(),
-          timeZone,
-        })
-      ).flat();
+      slotsByEventType[String(eventType.id)] = await CalComAPIService.getAvailableSlots({
+        eventTypeId: eventType.id,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        timeZone,
+      });
     }
 
-    const username = userInfo?.username ?? (await CalComAPIService.getUserProfile()).username;
+    const fallbackUsername = visibleEventTypes.some((eventType) => !eventType.bookingUrl)
+      ? (userInfo?.username ?? (await CalComAPIService.getUserProfile()).username)
+      : null;
     const data = transformToKeyboardData({
       eventTypes: visibleEventTypes,
       slotsByEventType,
       timeZone,
-      bookingUrlForEventType: (eventType) => `${getCalAppUrl()}/${username}/${eventType.slug}`,
+      bookingUrlForEventType: (eventType) =>
+        eventType.bookingUrl ?? `${getCalAppUrl()}/${fallbackUsername}/${eventType.slug}`,
     });
     await updateKeyboardData(data);
     lastSuccessfulSyncAt = Date.now();
