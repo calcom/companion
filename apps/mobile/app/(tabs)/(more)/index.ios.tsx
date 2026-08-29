@@ -93,6 +93,12 @@ export default function More() {
 
   const menuItems: MoreMenuItem[] = [
     {
+      name: "Cal.com Keyboard",
+      icon: "keypad-outline",
+      isExternal: false,
+      onPress: () => router.push("/keyboard-settings"),
+    },
+    {
       name: "Apps",
       icon: "grid-outline",
       isExternal: false,
