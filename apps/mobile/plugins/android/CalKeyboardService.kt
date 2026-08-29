@@ -2,6 +2,7 @@ package com.calcom.companion.keyboard
 
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
+import android.view.KeyEvent
 import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.InputMethodManager
@@ -78,7 +79,7 @@ class CalKeyboardService : InputMethodService() {
                             link.getString("id"),
                             link.getString("title"),
                             link.getString("url"),
-                            link.optString("durationLabel").takeUnless { it == "null" || it.isEmpty() },
+                            if (link.isNull("durationLabel")) null else link.optString("durationLabel"),
                             parsedDays
                         )
                     )
@@ -187,7 +188,7 @@ class CalKeyboardService : InputMethodService() {
 
     private fun addFooter(layout: LinearLayout) {
         val footer = LinearLayout(this).apply {
-            gravity = Gravity.RIGHT
+            gravity = Gravity.END
         }
         val switchButton = Button(this).apply {
             text = "🌐"
@@ -201,7 +202,7 @@ class CalKeyboardService : InputMethodService() {
         footer.addView(switchButton)
         footer.addView(Button(this).apply {
             text = "⌫"
-            setOnClickListener { currentInputConnection?.deleteSurroundingText(1, 0) }
+            setOnClickListener { sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL) }
         })
         layout.addView(footer)
     }

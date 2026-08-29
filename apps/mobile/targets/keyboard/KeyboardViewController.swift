@@ -32,18 +32,18 @@ struct KeyboardSlot: Codable, Identifiable {
 }
 
 final class KeyboardViewController: UIInputViewController {
-    private var hostingController: UIHostingController<KeyboardRootView>?
+    private var hostingController: UIHostingController<AnyView>?
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         let data = loadKeyboardData()
-        let rootView = KeyboardRootView(
+        let rootView = AnyView(KeyboardRootView(
             data: data,
             showsInputModeSwitchKey: needsInputModeSwitchKey,
             onSwitchInputMode: { [weak self] in self?.advanceToNextInputMode() },
             onBackspace: { [weak self] in self?.textDocumentProxy.deleteBackward() },
             onInsert: { [weak self] text in self?.textDocumentProxy.insertText(text) }
-        )
+        ).id(data?.lastUpdated ?? ""))
 
         if let hostingController {
             hostingController.rootView = rootView
@@ -53,12 +53,14 @@ final class KeyboardViewController: UIInputViewController {
             addChild(controller)
             view.addSubview(controller.view)
             controller.view.translatesAutoresizingMaskIntoConstraints = false
+            let heightConstraint = view.heightAnchor.constraint(equalToConstant: 300)
+            heightConstraint.priority = UILayoutPriority(999)
             NSLayoutConstraint.activate([
                 controller.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
                 controller.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
                 controller.view.topAnchor.constraint(equalTo: view.topAnchor),
                 controller.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-                view.heightAnchor.constraint(equalToConstant: 300),
+                heightConstraint,
             ])
             controller.didMove(toParent: self)
         }
@@ -178,7 +180,11 @@ struct KeyboardRootView: View {
             }
             ScrollView {
                 ForEach(link.days) { day in
-                    Section(day.label) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(day.label)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 8)
                         ForEach(day.slots) { slot in
                             Button {
                                 if selectedSlots.contains(slot.id) {
