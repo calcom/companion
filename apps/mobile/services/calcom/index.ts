@@ -89,6 +89,7 @@ import {
   getSchedules,
   updateSchedule,
 } from "./schedules";
+import { getAvailableSlots } from "./slots";
 import {
   clearUserProfile,
   getCurrentUser,
@@ -163,6 +164,9 @@ export const CalComAPIService = {
   updateSchedule,
   duplicateSchedule,
   deleteSchedule,
+
+  // Availability
+  getAvailableSlots,
 
   // Conferencing
   getConferencingOptions,
