@@ -24,6 +24,7 @@ import { cleanupExpired, countRegisteredClients } from "./storage/token-store.js
 import { applyCorsHeaders, resolveCorsOrigin } from "./utils/http-security.js";
 import { logger, withLogContext } from "./utils/logger.js";
 import { getClientIp, RateLimiter, sendRateLimited } from "./utils/rate-limiter.js";
+import { instrumentMcpTransport } from "./utils/telemetry.js";
 
 export interface HttpServerConfig {
   port: number;
@@ -401,7 +402,7 @@ export async function startHttpServer(
           }
         };
 
-        await server.connect(transport);
+        await server.connect(instrumentMcpTransport(transport));
 
         await withLogContext({ requestId }, async () => {
           await authContext.run(calAuthHeaders, async () => {

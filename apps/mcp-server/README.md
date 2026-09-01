@@ -66,6 +66,25 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 | `CORS_ORIGIN` | No | `MCP_SERVER_URL` origin | Browser CORS origin for remote HTTP clients. Set this when the browser client origin differs from the MCP server origin. |
 | `OPENAI_APPS_CHALLENGE_TOKEN` | No | — | Token served at `/.well-known/openai-apps-challenge` for OpenAI Apps domain verification. When unset, the endpoint returns 404. |
 
+### OpenTelemetry
+
+Vercel deployments initialize OpenTelemetry through the project-root
+`instrumentation.ts` hook and `@vercel/otel`. No additional environment variable
+is required for Vercel's built-in collector. MCP tool executions produce custom
+spans under the `cal-mcp-server` service with only the static tool name and
+success/error status; tool arguments, results, credentials, user identifiers, and
+exception messages are not attached.
+
+The stdio and self-hosted HTTP entry points do not initialize an SDK or exporter,
+so telemetry remains a no-op by default and stdout stays reserved for MCP. A
+self-hosted operator may preload their own OpenTelemetry SDK/exporter; the custom
+tool spans will then use that globally registered provider.
+
+To retain production traces in Vercel, enable Always-on Tracing and add sampling
+rules in the Vercel project (with no rules, it collects nothing). Exporting
+traces to Grafana or another backend instead requires a Vercel Trace Drain (or
+provider integration). Both are deployment configuration outside this repository.
+
 ## Transport Modes
 
 The server supports two transport modes selected via the `MCP_TRANSPORT` environment variable.
