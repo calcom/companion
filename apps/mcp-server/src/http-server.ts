@@ -263,12 +263,19 @@ export async function startHttpServer(
     }
 
     // ── MCP endpoint (requires Bearer token, rate-limited) ──
-    if (url.pathname === "/mcp") {
+    // Accept both /mcp (canonical) and / (base URL) so clients that only accept
+    // an origin URL still reach MCP instead of a documentation redirect.
+    if (url.pathname === "/mcp" || url.pathname === "/") {
       const clientIp = getClientIp(req);
       if (!mcpRateLimiter.consume(clientIp)) {
         sendRateLimited(res);
         return;
       }
+
+      const resourceMetadataUrl =
+        url.pathname === "/mcp"
+          ? mcpResourceMetadataUrl
+          : getProtectedResourceMetadataUrl(oauthConfig.serverUrl);
 
       const authHeader = req.headers.authorization;
       const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
@@ -276,7 +283,7 @@ export async function startHttpServer(
       if (!bearerToken) {
         res.writeHead(401, {
           "Content-Type": "application/json",
-          "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
+          "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`,
         });
         res.end(
           JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" })
@@ -289,7 +296,7 @@ export async function startHttpServer(
         if (!calAuthHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
-            "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
+            "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`,
           });
           res.end(
             JSON.stringify({
@@ -323,7 +330,7 @@ export async function startHttpServer(
         if (!freshHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
-            "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
+            "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`,
           });
           res.end(
             JSON.stringify({
@@ -367,7 +374,7 @@ export async function startHttpServer(
         if (!calAuthHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
-            "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
+            "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`,
           });
           res.end(
             JSON.stringify({

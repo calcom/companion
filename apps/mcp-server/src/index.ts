@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { getApiKeyHeaders } from "./auth.js";
@@ -11,7 +12,7 @@ import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import { logger, setLogLevel } from "./utils/logger.js";
 import { instrumentMcpTransport } from "./utils/telemetry.js";
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const config = loadConfig();
   setLogLevel(config.logLevel);
 
@@ -65,7 +66,10 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  logger.error("Fatal error", { error: String(err) });
-  process.exit(1);
-});
+const executedPath = process.argv[1];
+if (executedPath && import.meta.url === pathToFileURL(executedPath).href) {
+  main().catch((err) => {
+    logger.error("Fatal error", { error: String(err) });
+    process.exit(1);
+  });
+}

@@ -69,11 +69,14 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 ### OpenTelemetry
 
 Vercel deployments initialize OpenTelemetry through the project-root
-`instrumentation.ts` hook and `@vercel/otel`. No additional environment variable
-is required for Vercel's built-in collector. MCP tool executions produce custom
-spans under the `cal-mcp-server` service with only the static tool name and
-success/error status; tool arguments, results, credentials, user identifiers, and
-exception messages are not attached.
+`instrumentation.ts` hook. The zero-configuration Node entrypoint imports the
+same shared registration module before any application modules; module caching
+keeps registration single-shot while guaranteeing that automatic fetch tracing
+and custom spans are active before instrumented code loads. No additional
+environment variable is required for Vercel's built-in collector. MCP tool
+executions produce custom spans under the `cal-mcp-server` service with only the
+static tool name and success/error status; tool arguments, results, credentials,
+user identifiers, and exception messages are not attached.
 
 The stdio and self-hosted HTTP entry points do not initialize an SDK or exporter,
 so telemetry remains a no-op by default and stdout stays reserved for MCP. A
@@ -123,10 +126,16 @@ MCP_TRANSPORT=http \
 
 This starts a StreamableHTTP server with OAuth 2.1 authentication:
 
+On Vercel, `src/server.ts` is the zero-configuration bare Node entrypoint. Vercel
+captures its `server.listen()` call and routes all request paths to the same
+stateful server process; no catch-all rewrite or `/api` function wrapper is used.
+The repository keeps a 60-second function duration in `vercel.json`.
+
 **MCP endpoints** (require `Authorization: Bearer <token>`):
 - `POST /mcp` — JSON-RPC over Streamable HTTP (creates a new session on first request)
 - `GET  /mcp` — SSE stream for server-initiated messages (requires `mcp-session-id` header)
 - `DELETE /mcp` — Terminate a session (requires `mcp-session-id` header)
+- `/` accepts the same MCP methods for clients configured with the server origin instead of `/mcp`
 
 **OAuth 2.1 endpoints:**
 - `GET  /.well-known/oauth-authorization-server` — Authorization server metadata (RFC 8414)

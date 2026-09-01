@@ -11,7 +11,7 @@
     "src/index.ts",
     "src/register-tools.ts",
     "src/http-server.ts",
-    "src/vercel-handler.ts",
+    "src/server.ts",
     "src/**/*.test.ts"
   ]
 }
