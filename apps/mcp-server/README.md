@@ -27,6 +27,15 @@ bun install
 bun --filter @calcom/mcp-server build
 ```
 
+Run the normal suite with `bun --filter @calcom/mcp-server test`. The refresh-lease concurrency
+tests require real Postgres and run when `TEST_DATABASE_URL` is set:
+
+```bash
+docker-compose -f apps/mcp-server/docker-compose.yml up -d postgres
+TEST_DATABASE_URL=postgres://mcp:mcp@localhost:5432/mcp \
+  bun --filter @calcom/mcp-server test:postgres
+```
+
 ### Configure
 
 Copy the example env file and fill in your credentials:
@@ -192,7 +201,9 @@ The HTTP server implements a full OAuth 2.1 Authorization Server. MCP clients co
 7. **Client exchanges code** → `POST /oauth/token` with `code`, `code_verifier`, `redirect_uri` → receives `access_token` + `refresh_token`
 8. **Client uses token** → `POST /mcp` with `Authorization: Bearer <access_token>`
 
-The server acts as an intermediary: it issues its own access tokens to MCP clients, and each token maps to encrypted Cal.com credentials stored in Postgres. When Cal.com tokens expire, the server auto-refreshes them transparently.
+The server acts as an intermediary: it issues its own access tokens to MCP clients, and each token maps to encrypted Cal.com credentials stored in Postgres. When Cal.com tokens expire, the server auto-refreshes them transparently. A short Postgres lease elects one refresher per MCP token without holding a database connection during the Cal.com request. Waiting requests poll the stored state and reuse the winner's rotated token, while lease ID and version checks prevent stale workers from overwriting newer credentials. If Cal.com reports that a stored refresh token is already invalid, the grant is fenced into a reauthorization-required state so it cannot be retried.
+
+For an existing deployment, roll this out in phases: first apply `migrations/001_access_token_refresh_lease.sql`, then deploy the lease-capable server, allow old Vercel invocations to drain, and only then direct refresh traffic to the new deployment. The schema migration is additive, but old code does not honor leases, so overlapping old and new refresh implementations cannot provide the new fencing guarantee.
 
 **Security:**
 - All Cal.com tokens are encrypted at rest with AES-256-GCM (via `TOKEN_ENCRYPTION_KEY`)

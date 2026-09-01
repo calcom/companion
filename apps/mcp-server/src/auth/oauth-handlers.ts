@@ -1,7 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { z } from "zod";
 import { CAL_API_VERSION } from "../config.js";
 import {
   consumeAuthCode,
+  claimCalTokenRefresh,
   createAccessToken,
   createAuthCode,
   createPendingAuth,
@@ -12,8 +14,10 @@ import {
   getAccessToken,
   getPendingAuth,
   getRegisteredClient,
+  invalidateCalTokenRefresh,
+  persistCalTokenRefresh,
+  releaseCalTokenRefresh,
   rotateAccessToken,
-  updateCalTokens,
 } from "../storage/token-store.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -531,61 +535,151 @@ export async function handleRevoke(req: IncomingMessage, res: ServerResponse): P
 
 // ── Cal.com Token Refresh ──
 
+const calTokenRefreshResponseSchema = z.object({
+  access_token: z.string().min(1),
+  refresh_token: z.string().min(1),
+  expires_in: z.number().int().positive(),
+  token_type: z.string().min(1),
+  scope: z.string().optional(),
+});
+
 /**
  * Refresh Cal.com tokens for an access token record.
  * Returns the new Cal.com access/refresh tokens, or undefined on failure.
  */
 export async function refreshCalTokens(
   accessTokenValue: string,
-  calRefreshToken: string,
   config: OAuthConfig
 ): Promise<
   { calAccessToken: string; calRefreshToken: string; calTokenExpiresAt: number } | undefined
 > {
-  const refreshUrl = `${config.calApiBaseUrl}/v2/auth/oauth2/token`;
-
   const tokenFetchTimeoutMs = Number(process.env.TOKEN_FETCH_TIMEOUT_MS) || 10_000;
-  const refreshRes = await fetch(refreshUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: config.calOAuthClientId,
-      client_secret: config.calOAuthClientSecret,
-      grant_type: "refresh_token",
-      refresh_token: calRefreshToken,
-    }),
-    signal: AbortSignal.timeout(tokenFetchTimeoutMs),
-  });
+  const leaseSeconds = Math.ceil(tokenFetchTimeoutMs / 1000) + 5;
+  const waitDeadline = Date.now() + tokenFetchTimeoutMs + 6_000;
 
-  if (!refreshRes.ok) {
-    logger.error("Cal.com token refresh failed", { status: refreshRes.status });
-    return undefined;
+  while (Date.now() < waitDeadline) {
+    const claim = await claimCalTokenRefresh(accessTokenValue, leaseSeconds);
+    if (claim.status === "invalid") return undefined;
+    if (claim.status === "ready") return claim.record;
+    if (claim.status === "waiting") {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      continue;
+    }
+
+    const { leaseId, record } = claim;
+    const refreshUrl = `${config.calApiBaseUrl}/v2/auth/oauth2/token`;
+    let refreshRes: Response;
+    try {
+      refreshRes = await fetch(refreshUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: config.calOAuthClientId,
+          client_secret: config.calOAuthClientSecret,
+          grant_type: "refresh_token",
+          refresh_token: record.calRefreshToken,
+        }),
+        signal: AbortSignal.timeout(tokenFetchTimeoutMs),
+      });
+    } catch (error) {
+      // A timeout/network failure is ambiguous: Cal.com may have consumed the
+      // rotating token. Leave the bounded lease in place to prevent an immediate
+      // retry storm; another worker may recover ownership after it expires.
+      logger.error("Cal.com token refresh request failed", {
+        errorType: error instanceof Error ? error.name : "UnknownError",
+      });
+      return undefined;
+    }
+
+    if (!refreshRes.ok) {
+      const upstreamError = await readSanitizedOAuthError(refreshRes, [
+        record.calRefreshToken,
+        config.calOAuthClientSecret,
+      ]);
+      logger.error("Cal.com token refresh failed", {
+        status: refreshRes.status,
+        ...upstreamError,
+      });
+      if (upstreamError.oauthError === "invalid_grant") {
+        const invalidated = await invalidateCalTokenRefresh(
+          accessTokenValue,
+          leaseId,
+          record.calTokenVersion
+        );
+        if (!invalidated) continue;
+      } else {
+        await releaseCalTokenRefresh(accessTokenValue, leaseId, record.calTokenVersion);
+      }
+      return undefined;
+    }
+
+    let rawData: unknown;
+    try {
+      rawData = await refreshRes.json();
+    } catch {
+      // A successful but unreadable response may already have rotated the token.
+      // Let the lease expire instead of immediately replaying the old credential.
+      logger.error("Cal.com token refresh returned invalid JSON", { status: refreshRes.status });
+      return undefined;
+    }
+    const parsed = calTokenRefreshResponseSchema.safeParse(rawData);
+    if (!parsed.success) {
+      logger.error("Cal.com token refresh returned an invalid payload", {
+        status: refreshRes.status,
+        issues: parsed.error.issues.map((issue) => ({ code: issue.code, path: issue.path })),
+      });
+      return undefined;
+    }
+
+    const refreshed = {
+      calAccessToken: parsed.data.access_token,
+      calRefreshToken: parsed.data.refresh_token,
+      calTokenExpiresAt: Math.floor(Date.now() / 1000) + parsed.data.expires_in,
+    };
+    const persisted = await persistCalTokenRefresh(
+      accessTokenValue,
+      leaseId,
+      record.calTokenVersion,
+      refreshed
+    );
+    if (persisted) return persisted;
+    // Revocation, wrapper rotation, or a newer lease fenced this worker out.
+    // Re-read through the claim loop and only use credentials durable in Postgres.
   }
+  return undefined;
+}
 
-  const data = (await refreshRes.json()) as {
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-    token_type: string;
-    scope?: string;
-  };
+function sanitizeOAuthErrorField(value: unknown, sensitiveValues: string[]): string | undefined {
+  if (typeof value !== "string") return undefined;
+  let normalized = Array.from(value, (character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 31 || codePoint === 127 ? " " : character;
+  })
+    .join("")
+    .trim()
+    .slice(0, 500);
+  if (!normalized) return undefined;
+  for (const sensitiveValue of sensitiveValues) {
+    if (sensitiveValue) normalized = normalized.replaceAll(sensitiveValue, "[redacted]");
+  }
+  // OAuth servers sometimes echo credentials. Keep useful prose/error codes but
+  // redact long opaque values (JWTs, UUIDs, API keys, and refresh tokens).
+  return normalized.replace(/(?:Bearer\s+)?[A-Za-z0-9._~+/=-]{20,}/gi, "[redacted]");
+}
 
-  const newCalAccessToken = data.access_token;
-  const newCalRefreshToken = data.refresh_token;
-  const newCalTokenExpiresAt = Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600);
-
-  await updateCalTokens(
-    accessTokenValue,
-    newCalAccessToken,
-    newCalRefreshToken,
-    newCalTokenExpiresAt
-  );
-
-  return {
-    calAccessToken: newCalAccessToken,
-    calRefreshToken: newCalRefreshToken,
-    calTokenExpiresAt: newCalTokenExpiresAt,
-  };
+async function readSanitizedOAuthError(
+  response: Response,
+  sensitiveValues: string[]
+): Promise<{ oauthError?: string; oauthErrorDescription?: string }> {
+  try {
+    const body = (await response.json()) as { error?: unknown; error_description?: unknown };
+    return {
+      oauthError: sanitizeOAuthErrorField(body.error, sensitiveValues),
+      oauthErrorDescription: sanitizeOAuthErrorField(body.error_description, sensitiveValues),
+    };
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -598,13 +692,13 @@ export async function resolveCalAuthHeaders(
   config: OAuthConfig
 ): Promise<Record<string, string> | undefined> {
   const record = await getAccessToken(bearerToken);
-  if (!record) return undefined;
+  if (!record || record.calTokenInvalidAt !== undefined) return undefined;
 
   let { calAccessToken } = record;
   const now = Math.floor(Date.now() / 1000);
 
   if (now >= record.calTokenExpiresAt - 60) {
-    const refreshed = await refreshCalTokens(bearerToken, record.calRefreshToken, config);
+    const refreshed = await refreshCalTokens(bearerToken, config);
     if (!refreshed) return undefined;
     calAccessToken = refreshed.calAccessToken;
   }

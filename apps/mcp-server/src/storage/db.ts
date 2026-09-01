@@ -73,6 +73,18 @@ export async function initDb(): Promise<void> {
   `;
   await sql`CREATE INDEX IF NOT EXISTS "AccessToken_expiresAt_idx" ON "AccessToken" ("expiresAt")`;
 
+  // Keep this additive migration safe for existing deployments. Production
+  // should apply migrations/001_access_token_refresh_lease.sql before enabling
+  // lease-based refresh coordination; these statements also make local/dev
+  // initialization self-contained.
+  await sql`
+    ALTER TABLE "AccessToken"
+      ADD COLUMN IF NOT EXISTS "refreshLeaseId" TEXT,
+      ADD COLUMN IF NOT EXISTS "refreshLeaseUntil" INTEGER,
+      ADD COLUMN IF NOT EXISTS "calTokenVersion" INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS "calTokenInvalidAt" INTEGER
+  `;
+
   initialized = true;
 }
 

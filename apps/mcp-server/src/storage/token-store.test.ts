@@ -33,7 +33,10 @@ beforeEach(() => {
 
 describe("registered clients", () => {
   it("creates a client with correct SQL", async () => {
-    const client = await tokenStore.createRegisteredClient(["http://localhost:3000/callback"], "Test Client");
+    const client = await tokenStore.createRegisteredClient(
+      ["http://localhost:3000/callback"],
+      "Test Client"
+    );
 
     expect(client.clientId).toBeTruthy();
     expect(client.redirectUris).toEqual(["http://localhost:3000/callback"]);
@@ -225,37 +228,14 @@ describe("access tokens", () => {
     expect(mockSql).toHaveBeenCalledTimes(1);
   });
 
-  it("rotates an access token", async () => {
-    const { encrypt } = await import("./encryption.js");
-
-    // First call: getAccessTokenByRefresh SELECT
-    mockSql.mockResolvedValueOnce({
-      rows: [{
-        token: "old-token",
-        refreshToken: "old-refresh",
-        clientId: "client-1",
-        calAccessTokenEnc: encrypt("cal-at"),
-        calRefreshTokenEnc: encrypt("cal-rt"),
-        calTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
-        expiresAt: Math.floor(Date.now() / 1000) + 3600,
-      }],
-      rowCount: 1,
-    });
-    // BEGIN
-    mockSql.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-    // DELETE
-    mockSql.mockResolvedValueOnce({ rows: [], rowCount: 1 });
-    // INSERT
-    mockSql.mockResolvedValueOnce({ rows: [], rowCount: 1 });
-    // COMMIT
-    mockSql.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-
+  it("rotates MCP wrapper tokens with one atomic update", async () => {
+    mockSql.mockResolvedValueOnce({ rows: [{ token: "new-token" }], rowCount: 1 });
     const rotated = await tokenStore.rotateAccessToken("old-refresh");
     expect(rotated).toBeDefined();
     expect(rotated?.accessToken).toBeTruthy();
     expect(rotated?.refreshToken).toBeTruthy();
-    // getAccessTokenByRefresh + BEGIN + DELETE + INSERT + COMMIT
-    expect(mockSql).toHaveBeenCalledTimes(5);
+    expect(mockSql).toHaveBeenCalledTimes(1);
+    expect(String(mockSql.mock.calls[0]?.[0])).toContain("refreshLeaseUntil");
   });
 
   it("returns undefined when rotating unknown refresh token", async () => {
@@ -263,9 +243,58 @@ describe("access tokens", () => {
     expect(result).toBeUndefined();
   });
 
-  it("updates Cal.com tokens", async () => {
-    await tokenStore.updateCalTokens("token", "new-cal-at", "new-cal-rt", 999);
+  it("claims an expiring Cal.com token with a short atomic update", async () => {
+    const { encrypt } = await import("./encryption.js");
+    mockSql.mockResolvedValueOnce({
+      rows: [
+        {
+          token: "token",
+          refreshToken: "mcp-refresh",
+          clientId: "client-1",
+          calAccessTokenEnc: encrypt("old-cal-at"),
+          calRefreshTokenEnc: encrypt("old-cal-rt"),
+          calTokenExpiresAt: 1,
+          calTokenVersion: 3,
+          refreshLeaseId: "claimed-lease",
+          refreshLeaseUntil: 9999999999,
+          expiresAt: 9999999999,
+        },
+      ],
+      rowCount: 1,
+    });
+
+    const result = await tokenStore.claimCalTokenRefresh("token", 15);
+
+    expect(result.status).toBe("claimed");
     expect(mockSql).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists refreshed tokens with lease and version fencing", async () => {
+    const { encrypt } = await import("./encryption.js");
+    mockSql.mockResolvedValueOnce({
+      rows: [
+        {
+          token: "token",
+          refreshToken: "mcp-refresh",
+          clientId: "client-1",
+          calAccessTokenEnc: encrypt("new-cal-at"),
+          calRefreshTokenEnc: encrypt("new-cal-rt"),
+          calTokenExpiresAt: 999,
+          calTokenVersion: 4,
+          expiresAt: 9999999999,
+        },
+      ],
+      rowCount: 1,
+    });
+
+    const result = await tokenStore.persistCalTokenRefresh("token", "lease", 3, {
+      calAccessToken: "new-cal-at",
+      calRefreshToken: "new-cal-rt",
+      calTokenExpiresAt: 999,
+    });
+
+    expect(result?.calTokenVersion).toBe(4);
+    expect(String(mockSql.mock.calls[0]?.[0])).toContain("calTokenVersion");
   });
 });
 
