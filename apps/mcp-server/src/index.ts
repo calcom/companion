@@ -9,6 +9,7 @@ import { startHttpServer } from "./http-server.js";
 import { registerTools } from "./register-tools.js";
 import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import { logger, setLogLevel } from "./utils/logger.js";
+import { instrumentMcpTransport } from "./utils/telemetry.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -58,7 +59,7 @@ async function main(): Promise<void> {
     registerTools(server);
 
     const stdioTransport = new StdioServerTransport();
-    await server.connect(stdioTransport);
+    await server.connect(instrumentMcpTransport(stdioTransport));
 
     logger.info("Cal.com MCP server running on stdio");
   }

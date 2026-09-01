@@ -25,6 +25,7 @@ import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import { initDb, sql } from "./storage/db.js";
 import { countRegisteredClients } from "./storage/token-store.js";
 import { applyCorsHeaders, resolveCorsOrigin } from "./utils/http-security.js";
+import { instrumentMcpTransport } from "./utils/telemetry.js";
 
 /**
  * Vercel serverless entry point.
@@ -332,7 +333,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       { instructions: SERVER_INSTRUCTIONS }
     );
     registerTools(server);
-    await server.connect(transport);
+    await server.connect(instrumentMcpTransport(transport));
 
     // 55 s gives a ~5 s buffer before Vercel's 60 s hard limit.
     const timeoutMs = 55_000;

@@ -1,7 +1,17 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "rootDir": ".",
     "skipLibCheck": true
   },
-  "exclude": ["node_modules", "dist", "src/index.ts", "src/register-tools.ts", "src/http-server.ts", "src/vercel-handler.ts", "src/**/*.test.ts"]
+  "include": ["src/**/*", "instrumentation.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/index.ts",
+    "src/register-tools.ts",
+    "src/http-server.ts",
+    "src/vercel-handler.ts",
+    "src/**/*.test.ts"
+  ]
 }

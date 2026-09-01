@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
+import { instrumentToolHandler } from "./utils/telemetry.js";
 // ── Availability / Slots ──
 import { getAvailability, getAvailabilitySchema } from "./tools/availability.js";
 // ── Booking Routing Trace ──
@@ -205,7 +206,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getMeSchema,
       annotations: READ_ONLY,
     },
-    getMe
+    instrumentToolHandler("get_me", getMe)
   );
   server.registerTool(
     "update_me",
@@ -216,7 +217,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateMeSchema,
       annotations: UPDATE,
     },
-    updateMe
+    instrumentToolHandler("update_me", updateMe)
   );
 
   // ── Event Types (9) ──
@@ -229,7 +230,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getEventTypesSchema,
       annotations: READ_ONLY,
     },
-    getEventTypes
+    instrumentToolHandler("get_event_types", getEventTypes)
   );
   server.registerTool(
     "get_event_type",
@@ -240,7 +241,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getEventTypeSchema,
       annotations: READ_ONLY,
     },
-    getEventType
+    instrumentToolHandler("get_event_type", getEventType)
   );
   server.registerTool(
     "get_crm_sync_errors",
@@ -251,7 +252,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getCrmSyncErrorsSchema,
       annotations: READ_ONLY,
     },
-    getCrmSyncErrors
+    instrumentToolHandler("get_crm_sync_errors", getCrmSyncErrors)
   );
   server.registerTool(
     "create_event_type",
@@ -262,7 +263,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: createEventTypeSchema,
       annotations: CREATE,
     },
-    createEventType
+    instrumentToolHandler("create_event_type", createEventType)
   );
   server.registerTool(
     "update_event_type",
@@ -273,7 +274,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateEventTypeSchema,
       annotations: UPDATE,
     },
-    updateEventType
+    instrumentToolHandler("update_event_type", updateEventType)
   );
   server.registerTool(
     "delete_event_type",
@@ -284,7 +285,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: deleteEventTypeSchema,
       annotations: DESTRUCTIVE,
     },
-    deleteEventType
+    instrumentToolHandler("delete_event_type", deleteEventType)
   );
   server.registerTool(
     "get_scheduling_config",
@@ -295,7 +296,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getSchedulingConfigSchema,
       annotations: READ_ONLY,
     },
-    getSchedulingConfig
+    instrumentToolHandler("get_scheduling_config", getSchedulingConfig)
   );
   server.registerTool(
     "get_event_type_history",
@@ -306,7 +307,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getEventTypeHistorySchema,
       annotations: READ_ONLY,
     },
-    getEventTypeHistory
+    instrumentToolHandler("get_event_type_history", getEventTypeHistory)
   );
   server.registerTool(
     "get_event_type_settings",
@@ -317,7 +318,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getEventTypeSettingsSchema,
       annotations: READ_ONLY,
     },
-    getEventTypeSettings
+    instrumentToolHandler("get_event_type_settings", getEventTypeSettings)
   );
 
   // ── Bookings (10) ──
@@ -330,7 +331,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingsSchema,
       annotations: READ_ONLY,
     },
-    getBookings
+    instrumentToolHandler("get_bookings", getBookings)
   );
   server.registerTool(
     "get_booking",
@@ -341,7 +342,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingSchema,
       annotations: READ_ONLY,
     },
-    getBooking
+    instrumentToolHandler("get_booking", getBooking)
   );
   server.registerTool(
     "create_booking",
@@ -352,7 +353,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: createBookingSchema,
       annotations: CREATE,
     },
-    createBooking
+    instrumentToolHandler("create_booking", createBooking)
   );
   server.registerTool(
     "reschedule_booking",
@@ -363,7 +364,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: rescheduleBookingSchema,
       annotations: UPDATE,
     },
-    rescheduleBooking
+    instrumentToolHandler("reschedule_booking", rescheduleBooking)
   );
   server.registerTool(
     "cancel_booking",
@@ -374,7 +375,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: cancelBookingSchema,
       annotations: DESTRUCTIVE,
     },
-    cancelBooking
+    instrumentToolHandler("cancel_booking", cancelBooking)
   );
   server.registerTool(
     "confirm_booking",
@@ -385,7 +386,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: confirmBookingSchema,
       annotations: UPDATE,
     },
-    confirmBooking
+    instrumentToolHandler("confirm_booking", confirmBooking)
   );
   server.registerTool(
     "mark_booking_absent",
@@ -396,7 +397,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: markBookingAbsentSchema,
       annotations: UPDATE,
     },
-    markBookingAbsent
+    instrumentToolHandler("mark_booking_absent", markBookingAbsent)
   );
   server.registerTool(
     "get_booking_attendees",
@@ -406,7 +407,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingAttendeesSchema,
       annotations: READ_ONLY,
     },
-    getBookingAttendees
+    instrumentToolHandler("get_booking_attendees", getBookingAttendees)
   );
   server.registerTool(
     "add_booking_attendee",
@@ -417,7 +418,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: addBookingAttendeeSchema,
       annotations: CREATE,
     },
-    addBookingAttendee
+    instrumentToolHandler("add_booking_attendee", addBookingAttendee)
   );
   server.registerTool(
     "get_booking_attendee",
@@ -428,7 +429,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingAttendeeSchema,
       annotations: READ_ONLY,
     },
-    getBookingAttendee
+    instrumentToolHandler("get_booking_attendee", getBookingAttendee)
   );
 
   // ── Schedules (6) ──
@@ -440,7 +441,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getSchedulesSchema,
       annotations: READ_ONLY,
     },
-    getSchedules
+    instrumentToolHandler("get_schedules", getSchedules)
   );
   server.registerTool(
     "get_schedule",
@@ -451,7 +452,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getScheduleSchema,
       annotations: READ_ONLY,
     },
-    getSchedule
+    instrumentToolHandler("get_schedule", getSchedule)
   );
   server.registerTool(
     "create_schedule",
@@ -462,7 +463,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: createScheduleSchema,
       annotations: CREATE,
     },
-    createSchedule
+    instrumentToolHandler("create_schedule", createSchedule)
   );
   server.registerTool(
     "update_schedule",
@@ -473,7 +474,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateScheduleSchema,
       annotations: UPDATE,
     },
-    updateSchedule
+    instrumentToolHandler("update_schedule", updateSchedule)
   );
   server.registerTool(
     "delete_schedule",
@@ -484,7 +485,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: deleteScheduleSchema,
       annotations: DESTRUCTIVE,
     },
-    deleteSchedule
+    instrumentToolHandler("delete_schedule", deleteSchedule)
   );
   server.registerTool(
     "get_default_schedule",
@@ -494,7 +495,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getDefaultScheduleSchema,
       annotations: READ_ONLY,
     },
-    getDefaultSchedule
+    instrumentToolHandler("get_default_schedule", getDefaultSchedule)
   );
 
   // ── Availability / Slots (1) ──
@@ -507,7 +508,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getAvailabilitySchema,
       annotations: READ_ONLY,
     },
-    getAvailability
+    instrumentToolHandler("get_availability", getAvailability)
   );
 
   // ── Calendars (2) ──
@@ -520,7 +521,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getConnectedCalendarsSchema,
       annotations: READ_ONLY,
     },
-    getConnectedCalendars
+    instrumentToolHandler("get_connected_calendars", getConnectedCalendars)
   );
   server.registerTool(
     "get_busy_times",
@@ -531,7 +532,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBusyTimesSchema,
       annotations: READ_ONLY,
     },
-    getBusyTimes
+    instrumentToolHandler("get_busy_times", getBusyTimes)
   );
 
   // ── Conferencing (1) ──
@@ -544,7 +545,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getConferencingAppsSchema,
       annotations: READ_ONLY,
     },
-    getConferencingApps
+    instrumentToolHandler("get_conferencing_apps", getConferencingApps)
   );
 
   // ── Booking Routing Trace (1) ──
@@ -557,7 +558,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getBookingRoutingTraceSchema,
       annotations: READ_ONLY,
     },
-    getBookingRoutingTrace
+    instrumentToolHandler("get_booking_routing_trace", getBookingRoutingTrace)
   );
 
   // ── Routing Forms (1) ──
@@ -570,7 +571,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: calculateRoutingFormSlotsSchema,
       annotations: CREATE,
     },
-    calculateRoutingFormSlots
+    instrumentToolHandler("calculate_routing_form_slots", calculateRoutingFormSlots)
   );
 
   // ── Organizations: Attributes (8) ──
@@ -583,7 +584,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgAttributesSchema,
       annotations: READ_ONLY,
     },
-    getOrgAttributes
+    instrumentToolHandler("get_org_attributes", getOrgAttributes)
   );
   server.registerTool(
     "get_org_attribute",
@@ -594,7 +595,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgAttributeSchema,
       annotations: READ_ONLY,
     },
-    getOrgAttribute
+    instrumentToolHandler("get_org_attribute", getOrgAttribute)
   );
   server.registerTool(
     "get_attribute_options",
@@ -605,7 +606,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getAttributeOptionsSchema,
       annotations: READ_ONLY,
     },
-    getAttributeOptions
+    instrumentToolHandler("get_attribute_options", getAttributeOptions)
   );
   server.registerTool(
     "get_user_attributes",
@@ -616,7 +617,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getUserAttributesSchema,
       annotations: READ_ONLY,
     },
-    getUserAttributes
+    instrumentToolHandler("get_user_attributes", getUserAttributes)
   );
   server.registerTool(
     "get_user_attribute_history",
@@ -627,7 +628,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getUserAttributeHistorySchema,
       annotations: READ_ONLY,
     },
-    getUserAttributeHistory
+    instrumentToolHandler("get_user_attribute_history", getUserAttributeHistory)
   );
   server.registerTool(
     "assign_attribute_to_user",
@@ -638,7 +639,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: assignAttributeToUserSchema,
       annotations: CREATE,
     },
-    assignAttributeToUser
+    instrumentToolHandler("assign_attribute_to_user", assignAttributeToUser)
   );
   server.registerTool(
     "update_user_attribute",
@@ -649,7 +650,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateUserAttributeSchema,
       annotations: UPDATE,
     },
-    updateUserAttribute
+    instrumentToolHandler("update_user_attribute", updateUserAttribute)
   );
   server.registerTool(
     "unassign_attribute_from_user",
@@ -660,7 +661,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: unassignAttributeFromUserSchema,
       annotations: DESTRUCTIVE,
     },
-    unassignAttributeFromUser
+    instrumentToolHandler("unassign_attribute_from_user", unassignAttributeFromUser)
   );
 
   // ── Organizations: Bookings (2) ──
@@ -673,7 +674,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgTeamBookingsSchema,
       annotations: READ_ONLY,
     },
-    getOrgTeamBookings
+    instrumentToolHandler("get_org_team_bookings", getOrgTeamBookings)
   );
   server.registerTool(
     "get_org_user_bookings",
@@ -684,7 +685,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgUserBookingsSchema,
       annotations: READ_ONLY,
     },
-    getOrgUserBookings
+    instrumentToolHandler("get_org_user_bookings", getOrgUserBookings)
   );
 
   // ── Organizations: Memberships (5) ──
@@ -697,7 +698,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgMembershipsSchema,
       annotations: READ_ONLY,
     },
-    getOrgMemberships
+    instrumentToolHandler("get_org_memberships", getOrgMemberships)
   );
   server.registerTool(
     "create_org_membership",
@@ -708,7 +709,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: createOrgMembershipSchema,
       annotations: CREATE,
     },
-    createOrgMembership
+    instrumentToolHandler("create_org_membership", createOrgMembership)
   );
   server.registerTool(
     "get_org_membership",
@@ -718,7 +719,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgMembershipSchema,
       annotations: READ_ONLY,
     },
-    getOrgMembership
+    instrumentToolHandler("get_org_membership", getOrgMembership)
   );
   server.registerTool(
     "delete_org_membership",
@@ -729,7 +730,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: deleteOrgMembershipSchema,
       annotations: DESTRUCTIVE,
     },
-    deleteOrgMembership
+    instrumentToolHandler("delete_org_membership", deleteOrgMembership)
   );
   server.registerTool(
     "update_org_membership",
@@ -740,7 +741,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateOrgMembershipSchema,
       annotations: UPDATE,
     },
-    updateOrgMembership
+    instrumentToolHandler("update_org_membership", updateOrgMembership)
   );
 
   // ── Organizations: Teams (2) ──
@@ -753,7 +754,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgTeamsSchema,
       annotations: READ_ONLY,
     },
-    getOrgTeams
+    instrumentToolHandler("get_org_teams", getOrgTeams)
   );
   server.registerTool(
     "get_my_teams",
@@ -764,7 +765,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getMyTeamsSchema,
       annotations: READ_ONLY,
     },
-    getMyTeams
+    instrumentToolHandler("get_my_teams", getMyTeams)
   );
 
   // ── Organizations: Routing Forms (2) ──
@@ -777,7 +778,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgRoutingFormsSchema,
       annotations: READ_ONLY,
     },
-    getOrgRoutingForms
+    instrumentToolHandler("get_org_routing_forms", getOrgRoutingForms)
   );
   server.registerTool(
     "get_org_routing_form_responses",
@@ -788,7 +789,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getOrgRoutingFormResponsesSchema,
       annotations: READ_ONLY,
     },
-    getOrgRoutingFormResponses
+    instrumentToolHandler("get_org_routing_form_responses", getOrgRoutingFormResponses)
   );
 
   // ── Teams: Memberships (6) ──
@@ -801,7 +802,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getTeamMembershipsSchema,
       annotations: READ_ONLY,
     },
-    getTeamMemberships
+    instrumentToolHandler("get_team_memberships", getTeamMemberships)
   );
   server.registerTool(
     "get_team_membership",
@@ -812,7 +813,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: getTeamMembershipSchema,
       annotations: READ_ONLY,
     },
-    getTeamMembership
+    instrumentToolHandler("get_team_membership", getTeamMembership)
   );
   server.registerTool(
     "create_team_membership",
@@ -823,7 +824,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: createTeamMembershipSchema,
       annotations: CREATE,
     },
-    createTeamMembership
+    instrumentToolHandler("create_team_membership", createTeamMembership)
   );
   server.registerTool(
     "update_team_membership",
@@ -834,7 +835,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: updateTeamMembershipSchema,
       annotations: UPDATE,
     },
-    updateTeamMembership
+    instrumentToolHandler("update_team_membership", updateTeamMembership)
   );
   server.registerTool(
     "delete_team_membership",
@@ -845,7 +846,7 @@ export function registerTools(server: McpServer): void {
       inputSchema: deleteTeamMembershipSchema,
       annotations: DESTRUCTIVE,
     },
-    deleteTeamMembership
+    instrumentToolHandler("delete_team_membership", deleteTeamMembership)
   );
   server.registerTool(
     "create_team_invite",
@@ -856,6 +857,6 @@ export function registerTools(server: McpServer): void {
       inputSchema: createTeamInviteSchema,
       annotations: CREATE,
     },
-    createTeamInvite
+    instrumentToolHandler("create_team_invite", createTeamInvite)
   );
 }
