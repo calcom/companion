@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   listener: undefined as RequestListener | undefined,
+  signalHandlers: {} as Record<string, () => void>,
   listen: vi.fn((_port: number, callback?: () => void) => callback?.()),
   close: vi.fn(),
   initDb: vi.fn().mockResolvedValue(undefined),
@@ -134,8 +135,13 @@ async function request(path: string, method = "GET", headers: Record<string, str
 describe("bare Node HTTP server routing", () => {
   beforeEach(async () => {
     vi.useFakeTimers();
-    vi.spyOn(process, "on").mockImplementation(() => process);
+    vi.spyOn(process, "on").mockImplementation(((event: string, listener: () => void) => {
+      mocks.signalHandlers[event] = listener;
+      return process;
+    }) as typeof process.on);
+    vi.spyOn(process, "exit").mockImplementation((() => undefined) as typeof process.exit);
     mocks.listener = undefined;
+    mocks.signalHandlers = {};
     vi.clearAllMocks();
     mocks.sql.mockResolvedValue([{ ok: 1 }]);
     mocks.resolveCalAuthHeaders.mockResolvedValue({ Authorization: "Bearer cal-token" });
@@ -255,5 +261,25 @@ describe("bare Node HTTP server routing", () => {
     expect(deleted.statusCode).toBe(200);
     expect(JSON.parse(deleted.body)).toEqual({ status: "terminated" });
     expect(mocks.transport.close).toHaveBeenCalledOnce();
+  });
+
+  it("drains sessions and closes server resources during shutdown", async () => {
+    await request("/mcp", "POST", { authorization: "Bearer mcp-token" });
+    let resolveExit: () => void = () => {};
+    const exited = new Promise<void>((resolve) => {
+      resolveExit = resolve;
+    });
+    vi.mocked(process.exit).mockImplementationOnce((() => {
+      resolveExit();
+      return undefined;
+    }) as typeof process.exit);
+
+    mocks.signalHandlers.SIGTERM?.();
+    await exited;
+
+    expect(mocks.close).toHaveBeenCalledOnce();
+    expect(mocks.transport.close).toHaveBeenCalledOnce();
+    expect(mocks.endPool).toHaveBeenCalledOnce();
+    expect(process.exit).toHaveBeenCalledWith(0);
   });
 });

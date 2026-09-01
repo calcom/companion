@@ -78,7 +78,7 @@ function isDirectExecution(): boolean {
   }
 }
 
-if (isDirectExecution()) {
+if (!process.env.MCP_MANAGED_ENTRYPOINT && isDirectExecution()) {
   main().catch((err) => {
     logger.error("Fatal error", { error: String(err) });
     process.exit(1);
