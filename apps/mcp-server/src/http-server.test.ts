@@ -90,6 +90,8 @@ const oauthConfig = {
   calAppBaseUrl: "https://app.cal.com",
   calOAuthScopes: "PROFILE_READ",
 };
+const originalVercelEnv = process.env.VERCEL_ENV;
+const originalPreviewSmokeMode = process.env.MCP_PREVIEW_SMOKE_MODE;
 
 function createRequest(
   path: string,
@@ -140,6 +142,7 @@ async function request(path: string, method = "GET", headers: Record<string, str
 
 describe("bare Node HTTP server routing", () => {
   beforeEach(async () => {
+    delete process.env.MCP_PREVIEW_SMOKE_MODE;
     vi.useFakeTimers();
     vi.spyOn(process, "on").mockImplementation(((event: string, listener: () => void) => {
       mocks.signalHandlers[event] = listener;
@@ -176,6 +179,10 @@ describe("bare Node HTTP server routing", () => {
   });
 
   afterEach(() => {
+    if (originalVercelEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = originalVercelEnv;
+    if (originalPreviewSmokeMode === undefined) delete process.env.MCP_PREVIEW_SMOKE_MODE;
+    else process.env.MCP_PREVIEW_SMOKE_MODE = originalPreviewSmokeMode;
     vi.clearAllTimers();
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -198,6 +205,37 @@ describe("bare Node HTTP server routing", () => {
 
     expect(health.statusCode).toBe(503);
     expect(JSON.parse(health.body)).toMatchObject({ status: "degraded", db: "error" });
+  });
+
+  it("keeps preview smoke mode inert without database, OAuth, or Cal authorization calls", async () => {
+    process.env.VERCEL_ENV = "preview";
+    process.env.MCP_PREVIEW_SMOKE_MODE = "empty-deny";
+    vi.clearAllMocks();
+
+    await startHttpServer(vi.fn(), {
+      port: 3100,
+      oauthConfig,
+      rateLimitMax: 1_000,
+    });
+
+    const health = await request("/health");
+    expect(health.statusCode).toBe(200);
+    expect(JSON.parse(health.body)).toMatchObject({ status: "ok", db: "preview_mock" });
+
+    const oauth = await request("/oauth/token", "POST");
+    expect(oauth.statusCode).toBe(503);
+    expect(JSON.parse(oauth.body)).toMatchObject({ error: "temporarily_unavailable" });
+
+    const protectedRequest = await request("/mcp", "POST", {
+      authorization: "Bearer untrusted-preview-token",
+    });
+    expect(protectedRequest.statusCode).toBe(401);
+    expect(JSON.parse(protectedRequest.body)).toMatchObject({ error: "invalid_token" });
+
+    expect(mocks.initDb).not.toHaveBeenCalled();
+    expect(mocks.sql).not.toHaveBeenCalled();
+    expect(mocks.handleToken).not.toHaveBeenCalled();
+    expect(mocks.resolveCalAuthHeaders).not.toHaveBeenCalled();
   });
 
   it("serves OAuth metadata for canonical and root MCP resources", async () => {

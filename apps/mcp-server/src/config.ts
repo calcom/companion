@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isPreviewSmokeMode } from "./preview-smoke-mode.js";
 
 /** Default Cal.com API version used across all requests. */
 export const CAL_API_VERSION = "2024-08-13";
@@ -110,6 +111,10 @@ export type HttpConfig = z.infer<typeof httpSchema>;
 export type AppConfig = StdioConfig | HttpConfig;
 
 function readEnv(): Record<string, unknown> {
+  const previewSmokeMode = isPreviewSmokeMode(process.env);
+  const previewServerUrl =
+    previewSmokeMode && process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined;
+
   return {
     transport: process.env.MCP_TRANSPORT || "stdio",
     calApiBaseUrl: process.env.CAL_API_BASE_URL || undefined,
@@ -117,11 +122,14 @@ function readEnv(): Record<string, unknown> {
     port: process.env.PORT || undefined,
     logLevel: process.env.LOG_LEVEL || undefined,
     calApiKey: process.env.CAL_API_KEY || undefined,
-    calOAuthClientId: process.env.CAL_OAUTH_CLIENT_ID || undefined,
-    calOAuthClientSecret: process.env.CAL_OAUTH_CLIENT_SECRET || undefined,
-    tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY || undefined,
-    serverUrl: process.env.MCP_SERVER_URL || undefined,
-    databaseUrl: process.env.DATABASE_URL || undefined,
+    calOAuthClientId:
+      process.env.CAL_OAUTH_CLIENT_ID || (previewSmokeMode ? "preview-disabled" : undefined),
+    calOAuthClientSecret:
+      process.env.CAL_OAUTH_CLIENT_SECRET || (previewSmokeMode ? "preview-disabled" : undefined),
+    tokenEncryptionKey:
+      process.env.TOKEN_ENCRYPTION_KEY || (previewSmokeMode ? "0".repeat(64) : undefined),
+    serverUrl: process.env.MCP_SERVER_URL || previewServerUrl,
+    databaseUrl: process.env.DATABASE_URL || (previewSmokeMode ? "preview-disabled" : undefined),
     calOAuthScopes: process.env.CAL_OAUTH_SCOPES || undefined,
     rateLimitWindowMs: process.env.RATE_LIMIT_WINDOW_MS || undefined,
     rateLimitMax: process.env.RATE_LIMIT_MAX || undefined,

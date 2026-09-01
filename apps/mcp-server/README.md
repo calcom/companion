@@ -87,6 +87,52 @@ rules in the Vercel project (with no rules, it collects nothing). Exporting
 traces to Grafana or another backend instead requires a Vercel Trace Drain (or
 provider integration). Both are deployment configuration outside this repository.
 
+### Personal Vercel smoke preview
+
+The dedicated smoke-test branch supports an inert preview mode for validating
+the real Vercel Node runtime, HTTP routing, health response, and OpenTelemetry
+startup without configuring Cal.com credentials or a database.
+
+Configure exactly one repository-defined, non-secret environment variable in a
+personal Vercel project's **Preview** environment:
+
+```text
+MCP_PREVIEW_SMOKE_MODE=empty-deny
+```
+
+Vercel must also supply its standard `VERCEL_ENV=preview` and `VERCEL_URL`
+variables. The server derives its preview URL from `VERCEL_URL`; do not set
+`DATABASE_URL`, `CAL_OAUTH_CLIENT_ID`, `CAL_OAUTH_CLIENT_SECRET`,
+`TOKEN_ENCRYPTION_KEY`, or `MCP_SERVER_URL` for this smoke mode. Configure any
+personal telemetry destination separately in Vercel without committing or
+sharing its values.
+
+After Vercel provides the preview URL, run only these public/inert checks:
+
+```bash
+curl -i https://<preview-host>/health
+curl -i https://<preview-host>/.well-known/oauth-authorization-server
+curl -i https://<preview-host>/mcp
+curl -i -X POST -H 'Authorization: Bearer inert-smoke-token' https://<preview-host>/mcp
+curl -i -X POST https://<preview-host>/oauth/token
+```
+
+Expected behavior:
+
+- `/health` returns HTTP 200 with `"db":"preview_mock"`.
+- OAuth metadata remains available so discovery and server URL generation can
+  be inspected.
+- An unauthenticated MCP request returns the normal HTTP 401 Bearer challenge.
+- The inert Bearer token returns HTTP 401 `invalid_token`; it never authorizes
+  an MCP session or calls Cal API v2.
+- OAuth action endpoints return HTTP 503 `temporarily_unavailable`.
+
+The switch is fail-closed: a missing or different value, any non-preview
+runtime, and every Vercel production deployment use the unchanged real database
+and OAuth adapter with the normal required-secret validation. Mock mode stores
+no data, contains no credentials or user records, exposes no debug endpoint,
+and cannot authorize an account.
+
 ## Transport Modes
 
 The server supports two transport modes selected via the `MCP_TRANSPORT` environment variable.

@@ -10,7 +10,6 @@ import {
   handleRegister,
   handleRevoke,
   handleToken,
-  resolveCalAuthHeaders,
 } from "./auth/oauth-handlers.js";
 import {
   buildAuthorizationServerMetadata,
@@ -19,9 +18,8 @@ import {
   getProtectedResourceMetadataUrl,
 } from "./auth/oauth-metadata.js";
 import { traceHttpRequest } from "./http-telemetry.js";
+import { createServerDataAdapter } from "./server-data-adapter.js";
 import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
-import { endPool, initDb, sql } from "./storage/db.js";
-import { cleanupExpired, countRegisteredClients } from "./storage/token-store.js";
 import { applyCorsHeaders, resolveCorsOrigin } from "./utils/http-security.js";
 import { logger, withLogContext } from "./utils/logger.js";
 import { getClientIp, RateLimiter, sendRateLimited } from "./utils/rate-limiter.js";
@@ -92,8 +90,10 @@ export async function startHttpServer(
     config.shutdownTimeoutMs ?? (Number(process.env.SHUTDOWN_TIMEOUT_MS) || 10_000);
   const openaiAppsChallengeToken =
     config.openaiAppsChallengeToken ?? process.env.OPENAI_APPS_CHALLENGE_TOKEN;
+  const dataAdapter = createServerDataAdapter();
+  const previewSmokeMode = dataAdapter.mode === "preview-empty-deny";
 
-  await initDb();
+  await dataAdapter.initialize();
 
   const rateLimitWindowMs =
     config.rateLimitWindowMs ?? (Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000);
@@ -105,7 +105,7 @@ export async function startHttpServer(
 
   const cleanupInterval = setInterval(
     () => {
-      cleanupExpired().catch((err) => {
+      dataAdapter.cleanupExpired().catch((err) => {
         logger.error("Cleanup error", { error: String(err) });
       });
     },
@@ -168,13 +168,7 @@ export async function startHttpServer(
 
     // ── Health check ──
     if (url.pathname === "/health") {
-      let dbOk = false;
-      try {
-        await sql`SELECT 1`;
-        dbOk = true;
-      } catch {
-        /* db not healthy */
-      }
+      const dbOk = await dataAdapter.checkHealth();
       const status = dbOk ? "ok" : "degraded";
       const code = dbOk ? 200 : 503;
       res.writeHead(code, { "Content-Type": "application/json" });
@@ -182,7 +176,7 @@ export async function startHttpServer(
         JSON.stringify({
           status,
           sessions: sessions.size,
-          db: dbOk ? "ok" : "error",
+          db: dbOk ? (previewSmokeMode ? "preview_mock" : "ok") : "error",
           uptime: Math.floor((Date.now() - startedAt) / 1000),
         })
       );
@@ -233,9 +227,20 @@ export async function startHttpServer(
         return;
       }
 
+      if (previewSmokeMode) {
+        res.writeHead(503, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            error: "temporarily_unavailable",
+            error_description: "OAuth is disabled for this inert preview smoke test",
+          })
+        );
+        return;
+      }
+
       if (url.pathname === "/oauth/register") {
         // Enforce max registered clients limit
-        const currentCount = await countRegisteredClients();
+        const currentCount = await dataAdapter.countRegisteredClients();
         if (currentCount >= maxRegisteredClients) {
           res.writeHead(503, { "Content-Type": "application/json" });
           res.end(
@@ -297,7 +302,7 @@ export async function startHttpServer(
       }
 
       if (req.method === "DELETE") {
-        const calAuthHeaders = await resolveCalAuthHeaders(bearerToken, oauthConfig);
+        const calAuthHeaders = await dataAdapter.resolveCalAuthHeaders(bearerToken, oauthConfig);
         if (!calAuthHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
@@ -330,7 +335,7 @@ export async function startHttpServer(
       const existingSession = sessionId ? sessions.get(sessionId) : undefined;
       if (sessionId && existingSession) {
         const freshHeaders = bearerToken
-          ? await resolveCalAuthHeaders(bearerToken, oauthConfig)
+          ? await dataAdapter.resolveCalAuthHeaders(bearerToken, oauthConfig)
           : undefined;
         if (!freshHeaders) {
           res.writeHead(401, {
@@ -375,7 +380,7 @@ export async function startHttpServer(
           return;
         }
 
-        const calAuthHeaders = await resolveCalAuthHeaders(bearerToken, oauthConfig);
+        const calAuthHeaders = await dataAdapter.resolveCalAuthHeaders(bearerToken, oauthConfig);
         if (!calAuthHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
@@ -493,7 +498,7 @@ export async function startHttpServer(
     await Promise.race([drainPromise, timeout]);
 
     // 4. Close database pool
-    await endPool();
+    await dataAdapter.close();
     logger.info("Shutdown complete");
   };
 
