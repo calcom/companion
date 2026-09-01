@@ -264,7 +264,7 @@ export async function startHttpServer(
 
     // ── MCP endpoint (requires Bearer token, rate-limited) ──
     // Accept both /mcp (canonical) and / (base URL) so clients that only accept
-    // an origin URL still reach MCP instead of a documentation redirect.
+    // an origin URL still reach MCP instead of the 404 fallback.
     if (url.pathname === "/mcp" || url.pathname === "/") {
       const clientIp = getClientIp(req);
       if (!mcpRateLimiter.consume(clientIp)) {
@@ -275,7 +275,7 @@ export async function startHttpServer(
       const resourceMetadataUrl =
         url.pathname === "/mcp"
           ? mcpResourceMetadataUrl
-          : getProtectedResourceMetadataUrl(oauthConfig.serverUrl);
+          : getProtectedResourceMetadataUrl(new URL(oauthConfig.serverUrl).origin);
 
       const authHeader = req.headers.authorization;
       const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;

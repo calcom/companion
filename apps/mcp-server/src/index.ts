@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { getApiKeyHeaders } from "./auth.js";
@@ -66,8 +67,18 @@ export async function main(): Promise<void> {
   }
 }
 
-const executedPath = process.argv[1];
-if (executedPath && import.meta.url === pathToFileURL(executedPath).href) {
+function isDirectExecution(): boolean {
+  const executedPath = process.argv[1];
+  if (!executedPath) return false;
+
+  try {
+    return realpathSync(executedPath) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectExecution()) {
   main().catch((err) => {
     logger.error("Fatal error", { error: String(err) });
     process.exit(1);
