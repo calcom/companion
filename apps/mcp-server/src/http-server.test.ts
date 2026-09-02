@@ -181,6 +181,24 @@ describe("bare Node HTTP server routing", () => {
     expect(JSON.parse(health.body)).toMatchObject({ status: "degraded", db: "error" });
   });
 
+  it("returns an unbound server without process handlers for managed runtimes", async () => {
+    vi.clearAllMocks();
+
+    const server = await startHttpServer(
+      vi.fn(),
+      {
+        port: 3100,
+        oauthConfig,
+        rateLimitMax: 1_000,
+      },
+      { listen: false }
+    );
+
+    expect(server).toEqual(expect.objectContaining({ listen: mocks.listen }));
+    expect(mocks.listen).not.toHaveBeenCalled();
+    expect(process.on).not.toHaveBeenCalled();
+  });
+
   it("serves OAuth metadata for canonical and root MCP resources", async () => {
     const authorizationServer = await request("/.well-known/oauth-authorization-server");
     expect(authorizationServer.statusCode).toBe(200);

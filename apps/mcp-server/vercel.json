@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "bun run build",
   "functions": {
-    "src/server.ts": {
+    "src/index.ts": {
       "maxDuration": 60
     }
   }

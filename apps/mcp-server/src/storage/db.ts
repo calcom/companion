@@ -1,13 +1,43 @@
-import { createPool } from "@vercel/postgres";
+import {
+  createPool,
+  type QueryResult,
+  type QueryResultRow,
+  type VercelPool,
+} from "@vercel/postgres";
 
-export const pool = createPool({
-  connectionString: process.env.DATABASE_URL,
-});
+type SqlPrimitive = string | number | boolean | undefined | null;
+
+let activePool: VercelPool | undefined;
+
+/**
+ * Create the database pool only when the real data path first needs it.
+ *
+ * Managed runtimes import the function bundle before invoking the handler.
+ * Initializing at module load would crash the process before configuration and
+ * telemetry can report a missing connection string.
+ */
+export function getPool(): VercelPool {
+  activePool ??= createPool({
+    connectionString: process.env.DATABASE_URL,
+  });
+  return activePool;
+}
+
+/** Lazy facade retained for callers that need a dedicated transaction client. */
+export const pool = {
+  connect: () => getPool().connect(),
+};
 
 // Bind so the tagged template keeps its `this` — destructuring `pool.sql`
 // loses the binding and @vercel/postgres then reads `connectionString` off
 // `undefined` at call time.
-export const sql = pool.sql.bind(pool);
+export function sql<O extends QueryResultRow>(
+  strings: TemplateStringsArray,
+  ...values: SqlPrimitive[]
+): Promise<QueryResult<O>> {
+  const activePool = getPool();
+  return activePool.sql<O>(strings, ...values);
+}
 
 let initialized = false;
 
@@ -80,6 +110,7 @@ export async function initDb(): Promise<void> {
  * End the connection pool (for graceful shutdown).
  */
 export async function endPool(): Promise<void> {
-  await pool.end();
+  if (activePool) await activePool.end();
+  activePool = undefined;
   initialized = false;
 }

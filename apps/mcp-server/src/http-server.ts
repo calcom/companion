@@ -47,6 +47,11 @@ export interface HttpServerConfig {
   openaiAppsChallengeToken?: string;
 }
 
+export interface HttpServerStartOptions {
+  /** Bind a local port and install process signal handlers. Disable for managed runtimes. */
+  listen?: boolean;
+}
+
 /**
  * Start the MCP server over StreamableHTTP transport with OAuth 2.1 authentication.
  *
@@ -71,8 +76,9 @@ const startedAt = Date.now();
 
 export async function startHttpServer(
   registerTools: (server: McpServer) => void,
-  config: HttpServerConfig
-): Promise<void> {
+  config: HttpServerConfig,
+  options: HttpServerStartOptions = {}
+): Promise<import("node:http").Server> {
   const { port, oauthConfig } = config;
   const maxSessions = config.maxSessions ?? (Number(process.env.MAX_SESSIONS) || 10_000);
   const sessionIdleTimeoutMs =
@@ -110,6 +116,7 @@ export async function startHttpServer(
     },
     5 * 60 * 1000
   );
+  if (cleanupInterval.unref) cleanupInterval.unref();
 
   const sessions = new Map<
     string,
@@ -439,14 +446,17 @@ export async function startHttpServer(
     res.end(JSON.stringify({ error: "Not found" }));
   });
 
-  httpServer.listen(port, () => {
-    logger.info("StreamableHTTP server started", {
-      port,
-      mcpEndpoint: `http://localhost:${port}/mcp`,
-      oauthEndpoints: `http://localhost:${port}/oauth/*`,
-      healthCheck: `http://localhost:${port}/health`,
+  const shouldListen = options.listen ?? true;
+  if (shouldListen) {
+    httpServer.listen(port, () => {
+      logger.info("StreamableHTTP server started", {
+        port,
+        mcpEndpoint: `http://localhost:${port}/mcp`,
+        oauthEndpoints: `http://localhost:${port}/oauth/*`,
+        healthCheck: `http://localhost:${port}/health`,
+      });
     });
-  });
+  }
 
   const shutdown = async () => {
     logger.info("Shutting down...");
@@ -480,14 +490,18 @@ export async function startHttpServer(
     logger.info("Shutdown complete");
   };
 
-  process.on("SIGINT", () => {
-    shutdown()
-      .then(() => process.exit(0))
-      .catch(() => process.exit(1));
-  });
-  process.on("SIGTERM", () => {
-    shutdown()
-      .then(() => process.exit(0))
-      .catch(() => process.exit(1));
-  });
+  if (shouldListen) {
+    process.on("SIGINT", () => {
+      shutdown()
+        .then(() => process.exit(0))
+        .catch(() => process.exit(1));
+    });
+    process.on("SIGTERM", () => {
+      shutdown()
+        .then(() => process.exit(0))
+        .catch(() => process.exit(1));
+    });
+  }
+
+  return httpServer;
 }
