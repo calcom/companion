@@ -18,6 +18,7 @@ import {
 } from "@/services/oauthService";
 import type { UserProfile } from "@/services/types/users.types";
 import { WebAuthService } from "@/services/webAuth";
+import { clearKeyboardData } from "@/utils/keyboardStorage";
 import { clearQueryCache } from "@/utils/queryPersister";
 import { clearRegion, getRegion, preloadRegion, subscribeRegion } from "@/utils/region";
 import { safeLogWarn } from "@/utils/safeLogger";
@@ -375,6 +376,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await clearWidgetBookings();
     } catch (widgetError) {
       console.warn("Failed to clear widget bookings during logout:", widgetError);
+    }
+    try {
+      await clearKeyboardData();
+    } catch (keyboardError) {
+      console.warn("Failed to clear keyboard data during logout:", keyboardError);
     }
     resetAuthState();
   }, [clearAuth, resetAuthState, queryClient]);
