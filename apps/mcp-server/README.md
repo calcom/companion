@@ -126,10 +126,10 @@ MCP_TRANSPORT=http \
 
 This starts a StreamableHTTP server with OAuth 2.1 authentication:
 
-On Vercel, `src/server.ts` is the zero-configuration bare Node entrypoint. Vercel
-captures its `server.listen()` call and routes all request paths to the same
-stateful server process; no catch-all rewrite or `/api` function wrapper is used.
-The repository keeps a 60-second function duration in `vercel.json`.
+On Vercel, the project-root `server.ts` is the zero-configuration bare Node
+entrypoint. Vercel captures its `server.listen()` call and routes all request
+paths to the same stateful server process; no `vercel.json`, catch-all rewrite,
+or `/api` function wrapper is used.
 
 **MCP endpoints** (require `Authorization: Bearer <token>`):
 - `POST /mcp` — JSON-RPC over Streamable HTTP (creates a new session on first request)

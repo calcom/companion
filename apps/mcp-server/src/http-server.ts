@@ -18,6 +18,7 @@ import {
   getMcpResourceUrl,
   getProtectedResourceMetadataUrl,
 } from "./auth/oauth-metadata.js";
+import { traceHttpRequest } from "./http-telemetry.js";
 import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import { endPool, initDb, sql } from "./storage/db.js";
 import { cleanupExpired, countRegisteredClients } from "./storage/token-store.js";
@@ -47,11 +48,6 @@ export interface HttpServerConfig {
   openaiAppsChallengeToken?: string;
 }
 
-export interface HttpServerStartOptions {
-  /** Bind a local port and install process signal handlers. Disable for managed runtimes. */
-  listen?: boolean;
-}
-
 /**
  * Start the MCP server over StreamableHTTP transport with OAuth 2.1 authentication.
  *
@@ -76,8 +72,7 @@ const startedAt = Date.now();
 
 export async function startHttpServer(
   registerTools: (server: McpServer) => void,
-  config: HttpServerConfig,
-  options: HttpServerStartOptions = {}
+  config: HttpServerConfig
 ): Promise<import("node:http").Server> {
   const { port, oauthConfig } = config;
   const maxSessions = config.maxSessions ?? (Number(process.env.MAX_SESSIONS) || 10_000);
@@ -156,7 +151,10 @@ export async function startHttpServer(
     applyCorsHeaders(res, corsOrigin);
   }
 
-  const httpServer = createServer(async (req, res) => {
+  const handleRequest = async (
+    req: import("node:http").IncomingMessage,
+    res: import("node:http").ServerResponse
+  ) => {
     const requestId = randomUUID();
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
     setCorsHeaders(res);
@@ -444,19 +442,28 @@ export async function startHttpServer(
 
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
+  };
+
+  const httpServer = createServer((req, res) => {
+    return traceHttpRequest(req, res, () => handleRequest(req, res)).catch((error) => {
+      logger.error("Unhandled HTTP request error", { error: String(error) });
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal server error" }));
+      } else {
+        res.destroy(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
   });
 
-  const shouldListen = options.listen ?? true;
-  if (shouldListen) {
-    httpServer.listen(port, () => {
-      logger.info("StreamableHTTP server started", {
-        port,
-        mcpEndpoint: `http://localhost:${port}/mcp`,
-        oauthEndpoints: `http://localhost:${port}/oauth/*`,
-        healthCheck: `http://localhost:${port}/health`,
-      });
+  httpServer.listen(port, () => {
+    logger.info("StreamableHTTP server started", {
+      port,
+      mcpEndpoint: `http://localhost:${port}/mcp`,
+      oauthEndpoints: `http://localhost:${port}/oauth/*`,
+      healthCheck: `http://localhost:${port}/health`,
     });
-  }
+  });
 
   const shutdown = async () => {
     logger.info("Shutting down...");
@@ -490,18 +497,16 @@ export async function startHttpServer(
     logger.info("Shutdown complete");
   };
 
-  if (shouldListen) {
-    process.on("SIGINT", () => {
-      shutdown()
-        .then(() => process.exit(0))
-        .catch(() => process.exit(1));
-    });
-    process.on("SIGTERM", () => {
-      shutdown()
-        .then(() => process.exit(0))
-        .catch(() => process.exit(1));
-    });
-  }
+  process.on("SIGINT", () => {
+    shutdown()
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
+  });
+  process.on("SIGTERM", () => {
+    shutdown()
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
+  });
 
   return httpServer;
 }

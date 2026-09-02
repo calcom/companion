@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import type { IncomingMessage, RequestListener, ServerResponse } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -95,12 +96,12 @@ function createRequest(
   method = "GET",
   headers: Record<string, string> = {}
 ): IncomingMessage {
-  return {
+  return Object.assign(new EventEmitter(), {
     method,
     url: path,
     headers: { host: "mcp.example.com", ...headers },
     socket: { remoteAddress: "127.0.0.1" },
-  } as IncomingMessage;
+  }) as IncomingMessage;
 }
 
 function createResponse(): ServerResponse & {
@@ -108,27 +109,32 @@ function createResponse(): ServerResponse & {
   headers: Record<string, string>;
   statusCode: number;
 } {
-  const response = {
+  const response = Object.assign(new EventEmitter(), {
     body: "",
     headers: {} as Record<string, string>,
+    headersSent: false,
     statusCode: 0,
+    writableFinished: false,
     setHeader(name: string, value: string): void {
       response.headers[name] = value;
     },
     writeHead(statusCode: number, headers?: Record<string, string>): void {
       response.statusCode = statusCode;
+      response.headersSent = true;
       Object.assign(response.headers, headers);
     },
     end(body = ""): void {
       response.body = String(body);
+      response.writableFinished = true;
+      response.emit("finish");
     },
-  };
+  });
   return response as unknown as ServerResponse & typeof response;
 }
 
 async function request(path: string, method = "GET", headers: Record<string, string> = {}) {
   const response = createResponse();
-  await mocks.listener?.(createRequest(path, method, headers), response);
+  await Promise.resolve(mocks.listener?.(createRequest(path, method, headers), response));
   return response;
 }
 
@@ -147,6 +153,19 @@ describe("bare Node HTTP server routing", () => {
     mocks.resolveCalAuthHeaders.mockResolvedValue({ Authorization: "Bearer cal-token" });
     mocks.transport.sessionId = "session-1";
     mocks.transport.onclose = undefined;
+    for (const handler of [
+      mocks.handleAuthorize,
+      mocks.handleCallback,
+      mocks.handleRegister,
+      mocks.handleRevoke,
+      mocks.handleToken,
+    ]) {
+      handler.mockImplementation(async (...args: unknown[]) => {
+        const response = args[1] as ServerResponse;
+        response.writeHead(200);
+        response.end();
+      });
+    }
 
     await startHttpServer(vi.fn(), {
       port: 3100,
@@ -179,24 +198,6 @@ describe("bare Node HTTP server routing", () => {
 
     expect(health.statusCode).toBe(503);
     expect(JSON.parse(health.body)).toMatchObject({ status: "degraded", db: "error" });
-  });
-
-  it("returns an unbound server without process handlers for managed runtimes", async () => {
-    vi.clearAllMocks();
-
-    const server = await startHttpServer(
-      vi.fn(),
-      {
-        port: 3100,
-        oauthConfig,
-        rateLimitMax: 1_000,
-      },
-      { listen: false }
-    );
-
-    expect(server).toEqual(expect.objectContaining({ listen: mocks.listen }));
-    expect(mocks.listen).not.toHaveBeenCalled();
-    expect(process.on).not.toHaveBeenCalled();
   });
 
   it("serves OAuth metadata for canonical and root MCP resources", async () => {

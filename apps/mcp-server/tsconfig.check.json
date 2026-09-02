@@ -11,7 +11,6 @@
     "src/index.ts",
     "src/register-tools.ts",
     "src/http-server.ts",
-    "src/server.ts",
     "src/**/*.test.ts"
   ]
 }
