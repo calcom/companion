@@ -22,6 +22,7 @@
       "appleTeamId": "ADWKXDJV75",
       "deploymentTarget": "18.0",
       "bundleIdentifier": "com.cal.companion",
+      "associatedDomains": ["applinks:app.cal.com", "applinks:app.cal.eu"],
       "userInterfaceStyle": "automatic",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -39,6 +40,95 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.calcom.companion",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "app.cal.com",
+              "path": "/bookings"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.com",
+              "pathPrefix": "/bookings/"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.com",
+              "pathPrefix": "/booking/"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.com",
+              "path": "/event-types"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.com",
+              "pathPrefix": "/event-types/"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.com",
+              "path": "/availability"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.com",
+              "pathPrefix": "/availability/"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.com",
+              "path": "/more"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.eu",
+              "path": "/bookings"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.eu",
+              "pathPrefix": "/bookings/"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.eu",
+              "pathPrefix": "/booking/"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.eu",
+              "path": "/event-types"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.eu",
+              "pathPrefix": "/event-types/"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.eu",
+              "path": "/availability"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.eu",
+              "pathPrefix": "/availability/"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.eu",
+              "path": "/more"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "softwareKeyboardLayoutMode": "pan",
       "usesCleartextTraffic": false,
       "userInterfaceStyle": "automatic"
