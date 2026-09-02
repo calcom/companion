@@ -2,8 +2,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod";
 import { CAL_API_VERSION } from "../config.js";
 import {
-  consumeAuthCode,
   claimCalTokenRefresh,
+  consumeAuthCode,
   createAccessToken,
   createAuthCode,
   createPendingAuth,
@@ -607,7 +607,15 @@ export async function refreshCalTokens(
           record.calTokenVersion
         );
         if (!invalidated) continue;
-      } else {
+      } else if (
+        refreshRes.status !== 408 &&
+        refreshRes.status !== 425 &&
+        refreshRes.status !== 429 &&
+        refreshRes.status < 500
+      ) {
+        // Other 4xx responses are definite rejections and cannot have rotated
+        // the credential. Ambiguous gateway/rate-limit/server failures keep the
+        // lease so another request cannot immediately replay the old token.
         await releaseCalTokenRefresh(accessTokenValue, leaseId, record.calTokenVersion);
       }
       return undefined;

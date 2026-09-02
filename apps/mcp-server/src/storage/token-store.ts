@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "./db.js";
-import { encrypt, decrypt } from "./encryption.js";
+import { decrypt, encrypt } from "./encryption.js";
 
 // ── Registered Clients ──
 
@@ -157,6 +157,7 @@ export interface AccessTokenRecord {
   refreshLeaseId: string | undefined;
   refreshLeaseUntil: number | undefined;
   expiresAt: number;
+  refreshExpiresAt: number;
 }
 
 export interface CalTokenUpdate {
@@ -184,6 +185,7 @@ function accessTokenRecordFromRow(row: Record<string, unknown>): AccessTokenReco
     refreshLeaseId: (row.refreshLeaseId as string | null | undefined) ?? undefined,
     refreshLeaseUntil: (row.refreshLeaseUntil as number | null | undefined) ?? undefined,
     expiresAt: row.expiresAt as number,
+    refreshExpiresAt: (row.refreshExpiresAt as number | undefined) ?? (row.expiresAt as number),
   };
 }
 
@@ -198,9 +200,10 @@ export async function createAccessToken(params: {
   const refreshToken = randomUUID();
   const ttl = params.ttlSeconds ?? 3600; // 1 hour default
   const expiresAt = Math.floor(Date.now() / 1000) + ttl;
+  const refreshExpiresAt = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
   await sql`
-    INSERT INTO "AccessToken" ("token", "refreshToken", "clientId", "calAccessTokenEnc", "calRefreshTokenEnc", "calTokenExpiresAt", "expiresAt")
-    VALUES (${token}, ${refreshToken}, ${params.clientId}, ${encrypt(params.calAccessToken)}, ${encrypt(params.calRefreshToken)}, ${params.calTokenExpiresAt}, ${expiresAt})
+    INSERT INTO "AccessToken" ("token", "refreshToken", "clientId", "calAccessTokenEnc", "calRefreshTokenEnc", "calTokenExpiresAt", "expiresAt", "refreshExpiresAt")
+    VALUES (${token}, ${refreshToken}, ${params.clientId}, ${encrypt(params.calAccessToken)}, ${encrypt(params.calRefreshToken)}, ${params.calTokenExpiresAt}, ${expiresAt}, ${refreshExpiresAt})
   `;
   return { accessToken: token, refreshToken, expiresIn: ttl };
 }
@@ -220,7 +223,7 @@ export async function getAccessTokenByRefresh(
   const { rows } = await sql`
     SELECT * FROM "AccessToken"
     WHERE "refreshToken" = ${refreshToken}
-      AND "expiresAt" > EXTRACT(EPOCH FROM NOW())::INTEGER
+      AND "refreshExpiresAt" > EXTRACT(EPOCH FROM NOW())::INTEGER
   `;
   if (rows.length === 0) return undefined;
   return accessTokenRecordFromRow(rows[0]);
@@ -343,18 +346,22 @@ export async function rotateAccessToken(oldRefreshToken: string): Promise<
   const token = randomUUID();
   const refreshToken = randomUUID();
   const ttl = 3600;
+  const refreshTtl = 30 * 24 * 60 * 60;
+  const tokenFetchTimeoutMs = Number(process.env.TOKEN_FETCH_TIMEOUT_MS) || 10_000;
+  const maximumLeaseSeconds = Math.ceil(tokenFetchTimeoutMs / 1000) + 5;
   let deadline = Date.now() + 15_000;
-  const maximumDeadline = Date.now() + 60_000;
+  const maximumDeadline = Date.now() + maximumLeaseSeconds * 1000 + 2_000;
   while (Date.now() < deadline) {
     const { rows } = await sql`
       UPDATE "AccessToken"
       SET "token" = ${token},
           "refreshToken" = ${refreshToken},
           "expiresAt" = EXTRACT(EPOCH FROM NOW())::INTEGER + ${ttl},
+          "refreshExpiresAt" = EXTRACT(EPOCH FROM NOW())::INTEGER + ${refreshTtl},
           "refreshLeaseId" = NULL,
           "refreshLeaseUntil" = NULL
       WHERE "refreshToken" = ${oldRefreshToken}
-        AND "expiresAt" > EXTRACT(EPOCH FROM NOW())::INTEGER
+        AND "refreshExpiresAt" > EXTRACT(EPOCH FROM NOW())::INTEGER
         AND "calTokenInvalidAt" IS NULL
         AND ("refreshLeaseId" IS NULL OR "refreshLeaseUntil" IS NULL OR "refreshLeaseUntil" <= EXTRACT(EPOCH FROM NOW())::INTEGER)
       RETURNING "token"
@@ -382,5 +389,5 @@ export async function rotateAccessToken(oldRefreshToken: string): Promise<
 export async function cleanupExpired(): Promise<void> {
   await sql`DELETE FROM "PendingAuth" WHERE "expiresAt" <= EXTRACT(EPOCH FROM NOW())::INTEGER`;
   await sql`DELETE FROM "AuthCode" WHERE "expiresAt" <= EXTRACT(EPOCH FROM NOW())::INTEGER`;
-  await sql`DELETE FROM "AccessToken" WHERE "expiresAt" <= EXTRACT(EPOCH FROM NOW())::INTEGER`;
+  await sql`DELETE FROM "AccessToken" WHERE "refreshExpiresAt" <= EXTRACT(EPOCH FROM NOW())::INTEGER`;
 }

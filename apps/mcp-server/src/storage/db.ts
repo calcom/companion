@@ -68,7 +68,8 @@ export async function initDb(): Promise<void> {
       "calRefreshTokenEnc" TEXT NOT NULL,
       "calTokenExpiresAt" INTEGER NOT NULL,
       "createdAt" INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER,
-      "expiresAt" INTEGER NOT NULL
+      "expiresAt" INTEGER NOT NULL,
+      "refreshExpiresAt" INTEGER NOT NULL DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER + 2592000)
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS "AccessToken_expiresAt_idx" ON "AccessToken" ("expiresAt")`;
@@ -82,7 +83,12 @@ export async function initDb(): Promise<void> {
       ADD COLUMN IF NOT EXISTS "refreshLeaseId" TEXT,
       ADD COLUMN IF NOT EXISTS "refreshLeaseUntil" INTEGER,
       ADD COLUMN IF NOT EXISTS "calTokenVersion" INTEGER NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS "calTokenInvalidAt" INTEGER
+      ADD COLUMN IF NOT EXISTS "calTokenInvalidAt" INTEGER,
+      ADD COLUMN IF NOT EXISTS "refreshExpiresAt" INTEGER NOT NULL DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER + 2592000)
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS "AccessToken_refreshExpiresAt_idx"
+    ON "AccessToken" ("refreshExpiresAt")
   `;
 
   initialized = true;

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type RecordState = import("../storage/token-store.js").AccessTokenRecord;
 
@@ -131,8 +131,13 @@ beforeEach(() => {
     refreshLeaseId: undefined,
     refreshLeaseUntil: undefined,
     expiresAt: Math.floor(Date.now() / 1000) + 3600,
+    refreshExpiresAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
   };
   mocks.state.leaseCounter = 0;
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("Cal.com token refresh handler", () => {
@@ -191,5 +196,34 @@ describe("Cal.com token refresh handler", () => {
 
     expect(mocks.persistCalTokenRefresh).not.toHaveBeenCalled();
     expect(mocks.state.record?.calAccessToken).toBe("old-cal-access");
+  });
+
+  it.each([
+    408, 425, 429, 500, 503,
+  ])("keeps the lease after ambiguous upstream HTTP status %i", async (status) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ error: "temporarily_unavailable" }), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    await expect(resolveCalAuthHeaders("mcp-access", config)).resolves.toBeUndefined();
+
+    expect(mocks.releaseCalTokenRefresh).not.toHaveBeenCalled();
+    expect(mocks.state.record?.refreshLeaseId).toBeDefined();
+  });
+
+  it("releases the lease after a definite non-rotating rejection", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ error: "invalid_client" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    await expect(resolveCalAuthHeaders("mcp-access", config)).resolves.toBeUndefined();
+
+    expect(mocks.releaseCalTokenRefresh).toHaveBeenCalledTimes(1);
   });
 });

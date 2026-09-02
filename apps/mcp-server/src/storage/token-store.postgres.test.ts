@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { Pool, type PoolClient, type QueryResultRow } from "pg";
+import { Pool, type QueryResultRow } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -72,41 +72,22 @@ describePostgres("AccessToken refresh leases (real Postgres)", () => {
     });
   }
 
-  it("allows only one claim across separate connections and lets a waiter reuse the winner", async () => {
+  it("allows only one concurrent production claim and lets a waiter reuse the winner", async () => {
     const created = await createExpiredToken();
-    const firstClient = await postgres.connect();
-    const secondClient = await postgres.connect();
-    try {
-      const firstPid = await firstClient.query<{ pid: number }>("SELECT pg_backend_pid() AS pid");
-      const secondPid = await secondClient.query<{ pid: number }>("SELECT pg_backend_pid() AS pid");
-      expect(firstPid.rows[0]?.pid).not.toBe(secondPid.rows[0]?.pid);
+    const claims = await Promise.all([
+      tokenStore.claimCalTokenRefresh(created.accessToken, 10),
+      tokenStore.claimCalTokenRefresh(created.accessToken, 10),
+    ]);
+    expect(claims.filter((claim) => claim.status === "claimed")).toHaveLength(1);
+    expect(claims.filter((claim) => claim.status === "waiting")).toHaveLength(1);
 
-      const claim = (client: PoolClient, leaseId: string) =>
-        client.query(
-          `UPDATE "AccessToken"
-           SET "refreshLeaseId" = $1,
-               "refreshLeaseUntil" = EXTRACT(EPOCH FROM NOW())::INTEGER + 10
-           WHERE "token" = $2
-             AND "calTokenInvalidAt" IS NULL
-             AND "calTokenExpiresAt" <= EXTRACT(EPOCH FROM NOW())::INTEGER + 60
-             AND ("refreshLeaseId" IS NULL OR "refreshLeaseUntil" <= EXTRACT(EPOCH FROM NOW())::INTEGER)
-           RETURNING "refreshLeaseId", "calTokenVersion"`,
-          [leaseId, created.accessToken]
-        );
-      const [first, second] = await Promise.all([
-        claim(firstClient, "lease-from-first-connection"),
-        claim(secondClient, "lease-from-second-connection"),
-      ]);
-      expect(first.rows.length + second.rows.length).toBe(1);
-
-      const winner = (first.rows[0] ?? second.rows[0]) as {
-        refreshLeaseId: string;
-        calTokenVersion: number;
-      };
+    const winner = claims.find((claim) => claim.status === "claimed");
+    expect(winner?.status).toBe("claimed");
+    if (winner?.status === "claimed") {
       const persisted = await tokenStore.persistCalTokenRefresh(
         created.accessToken,
-        winner.refreshLeaseId,
-        winner.calTokenVersion,
+        winner.leaseId,
+        winner.record.calTokenVersion,
         {
           calAccessToken: "winner-access",
           calRefreshToken: "winner-refresh",
@@ -118,10 +99,20 @@ describePostgres("AccessToken refresh leases (real Postgres)", () => {
       const waiter = await tokenStore.claimCalTokenRefresh(created.accessToken, 10);
       expect(waiter.status).toBe("ready");
       if (waiter.status === "ready") expect(waiter.record.calRefreshToken).toBe("winner-refresh");
-    } finally {
-      firstClient.release();
-      secondClient.release();
     }
+  });
+
+  it("rotates a refresh token after its access token expires", async () => {
+    const created = await createExpiredToken();
+    await postgres.query(
+      `UPDATE "AccessToken" SET "expiresAt" = EXTRACT(EPOCH FROM NOW())::INTEGER - 1 WHERE "token" = $1`,
+      [created.accessToken]
+    );
+
+    const rotated = await tokenStore.rotateAccessToken(created.refreshToken);
+
+    expect(rotated).toBeDefined();
+    if (rotated) expect(await tokenStore.getAccessToken(rotated.accessToken)).toBeDefined();
   });
 
   it("recovers an abandoned claim after its lease expires", async () => {

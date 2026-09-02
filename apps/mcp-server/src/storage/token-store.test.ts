@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const TEST_KEY = "a".repeat(64);
 
@@ -221,6 +221,7 @@ describe("access tokens", () => {
     const record = await tokenStore.getAccessTokenByRefresh("test-refresh");
     expect(record).toBeDefined();
     expect(record?.token).toBe("test-token");
+    expect(String(mockSql.mock.calls[0]?.[0])).toContain("refreshExpiresAt");
   });
 
   it("deletes an access token", async () => {
@@ -236,11 +237,56 @@ describe("access tokens", () => {
     expect(rotated?.refreshToken).toBeTruthy();
     expect(mockSql).toHaveBeenCalledTimes(1);
     expect(String(mockSql.mock.calls[0]?.[0])).toContain("refreshLeaseUntil");
+    expect(String(mockSql.mock.calls[0]?.[0])).toContain("refreshExpiresAt");
   });
 
   it("returns undefined when rotating unknown refresh token", async () => {
     const result = await tokenStore.rotateAccessToken("nonexistent");
     expect(result).toBeUndefined();
+  });
+
+  it("waits for a configured long refresh lease before rotating", async () => {
+    const { encrypt } = await import("./encryption.js");
+    const previousTimeout = process.env.TOKEN_FETCH_TIMEOUT_MS;
+    process.env.TOKEN_FETCH_TIMEOUT_MS = "55000";
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2033-05-18T03:33:20.000Z"));
+    const leaseUntil = Math.floor(Date.now() / 1000) + 60;
+    const existingRow = {
+      token: "old-token",
+      refreshToken: "old-refresh",
+      clientId: "client-1",
+      calAccessTokenEnc: encrypt("cal-at"),
+      calRefreshTokenEnc: encrypt("cal-rt"),
+      calTokenExpiresAt: Math.floor(Date.now() / 1000) - 1,
+      calTokenVersion: 0,
+      calTokenInvalidAt: null,
+      refreshLeaseId: "active-lease",
+      refreshLeaseUntil: leaseUntil,
+      expiresAt: Math.floor(Date.now() / 1000) - 1,
+      refreshExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+    };
+    mockSql.mockImplementation(async (strings: TemplateStringsArray) => {
+      const query = String(strings);
+      if (query.includes('SET "token" =')) {
+        return Date.now() >= leaseUntil * 1000
+          ? { rows: [{ token: "new-token" }], rowCount: 1 }
+          : { rows: [], rowCount: 0 };
+      }
+      return { rows: [existingRow], rowCount: 1 };
+    });
+
+    try {
+      const rotation = tokenStore.rotateAccessToken("old-refresh");
+      await vi.advanceTimersByTimeAsync(60_100);
+
+      await expect(rotation).resolves.toBeDefined();
+    } finally {
+      vi.useRealTimers();
+      if (previousTimeout === undefined) delete process.env.TOKEN_FETCH_TIMEOUT_MS;
+      else process.env.TOKEN_FETCH_TIMEOUT_MS = previousTimeout;
+      mockSql.mockImplementation(async () => ({ rows: mockRows, rowCount: mockRows.length }));
+    }
   });
 
   it("claims an expiring Cal.com token with a short atomic update", async () => {
@@ -294,7 +340,26 @@ describe("access tokens", () => {
     });
 
     expect(result?.calTokenVersion).toBe(4);
-    expect(String(mockSql.mock.calls[0]?.[0])).toContain("calTokenVersion");
+    const query = String(mockSql.mock.calls[0]?.[0]);
+    expect(query).toContain('"refreshLeaseId" =');
+    expect(query).toContain('"calTokenVersion" =');
+    expect(query).toContain('"calTokenInvalidAt" IS NULL');
+  });
+
+  it("rejects a stale fenced refresh write", async () => {
+    mockSql.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    const result = await tokenStore.persistCalTokenRefresh("token", "stale-lease", 2, {
+      calAccessToken: "stale-cal-at",
+      calRefreshToken: "stale-cal-rt",
+      calTokenExpiresAt: 999,
+    });
+
+    expect(result).toBeUndefined();
+    const query = String(mockSql.mock.calls[0]?.[0]);
+    expect(query).toContain('"refreshLeaseId" =');
+    expect(query).toContain('"calTokenVersion" =');
+    expect(query).toContain('"calTokenInvalidAt" IS NULL');
   });
 });
 
@@ -303,5 +368,6 @@ describe("cleanupExpired", () => {
     await tokenStore.cleanupExpired();
     // 3 DELETE queries (PendingAuth, AuthCode, AccessToken)
     expect(mockSql).toHaveBeenCalledTimes(3);
+    expect(String(mockSql.mock.calls[2]?.[0])).toContain("refreshExpiresAt");
   });
 });
