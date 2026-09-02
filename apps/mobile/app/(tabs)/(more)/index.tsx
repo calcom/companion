@@ -12,6 +12,7 @@ import {
 import { Header } from "@/components/Header";
 import { LandingPagePicker } from "@/components/LandingPagePicker";
 import { LogoutConfirmModal } from "@/components/LogoutConfirmModal";
+import { ResponsiveContentContainer } from "@/components/ResponsiveContentContainer";
 import { getColors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryContext } from "@/contexts/QueryContext";
@@ -121,135 +122,137 @@ export default function More() {
         contentContainerStyle={{ padding: 16, paddingBottom: 90 }}
         showsVerticalScrollIndicator={false}
       >
-        <View
-          className="overflow-hidden rounded-lg border border-[#E5E5EA] bg-white"
-          style={{ borderColor: theme.border, backgroundColor: theme.backgroundSecondary }}
-        >
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={item.name}
-              onPress={item.onPress}
-              className={`flex-row items-center justify-between bg-white px-5 py-5 active:bg-[#F8F9FA]`}
+        <ResponsiveContentContainer className="w-full">
+          <View
+            className="overflow-hidden rounded-lg border border-[#E5E5EA] bg-white"
+            style={{ borderColor: theme.border, backgroundColor: theme.backgroundSecondary }}
+          >
+            {menuItems.map((item, index) => (
+              <TouchableOpacity
+                key={item.name}
+                onPress={item.onPress}
+                className={`flex-row items-center justify-between bg-white px-5 py-5 active:bg-[#F8F9FA]`}
+                style={{
+                  backgroundColor: theme.backgroundSecondary,
+                  borderBottomWidth: index < menuItems.length - 1 ? 1 : 0,
+                  borderBottomColor: theme.border,
+                }}
+              >
+                <View className="flex-1 flex-row items-center">
+                  <Ionicons name={item.icon} size={20} color={theme.text} />
+                  <Text className="ml-3 text-base font-semibold" style={{ color: theme.text }}>
+                    {item.name}
+                  </Text>
+                </View>
+                {item.isExternal ? (
+                  <Ionicons name="open-outline" size={20} color={theme.textSecondary} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* App Settings */}
+          <View
+            className="mt-6 overflow-hidden rounded-lg border border-[#E5E5EA] bg-white"
+            style={{ borderColor: theme.border, backgroundColor: theme.backgroundSecondary }}
+          >
+            <View
+              className="border-b border-[#E5E5EA] bg-gray-50 px-4 py-2"
               style={{
-                backgroundColor: theme.backgroundSecondary,
-                borderBottomWidth: index < menuItems.length - 1 ? 1 : 0,
                 borderBottomColor: theme.border,
+                backgroundColor: isDark ? "#2C2C2E" : undefined,
               }}
             >
-              <View className="flex-1 flex-row items-center">
-                <Ionicons name={item.icon} size={20} color={theme.text} />
-                <Text className="ml-3 text-base font-semibold" style={{ color: theme.text }}>
-                  {item.name}
-                </Text>
-              </View>
-              {item.isExternal ? (
-                <Ionicons name="open-outline" size={20} color={theme.textSecondary} />
-              ) : (
-                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* App Settings */}
-        <View
-          className="mt-6 overflow-hidden rounded-lg border border-[#E5E5EA] bg-white"
-          style={{ borderColor: theme.border, backgroundColor: theme.backgroundSecondary }}
-        >
-          <View
-            className="border-b border-[#E5E5EA] bg-gray-50 px-4 py-2"
-            style={{
-              borderBottomColor: theme.border,
-              backgroundColor: isDark ? "#2C2C2E" : undefined,
-            }}
-          >
-            <Text
-              className="text-xs font-semibold uppercase text-gray-500"
-              style={{ color: theme.textSecondary }}
-            >
-              App Settings
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => setShowLandingPagePicker(true)}
-            className="flex-row items-center justify-between bg-white px-5 py-4 active:bg-[#F8F9FA]"
-            style={{ backgroundColor: theme.backgroundSecondary }}
-          >
-            <View className="flex-row items-center">
-              <Ionicons name="home-outline" size={20} color={theme.text} />
-              <Text className="ml-3 text-base font-semibold" style={{ color: theme.text }}>
-                First Page
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <View
-                className="ml-3 rounded-md bg-gray-100 px-2.5 py-1"
-                style={{ backgroundColor: isDark ? "#3A3A3C" : undefined }}
+              <Text
+                className="text-xs font-semibold uppercase text-gray-500"
+                style={{ color: theme.textSecondary }}
               >
-                <Text
-                  className="text-sm font-medium text-gray-600"
-                  style={{ color: theme.textSecondary }}
-                >
-                  {landingPageLabel}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Delete Account Link */}
-        <View
-          className="mt-6 overflow-hidden rounded-lg border border-[#E5E5EA] bg-white"
-          style={{ borderColor: theme.border, backgroundColor: theme.backgroundSecondary }}
-        >
-          <TouchableOpacity
-            onPress={() =>
-              openInAppBrowser(`${getCalAppUrl()}/settings/my-account/profile`, "Delete Account")
-            }
-            className="flex-row items-center justify-between bg-white px-5 py-4 active:bg-red-50"
-            style={{ backgroundColor: theme.backgroundSecondary }}
-          >
-            <View className="flex-1 flex-row items-center">
-              <Ionicons name="trash-outline" size={20} color={theme.destructive} />
-              <Text className="ml-3 text-base font-medium" style={{ color: theme.destructive }}>
-                Delete Account
+                App Settings
               </Text>
             </View>
-            <Ionicons name="open-outline" size={20} color={theme.textSecondary} />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              onPress={() => setShowLandingPagePicker(true)}
+              className="flex-row items-center justify-between bg-white px-5 py-4 active:bg-[#F8F9FA]"
+              style={{ backgroundColor: theme.backgroundSecondary }}
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="home-outline" size={20} color={theme.text} />
+                <Text className="ml-3 text-base font-semibold" style={{ color: theme.text }}>
+                  First Page
+                </Text>
+              </View>
+              <View className="flex-row items-center">
+                <View
+                  className="ml-3 rounded-md bg-gray-100 px-2.5 py-1"
+                  style={{ backgroundColor: isDark ? "#3A3A3C" : undefined }}
+                >
+                  <Text
+                    className="text-sm font-medium text-gray-600"
+                    style={{ color: theme.textSecondary }}
+                  >
+                    {landingPageLabel}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
 
-        {/* Sign Out Button */}
-        <View
-          className="mt-4 overflow-hidden rounded-lg border border-[#E5E5EA] bg-white"
-          style={{ borderColor: theme.border, backgroundColor: theme.backgroundSecondary }}
-        >
-          <TouchableOpacity
-            onPress={handleSignOut}
-            className="flex-row items-center justify-center bg-white px-5 py-4 active:bg-red-50"
-            style={{ backgroundColor: theme.backgroundSecondary }}
+          {/* Delete Account Link */}
+          <View
+            className="mt-6 overflow-hidden rounded-lg border border-[#E5E5EA] bg-white"
+            style={{ borderColor: theme.border, backgroundColor: theme.backgroundSecondary }}
           >
-            <Ionicons name="log-out-outline" size={20} color={theme.destructive} />
-            <Text className="ml-2 text-base font-medium" style={{ color: theme.destructive }}>
-              Sign Out
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              onPress={() =>
+                openInAppBrowser(`${getCalAppUrl()}/settings/my-account/profile`, "Delete Account")
+              }
+              className="flex-row items-center justify-between bg-white px-5 py-4 active:bg-red-50"
+              style={{ backgroundColor: theme.backgroundSecondary }}
+            >
+              <View className="flex-1 flex-row items-center">
+                <Ionicons name="trash-outline" size={20} color={theme.destructive} />
+                <Text className="ml-3 text-base font-medium" style={{ color: theme.destructive }}>
+                  Delete Account
+                </Text>
+              </View>
+              <Ionicons name="open-outline" size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
-        {/* Footer Note */}
-        <Text
-          className="mt-6 px-1 text-center text-xs text-gray-400"
-          style={{ color: theme.textMuted }}
-        >
-          The companion app is an extension of the web application.{"\n"}
-          For advanced features, visit{" "}
+          {/* Sign Out Button */}
+          <View
+            className="mt-4 overflow-hidden rounded-lg border border-[#E5E5EA] bg-white"
+            style={{ borderColor: theme.border, backgroundColor: theme.backgroundSecondary }}
+          >
+            <TouchableOpacity
+              onPress={handleSignOut}
+              className="flex-row items-center justify-center bg-white px-5 py-4 active:bg-red-50"
+              style={{ backgroundColor: theme.backgroundSecondary }}
+            >
+              <Ionicons name="log-out-outline" size={20} color={theme.destructive} />
+              <Text className="ml-2 text-base font-medium" style={{ color: theme.destructive }}>
+                Sign Out
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Footer Note */}
           <Text
-            style={{ color: theme.text }}
-            onPress={() => openInAppBrowser(calAppUrl, "Cal.com")}
+            className="mt-6 px-1 text-center text-xs text-gray-400"
+            style={{ color: theme.textMuted }}
           >
-            {calAppUrl.replace(/^https?:\/\//, "")}
+            The companion app is an extension of the web application.{"\n"}
+            For advanced features, visit{" "}
+            <Text
+              style={{ color: theme.text }}
+              onPress={() => openInAppBrowser(calAppUrl, "Cal.com")}
+            >
+              {calAppUrl.replace(/^https?:\/\//, "")}
+            </Text>
           </Text>
-        </Text>
+        </ResponsiveContentContainer>
       </ScrollView>
 
       {/* Logout Confirmation Modal for Web */}
