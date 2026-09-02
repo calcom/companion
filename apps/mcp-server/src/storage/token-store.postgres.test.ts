@@ -11,6 +11,8 @@ describePostgres("AccessToken refresh leases (real Postgres)", () => {
   let postgres: Pool;
   const clientId = `refresh-lease-test-${randomUUID()}`;
   const schema = `refresh_lease_${randomUUID().replaceAll("-", "")}`;
+  const legacyToken = `legacy-token-${randomUUID()}`;
+  const legacyCreatedAt = Math.floor(Date.now() / 1000) - 31 * 24 * 60 * 60;
 
   beforeAll(async () => {
     process.env.TOKEN_ENCRYPTION_KEY = "b".repeat(64);
@@ -34,6 +36,21 @@ describePostgres("AccessToken refresh leases (real Postgres)", () => {
         "expiresAt" INTEGER NOT NULL
       )
     `);
+    await postgres.query(
+      `INSERT INTO "AccessToken"
+        ("token", "refreshToken", "clientId", "calAccessTokenEnc", "calRefreshTokenEnc", "calTokenExpiresAt", "createdAt", "expiresAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        legacyToken,
+        `legacy-refresh-${randomUUID()}`,
+        clientId,
+        "legacy-access",
+        "legacy-refresh",
+        legacyCreatedAt + 3600,
+        legacyCreatedAt,
+        legacyCreatedAt + 3600,
+      ]
+    );
     const migration = await readFile(
       new URL("../../migrations/001_access_token_refresh_lease.sql", import.meta.url),
       "utf8"
@@ -71,6 +88,16 @@ describePostgres("AccessToken refresh leases (real Postgres)", () => {
       calTokenExpiresAt: Math.floor(Date.now() / 1000) - 1,
     });
   }
+
+  it("backfills legacy refresh expiry from token creation time", async () => {
+    const result = await postgres.query<{ refreshExpiresAt: number }>(
+      `SELECT "refreshExpiresAt" FROM "AccessToken" WHERE "token" = $1`,
+      [legacyToken]
+    );
+
+    expect(result.rows[0]?.refreshExpiresAt).toBe(legacyCreatedAt + 30 * 24 * 60 * 60);
+    expect(result.rows[0]?.refreshExpiresAt).toBeLessThan(Math.floor(Date.now() / 1000));
+  });
 
   it("allows only one concurrent production claim and lets a waiter reuse the winner", async () => {
     const created = await createExpiredToken();
