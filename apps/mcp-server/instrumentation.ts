@@ -1,6 +1,10 @@
-/**
- * Vercel discovers instrumentation only at the project root. Keep this as a
- * thin deployment entry point while the implementation lives under src/ so it
- * is typechecked, linted, built, and included in the published package.
- */
-import "./src/instrumentation.js";
+import { registerOTel } from "@vercel/otel";
+
+/** Register the MCP server's OpenTelemetry instrumentation with Vercel. */
+export function register(): void {
+  registerOTel({
+    serviceName: "cal-mcp-server",
+    instrumentations: ["fetch"],
+  });
+  console.info("[otel] registered cal-mcp-server with fetch instrumentation");
+}

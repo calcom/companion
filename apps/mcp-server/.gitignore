@@ -7,3 +7,6 @@ data/
 
 # Local docs
 DEPLOYMENT.md
+.vercel/
+.env*
+!.env.example

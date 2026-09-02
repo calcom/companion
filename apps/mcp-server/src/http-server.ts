@@ -18,6 +18,7 @@ import {
   getMcpResourceUrl,
   getProtectedResourceMetadataUrl,
 } from "./auth/oauth-metadata.js";
+import { traceHttpRequest } from "./http-telemetry.js";
 import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import { endPool, initDb, sql } from "./storage/db.js";
 import { cleanupExpired, countRegisteredClients } from "./storage/token-store.js";
@@ -72,7 +73,7 @@ const startedAt = Date.now();
 export async function startHttpServer(
   registerTools: (server: McpServer) => void,
   config: HttpServerConfig
-): Promise<void> {
+): Promise<import("node:http").Server> {
   const { port, oauthConfig } = config;
   const maxSessions = config.maxSessions ?? (Number(process.env.MAX_SESSIONS) || 10_000);
   const sessionIdleTimeoutMs =
@@ -110,6 +111,7 @@ export async function startHttpServer(
     },
     5 * 60 * 1000
   );
+  if (cleanupInterval.unref) cleanupInterval.unref();
 
   const sessions = new Map<
     string,
@@ -149,7 +151,10 @@ export async function startHttpServer(
     applyCorsHeaders(res, corsOrigin);
   }
 
-  const httpServer = createServer(async (req, res) => {
+  const handleRequest = async (
+    req: import("node:http").IncomingMessage,
+    res: import("node:http").ServerResponse
+  ) => {
     const requestId = randomUUID();
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
     setCorsHeaders(res);
@@ -263,12 +268,19 @@ export async function startHttpServer(
     }
 
     // ── MCP endpoint (requires Bearer token, rate-limited) ──
-    if (url.pathname === "/mcp") {
+    // Accept both /mcp (canonical) and / (base URL) so clients that only accept
+    // an origin URL still reach MCP instead of the 404 fallback.
+    if (url.pathname === "/mcp" || url.pathname === "/") {
       const clientIp = getClientIp(req);
       if (!mcpRateLimiter.consume(clientIp)) {
         sendRateLimited(res);
         return;
       }
+
+      const resourceMetadataUrl =
+        url.pathname === "/mcp"
+          ? mcpResourceMetadataUrl
+          : getProtectedResourceMetadataUrl(new URL(oauthConfig.serverUrl).origin);
 
       const authHeader = req.headers.authorization;
       const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
@@ -276,7 +288,7 @@ export async function startHttpServer(
       if (!bearerToken) {
         res.writeHead(401, {
           "Content-Type": "application/json",
-          "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
+          "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`,
         });
         res.end(
           JSON.stringify({ error: "unauthorized", error_description: "Bearer token required" })
@@ -289,7 +301,7 @@ export async function startHttpServer(
         if (!calAuthHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
-            "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
+            "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`,
           });
           res.end(
             JSON.stringify({
@@ -323,7 +335,7 @@ export async function startHttpServer(
         if (!freshHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
-            "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
+            "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`,
           });
           res.end(
             JSON.stringify({
@@ -367,7 +379,7 @@ export async function startHttpServer(
         if (!calAuthHeaders) {
           res.writeHead(401, {
             "Content-Type": "application/json",
-            "WWW-Authenticate": `Bearer resource_metadata="${mcpResourceMetadataUrl}"`,
+            "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`,
           });
           res.end(
             JSON.stringify({
@@ -430,6 +442,18 @@ export async function startHttpServer(
 
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
+  };
+
+  const httpServer = createServer((req, res) => {
+    return traceHttpRequest(req, res, () => handleRequest(req, res)).catch((error) => {
+      logger.error("Unhandled HTTP request error", { error: String(error) });
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal server error" }));
+      } else {
+        res.destroy(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
   });
 
   httpServer.listen(port, () => {
@@ -483,4 +507,6 @@ export async function startHttpServer(
       .then(() => process.exit(0))
       .catch(() => process.exit(1));
   });
+
+  return httpServer;
 }
