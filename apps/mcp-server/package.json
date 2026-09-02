@@ -25,6 +25,7 @@
     "lint": "biome lint src/ instrumentation.ts",
     "format": "biome format --write .",
     "test": "vitest run",
+    "test:postgres": "vitest run src/storage/token-store.postgres.test.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -37,6 +38,8 @@
   "devDependencies": {
     "@biomejs/biome": "2.3.10",
     "@types/node": "22.19.6",
+    "@types/pg": "8.15.5",
+    "pg": "8.16.3",
     "tsx": "4.19.4",
     "typescript": "5.9.3",
     "vitest": "4.1.8"

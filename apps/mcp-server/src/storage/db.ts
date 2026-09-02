@@ -68,10 +68,38 @@ export async function initDb(): Promise<void> {
       "calRefreshTokenEnc" TEXT NOT NULL,
       "calTokenExpiresAt" INTEGER NOT NULL,
       "createdAt" INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER,
-      "expiresAt" INTEGER NOT NULL
+      "expiresAt" INTEGER NOT NULL,
+      "refreshExpiresAt" INTEGER NOT NULL DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER + 2592000)
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS "AccessToken_expiresAt_idx" ON "AccessToken" ("expiresAt")`;
+
+  // Keep this additive migration safe for existing deployments. Production
+  // should apply migrations/001_access_token_refresh_lease.sql before enabling
+  // lease-based refresh coordination; these statements also make local/dev
+  // initialization self-contained.
+  await sql`
+    ALTER TABLE "AccessToken"
+      ADD COLUMN IF NOT EXISTS "refreshLeaseId" TEXT,
+      ADD COLUMN IF NOT EXISTS "refreshLeaseUntil" INTEGER,
+      ADD COLUMN IF NOT EXISTS "calTokenVersion" INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS "calTokenInvalidAt" INTEGER,
+      ADD COLUMN IF NOT EXISTS "refreshExpiresAt" INTEGER
+  `;
+  await sql`
+    UPDATE "AccessToken"
+    SET "refreshExpiresAt" = "createdAt" + 2592000
+    WHERE "refreshExpiresAt" IS NULL
+  `;
+  await sql`
+    ALTER TABLE "AccessToken"
+      ALTER COLUMN "refreshExpiresAt" SET DEFAULT (EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::INTEGER + 2592000),
+      ALTER COLUMN "refreshExpiresAt" SET NOT NULL
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS "AccessToken_refreshExpiresAt_idx"
+    ON "AccessToken" ("refreshExpiresAt")
+  `;
 
   initialized = true;
 }

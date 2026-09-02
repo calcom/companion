@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { sql, pool } from "./db.js";
-import { encrypt, decrypt } from "./encryption.js";
+import { sql } from "./db.js";
+import { decrypt, encrypt } from "./encryption.js";
 
 // ── Registered Clients ──
 
@@ -10,7 +10,10 @@ export interface RegisteredClient {
   clientName: string | null;
 }
 
-export async function createRegisteredClient(redirectUris: string[], clientName?: string): Promise<RegisteredClient> {
+export async function createRegisteredClient(
+  redirectUris: string[],
+  clientName?: string
+): Promise<RegisteredClient> {
   const clientId = randomUUID();
   const name = clientName ?? null;
   await sql`
@@ -52,7 +55,9 @@ export interface PendingAuth {
   expiresAt: number;
 }
 
-export async function createPendingAuth(params: Omit<PendingAuth, "expiresAt"> & { ttlSeconds?: number }): Promise<void> {
+export async function createPendingAuth(
+  params: Omit<PendingAuth, "expiresAt"> & { ttlSeconds?: number }
+): Promise<void> {
   const expiresAt = Math.floor(Date.now() / 1000) + (params.ttlSeconds ?? 600); // 10 min default
   const calCodeVerifier = params.calCodeVerifier ?? null;
   await sql`
@@ -147,7 +152,41 @@ export interface AccessTokenRecord {
   calAccessToken: string;
   calRefreshToken: string;
   calTokenExpiresAt: number;
+  calTokenVersion: number;
+  calTokenInvalidAt: number | undefined;
+  refreshLeaseId: string | undefined;
+  refreshLeaseUntil: number | undefined;
   expiresAt: number;
+  refreshExpiresAt: number;
+}
+
+export interface CalTokenUpdate {
+  calAccessToken: string;
+  calRefreshToken: string;
+  calTokenExpiresAt: number;
+}
+
+export type CalTokenRefreshClaim =
+  | { status: "claimed"; leaseId: string; record: AccessTokenRecord }
+  | { status: "ready"; record: AccessTokenRecord }
+  | { status: "waiting"; leaseUntil: number }
+  | { status: "invalid" };
+
+function accessTokenRecordFromRow(row: Record<string, unknown>): AccessTokenRecord {
+  return {
+    token: row.token as string,
+    refreshToken: row.refreshToken as string,
+    clientId: row.clientId as string,
+    calAccessToken: decrypt(row.calAccessTokenEnc as string),
+    calRefreshToken: decrypt(row.calRefreshTokenEnc as string),
+    calTokenExpiresAt: row.calTokenExpiresAt as number,
+    calTokenVersion: (row.calTokenVersion as number | undefined) ?? 0,
+    calTokenInvalidAt: (row.calTokenInvalidAt as number | null | undefined) ?? undefined,
+    refreshLeaseId: (row.refreshLeaseId as string | null | undefined) ?? undefined,
+    refreshLeaseUntil: (row.refreshLeaseUntil as number | null | undefined) ?? undefined,
+    expiresAt: row.expiresAt as number,
+    refreshExpiresAt: (row.refreshExpiresAt as number | undefined) ?? (row.expiresAt as number),
+  };
 }
 
 export async function createAccessToken(params: {
@@ -161,9 +200,10 @@ export async function createAccessToken(params: {
   const refreshToken = randomUUID();
   const ttl = params.ttlSeconds ?? 3600; // 1 hour default
   const expiresAt = Math.floor(Date.now() / 1000) + ttl;
+  const refreshExpiresAt = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
   await sql`
-    INSERT INTO "AccessToken" ("token", "refreshToken", "clientId", "calAccessTokenEnc", "calRefreshTokenEnc", "calTokenExpiresAt", "expiresAt")
-    VALUES (${token}, ${refreshToken}, ${params.clientId}, ${encrypt(params.calAccessToken)}, ${encrypt(params.calRefreshToken)}, ${params.calTokenExpiresAt}, ${expiresAt})
+    INSERT INTO "AccessToken" ("token", "refreshToken", "clientId", "calAccessTokenEnc", "calRefreshTokenEnc", "calTokenExpiresAt", "expiresAt", "refreshExpiresAt")
+    VALUES (${token}, ${refreshToken}, ${params.clientId}, ${encrypt(params.calAccessToken)}, ${encrypt(params.calRefreshToken)}, ${params.calTokenExpiresAt}, ${expiresAt}, ${refreshExpiresAt})
   `;
   return { accessToken: token, refreshToken, expiresIn: ttl };
 }
@@ -174,51 +214,107 @@ export async function getAccessToken(token: string): Promise<AccessTokenRecord |
     WHERE "token" = ${token} AND "expiresAt" > EXTRACT(EPOCH FROM NOW())::INTEGER
   `;
   if (rows.length === 0) return undefined;
-  const row = rows[0];
-  return {
-    token: row.token,
-    refreshToken: row.refreshToken,
-    clientId: row.clientId,
-    calAccessToken: decrypt(row.calAccessTokenEnc),
-    calRefreshToken: decrypt(row.calRefreshTokenEnc),
-    calTokenExpiresAt: row.calTokenExpiresAt,
-    expiresAt: row.expiresAt,
-  };
+  return accessTokenRecordFromRow(rows[0]);
 }
 
-export async function getAccessTokenByRefresh(refreshToken: string): Promise<AccessTokenRecord | undefined> {
+export async function getAccessTokenByRefresh(
+  refreshToken: string
+): Promise<AccessTokenRecord | undefined> {
   const { rows } = await sql`
-    SELECT * FROM "AccessToken" WHERE "refreshToken" = ${refreshToken}
+    SELECT * FROM "AccessToken"
+    WHERE "refreshToken" = ${refreshToken}
+      AND "refreshExpiresAt" > EXTRACT(EPOCH FROM NOW())::INTEGER
   `;
   if (rows.length === 0) return undefined;
-  const row = rows[0];
-  return {
-    token: row.token,
-    refreshToken: row.refreshToken,
-    clientId: row.clientId,
-    calAccessToken: decrypt(row.calAccessTokenEnc),
-    calRefreshToken: decrypt(row.calRefreshTokenEnc),
-    calTokenExpiresAt: row.calTokenExpiresAt,
-    expiresAt: row.expiresAt,
-  };
+  return accessTokenRecordFromRow(rows[0]);
 }
 
-/**
- * Update the Cal.com tokens for an existing access token (e.g. after refresh).
- */
-export async function updateCalTokens(
+/** Atomically claim an expiring Cal.com token for refresh. */
+export async function claimCalTokenRefresh(
   token: string,
-  calAccessToken: string,
-  calRefreshToken: string,
-  calTokenExpiresAt: number,
-): Promise<void> {
-  await sql`
+  leaseSeconds: number
+): Promise<CalTokenRefreshClaim> {
+  const leaseId = randomUUID();
+  const { rows: claimedRows } = await sql`
     UPDATE "AccessToken"
-    SET "calAccessTokenEnc" = ${encrypt(calAccessToken)},
-        "calRefreshTokenEnc" = ${encrypt(calRefreshToken)},
-        "calTokenExpiresAt" = ${calTokenExpiresAt}
+    SET "refreshLeaseId" = ${leaseId},
+        "refreshLeaseUntil" = EXTRACT(EPOCH FROM NOW())::INTEGER + ${leaseSeconds}
     WHERE "token" = ${token}
+      AND "expiresAt" > EXTRACT(EPOCH FROM NOW())::INTEGER
+      AND "calTokenInvalidAt" IS NULL
+      AND "calTokenExpiresAt" <= EXTRACT(EPOCH FROM NOW())::INTEGER + 60
+      AND ("refreshLeaseId" IS NULL OR "refreshLeaseUntil" IS NULL OR "refreshLeaseUntil" <= EXTRACT(EPOCH FROM NOW())::INTEGER)
+    RETURNING *
   `;
+  if (claimedRows.length > 0) {
+    return { status: "claimed", leaseId, record: accessTokenRecordFromRow(claimedRows[0]) };
+  }
+
+  const record = await getAccessToken(token);
+  if (!record || record.calTokenInvalidAt !== undefined) return { status: "invalid" };
+  const now = Math.floor(Date.now() / 1000);
+  if (record.calTokenExpiresAt > now + 60) return { status: "ready", record };
+  return { status: "waiting", leaseUntil: record.refreshLeaseUntil ?? now };
+}
+
+/** Persist rotated Cal.com credentials only for the current lease generation. */
+export async function persistCalTokenRefresh(
+  token: string,
+  leaseId: string,
+  expectedVersion: number,
+  update: CalTokenUpdate
+): Promise<AccessTokenRecord | undefined> {
+  const { rows } = await sql`
+    UPDATE "AccessToken"
+    SET "calAccessTokenEnc" = ${encrypt(update.calAccessToken)},
+        "calRefreshTokenEnc" = ${encrypt(update.calRefreshToken)},
+        "calTokenExpiresAt" = ${update.calTokenExpiresAt},
+        "calTokenVersion" = "calTokenVersion" + 1,
+        "refreshLeaseId" = NULL,
+        "refreshLeaseUntil" = NULL
+    WHERE "token" = ${token}
+      AND "refreshLeaseId" = ${leaseId}
+      AND "calTokenVersion" = ${expectedVersion}
+      AND "calTokenInvalidAt" IS NULL
+    RETURNING *
+  `;
+  return rows.length > 0 ? accessTokenRecordFromRow(rows[0]) : undefined;
+}
+
+/** Mark an irrecoverable upstream grant invalid, fenced to the active lease. */
+export async function invalidateCalTokenRefresh(
+  token: string,
+  leaseId: string,
+  expectedVersion: number
+): Promise<boolean> {
+  const { rowCount } = await sql`
+    UPDATE "AccessToken"
+    SET "calTokenInvalidAt" = EXTRACT(EPOCH FROM NOW())::INTEGER,
+        "calTokenVersion" = "calTokenVersion" + 1,
+        "refreshLeaseId" = NULL,
+        "refreshLeaseUntil" = NULL
+    WHERE "token" = ${token}
+      AND "refreshLeaseId" = ${leaseId}
+      AND "calTokenVersion" = ${expectedVersion}
+      AND "calTokenInvalidAt" IS NULL
+  `;
+  return rowCount === 1;
+}
+
+/** Release a lease after a definite non-rotating upstream failure. */
+export async function releaseCalTokenRefresh(
+  token: string,
+  leaseId: string,
+  expectedVersion: number
+): Promise<boolean> {
+  const { rowCount } = await sql`
+    UPDATE "AccessToken"
+    SET "refreshLeaseId" = NULL, "refreshLeaseUntil" = NULL
+    WHERE "token" = ${token}
+      AND "refreshLeaseId" = ${leaseId}
+      AND "calTokenVersion" = ${expectedVersion}
+  `;
+  return rowCount === 1;
 }
 
 /**
@@ -236,42 +332,53 @@ export async function deleteAccessTokenByRefresh(refreshToken: string): Promise<
 }
 
 /**
- * Rotate: delete old token, issue new one with same Cal.com creds.
- * Wrapped in a transaction so that if the insert fails, the old token is not lost.
+ * Rotate the MCP wrapper tokens in-place. An active Cal.com refresh lease keeps
+ * the row identifiers stable until its fenced write finishes or the lease expires.
  */
-export async function rotateAccessToken(oldRefreshToken: string): Promise<{
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-} | undefined> {
-  const existing = await getAccessTokenByRefresh(oldRefreshToken);
-  if (!existing) return undefined;
-
+export async function rotateAccessToken(oldRefreshToken: string): Promise<
+  | {
+      accessToken: string;
+      refreshToken: string;
+      expiresIn: number;
+    }
+  | undefined
+> {
   const token = randomUUID();
   const refreshToken = randomUUID();
   const ttl = 3600;
-  const expiresAt = Math.floor(Date.now() / 1000) + ttl;
-
-  // Dedicated client so BEGIN/DELETE/INSERT/COMMIT share one connection.
-  // The `sql` tagged template pulls a fresh pooled connection per call, which
-  // would make the transaction a no-op.
-  const client = await pool.connect();
-  try {
-    await client.sql`BEGIN`;
-    await client.sql`DELETE FROM "AccessToken" WHERE "token" = ${existing.token}`;
-    await client.sql`
-      INSERT INTO "AccessToken" ("token", "refreshToken", "clientId", "calAccessTokenEnc", "calRefreshTokenEnc", "calTokenExpiresAt", "expiresAt")
-      VALUES (${token}, ${refreshToken}, ${existing.clientId}, ${encrypt(existing.calAccessToken)}, ${encrypt(existing.calRefreshToken)}, ${existing.calTokenExpiresAt}, ${expiresAt})
+  const refreshTtl = 30 * 24 * 60 * 60;
+  const tokenFetchTimeoutMs = Number(process.env.TOKEN_FETCH_TIMEOUT_MS) || 10_000;
+  const maximumLeaseSeconds = Math.ceil(tokenFetchTimeoutMs / 1000) + 5;
+  let deadline = Date.now() + 15_000;
+  const maximumDeadline = Date.now() + maximumLeaseSeconds * 1000 + 2_000;
+  while (Date.now() < deadline) {
+    const { rows } = await sql`
+      UPDATE "AccessToken"
+      SET "token" = ${token},
+          "refreshToken" = ${refreshToken},
+          "expiresAt" = EXTRACT(EPOCH FROM NOW())::INTEGER + ${ttl},
+          "refreshExpiresAt" = EXTRACT(EPOCH FROM NOW())::INTEGER + ${refreshTtl},
+          "refreshLeaseId" = NULL,
+          "refreshLeaseUntil" = NULL
+      WHERE "refreshToken" = ${oldRefreshToken}
+        AND "refreshExpiresAt" > EXTRACT(EPOCH FROM NOW())::INTEGER
+        AND "calTokenInvalidAt" IS NULL
+        AND ("refreshLeaseId" IS NULL OR "refreshLeaseUntil" IS NULL OR "refreshLeaseUntil" <= EXTRACT(EPOCH FROM NOW())::INTEGER)
+      RETURNING "token"
     `;
-    await client.sql`COMMIT`;
-  } catch (err) {
-    await client.sql`ROLLBACK`;
-    throw err;
-  } finally {
-    client.release();
-  }
+    if (rows.length > 0) return { accessToken: token, refreshToken, expiresIn: ttl };
 
-  return { accessToken: token, refreshToken, expiresIn: ttl };
+    const existing = await getAccessTokenByRefresh(oldRefreshToken);
+    if (!existing || existing.calTokenInvalidAt !== undefined) return undefined;
+    if (existing.refreshLeaseUntil) {
+      deadline = Math.min(
+        maximumDeadline,
+        Math.max(deadline, existing.refreshLeaseUntil * 1000 + 1_000)
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return undefined;
 }
 
 // ── Cleanup ──
@@ -282,5 +389,5 @@ export async function rotateAccessToken(oldRefreshToken: string): Promise<{
 export async function cleanupExpired(): Promise<void> {
   await sql`DELETE FROM "PendingAuth" WHERE "expiresAt" <= EXTRACT(EPOCH FROM NOW())::INTEGER`;
   await sql`DELETE FROM "AuthCode" WHERE "expiresAt" <= EXTRACT(EPOCH FROM NOW())::INTEGER`;
-  await sql`DELETE FROM "AccessToken" WHERE "expiresAt" <= EXTRACT(EPOCH FROM NOW())::INTEGER`;
+  await sql`DELETE FROM "AccessToken" WHERE "refreshExpiresAt" <= EXTRACT(EPOCH FROM NOW())::INTEGER`;
 }
