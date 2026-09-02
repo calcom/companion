@@ -27,7 +27,8 @@
     "zip:edge:prod": "BUILD_FOR_STORE=true BROWSER_TARGET=edge wxt zip -b edge",
     "build:all": "bun run build && bun run build:firefox && bun run build:safari && bun run build:edge",
     "build:all:prod": "bun run build:prod && bun run build:firefox:prod && bun run build:safari:prod && bun run build:edge:prod",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "react": "19.2.4",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@types/chrome": "0.1.31",
+    "vitest": "4.1.8",
     "wxt": "0.20.11"
   }
 }

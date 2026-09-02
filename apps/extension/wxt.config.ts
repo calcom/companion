@@ -149,6 +149,9 @@ export default defineConfig({
         "import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI": JSON.stringify(
           process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI
         ),
+        "import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EU": JSON.stringify(
+          process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EU
+        ),
 
         // Browser-specific OAuth config (resolved based on BROWSER_TARGET)
         "import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_FIREFOX": JSON.stringify(
@@ -157,17 +160,26 @@ export default defineConfig({
         "import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX": JSON.stringify(
           process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX
         ),
+        "import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX_EU": JSON.stringify(
+          process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_FIREFOX_EU
+        ),
         "import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI": JSON.stringify(
           process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_SAFARI
         ),
         "import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI": JSON.stringify(
           process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI
         ),
+        "import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI_EU": JSON.stringify(
+          process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_SAFARI_EU
+        ),
         "import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE": JSON.stringify(
           process.env.EXPO_PUBLIC_CALCOM_OAUTH_CLIENT_ID_EDGE
         ),
         "import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE": JSON.stringify(
           process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE
+        ),
+        "import.meta.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE_EU": JSON.stringify(
+          process.env.EXPO_PUBLIC_CALCOM_OAUTH_REDIRECT_URI_EDGE_EU
         ),
 
         // Pre-resolved OAuth config for the build target (for convenience)
