@@ -69,11 +69,10 @@ cp apps/mcp-server/.env.example apps/mcp-server/.env
 ### OpenTelemetry
 
 Vercel deployments initialize OpenTelemetry through the project-root
-`instrumentation.ts` hook. The zero-configuration Node entrypoint imports the
-same shared registration module before any application modules; module caching
-keeps registration single-shot while guaranteeing that automatic fetch tracing
-and custom spans are active before instrumented code loads. No additional
-environment variable is required for Vercel's built-in collector. MCP tool
+`instrumentation.ts` hook before loading the zero-configuration Node server, so
+automatic fetch tracing and custom spans are active before instrumented code
+loads. No additional environment variable is required for Vercel's built-in
+collector. MCP tool
 executions produce custom spans under the `cal-mcp-server` service with only the
 static tool name and success/error status; tool arguments, results, credentials,
 user identifiers, and exception messages are not attached.

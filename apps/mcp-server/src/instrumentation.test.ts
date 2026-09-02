@@ -1,13 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ registerOTel: vi.fn() }));
-const OTEL_REGISTERED_KEY = "__calcomMcpOtelRegistered";
 
 vi.mock("@vercel/otel", () => ({ registerOTel: mocks.registerOTel }));
 
 describe("Vercel OpenTelemetry instrumentation", () => {
   it("registers the MCP service with Vercel's supported setup", async () => {
-    delete (globalThis as Record<string, unknown>)[OTEL_REGISTERED_KEY];
     vi.resetModules();
     mocks.registerOTel.mockClear();
     const consoleInfo = vi.spyOn(console, "info").mockImplementation(() => {});
@@ -24,6 +22,5 @@ describe("Vercel OpenTelemetry instrumentation", () => {
       "[otel] registered cal-mcp-server with fetch instrumentation"
     );
     consoleInfo.mockRestore();
-    delete (globalThis as Record<string, unknown>)[OTEL_REGISTERED_KEY];
   });
 });
