@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { Modal, type ModalProps, Platform } from "react-native";
 
 interface FullScreenModalProps extends ModalProps {
@@ -20,6 +20,8 @@ export function FullScreenModal({
   children,
   ...modalProps
 }: FullScreenModalProps) {
+  const modalId = useId();
+
   useEffect(() => {
     // Only send expand/collapse messages on web platform (browser extension)
     if (Platform.OS !== "web") {
@@ -28,19 +30,22 @@ export function FullScreenModal({
 
     if (visible) {
       // Expand the iframe to full width when modal opens
-      window.parent.postMessage({ type: "cal-companion-expand" }, "*");
+      window.parent.postMessage({ type: "cal-companion-expand", source: "modal", modalId }, "*");
     } else {
       // Collapse the iframe back to 400px when modal closes
-      window.parent.postMessage({ type: "cal-companion-collapse" }, "*");
+      window.parent.postMessage({ type: "cal-companion-collapse", source: "modal", modalId }, "*");
     }
 
     // Cleanup: collapse on unmount if still visible
     return () => {
       if (visible && Platform.OS === "web") {
-        window.parent.postMessage({ type: "cal-companion-collapse" }, "*");
+        window.parent.postMessage(
+          { type: "cal-companion-collapse", source: "modal", modalId },
+          "*"
+        );
       }
     };
-  }, [visible]);
+  }, [modalId, visible]);
 
   // For non-web platforms, just use the regular Modal
   if (Platform.OS !== "web") {
