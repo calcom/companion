@@ -62,6 +62,7 @@ import {
   updateEventType,
   updateEventTypeSchema,
 } from "./tools/event-types.js";
+import { findHost, findHostSchema } from "./tools/host-lookup.js";
 // ── Organizations: Attributes ──
 import {
   assignAttributeToUser,
@@ -220,7 +221,7 @@ export function registerTools(server: McpServer): void {
     instrumentToolHandler("update_me", updateMe)
   );
 
-  // ── Event Types (9) ──
+  // ── Event Types (10) ──
   server.registerTool(
     "get_event_types",
     {
@@ -231,6 +232,17 @@ export function registerTools(server: McpServer): void {
       annotations: READ_ONLY,
     },
     instrumentToolHandler("get_event_types", getEventTypes)
+  );
+  server.registerTool(
+    "find_host",
+    {
+      title: "Find Host",
+      description:
+        "Resolve a host handle (e.g. 'bailey') to a bookable user. ALWAYS call this before get_availability/create_booking when the user names a host by username or first name. It searches the caller's organization first (organization usernames take priority) and only then falls back to a global public username. Returns the host's event types (with IDs) and whether the match was in the organization or public. Use the returned eventTypeId for get_availability and create_booking.",
+      inputSchema: findHostSchema,
+      annotations: READ_ONLY,
+    },
+    instrumentToolHandler("find_host", findHost)
   );
   server.registerTool(
     "get_event_type",
@@ -349,7 +361,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Create Booking",
       description:
-        "Create a booking. WORKFLOW: (1) Use get_event_types to find the event type ID/slug. (2) Call get_availability to find open slots — NEVER pick a time without checking availability first. (3) If using bookingFieldsResponses, call get_event_type first to discover required custom fields. (4) For attendee details (name, email, timeZone), use get_me if booking for yourself, otherwise ASK THE USER — never guess or fabricate attendee info. Identify the event type by: eventTypeId, OR eventTypeSlug + username (individual), OR eventTypeSlug + teamSlug (team). The 'start' time MUST be in UTC ISO 8601. 'username' is the HOST whose calendar you are booking. 'attendee' is the GUEST (the caller).",
+        "Create a booking. WORKFLOW: (0) If the host is named by username/first name, call find_host first — it prioritizes the caller's organization. (1) Use get_event_types to find the event type ID/slug. (2) Call get_availability to find open slots — NEVER pick a time without checking availability first. (3) If using bookingFieldsResponses, call get_event_type first to discover required custom fields. (4) For attendee details (name, email, timeZone), use get_me if booking for yourself, otherwise ASK THE USER — never guess or fabricate attendee info. Identify the event type by: eventTypeId, OR eventTypeSlug + username (individual), OR eventTypeSlug + teamSlug (team). The 'start' time MUST be in UTC ISO 8601. 'username' is the HOST whose calendar you are booking. 'attendee' is the GUEST (the caller).",
       inputSchema: createBookingSchema,
       annotations: CREATE,
     },
@@ -504,7 +516,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Get Availability",
       description:
-        "Get available time slots for a host. You MUST provide at least one identifier: (1) eventTypeId, (2) eventTypeSlug + username, (3) eventTypeSlug + teamSlug, or (4) usernames (comma-separated, min 2, for dynamic events). 'username' is the host whose availability you are checking. Start/end must be in UTC ISO 8601.",
+        "Get available time slots for a host. If the host was named by username, call find_host first — organization members take priority over global usernames. You MUST provide at least one identifier: (1) eventTypeId, (2) eventTypeSlug + username, (3) eventTypeSlug + teamSlug, or (4) usernames (comma-separated, min 2, for dynamic events). 'username' is the host whose availability you are checking. Start/end must be in UTC ISO 8601.",
       inputSchema: getAvailabilitySchema,
       annotations: READ_ONLY,
     },
