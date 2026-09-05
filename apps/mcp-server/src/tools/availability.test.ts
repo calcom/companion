@@ -86,6 +86,7 @@ describe("getAvailability", () => {
 
     const [, opts] = mockCalApi.mock.calls[0];
     expect((opts as { params: Record<string, unknown> }).params).toHaveProperty("eventTypeId", 42);
+    expect(mockCalApi).toHaveBeenCalledTimes(1);
   });
 
   it("includes username when provided", async () => {
@@ -99,6 +100,69 @@ describe("getAvailability", () => {
 
     const [, opts] = mockCalApi.mock.calls[0];
     expect((opts as { params: Record<string, unknown> }).params).toHaveProperty("username", "alice");
+  });
+
+  it("uses the organization event type when resolving a username and slug", async () => {
+    mockCalApi
+      .mockResolvedValueOnce({ data: { organizationId: 7 } })
+      .mockResolvedValueOnce({ data: [{ id: 42, slug: "30min" }] })
+      .mockResolvedValueOnce({ slots: {} });
+
+    await getAvailability({
+      start: "2024-08-13",
+      end: "2024-08-14",
+      eventTypeSlug: "30min",
+      username: "bailey",
+    });
+
+    const [, slotsOptions] = mockCalApi.mock.calls[2];
+    const params = (slotsOptions as { params: Record<string, unknown> }).params;
+    expect(params).toHaveProperty("eventTypeId", 42);
+    expect(params).not.toHaveProperty("eventTypeSlug");
+    expect(params).not.toHaveProperty("username");
+  });
+
+  it("falls back to username and slug when the organization has no match", async () => {
+    mockCalApi
+      .mockResolvedValueOnce({ data: { organizationId: 7 } })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ slots: {} });
+
+    await getAvailability({
+      start: "2024-08-13",
+      end: "2024-08-14",
+      eventTypeSlug: "30min",
+      username: "bailey",
+    });
+
+    const [, slotsOptions] = mockCalApi.mock.calls[2];
+    const params = (slotsOptions as { params: Record<string, unknown> }).params;
+    expect(params).toHaveProperty("eventTypeSlug", "30min");
+    expect(params).toHaveProperty("username", "bailey");
+    expect(params).not.toHaveProperty("eventTypeId");
+  });
+
+  it("forwards an explicit organization slug without resolving the username", async () => {
+    mockCalApi.mockResolvedValueOnce({ slots: {} });
+
+    await getAvailability({
+      start: "2024-08-13",
+      end: "2024-08-14",
+      eventTypeSlug: "30min",
+      username: "bailey",
+      organizationSlug: "acme",
+    });
+
+    expect(mockCalApi).toHaveBeenCalledTimes(1);
+    expect(mockCalApi).toHaveBeenCalledWith("slots", {
+      params: {
+        start: "2024-08-13",
+        end: "2024-08-14",
+        eventTypeSlug: "30min",
+        username: "bailey",
+        organizationSlug: "acme",
+      },
+    });
   });
 
   it("joins usernames array into comma-separated string", async () => {

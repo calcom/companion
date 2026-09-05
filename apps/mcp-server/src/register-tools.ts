@@ -349,7 +349,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Create Booking",
       description:
-        "Create a booking. WORKFLOW: (1) Use get_event_types to find the event type ID/slug. (2) Call get_availability to find open slots — NEVER pick a time without checking availability first. (3) If using bookingFieldsResponses, call get_event_type first to discover required custom fields. (4) For attendee details (name, email, timeZone), use get_me if booking for yourself, otherwise ASK THE USER — never guess or fabricate attendee info. Identify the event type by: eventTypeId, OR eventTypeSlug + username (individual), OR eventTypeSlug + teamSlug (team). The 'start' time MUST be in UTC ISO 8601. 'username' is the HOST whose calendar you are booking. 'attendee' is the GUEST (the caller).",
+        "Create a booking. WORKFLOW: (1) Use get_event_types to find the event type ID/slug. (2) Call get_availability to find open slots — NEVER pick a time without checking availability first. (3) If using bookingFieldsResponses, call get_event_type first to discover required custom fields. (4) For attendee details (name, email, timeZone), use get_me if booking for yourself, otherwise ASK THE USER — never guess or fabricate attendee info. Identify the event type by: eventTypeId, OR eventTypeSlug + username (individual), OR eventTypeSlug + teamSlug (team). The 'start' time MUST be in UTC ISO 8601. 'username' is the HOST whose calendar you are booking. When username + eventTypeSlug is used, the host is resolved inside the caller's organization first (organization usernames take priority) and only falls back to a global username if there is no org match. 'attendee' is the GUEST (the caller).",
       inputSchema: createBookingSchema,
       annotations: CREATE,
     },
@@ -504,7 +504,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Get Availability",
       description:
-        "Get available time slots for a host. You MUST provide at least one identifier: (1) eventTypeId, (2) eventTypeSlug + username, (3) eventTypeSlug + teamSlug, or (4) usernames (comma-separated, min 2, for dynamic events). 'username' is the host whose availability you are checking. Start/end must be in UTC ISO 8601.",
+        "Get available time slots for a host. You MUST provide at least one identifier: (1) eventTypeId, (2) eventTypeSlug + username, (3) eventTypeSlug + teamSlug, or (4) usernames (comma-separated, min 2, for dynamic events). 'username' is the host whose availability you are checking. When username + eventTypeSlug is used, the host's availability is resolved inside the caller's organization first (organization usernames take priority) and only falls back to a global username if there is no org match. Start/end must be in UTC ISO 8601.",
       inputSchema: getAvailabilitySchema,
       annotations: READ_ONLY,
     },

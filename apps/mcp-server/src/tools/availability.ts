@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { calApi } from "../utils/api-client.js";
+import { resolveOrgHostEventType } from "../utils/org-host-resolution.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 
 export const getAvailabilitySchema = {
@@ -8,7 +9,12 @@ export const getAvailabilitySchema = {
   timeZone: z.string().optional().describe("IANA time zone for returned slots (e.g. America/New_York). Defaults to UTC."),
   eventTypeId: z.number().int().optional().describe("Event type ID. Use this OR (eventTypeSlug + username) OR (eventTypeSlug + teamSlug)."),
   eventTypeSlug: z.string().optional().describe("Event type slug. Must be combined with username (individual) or teamSlug (team)."),
-  username: z.string().optional().describe("Username of the host whose availability you are checking. Required with eventTypeSlug for individual event types."),
+  username: z
+    .string()
+    .optional()
+    .describe(
+      "Username of the host whose availability you are checking. Required with eventTypeSlug for individual event types. Resolved within the caller's organization first, then as a global username.",
+    ),
   teamSlug: z.string().optional().describe("Team slug. Required with eventTypeSlug for team event types."),
   organizationSlug: z.string().optional().describe("Organization slug, needed when the user/team is within an organization."),
   usernames: z
@@ -35,14 +41,26 @@ export async function getAvailability(params: {
   bookingUidToReschedule?: string;
 }) {
   try {
+    const orgHost =
+      params.eventTypeId === undefined &&
+      params.username &&
+      params.eventTypeSlug &&
+      !params.teamSlug &&
+      !params.organizationSlug
+        ? await resolveOrgHostEventType(params.username, params.eventTypeSlug)
+        : null;
     const queryParams: Record<string, string | number | string[] | undefined> = {
       start: params.start,
       end: params.end,
     };
     if (params.timeZone) queryParams.timeZone = params.timeZone;
-    if (params.eventTypeId !== undefined) queryParams.eventTypeId = params.eventTypeId;
-    if (params.eventTypeSlug) queryParams.eventTypeSlug = params.eventTypeSlug;
-    if (params.username) queryParams.username = params.username;
+    if (orgHost) {
+      queryParams.eventTypeId = orgHost.eventTypeId;
+    } else {
+      if (params.eventTypeId !== undefined) queryParams.eventTypeId = params.eventTypeId;
+      if (params.eventTypeSlug) queryParams.eventTypeSlug = params.eventTypeSlug;
+      if (params.username) queryParams.username = params.username;
+    }
     if (params.teamSlug) queryParams.teamSlug = params.teamSlug;
     if (params.organizationSlug) queryParams.organizationSlug = params.organizationSlug;
     if (params.usernames !== undefined) {

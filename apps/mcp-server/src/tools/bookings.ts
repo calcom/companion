@@ -3,6 +3,7 @@ import { calApi } from "../utils/api-client.js";
 import { extractCurrentUser, filterBookingsForCurrentUser } from "../utils/booking-participation.js";
 import { CalApiError } from "../utils/errors.js";
 import { sanitizePathSegment } from "../utils/path-sanitizer.js";
+import { resolveOrgHostEventType } from "../utils/org-host-resolution.js";
 import { handleError, ok } from "../utils/tool-helpers.js";
 import {
   type BookingFilterParams,
@@ -60,7 +61,12 @@ export async function getBooking(params: { bookingUid: string }) {
 export const createBookingSchema = {
   eventTypeId: z.number().int().optional().describe("Event type ID. Required unless eventTypeSlug + username (or teamSlug) are provided."),
   eventTypeSlug: z.string().optional().describe("Event type slug (e.g. '15min'). Must be combined with username (for individual) or teamSlug (for team)."),
-  username: z.string().optional().describe("Username of the host whose calendar you are booking on. Required with eventTypeSlug for individual event types."),
+  username: z
+    .string()
+    .optional()
+    .describe(
+      "Username of the host whose calendar you are booking on. Required with eventTypeSlug for individual event types. Resolved within the caller's organization first, then as a global username.",
+    ),
   teamSlug: z.string().optional().describe("Team slug. Required with eventTypeSlug for team event types."),
   organizationSlug: z.string().optional().describe("Organization slug, needed when the user/team is within an organization."),
   start: z.string().describe("Start time in UTC, ISO 8601 (e.g. 2024-08-13T09:00:00Z). Must be UTC."),
@@ -99,13 +105,25 @@ export async function createBooking(params: {
   allowBookingOutOfBounds?: boolean;
 }) {
   try {
+    const orgHost =
+      params.eventTypeId === undefined &&
+      params.username &&
+      params.eventTypeSlug &&
+      !params.teamSlug &&
+      !params.organizationSlug
+        ? await resolveOrgHostEventType(params.username, params.eventTypeSlug)
+        : null;
     const body: Record<string, unknown> = {
       start: params.start,
       attendee: params.attendee,
     };
-    if (params.eventTypeId !== undefined) body.eventTypeId = params.eventTypeId;
-    if (params.eventTypeSlug !== undefined) body.eventTypeSlug = params.eventTypeSlug;
-    if (params.username !== undefined) body.username = params.username;
+    if (orgHost) {
+      body.eventTypeId = orgHost.eventTypeId;
+    } else {
+      if (params.eventTypeId !== undefined) body.eventTypeId = params.eventTypeId;
+      if (params.eventTypeSlug !== undefined) body.eventTypeSlug = params.eventTypeSlug;
+      if (params.username !== undefined) body.username = params.username;
+    }
     if (params.teamSlug !== undefined) body.teamSlug = params.teamSlug;
     if (params.organizationSlug !== undefined) body.organizationSlug = params.organizationSlug;
     if (params.guests !== undefined) body.guests = params.guests;
