@@ -272,6 +272,7 @@ describe("createBooking", () => {
         attendee: { name: "Alice", email: "alice@example.com", timeZone: "UTC" },
       },
     });
+    expect(mockCalApi).toHaveBeenCalledTimes(1);
     expect(JSON.parse(result.content[0].text)).toEqual({ uid: "new-booking" });
   });
 
@@ -324,7 +325,9 @@ describe("createBooking", () => {
   });
 
   it("supports booking by eventTypeSlug + username instead of eventTypeId", async () => {
-    mockCalApi.mockResolvedValueOnce({ uid: "slug-booking" });
+    mockCalApi
+      .mockResolvedValueOnce({ data: { organizationId: null } })
+      .mockResolvedValueOnce({ uid: "slug-booking" });
 
     const result = await createBooking({
       eventTypeSlug: "15min",
@@ -345,11 +348,80 @@ describe("createBooking", () => {
     expect(JSON.parse(result.content[0].text)).toEqual({ uid: "slug-booking" });
   });
 
+  it("uses the organization event type when resolving a username and slug", async () => {
+    mockCalApi
+      .mockResolvedValueOnce({ data: { organizationId: 7 } })
+      .mockResolvedValueOnce({ data: [{ id: 42, slug: "30min" }] })
+      .mockResolvedValueOnce({ uid: "org-booking" });
+
+    await createBooking({
+      eventTypeSlug: "30min",
+      username: "bailey",
+      start: "2024-08-13T09:00:00Z",
+      attendee: { name: "Bob", email: "bob@example.com", timeZone: "UTC" },
+    });
+
+    const [, orgLookupOptions] = mockCalApi.mock.calls[1];
+    expect(orgLookupOptions).toEqual({
+      params: { username: "bailey", orgId: 7 },
+    });
+    const [, bookingOptions] = mockCalApi.mock.calls[2];
+    const body = (bookingOptions as { body: Record<string, unknown> }).body;
+    expect(body).toHaveProperty("eventTypeId", 42);
+    expect(body).not.toHaveProperty("eventTypeSlug");
+    expect(body).not.toHaveProperty("username");
+  });
+
+  it("falls back to username and slug when the organization has no match", async () => {
+    mockCalApi
+      .mockResolvedValueOnce({ data: { organizationId: 7 } })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ uid: "global-booking" });
+
+    await createBooking({
+      eventTypeSlug: "30min",
+      username: "bailey",
+      start: "2024-08-13T09:00:00Z",
+      attendee: { name: "Bob", email: "bob@example.com", timeZone: "UTC" },
+    });
+
+    const [, bookingOptions] = mockCalApi.mock.calls[2];
+    const body = (bookingOptions as { body: Record<string, unknown> }).body;
+    expect(body).toHaveProperty("eventTypeSlug", "30min");
+    expect(body).toHaveProperty("username", "bailey");
+    expect(body).not.toHaveProperty("eventTypeId");
+  });
+
+  it("forwards an explicit organization slug without resolving the username", async () => {
+    mockCalApi.mockResolvedValueOnce({ uid: "explicit-org-booking" });
+
+    await createBooking({
+      eventTypeSlug: "30min",
+      username: "bailey",
+      organizationSlug: "acme",
+      start: "2024-08-13T09:00:00Z",
+      attendee: { name: "Bob", email: "bob@example.com", timeZone: "UTC" },
+    });
+
+    expect(mockCalApi).toHaveBeenCalledTimes(1);
+    expect(mockCalApi).toHaveBeenCalledWith("bookings", {
+      method: "POST",
+      body: {
+        eventTypeSlug: "30min",
+        username: "bailey",
+        organizationSlug: "acme",
+        start: "2024-08-13T09:00:00Z",
+        attendee: { name: "Bob", email: "bob@example.com", timeZone: "UTC" },
+      },
+    });
+  });
+
   it("supports booking by eventTypeSlug + teamSlug + organizationSlug", async () => {
     mockCalApi.mockResolvedValueOnce({ uid: "team-booking" });
 
     await createBooking({
       eventTypeSlug: "standup",
+      username: "carol-host",
       teamSlug: "engineering",
       organizationSlug: "acme",
       start: "2024-08-13T09:00:00Z",
@@ -359,6 +431,7 @@ describe("createBooking", () => {
     const [, opts] = mockCalApi.mock.calls[0];
     const body = (opts as { body: Record<string, unknown> }).body;
     expect(body).toHaveProperty("eventTypeSlug", "standup");
+    expect(body).toHaveProperty("username", "carol-host");
     expect(body).toHaveProperty("teamSlug", "engineering");
     expect(body).toHaveProperty("organizationSlug", "acme");
     expect(body).not.toHaveProperty("eventTypeId");
