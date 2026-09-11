@@ -54,10 +54,14 @@ export async function POST(request: Request) {
     teamId && slackUserId && !workspaceConfig?.defaultChannelId
       ? getBinding("SLACK", { identifier: slackUserId, teamId })
       : null,
-    telegramChatId ? getBinding("TELEGRAM", { identifier: telegramChatId }) : null,
+    telegramChatId && process.env.TELEGRAM_BOT_TOKEN
+      ? getBinding("TELEGRAM", { identifier: telegramChatId })
+      : null,
   ]);
-  const hasSlackTarget = !managedSlackDm && !!(teamId && (slackUserId || workspaceConfig?.defaultChannelId));
-  const hasTelegramTarget = !managedTelegramDm && !!(telegramChatId && process.env.TELEGRAM_BOT_TOKEN);
+  const hasSlackTarget =
+    !managedSlackDm && !!(teamId && (slackUserId || workspaceConfig?.defaultChannelId));
+  const hasTelegramTarget =
+    !managedTelegramDm && !!(telegramChatId && process.env.TELEGRAM_BOT_TOKEN);
 
   logger.info("Cal.com webhook", {
     event: webhook.triggerEvent,

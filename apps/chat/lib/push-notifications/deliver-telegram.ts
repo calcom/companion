@@ -52,7 +52,7 @@ export async function deliverTelegramNotification(
   message: FormattedNotification,
   fetcher: typeof fetch = fetch
 ): Promise<ProviderDeliveryResult> {
-  const baseUrl = process.env.TELEGRAM_API_BASE_URL ?? "https://api.telegram.org";
+  const baseUrl = process.env.TELEGRAM_API_BASE_URL?.trim() || "https://api.telegram.org";
   try {
     const response = await fetcher(`${baseUrl}/bot${token}/sendMessage`, {
       method: "POST",

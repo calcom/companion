@@ -171,7 +171,7 @@ export async function handleTelegramCommand(
           argument: rest.toLowerCase(),
           privateChat: !isGroup,
         });
-        await thread.post(reply);
+        await postPrivately(thread, message, reply, isGroup);
         return;
       }
 

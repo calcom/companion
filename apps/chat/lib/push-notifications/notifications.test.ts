@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHmac, randomUUID } from "node:crypto";
-import { after, test } from "node:test";
+import { after, afterEach, beforeEach, test } from "node:test";
 import { POST } from "../../app/api/notifications/deliver/route";
 import { register } from "../../instrumentation";
 import { disableChatSubscription, enableChatSubscription } from "../calcom/chat-subscriptions";
@@ -20,7 +20,19 @@ import {
   finishDelivery,
   getBinding,
   isCurrentBinding,
+  rollbackBinding,
 } from "./store";
+
+let environment: NodeJS.ProcessEnv;
+beforeEach(() => {
+  environment = { ...process.env };
+});
+afterEach(() => {
+  for (const key of Object.keys(process.env)) {
+    if (!(key in environment)) delete process.env[key];
+  }
+  Object.assign(process.env, environment);
+});
 
 const now = Date.now();
 const sub = {
@@ -134,6 +146,8 @@ test("contract accepts seven events and rejects legacy, duplicate and group dest
     },
     { ...request, payload: { ...request.payload, notificationType: "PAYMENT_REMINDER" } },
     { ...request, payload: { ...request.payload, timeZone: "invalid" } },
+    { ...request, payload: { ...request.payload, start: "2025-02-30T10:00:00Z" } },
+    { ...request, payload: { ...request.payload, end: "2025-02-29T10:00:00+05:30" } },
   ])
     assert.equal(deliverySchema.safeParse(invalid).success, false);
 });
@@ -318,7 +332,14 @@ test("notify commands use verified linking, leave preferences alone, reject grou
     getLinkedUser: async () => linked,
     beginBinding: async () => {
       calls.push("pending");
-      return { key: "fixture", pending: "fixture", binding };
+      return {
+        key: "fixture",
+        pending: "fixture",
+        binding,
+        previous: "",
+        userKey: "fixture-user",
+        userSnapshot: "fixture-user",
+      };
     },
     activateBinding: async () => {
       calls.push("active");
@@ -329,6 +350,9 @@ test("notify commands use verified linking, leave preferences alone, reject grou
     },
     disableChatSubscription: async () => {
       calls.push("disable");
+    },
+    rollbackBinding: async () => {
+      calls.push("rollback");
     },
   };
   const input = {
@@ -575,11 +599,14 @@ test(
       identifier: `U${randomUUID().replaceAll("-", "").toUpperCase()}`,
       teamId: "T123",
     };
+    process.env.SLACK_ENCRYPTION_KEY = "fixture-encryption-key";
+    await linkUser("T123", identity.identifier, linked);
     const first = await beginBinding("SLACK", identity, binding);
     const second = await beginBinding("SLACK", identity, binding);
     assert.equal(await activateBinding(first), false);
     assert.equal(await activateBinding(second), true);
     assert.equal((await getBinding("SLACK", identity))?.generation, second.binding.generation);
+    await unlinkUser("T123", identity.identifier);
     await client.del([owner.key, retried.key, second.key]);
   }
 );
@@ -659,6 +686,247 @@ test(
       assert.equal(disconnected?.active, false);
       assert.equal(disconnected?.calcomUserId, 0);
       await getRedisClient().del(attempt.key);
+    }
+  }
+);
+
+test("blank Telegram origins default correctly and Slack auth errors preserve subscriptions", async () => {
+  for (const value of ["", "   "]) {
+    process.env.TELEGRAM_API_BASE_URL = value;
+    const result = await deliverTelegramNotification(
+      "fixture",
+      "123",
+      { text: "Fixture" },
+      async (url) => {
+        assert.equal(String(url), "https://api.telegram.org/botfixture/sendMessage");
+        return Response.json({ ok: true });
+      }
+    );
+    assert.equal(result.outcome, "delivered");
+  }
+  const result = await deliverSlackNotification("fixture", "U123", { text: "Fixture" }, async () =>
+    Response.json({ ok: false, error: "account_inactive" })
+  );
+  assert.equal(result.outcome, "unknown");
+});
+
+test("formatter separates total counts and preserves emoji at the truncation boundary", () => {
+  assert.match(
+    formatNotification({ ...request.payload, attendeeCount: 3 }).text,
+    /Total attendees: 3/
+  );
+  const emoji = formatNotification({ ...request.payload, title: `${"x".repeat(2898)}😀abc` });
+  assert.equal(emoji.text, `${"x".repeat(2898)}😀…`);
+  assert.equal(Array.from(emoji.text).length, 2900);
+});
+
+test("HTTP boundary separates malformed input, blank configuration and internal failures", async () => {
+  process.env.CALCOM_DELIVERY_SECRET = "fixture-secret";
+  process.env.REDIS_URL = "   ";
+  assert.equal(
+    (await POST(new Request("https://example.test", { method: "POST", body: "{}" }))).status,
+    503
+  );
+  process.env.REDIS_URL = "redis://127.0.0.1:6397";
+  const raw = "{";
+  assert.equal(
+    (
+      await POST(
+        new Request("https://example.test", {
+          method: "POST",
+          body: raw,
+          headers: signatureHeaders(raw, "fixture-secret"),
+        })
+      )
+    ).status,
+    400
+  );
+  const response = await POST(
+    new Request("https://example.test", {
+      method: "POST",
+      body: new ReadableStream({
+        start(controller) {
+          controller.error(new Error("Synthetic stream failure"));
+        },
+      }),
+    })
+  );
+  assert.equal(response.status, 500);
+  assert.deepEqual(await response.json(), { error: "Delivery request failed" });
+});
+
+test("slow claims and binding reads release the claim without starting a late send", async () => {
+  const originalNow = Date.now;
+  try {
+    for (const slowOperation of ["claim", "binding"]) {
+      let clock = now;
+      Date.now = () => clock;
+      const { deps, sends } = serviceDeps();
+      const outcomes: string[] = [];
+      let reads = 0;
+      const result = await deliverNotifications(request, {
+        ...deps,
+        claimDelivery: async () => {
+          if (slowOperation === "claim") clock += 6001;
+          return deps.claimDelivery();
+        },
+        getBinding: async () => {
+          if (++reads === 2 && slowOperation === "binding") clock += 6001;
+          return binding;
+        },
+        finishDelivery: async (_claim, outcome) => {
+          outcomes.push(outcome);
+        },
+      });
+      assert.equal(result[0].outcome, "retryable");
+      assert.deepEqual(outcomes, ["retryable"]);
+      assert.equal(sends(), 0);
+    }
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test("unreconciled claim failures remain unknown and never send", async () => {
+  const { deps, sends } = serviceDeps();
+  const result = await deliverNotifications(request, {
+    ...deps,
+    claimDelivery: async () => {
+      throw new Error("Claim response unavailable");
+    },
+  });
+  assert.equal(result[0].outcome, "unknown");
+  assert.equal(sends(), 0);
+});
+
+test("notify snapshots the account before the token and rolls back failed enables", async () => {
+  const calls: string[] = [];
+  let account = linked;
+  const deps = {
+    getLinkedUser: async () => {
+      calls.push("account");
+      return account;
+    },
+    getValidAccessToken: async () => {
+      calls.push("token");
+      account = { ...linked, calcomUserId: 43 };
+      return "fixture";
+    },
+    beginBinding: async () => ({
+      key: "fixture",
+      pending: "fixture",
+      binding,
+      previous: "",
+      userKey: "fixture-user",
+      userSnapshot: "fixture-user",
+    }),
+    activateBinding: async () => {
+      calls.push("activate");
+      return true;
+    },
+    rollbackBinding: async () => {
+      calls.push("rollback");
+    },
+    enableChatSubscription: async () => {},
+    disableChatSubscription: async () => {},
+  };
+  const input = {
+    platform: "SLACK" as const,
+    identifier: "U123",
+    teamId: "T123",
+    argument: "on",
+    privateChat: true,
+  };
+  assert.match(await handleNotifyCommand(input, deps), /connection changed/);
+  assert.deepEqual(calls, ["account", "token", "account", "rollback"]);
+  calls.length = 0;
+  assert.match(
+    await handleNotifyCommand(input, {
+      ...deps,
+      enableChatSubscription: async () => {
+        throw new Error("Cal unavailable");
+      },
+    }),
+    /Could not update/
+  );
+  assert.equal(calls.at(-1), "rollback");
+});
+
+test(
+  "Redis rolls failed opt-ins back and fences activation against unlink and relink",
+  { skip: !redisIntegration },
+  async () => {
+    process.env.REDIS_URL = process.env.NOTIFICATION_TEST_REDIS_URL;
+    process.env.SLACK_ENCRYPTION_KEY = "fixture-encryption-key";
+    const identity = {
+      identifier: `U${randomUUID().replaceAll("-", "").toUpperCase()}`,
+      teamId: "T123",
+    };
+    await linkUser("T123", identity.identifier, linked);
+    const initial = await beginBinding("SLACK", identity, { ...binding, pending: true });
+    try {
+      await rollbackBinding(initial);
+      assert.equal(await getBinding("SLACK", identity), null);
+      const enabled = await beginBinding("SLACK", identity, { ...binding, pending: true });
+      assert.equal(await activateBinding(enabled), true);
+      const stable = await getBinding("SLACK", identity);
+      const first = await beginBinding("SLACK", identity, { ...binding, pending: true });
+      const second = await beginBinding("SLACK", identity, { ...binding, pending: true });
+      await rollbackBinding(first);
+      assert.equal((await getBinding("SLACK", identity))?.generation, second.binding.generation);
+      await rollbackBinding(second);
+      assert.deepEqual(await getBinding("SLACK", identity), stable);
+      const unlinking = await beginBinding("SLACK", identity, { ...binding, pending: true });
+      await unlinkUser("T123", identity.identifier);
+      assert.equal(await activateBinding(unlinking), false);
+      await rollbackBinding(unlinking);
+      assert.equal((await getBinding("SLACK", identity))?.calcomUserId, 0);
+      const afterUnlink = await beginBinding("SLACK", identity, { ...binding, pending: true });
+      assert.equal(await activateBinding(afterUnlink), false);
+      await linkUser("T123", identity.identifier, linked);
+      assert.equal(await activateBinding(afterUnlink), false);
+      const relinking = await beginBinding("SLACK", identity, { ...binding, pending: true });
+      await linkUser("T123", identity.identifier, { ...linked, calcomUserId: 43 });
+      assert.equal(await activateBinding(relinking), false);
+    } finally {
+      await unlinkUser("T123", identity.identifier);
+      await getRedisClient().del(initial.key);
+    }
+  }
+);
+
+test(
+  "Redis reconciles a committed claim after its response is lost",
+  { skip: !redisIntegration },
+  async () => {
+    process.env.REDIS_URL = process.env.NOTIFICATION_TEST_REDIS_URL;
+    const client = getRedisClient();
+    const originalEval = client.eval;
+    const descriptor = Object.getOwnPropertyDescriptor(client, "eval");
+    let calls = 0;
+    Object.defineProperty(client, "eval", {
+      configurable: true,
+      value: async (...args: Parameters<typeof client.eval>) => {
+        const result = await originalEval.apply(client, args);
+        if (++calls === 1) throw new Error("Lost claim response after commit");
+        return result;
+      },
+    });
+    const unique = { ...request, idempotencyKey: randomUUID() };
+    try {
+      const { deps, sends } = serviceDeps();
+      const actual = { ...deps, claimDelivery, finishDelivery };
+      assert.equal((await deliverNotifications(unique, actual))[0].outcome, "delivered");
+      assert.equal(sends(), 1);
+      assert.equal(calls, 3);
+      assert.equal((await deliverNotifications(unique, actual))[0].outcome, "delivered");
+      assert.equal(sends(), 1);
+      const claim = await claimDelivery(unique, sub);
+      assert.equal((await claimDelivery(unique, sub)).outcome, "delivered");
+      await client.del(claim.key);
+    } finally {
+      if (descriptor) Object.defineProperty(client, "eval", descriptor);
+      else Reflect.deleteProperty(client, "eval");
     }
   }
 );

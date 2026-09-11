@@ -48,11 +48,13 @@ export async function deliverNotifications(
 
   async function deliver(sub: Subscription): Promise<DeliveryResult> {
     let claim: Awaited<ReturnType<typeof claimDelivery>> | undefined;
+    let claiming = false;
     try {
       const unavailable = await hasBinding(sub);
       if (unavailable) return resultFor(sub, unavailable);
       const send = await deps.prepareTransport(request.platform, sub);
       if (!send || Date.now() >= deadline) return resultFor(sub, "retryable");
+      claiming = true;
       claim = await deps.claimDelivery(request, sub);
       if (claim.outcome !== "claimed") return resultFor(sub, claim.outcome);
       const changed = await hasBinding(sub);
@@ -60,12 +62,16 @@ export async function deliverNotifications(
         await deps.finishDelivery(claim, changed);
         return resultFor(sub, changed);
       }
+      if (Date.now() >= deadline) {
+        await deps.finishDelivery(claim, "retryable");
+        return resultFor(sub, "retryable");
+      }
       const result = await send(message);
       await deps.finishDelivery(claim, result.outcome, result.retryAfterSeconds);
       return resultFor(sub, result.outcome);
     } catch {
       // Once claimed, a lost response or failed persistence must never cause an automatic resend.
-      return resultFor(sub, claim ? "unknown" : "retryable");
+      return resultFor(sub, claiming ? "unknown" : "retryable");
     }
   }
 

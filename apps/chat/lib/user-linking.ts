@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
+import { linkedUserKey as userKey } from "./linked-user-key";
 import { getLogger } from "./logger";
 import { forgetBinding } from "./push-notifications/store";
 import { getRedisClient } from "./redis";
@@ -101,10 +102,6 @@ export function isOrgPlanUser(
   return linked.calcomOrganizationId != null && linked.calcomOrgIsPlatform === false;
 }
 
-function userKey(teamId: string, userId: string): string {
-  return `calcom:user:${teamId}:${userId}`;
-}
-
 function emailIndexKey(email: string): string {
   return `calcom:email_index:${email.toLowerCase().trim()}`;
 }
@@ -143,18 +140,16 @@ export async function getLinkedUser(teamId: string, userId: string): Promise<Lin
 }
 
 export async function unlinkUser(teamId: string, userId: string): Promise<void> {
-  const client = getRedisClient();
+  const linked = await getLinkedUser(teamId, userId);
   await forgetBinding(
     teamId === "telegram" ? "TELEGRAM" : "SLACK",
     userId,
     teamId === "telegram" ? undefined : teamId
   );
-  const linked = await getLinkedUser(teamId, userId);
   if (linked) {
     // Atomic CAS delete: only removes the index if it still points to this user.
     await deleteEmailIndexIfOwned(linked.calcomEmail, teamId, userId);
   }
-  await client.del(userKey(teamId, userId));
   logger.info("User unlinked", { teamId, userId });
 }
 

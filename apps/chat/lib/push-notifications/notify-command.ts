@@ -1,7 +1,7 @@
 import { disableChatSubscription, enableChatSubscription } from "../calcom/chat-subscriptions";
 import { getLinkedUser, getValidAccessToken } from "../user-linking";
 import type { Platform } from "./contract";
-import { activateBinding, beginBinding } from "./store";
+import { activateBinding, beginBinding, rollbackBinding } from "./store";
 
 const dependencies = {
   disableChatSubscription,
@@ -10,6 +10,7 @@ const dependencies = {
   getValidAccessToken,
   activateBinding,
   beginBinding,
+  rollbackBinding,
 };
 
 export async function handleNotifyCommand(
@@ -52,8 +53,8 @@ export async function handleNotifyCommand(
       if (token) await deps.disableChatSubscription(token, platform, identifier, teamId);
       return "Booking notifications are off for this chat. Your event preferences are unchanged.";
     }
-    const token = await deps.getValidAccessToken(linkingTeam, identifier);
     const linked = await deps.getLinkedUser(linkingTeam, identifier);
+    const token = await deps.getValidAccessToken(linkingTeam, identifier);
     if (!token || !linked)
       return `Connect your Cal.com account with ${platform === "SLACK" ? "/cal link" : "/link"} first.`;
     const attempt = await deps.beginBinding(
@@ -66,16 +67,22 @@ export async function handleNotifyCommand(
         pending: true,
       }
     );
-    await deps.enableChatSubscription(token, platform, identifier, teamId);
-    const current = await deps.getLinkedUser(linkingTeam, identifier);
-    if (
-      current?.calcomUserId !== linked.calcomUserId ||
-      current.linkedAt !== linked.linkedAt ||
-      !(await deps.activateBinding(attempt))
-    ) {
-      return "Your connection changed. Run the notify command again.";
+    let activated = false;
+    try {
+      await deps.enableChatSubscription(token, platform, identifier, teamId);
+      const current = await deps.getLinkedUser(linkingTeam, identifier);
+      if (
+        current?.calcomUserId !== linked.calcomUserId ||
+        current.linkedAt !== linked.linkedAt ||
+        !(await deps.activateBinding(attempt))
+      ) {
+        return "Your connection changed. Run the notify command again.";
+      }
+      activated = true;
+      return "Booking notifications are on for this chat, using your existing event preferences.";
+    } finally {
+      if (!activated) await deps.rollbackBinding(attempt);
     }
-    return "Booking notifications are on for this chat, using your existing event preferences.";
   } catch {
     return "Could not update notifications. They may not be enabled for your account yet. Please try again.";
   }

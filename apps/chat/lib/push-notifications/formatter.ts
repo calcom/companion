@@ -35,7 +35,7 @@ export function formatNotification(payload: DeliveryRequest["payload"]): Formatt
     );
   }
   if (payload.attendeeCount !== undefined && payload.attendeeCount > payload.attendees.length) {
-    lines.push(`Attendees: ${payload.attendeeCount} total`);
+    lines.push(`Total attendees: ${payload.attendeeCount}`);
   }
   if (payload.location) lines.push(`Location: ${payload.location}`);
   const meetingUrl = safeUrl(payload.meetingUrl);
@@ -51,8 +51,9 @@ export function formatNotification(payload: DeliveryRequest["payload"]): Formatt
   }
   // One bounded message avoids partial multi-message deliveries on retries.
   const full = lines.filter(Boolean).join("\n");
+  const characters = Array.from(full);
   return {
-    text: full.length > 2900 ? `${full.slice(0, 2899)}…` : full,
+    text: characters.length > 2900 ? `${characters.slice(0, 2899).join("")}…` : full,
     bookingUrl: safeUrl(payload.data?.url),
   };
 }

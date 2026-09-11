@@ -3,12 +3,7 @@ import type { ProviderDeliveryResult } from "./contract";
 import type { FormattedNotification } from "./formatter";
 
 const slackResponseSchema = z.object({ ok: z.boolean(), error: z.string().optional() });
-const invalidRecipientErrors = new Set([
-  "channel_not_found",
-  "user_not_found",
-  "user_not_visible",
-  "account_inactive",
-]);
+const invalidRecipientErrors = new Set(["channel_not_found", "user_not_found", "user_not_visible"]);
 
 function buildSlackMessage(identifier: string, message: FormattedNotification) {
   const content = { type: "section", text: { type: "plain_text", text: message.text } };
