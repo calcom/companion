@@ -25,6 +25,7 @@ import {
   telegramSlotPickerCard,
   upcomingBookingsCard,
 } from "../notifications";
+import { handleNotifyCommand } from "../push-notifications/notify-command";
 import {
   clearBookingFlow,
   clearCancelFlow,
@@ -43,6 +44,7 @@ import {
 const logger = getLogger("telegram-handlers");
 
 export const TELEGRAM_COMMANDS = [
+  "notify",
   "start",
   "help",
   "link",
@@ -162,6 +164,17 @@ export async function handleTelegramCommand(
 
   await withBotErrorHandling(
     async () => {
+      if (cmd === "notify") {
+        const reply = await handleNotifyCommand({
+          platform: "TELEGRAM",
+          identifier: ctx.userId,
+          argument: rest.toLowerCase(),
+          privateChat: !isGroup,
+        });
+        await thread.post(reply);
+        return;
+      }
+
       if (cmd === "start" || cmd === "help") {
         await thread.post(telegramHelpCard());
         return;

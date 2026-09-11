@@ -1,0 +1,43 @@
+name: Chat notifications
+
+on:
+  pull_request:
+    paths:
+      - "apps/chat/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/chat-notifications.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/chat/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/chat-notifications.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  notification-contract:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 10
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    env:
+      NOTIFICATION_TEST_REDIS_URL: redis://localhost:6379
+      LOG_LEVEL: silent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.3.0
+      - run: bun install --frozen-lockfile --ignore-scripts --filter @calcom/chat
+      - run: bun run --filter @calcom/chat test:notifications

@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
 import { getLogger } from "./logger";
+import { forgetBinding } from "./push-notifications/store";
 import { getRedisClient } from "./redis";
 
 // ─── At-rest encryption for Redis values ────────────────────────────────────
@@ -143,6 +144,11 @@ export async function getLinkedUser(teamId: string, userId: string): Promise<Lin
 
 export async function unlinkUser(teamId: string, userId: string): Promise<void> {
   const client = getRedisClient();
+  await forgetBinding(
+    teamId === "telegram" ? "TELEGRAM" : "SLACK",
+    userId,
+    teamId === "telegram" ? undefined : teamId
+  );
   const linked = await getLinkedUser(teamId, userId);
   if (linked) {
     // Atomic CAS delete: only removes the index if it still points to this user.
