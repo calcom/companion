@@ -1,3 +1,10 @@
+export function validateDeliveryEnv(): void {
+  if (process.env.CALCOM_DELIVERY_SECRET?.trim()) return;
+  const message = "CALCOM_DELIVERY_SECRET is required for booking notification delivery.";
+  if (process.env.NODE_ENV === "production") throw new Error(message);
+  console.warn(`${message} Delivery is disabled until it is configured.`);
+}
+
 /**
  * Validates required environment variables for the chat bot.
  * Call at startup to fail fast if critical config is missing.

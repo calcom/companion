@@ -292,6 +292,10 @@ export function helpCard() {
           Field({ label: "/cal event-types", value: "List your event types" }),
           Field({ label: "/cal schedules", value: "Show your working hours" }),
           Field({ label: "/cal profile", value: "Show your profile" }),
+          Field({
+            label: "/cal notify on|off",
+            value: "Turn booking notifications on or off for this chat",
+          }),
           Field({ label: "/cal link, /cal unlink", value: "Connect or disconnect Cal.com" }),
           Field({ label: "/cal help", value: "Show this help message" }),
         ]),
@@ -317,6 +321,10 @@ export function telegramHelpCard() {
           Field({ label: "/eventtypes", value: "List your event types" }),
           Field({ label: "/schedules", value: "Show your working hours" }),
           Field({ label: "/profile", value: "Show your profile" }),
+          Field({
+            label: "/notify on|off",
+            value: "Turn booking notifications on or off in a private chat",
+          }),
           Field({ label: "/link / /unlink", value: "Connect or disconnect Cal.com" }),
           Field({ label: "/help · @mention", value: "Help or ask in natural language" }),
         ]),

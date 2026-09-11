@@ -53,6 +53,7 @@ import {
   schedulesListCard,
   upcomingBookingsCard,
 } from "../notifications";
+import { handleNotifyCommand } from "../push-notifications/notify-command";
 import {
   clearBookingFlow,
   clearCancelFlow,
@@ -392,6 +393,17 @@ export function registerSlackHandlers(
     await withBotErrorHandling(
       async () => {
         switch (subcommand) {
+          case "notify": {
+            const reply = await handleNotifyCommand({
+              platform: "SLACK",
+              identifier: userId,
+              teamId,
+              argument: args.slice(1).join(" ").toLowerCase(),
+              privateChat: true,
+            });
+            await event.channel.postEphemeral(event.user, reply, { fallbackToDM: true });
+            break;
+          }
           case "link":
             await handleLink(event, teamId, userId);
             break;

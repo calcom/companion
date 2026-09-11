@@ -12,6 +12,7 @@ import {
   bookingReminderCard,
   bookingRescheduledCard,
 } from "@/lib/notifications";
+import { getBinding } from "@/lib/push-notifications/store";
 import { getLinkedUserByEmail, getWorkspaceNotificationConfig } from "@/lib/user-linking";
 
 export async function POST(request: Request) {
@@ -48,8 +49,19 @@ export async function POST(request: Request) {
   }
 
   const workspaceConfig = teamId ? await getWorkspaceNotificationConfig(teamId) : null;
-  const hasSlackTarget = !!(teamId && (slackUserId || workspaceConfig?.defaultChannelId));
-  const hasTelegramTarget = !!(telegramChatId && process.env.TELEGRAM_BOT_TOKEN);
+  // Once a DM uses notification preferences, legacy webhooks must not bypass opt-out.
+  const [managedSlackDm, managedTelegramDm] = await Promise.all([
+    teamId && slackUserId && !workspaceConfig?.defaultChannelId
+      ? getBinding("SLACK", { identifier: slackUserId, teamId })
+      : null,
+    telegramChatId && process.env.TELEGRAM_BOT_TOKEN
+      ? getBinding("TELEGRAM", { identifier: telegramChatId })
+      : null,
+  ]);
+  const hasSlackTarget =
+    !managedSlackDm && !!(teamId && (slackUserId || workspaceConfig?.defaultChannelId));
+  const hasTelegramTarget =
+    !managedTelegramDm && !!(telegramChatId && process.env.TELEGRAM_BOT_TOKEN);
 
   logger.info("Cal.com webhook", {
     event: webhook.triggerEvent,
