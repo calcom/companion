@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHmac, randomUUID } from "node:crypto";
 import { after, test } from "node:test";
 import { POST } from "../../app/api/notifications/deliver/route";
+import { register } from "../../instrumentation";
 import { disableChatSubscription, enableChatSubscription } from "../calcom/chat-subscriptions";
 import { getRedisClient } from "../redis";
 import { linkUser, unlinkUser } from "../user-linking";
@@ -395,6 +396,101 @@ test("HTTP boundary rejects unsigned, malformed and oversized requests before de
     ).status,
     413
   );
+});
+
+test("signed delivery responses include the version and destination outcomes expected by Cal", async () => {
+  process.env.CALCOM_DELIVERY_SECRET = "fixture-secret";
+  process.env.REDIS_URL ??= "redis://127.0.0.1:6397";
+  const raw = JSON.stringify({ ...request, occurredAt: "2000-01-01T00:00:00Z" });
+  const response = await POST(
+    new Request("https://example.test/api/notifications/deliver", {
+      method: "POST",
+      body: raw,
+      headers: signatureHeaders(raw, "fixture-secret"),
+    })
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    contractVersion: 2,
+    results: [
+      {
+        identifier: sub.identifier,
+        teamId: sub.teamId,
+        outcome: "unknown",
+        success: false,
+        invalidIdentifier: false,
+      },
+    ],
+  });
+});
+
+test("formatting failures return 422 without exposing the error or sending", async () => {
+  process.env.CALCOM_DELIVERY_SECRET = "fixture-secret";
+  process.env.REDIS_URL ??= "redis://127.0.0.1:6397";
+  const descriptor = Object.getOwnPropertyDescriptor(Intl.DateTimeFormat.prototype, "format");
+  assert.ok(descriptor);
+  const originalFetch = globalThis.fetch;
+  let sends = 0;
+  globalThis.fetch = async () => {
+    sends++;
+    return Response.json({ ok: true });
+  };
+  Object.defineProperty(Intl.DateTimeFormat.prototype, "format", {
+    configurable: true,
+    get() {
+      throw new RangeError("Synthetic sensitive formatting details");
+    },
+  });
+  try {
+    const raw = JSON.stringify(request);
+    const response = await POST(
+      new Request("https://example.test/api/notifications/deliver", {
+        method: "POST",
+        body: raw,
+        headers: signatureHeaders(raw, "fixture-secret"),
+      })
+    );
+    assert.equal(response.status, 422);
+    assert.deepEqual(await response.json(), { error: "Notification formatting failed" });
+    assert.equal(sends, 0);
+  } finally {
+    Object.defineProperty(Intl.DateTimeFormat.prototype, "format", descriptor);
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("startup rejects missing delivery secrets in production and warns in development", async () => {
+  const keys = ["NODE_ENV", "NEXT_RUNTIME", "CALCOM_DELIVERY_SECRET"] as const;
+  const original = keys.map((key) => process.env[key]);
+  const originalWarn = console.warn;
+  const warnings: unknown[] = [];
+  console.warn = (message) => warnings.push(message);
+  try {
+    Object.assign(process.env, { NEXT_RUNTIME: "nodejs", NODE_ENV: "production" });
+    for (const secret of [undefined, "", "   "]) {
+      if (secret === undefined) delete process.env.CALCOM_DELIVERY_SECRET;
+      else process.env.CALCOM_DELIVERY_SECRET = secret;
+      await assert.rejects(register(), /CALCOM_DELIVERY_SECRET is required/);
+    }
+    Object.assign(process.env, { NODE_ENV: "development" });
+    await register();
+    assert.deepEqual(warnings, [
+      "CALCOM_DELIVERY_SECRET is required for booking notification delivery. Delivery is disabled until it is configured.",
+    ]);
+    Object.assign(process.env, {
+      NODE_ENV: "production",
+      CALCOM_DELIVERY_SECRET: "fixture-secret",
+    });
+    await register();
+    assert.equal(warnings.length, 1);
+  } finally {
+    console.warn = originalWarn;
+    keys.forEach((key, index) => {
+      const value = original[index];
+      if (value === undefined) Reflect.deleteProperty(process.env, key);
+      else Object.assign(process.env, { [key]: value });
+    });
+  }
 });
 
 test("Cal.com linking signs the current canonical contract and off tolerates an absent subscription", async () => {

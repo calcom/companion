@@ -5,7 +5,7 @@ import {
   resultFor,
   type Subscription,
 } from "./contract";
-import { formatNotification } from "./formatter";
+import { formatNotification, NotificationFormattingError } from "./formatter";
 import { claimDelivery, finishDelivery, getBinding, isCurrentBinding } from "./store";
 import { prepareTransport } from "./transport";
 
@@ -19,7 +19,12 @@ export async function deliverNotifications(
   if (age < -300_000 || age > 7 * 24 * 60 * 60 * 1000) {
     return request.subscriptions.map((sub) => resultFor(sub, "unknown"));
   }
-  const message = formatNotification(request.payload);
+  let message: ReturnType<typeof formatNotification>;
+  try {
+    message = formatNotification(request.payload);
+  } catch {
+    throw new NotificationFormattingError("Notification formatting failed");
+  }
   const deadline = Date.now() + 6000;
   const results: DeliveryResult[] = new Array(request.subscriptions.length);
   let next = 0;

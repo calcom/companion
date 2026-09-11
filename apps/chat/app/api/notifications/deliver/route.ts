@@ -1,4 +1,5 @@
 import { deliverySchema } from "@/lib/push-notifications/contract";
+import { NotificationFormattingError } from "@/lib/push-notifications/formatter";
 import { verifyDeliverySignature } from "@/lib/push-notifications/signature";
 
 export const runtime = "nodejs";
@@ -6,7 +7,7 @@ const MAX_BODY_BYTES = 128 * 1024;
 
 export async function POST(request: Request): Promise<Response> {
   const secret = process.env.CALCOM_DELIVERY_SECRET;
-  if (!secret || !process.env.REDIS_URL)
+  if (!secret?.trim() || !process.env.REDIS_URL)
     return Response.json({ error: "Delivery is not configured" }, { status: 503 });
   if (!request.body) return Response.json({ error: "Missing body" }, { status: 400 });
   const reader = request.body.getReader();
@@ -30,8 +31,10 @@ export async function POST(request: Request): Promise<Response> {
     if (!parsed.success)
       return Response.json({ error: "Invalid delivery request" }, { status: 400 });
     const { deliverNotifications } = await import("@/lib/push-notifications/service");
-    return Response.json({ results: await deliverNotifications(parsed.data) });
-  } catch {
+    return Response.json({ contractVersion: 2, results: await deliverNotifications(parsed.data) });
+  } catch (error) {
+    if (error instanceof NotificationFormattingError)
+      return Response.json({ error: "Notification formatting failed" }, { status: 422 });
     return Response.json({ error: "Delivery request failed" }, { status: 400 });
   }
 }

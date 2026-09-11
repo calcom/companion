@@ -6,7 +6,7 @@ After connecting Cal.com with `/cal link` in Slack or `/link` in Telegram, use `
 
 ## Configuration and activation
 
-- `CALCOM_DELIVERY_SECRET` must match Cal.com's `CALCOM_CHAT_DELIVERY_SECRET`. An empty secret disables the receiver.
+- `CALCOM_DELIVERY_SECRET` must match Cal.com's `CALCOM_CHAT_DELIVERY_SECRET`. Missing or blank values fail startup in production and emit a warning in development. The receiver also returns `503` when the secret or Redis configuration is missing.
 - `CALCOM_CHAT_LINK_SECRET` must match the same variable in Cal.com. Use a separate random secret for linking.
 - Configure Cal.com's `CHAT_APP_URL` to the actual Companion deployment serving `/api/notifications/deliver`; do not assume an example hostname is deployed.
 - Slack uses the existing encrypted workspace installation and its `chat:write` permission. No AI bot or agent initializes in the delivery route.
@@ -14,7 +14,7 @@ After connecting Cal.com with `/cal link` in Slack or `/link` in Telegram, use `
 - Use durable Redis with persistence and **no eviction**. Delivery claims must survive restarts and remain for eight days. Losing these keys can allow duplicate delivery. The in-memory Chat SDK adapter cannot provide this guarantee.
 - Cal.com and Companion clocks must be synchronized: signatures allow five minutes of clock skew, while subscription generations are compared against the start of the local linking operation.
 
-Keep Cal.com's chat feature flag off until both services and secrets are deployed. Test in a non-production environment with the flag enabled, then validate one Slack workspace and one Telegram DM, including opt-out and a repeated delivery. Resolve the separate Cal.com Trigger.dev OOM investigation before production activation. To roll back, disable the Cal.com flag and clear Companion's delivery secret. Existing bot conversations and mobile notifications are unaffected.
+Keep Cal.com's chat feature flag off until both services and secrets are deployed. Test in a non-production environment with the flag enabled, then validate one Slack workspace and one Telegram DM, including opt-out and a repeated delivery. Resolve the separate Cal.com Trigger.dev OOM investigation before production activation. To roll back delivery, disable the Cal.com flag. Keep Companion's delivery secret configured so production startup succeeds. Existing bot conversations and mobile notifications are unaffected.
 
 ## Delivery contract
 
@@ -24,7 +24,7 @@ Each destination includes its Cal.com user ID, subscription ID, subscription `up
 
 Linking first records a pending destination, creates a Cal.com OAuth-authenticated single-use intent, then completes it with a separately signed assertion of the platform-verified identity. Only a successful completion activates the local binding. Concurrent older commands cannot activate a newer command's binding. Pending delivery is retryable; opt-out and an OAuth account change fail closed. If linking fails, rerun the command. A message whose provider send has already begun cannot be recalled by opting out.
 
-The response is `{ results: [...] }`, with `identifier`, Slack `teamId`, `outcome`, `success`, and `invalidIdentifier` for each destination. Outcomes are:
+The response is `{ contractVersion: 2, results: [...] }`, with `identifier`, Slack `teamId`, `outcome`, `success`, and `invalidIdentifier` for each destination. Outcomes are:
 
 - `delivered`: provider acknowledged acceptance; replay returns the recorded result.
 - `retryable`: no message was sent, or the provider explicitly rate-limited the attempt. Redis honors the retry delay.
@@ -34,6 +34,8 @@ The response is `{ results: [...] }`, with `identifier`, Slack `teamId`, `outcom
 Claims atomically record `unknown` **before** the provider call and retain the outcome for eight days. Requests older than seven days are not delivered. Claims contain hashes and delivery state, not booking contents. Redis bindings retain account IDs, generation timestamps and opt-out state without expiry, so a legacy webhook cannot silently re-enable an opted-out chat; unlinking removes the account and generation fields while keeping an opt-out tombstone without Cal.com account fields. OAuth tokens remain in the existing encrypted linking store. Outgoing booking details go only to the selected Slack/Telegram destination, with plain-text rendering, disabled previews, and HTTPS buttons. Long content is truncated into one message rather than partially sending multiple messages.
 
 ## Tests
+
+Malformed JSON and schema-invalid payloads return `400`. A formatting failure after validation returns `422` with a generic error and no provider send. Startup validation runs through Next.js instrumentation without initializing the bot or AI agent.
 
 From the repository root:
 

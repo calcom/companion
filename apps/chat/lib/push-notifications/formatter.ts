@@ -2,6 +2,8 @@ import type { DeliveryRequest } from "./contract";
 
 export type FormattedNotification = { text: string; bookingUrl?: string };
 
+export class NotificationFormattingError extends Error {}
+
 export function safeUrl(value: string | undefined): string | undefined {
   if (!value) return;
   try {
