@@ -127,8 +127,7 @@ bun run ext:zip:prod
 ```
 ├── apps/
 │   ├── mobile/           # Expo mobile app, native widgets, and mobile services
-│   ├── extension/        # Browser extension source (WXT)
-│   └── chat/             # Next.js chat bot app
+│   └── extension/        # Browser extension source (WXT)
 ├── packages/
 │   └── cli/              # Cal.com CLI (@calcom/cli)
 ├── package.json          # Root workspace scripts
@@ -158,7 +157,6 @@ bun run ext:zip:prod
 | `bun run ext:build:all` | Build all configured extension browser targets |
 | `bun run ext:build:all:prod` | Build all configured extension targets for store submission |
 | `bun run typecheck` | Type-check every workspace that exposes a `typecheck` script |
-| `bun run typecheck:chat` | Type-check the chat app only |
 | `bun run lint` | Lint with Biome |
 | `bun run lint:react-compiler` | Run the mobile React Compiler lint |
 | `bun run check:no-cal-hostnames` | Check mobile source for disallowed Cal.com hostnames |
@@ -177,44 +175,6 @@ bun run check:ci
 bun run typecheck
 bun run lint:all
 ```
-
-## Chat Bot — Telegram Setup
-
-The `apps/chat/` directory contains a multi-platform chat bot. Slack is the primary adapter; Telegram is optional.
-
-### Prerequisites
-
-1. Create a bot with [BotFather](https://t.me/BotFather) on Telegram (`/newbot`)
-2. Copy the bot token and username
-
-### Environment Variables
-
-Add to your `apps/chat/.env`:
-
-```
-TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
-TELEGRAM_BOT_USERNAME=YourBotName
-```
-
-### Register the Webhook
-
-Point Telegram at your deployed chat app:
-
-```sh
-curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
-  -d "url=https://your-domain.com/api/webhooks/telegram"
-```
-
-### Supported Commands
-
-| Command | Description |
-|---------|-------------|
-| `/start` | Show help card |
-| `/help` | Show help card |
-| `/link` | Connect your Cal.com account |
-| `/unlink` | Disconnect your Cal.com account |
-
-Any other message mentioning the bot triggers the AI scheduling assistant.
 
 ## Links
 
