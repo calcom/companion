@@ -69,8 +69,6 @@
     "vite": "7.3.5",
     "@xmldom/xmldom": "0.8.13",
     "adm-zip": "0.6.0",
-    "next": "16.3.5",
-    "sharp": "0.35.4",
     "js-yaml": "4.3.2",
     "browserslist": "4.28.8",
     "ip-address": "10.3.1",
