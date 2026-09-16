@@ -2,7 +2,7 @@
 
 - **[../AGENTS.md](../AGENTS.md)** — main agent guide (repo areas, tooling, scope).
 - **[rules/](rules/)** — modular engineering rules.
-- **[skills/](skills/)** — agent skills (e.g. `chat-sdk`, synced via `skills-lock.json`).
+- **[skills/](skills/)** — agent skills, synced via `skills-lock.json`.
 
 ## Rules Index
 

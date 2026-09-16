@@ -25,7 +25,6 @@
     "ext:build:all": "bun --filter extension build:all",
     "ext:build:all:prod": "bun --filter extension build:all:prod",
     "typecheck": "bun --filter '*' typecheck",
-    "typecheck:chat": "bun --filter '@calcom/chat' typecheck",
     "lint": "biome lint .",
     "lint:react-compiler": "bun --filter mobile lint:react-compiler",
     "check:no-cal-hostnames": "bash apps/mobile/scripts/check-no-cal-hostnames.sh",
