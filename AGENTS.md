@@ -1,7 +1,7 @@
 # Companion Development Guide for AI Agents
 
 Companion is a Bun-based monorepo for Cal.com's mobile app, browser extension, and
-AI-driven interfaces (chat gateway, MCP server, CLI). This file is the main entry
+AI-driven interfaces (chat gateway, CLI). This file is the main entry
 point for AI agents working in this repo.
 
 ## Repo Areas
