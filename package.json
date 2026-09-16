@@ -59,7 +59,7 @@
     "tmp": "0.2.7",
     "flatted": "3.4.2",
     "node-forge": "1.4.0",
-    "postcss": "8.5.19",
+    "postcss": "8.5.23",
     "ws": "8.21.0",
     "micromatch": "4.0.8",
     "picomatch": "4.0.5",
