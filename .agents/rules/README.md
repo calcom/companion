@@ -50,6 +50,4 @@ Brief explanation of the rule and why it matters, with concrete examples.
 
 ## Scope
 
-Keep rules narrowly scoped. The MCP/OpenAPI rules apply only to `apps/mcp-server`
-and other code that wraps Cal.com API v2 — they do not apply to `apps/chat`,
-`apps/mobile`, `apps/extension`, or `packages/cli`.
+Keep rules narrowly scoped to the area they cover.
