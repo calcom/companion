@@ -128,8 +128,7 @@ bun run ext:zip:prod
 ├── apps/
 │   ├── mobile/           # Expo mobile app, native widgets, and mobile services
 │   ├── extension/        # Browser extension source (WXT)
-│   ├── chat/             # Next.js chat bot app
-│   └── mcp-server/       # Cal.com MCP server app
+│   └── chat/             # Next.js chat bot app
 ├── packages/
 │   └── cli/              # Cal.com CLI (@calcom/cli)
 ├── package.json          # Root workspace scripts

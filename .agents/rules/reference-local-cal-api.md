@@ -2,13 +2,14 @@
 title: Locating the Cal.com API v2 OpenAPI Spec
 impact: LOW
 impactDescription: Reference guide for finding the source-of-truth API v2 contract
-tags: reference, api, openapi, mcp
+tags: reference, api, openapi
 ---
 
 # Locating the Cal.com API v2 OpenAPI Spec
 
-`apps/mcp-server` wraps the Cal.com Platform API v2. The source of truth for the
-API contract is the OpenAPI document that lives in the **`calcom/cal`** repo at:
+`packages/cli` generates its client from the Cal.com Platform API v2. The source of
+truth for the API contract is the OpenAPI document that lives in the **`calcom/cal`**
+repo at:
 
 ```
 docs/api-reference/v2/openapi.json

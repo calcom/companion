@@ -6,10 +6,6 @@
 
 ## Rules Index
 
-### API
-
-- [api-mcp-openapi-contract](rules/api-mcp-openapi-contract.md) — align `apps/mcp-server` tools with the Cal.com API v2 OpenAPI contract.
-
 ### Testing
 
 - [testing-mobile](rules/testing-mobile.md) — choose the right test layer for `apps/mobile` changes.
