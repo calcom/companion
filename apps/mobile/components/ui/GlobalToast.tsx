@@ -66,16 +66,16 @@ export function GlobalToast() {
   useEffect(() => {
     if (Platform.OS === "web") {
       if (toast.visible) {
-        window.parent.postMessage({ type: "cal-companion-expand" }, "*");
+        window.parent.postMessage({ type: "cal-companion-expand", source: "toast" }, "*");
       } else {
-        window.parent.postMessage({ type: "cal-companion-collapse" }, "*");
+        window.parent.postMessage({ type: "cal-companion-collapse", source: "toast" }, "*");
       }
     }
 
     return () => {
       // Cleanup: collapse on unmount if we expanded
       if (Platform.OS === "web" && toast.visible) {
-        window.parent.postMessage({ type: "cal-companion-collapse" }, "*");
+        window.parent.postMessage({ type: "cal-companion-collapse", source: "toast" }, "*");
       }
     };
   }, [toast.visible]);
@@ -94,17 +94,20 @@ export function GlobalToast() {
   return (
     <View style={styles.overlay} pointerEvents="none">
       <Animated.View
-        style={[
-          styles.container,
-          isDark && dynamicStyles.darkContainer,
-          { opacity: fadeAnim },
-        ]}
+        style={[styles.container, isDark && dynamicStyles.darkContainer, { opacity: fadeAnim }]}
       >
-        <Ionicons name={iconConfig.name} size={24} color={isDark ? "#FFFFFF" : "#000000"} style={styles.icon} />
+        <Ionicons
+          name={iconConfig.name}
+          size={24}
+          color={isDark ? "#FFFFFF" : "#000000"}
+          style={styles.icon}
+        />
         <View style={styles.textContainer}>
           <Text style={[styles.title, isDark && dynamicStyles.darkTitle]}>{toast.title}</Text>
           {toast.message ? (
-            <Text style={[styles.message, isDark && dynamicStyles.darkMessage]}>{toast.message}</Text>
+            <Text style={[styles.message, isDark && dynamicStyles.darkMessage]}>
+              {toast.message}
+            </Text>
           ) : null}
         </View>
       </Animated.View>
