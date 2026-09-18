@@ -142,6 +142,7 @@
         }
       ],
       "@bacons/apple-targets",
+      "./plugins/withCalKeyboard",
       [
         "react-native-android-widget",
         {

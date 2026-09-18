@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
@@ -29,6 +30,7 @@ interface MoreMenuItem {
 }
 
 export default function More() {
+  const router = useRouter();
   const { logout } = useAuth();
   const { clearCache } = useQueryContext();
   const { preferences, setLandingPage, landingPageLabel } = useUserPreferences();
@@ -82,6 +84,11 @@ export default function More() {
 
   const calAppUrl = getCalAppUrl();
   const menuItems: MoreMenuItem[] = [
+    {
+      name: "Cal.com Keyboard",
+      icon: "keypad-outline",
+      onPress: () => router.push("/keyboard-settings"),
+    },
     {
       name: "Apps",
       icon: "grid-outline",

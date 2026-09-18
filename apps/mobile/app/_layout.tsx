@@ -7,6 +7,7 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack } from "expo-router";
 import { Platform, StatusBar, useColorScheme, View } from "react-native";
 import { CalComLogo } from "@/components/CalComLogo";
+import { KeyboardSyncProvider } from "@/components/KeyboardSyncProvider";
 import LoginScreenComponent from "@/components/LoginScreen";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { PushNotificationProvider } from "@/components/PushNotificationProvider";
@@ -80,6 +81,13 @@ function RootLayoutContent() {
               : isDark
                 ? "dark"
                 : "light",
+        }}
+      />
+      <Stack.Screen
+        name="keyboard-settings"
+        options={{
+          headerShown: true,
+          title: "Cal.com Keyboard",
         }}
       />
       <Stack.Screen
@@ -458,7 +466,9 @@ export default function RootLayout() {
         <ToastProvider>
           <PushNotificationProvider>
             <WidgetSyncProvider>
-              <RootLayoutContent />
+              <KeyboardSyncProvider>
+                <RootLayoutContent />
+              </KeyboardSyncProvider>
             </WidgetSyncProvider>
           </PushNotificationProvider>
           <GlobalToast />
