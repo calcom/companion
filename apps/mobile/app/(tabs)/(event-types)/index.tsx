@@ -20,6 +20,7 @@ import { EventTypeListItem } from "@/components/event-type-list-item/EventTypeLi
 import { EventTypeListSkeleton } from "@/components/event-type-list-item/EventTypeListItemSkeleton";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import { Header } from "@/components/Header";
+import { ResponsiveContentContainer } from "@/components/ResponsiveContentContainer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,8 +43,8 @@ import { useEventTypeFilter } from "@/hooks/useEventTypeFilter";
 import type { EventType } from "@/services/calcom";
 import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
-import { getEventDuration } from "@/utils/getEventDuration";
 import { getDisplayError } from "@/utils/error";
+import { getEventDuration } from "@/utils/getEventDuration";
 import { offlineAwareRefresh } from "@/utils/network";
 import { normalizeMarkdown } from "@/utils/normalizeMarkdown";
 import { shadows } from "@/utils/shadows";
@@ -628,7 +629,7 @@ export default function EventTypes() {
             />
           </View>
         ) : (
-          <View className="px-2 pt-4 md:px-4">
+          <ResponsiveContentContainer className="px-2 pt-4 md:px-4">
             <View
               className="overflow-hidden rounded-lg border border-[#E5E5EA] bg-white"
               style={{ borderColor: theme.border, backgroundColor: theme.backgroundSecondary }}
@@ -648,7 +649,7 @@ export default function EventTypes() {
                 />
               ))}
             </View>
-          </View>
+          </ResponsiveContentContainer>
         )}
       </ScrollView>
 

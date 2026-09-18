@@ -19,6 +19,7 @@ import { AvailabilityListSkeleton } from "@/components/availability-list-item/Av
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import { Header } from "@/components/Header";
+import { ResponsiveContentContainer } from "@/components/ResponsiveContentContainer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -399,32 +400,36 @@ export function AvailabilityListScreen({
           {isManualRefreshing ? (
             <AvailabilityListSkeleton iosStyle={Platform.OS === "ios"} />
           ) : (
-            <FlatList
-              style={{
-                flex: 1,
-                backgroundColor: colors.background,
-              }}
-              contentContainerStyle={{
-                paddingBottom: 90,
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-              }}
-              data={filteredSchedules}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item, index }) => (
-                <AvailabilityListItem
-                  item={item}
-                  index={index}
-                  handleSchedulePress={handleSchedulePress}
-                  onDuplicate={handleDuplicate}
-                  onDelete={handleDelete}
-                  onSetAsDefault={handleSetAsDefault}
+            <View style={{ flex: 1, backgroundColor: colors.background }}>
+              <ResponsiveContentContainer className="flex-1">
+                <FlatList
+                  style={{
+                    flex: 1,
+                    backgroundColor: colors.background,
+                  }}
+                  contentContainerStyle={{
+                    paddingBottom: 90,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                  }}
+                  data={filteredSchedules}
+                  keyExtractor={(item) => item.id.toString()}
+                  renderItem={({ item, index }) => (
+                    <AvailabilityListItem
+                      item={item}
+                      index={index}
+                      handleSchedulePress={handleSchedulePress}
+                      onDuplicate={handleDuplicate}
+                      onDelete={handleDelete}
+                      onSetAsDefault={handleSetAsDefault}
+                    />
+                  )}
+                  refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} />}
+                  showsVerticalScrollIndicator={false}
+                  contentInsetAdjustmentBehavior="automatic"
                 />
-              )}
-              refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} />}
-              showsVerticalScrollIndicator={false}
-              contentInsetAdjustmentBehavior="automatic"
-            />
+              </ResponsiveContentContainer>
+            </View>
           )}
         </Activity>
       </Activity>
