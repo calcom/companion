@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs, useRouter, useSegments, VectorIcon } from "expo-router";
+import { Tabs, useGlobalSearchParams, useRouter, useSegments, VectorIcon } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useEffect, useRef } from "react";
 import type { ColorValue, ImageSourcePropType } from "react-native";
@@ -15,6 +15,7 @@ type VectorIconFamily = {
 export default function TabLayout() {
   const router = useRouter();
   const segments = useSegments();
+  const { source } = useGlobalSearchParams<{ source?: string }>();
   const segmentKey = segments.join("/");
   const { preferences, isLoading } = useUserPreferences();
   const hasNavigated = useRef(false);
@@ -39,6 +40,7 @@ export default function TabLayout() {
     const decision = getInitialLandingRedirectDecision({
       landingPage: preferences.landingPage,
       segments: segmentKey ? segmentKey.split("/") : [],
+      isAppLink: source === "app-link",
     });
 
     if (decision === "wait") {
@@ -59,7 +61,7 @@ export default function TabLayout() {
       // biome-ignore lint/suspicious/noExplicitAny: expo-router types don't support dynamic route strings from preferences
       router.navigate(route as any);
     }, 50);
-  }, [isLoading, preferences.landingPage, router, segmentKey]);
+  }, [isLoading, preferences.landingPage, router, segmentKey, source]);
 
   if (Platform.OS === "web") {
     return <WebTabs colors={colors} />;

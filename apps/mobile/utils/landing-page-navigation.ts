@@ -5,6 +5,7 @@ export type InitialLandingRedirectDecision = "wait" | "skip" | "redirect";
 type InitialLandingRedirectDecisionInput = {
   landingPage: LandingPage;
   segments: readonly string[];
+  isAppLink?: boolean;
 };
 
 const TABS_SEGMENT = "(tabs)";
@@ -26,9 +27,14 @@ function isDefaultBookingsIndex(segments: readonly string[]): boolean {
 export function getInitialLandingRedirectDecision({
   landingPage,
   segments,
+  isAppLink = false,
 }: InitialLandingRedirectDecisionInput): InitialLandingRedirectDecision {
   if (segments.length === 0 || segments[0] !== TABS_SEGMENT) {
     return "wait";
+  }
+
+  if (isAppLink) {
+    return "skip";
   }
 
   if (!isTabsRoot(segments) && !isDefaultBookingsIndex(segments)) {

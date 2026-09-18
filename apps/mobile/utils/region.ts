@@ -16,7 +16,15 @@
 
 import { Platform } from "react-native";
 
+import { CAL_APP_URLS } from "./cal-app-url";
 import { generalStorage, isChromeStorageAvailable } from "./storage";
+
+/**
+ * Returns the set of Cal.com app hostnames the app talks to across regions.
+ * Useful for code that needs to recognize any Cal.com app URL regardless of
+ * the user's current region.
+ */
+export { CAL_APP_HOSTNAMES } from "./cal-app-url";
 
 export type CalRegion = "us" | "eu";
 
@@ -123,7 +131,7 @@ function notify(): void {
 
 /** Fully-qualified origin of the Cal.com web app for the current region. */
 export function getCalAppUrl(region: CalRegion = currentRegion): string {
-  return region === "eu" ? "https://app.cal.eu" : "https://app.cal.com";
+  return CAL_APP_URLS[region];
 }
 
 /** Fully-qualified origin of the Cal.com API for the current region. */
@@ -153,10 +161,3 @@ export function getCalHelpUrl(slug: string): string {
   const trimmed = slug.replace(/^\/+/, "");
   return `https://cal.com/help/${trimmed}`;
 }
-
-/**
- * Returns the set of Cal.com app hostnames the app talks to across regions.
- * Useful for code (e.g. `appendStandaloneParam`) that needs to recognize any
- * Cal.com app URL regardless of the user's current region.
- */
-export const CAL_APP_HOSTNAMES: ReadonlySet<string> = new Set(["app.cal.com", "app.cal.eu"]);
