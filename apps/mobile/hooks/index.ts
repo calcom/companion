@@ -35,6 +35,16 @@ export {
   usePrefetchBookings,
   useRescheduleBooking,
 } from "./useBookings";
+// Cal Events hooks
+export {
+  type CalEvent,
+  useCalEvent,
+  useCalEvents,
+  useCancelCalEvent,
+  useDeleteCalEvent,
+  useInvalidateCalEvents,
+  usePublishCalEvent,
+} from "./useCalEvents";
 // Event Types hooks
 export {
   type CreateEventTypeInput,
@@ -63,6 +73,8 @@ export {
   useSetScheduleAsDefault,
   useUpdateSchedule,
 } from "./useSchedules";
+// Teams hooks
+export { type Team, useTeams } from "./useTeams";
 // Toast hook
 export { type ToastState, type ToastType, useToast } from "./useToast";
 // User Preferences hooks

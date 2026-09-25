@@ -1,0 +1,412 @@
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import type { ReactNode } from "react";
+import { Linking, ScrollView, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { CalEventListItemSkeleton } from "@/components/cal-event-list-item/CalEventListItemSkeleton";
+import { useCalEventActions } from "@/components/cal-events/useCalEventActions";
+import { EmptyScreen } from "@/components/EmptyScreen";
+import { getColors } from "@/constants/colors";
+import { useCalEvent } from "@/hooks";
+import type { CalEvent } from "@/services/calcom";
+import { showErrorAlert } from "@/utils/alerts";
+import {
+  CAL_EVENT_STATUS_LABELS,
+  canManageCalEventLifecycle,
+  formatCalEventDate,
+  formatCalEventPrice,
+  formatCalEventTimeRange,
+  getCalEventLocationLabel,
+  getCalEventStatusColors,
+  isCalEventInPerson,
+} from "@/utils/cal-events";
+import { getAvatarUrl } from "@/utils/getAvatarUrl";
+
+const truncate = (value: string, max = 28) =>
+  value.length > max ? `${value.slice(0, max - 1)}…` : value;
+
+export default function CalEventDetailScreen() {
+  const { eventTypeUuid, title } = useLocalSearchParams<{
+    eventTypeUuid: string;
+    title?: string;
+  }>();
+  const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  const theme = getColors(isDark);
+  const { data: event, isLoading, error } = useCalEvent(eventTypeUuid);
+  const actions = useCalEventActions({ afterDelete: () => router.back() });
+
+  const headerTitle = truncate(event?.title ?? title ?? "Event");
+
+  if (isLoading && !event) {
+    return (
+      <>
+        <Stack.Screen options={{ title: headerTitle }} />
+        <ScrollView
+          style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
+          contentContainerStyle={{ paddingTop: 16 }}
+        >
+          <CalEventListItemSkeleton />
+        </ScrollView>
+      </>
+    );
+  }
+
+  if (!event) {
+    return (
+      <>
+        <Stack.Screen options={{ title: headerTitle }} />
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            backgroundColor: theme.backgroundSecondary,
+          }}
+        >
+          <EmptyScreen
+            icon="ticket-outline"
+            headline={error ? "Unable to load event" : "Event not found"}
+            description={
+              error
+                ? "Check your connection and try again."
+                : "This event was deleted, or you no longer manage it."
+            }
+            buttonText="Back to events"
+            onButtonPress={() => router.back()}
+          />
+        </View>
+      </>
+    );
+  }
+
+  const status = getCalEventStatusColors(event.status, isDark);
+  const canManage = canManageCalEventLifecycle(event);
+  const inPerson = isCalEventInPerson(event);
+  const link = event.locations.find((location) => location.link)?.link ?? null;
+  const goingLabel =
+    event.confirmedCount === null
+      ? null
+      : event.capacity === null
+        ? `${event.confirmedCount} going`
+        : `${event.confirmedCount} of ${event.capacity} going`;
+
+  return (
+    <>
+      <Stack.Screen options={{ title: headerTitle, headerBackTitle: "Events" }} />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
+        contentContainerStyle={{ paddingBottom: 120 }}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        {event.coverImageUrl ? (
+          <Image
+            source={{ uri: event.coverImageUrl }}
+            style={{ width: "100%", aspectRatio: 2 }}
+            contentFit="cover"
+            accessibilityIgnoresInvertColors
+          />
+        ) : null}
+
+        <View style={{ padding: 16 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+            <View
+              style={{
+                backgroundColor: status.background,
+                borderRadius: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+              }}
+            >
+              <Text style={{ color: status.text, fontSize: 13, fontWeight: "600" }}>
+                {CAL_EVENT_STATUS_LABELS[event.status]}
+              </Text>
+            </View>
+            {event.visibility === "UNLISTED" ? (
+              <Text style={{ color: theme.textSecondary, fontSize: 13, marginLeft: 10 }}>
+                Unlisted · link only
+              </Text>
+            ) : null}
+          </View>
+
+          <Text style={{ color: theme.text, fontSize: 24, fontWeight: "700", lineHeight: 30 }}>
+            {event.title}
+          </Text>
+
+          {event.status === "cancelled" && event.cancellationReason ? (
+            <Text style={{ color: theme.textSecondary, fontSize: 15, marginTop: 8 }}>
+              Cancelled: {event.cancellationReason}
+            </Text>
+          ) : null}
+
+          <Card theme={theme}>
+            <Row
+              theme={theme}
+              icon="calendar-outline"
+              title={formatCalEventDate(event.startTime, event.endTime, event.timeZone)}
+              subtitle={`${formatCalEventTimeRange(event.startTime, event.endTime, event.timeZone)} · ${event.timeZone}`}
+            />
+            <Row
+              theme={theme}
+              icon={inPerson ? "location-outline" : "videocam-outline"}
+              title={getCalEventLocationLabel(event)}
+              subtitle={link ?? undefined}
+              onPress={
+                link
+                  ? () =>
+                      Linking.openURL(link).catch(() =>
+                        showErrorAlert("Error", "Failed to open the link. Please try again.")
+                      )
+                  : undefined
+              }
+            />
+            {event.mapImageUrl ? (
+              <Image
+                source={{ uri: event.mapImageUrl }}
+                style={{ width: "100%", aspectRatio: 2, borderRadius: 12, marginTop: 4 }}
+                contentFit="cover"
+                accessibilityIgnoresInvertColors
+              />
+            ) : null}
+            {goingLabel ? (
+              <Row
+                theme={theme}
+                icon="people-outline"
+                title={goingLabel}
+                subtitle={[
+                  event.requiresApproval ? "Approval required" : null,
+                  event.waitlistEnabled ? "Waitlist on" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              />
+            ) : null}
+            {event.price ? (
+              <Row
+                theme={theme}
+                icon="pricetag-outline"
+                title={formatCalEventPrice(event.price, event.currency)}
+                subtitle="per ticket"
+              />
+            ) : null}
+          </Card>
+
+          {event.description ? (
+            <Card theme={theme}>
+              <Text style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 6 }}>
+                About the event
+              </Text>
+              <Text style={{ color: theme.text, fontSize: 16, lineHeight: 22 }}>
+                {event.description}
+              </Text>
+            </Card>
+          ) : null}
+
+          <Card theme={theme}>
+            <Text style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 8 }}>
+              {event.hosts.length === 1 ? "Host" : "Hosts"}
+            </Text>
+            {event.hosts.map((host) => (
+              <View
+                key={host.userId}
+                style={{ flexDirection: "row", alignItems: "center", paddingVertical: 6 }}
+              >
+                <Image
+                  source={{ uri: getAvatarUrl(host.avatarUrl) }}
+                  style={{ width: 32, height: 32, borderRadius: 16, marginRight: 10 }}
+                  accessibilityIgnoresInvertColors
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.text, fontSize: 16 }}>{host.name ?? "Host"}</Text>
+                  {host.username ? (
+                    <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
+                      @{host.username}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </Card>
+
+          <View style={{ marginTop: 16, gap: 10 }}>
+            <ActionButton
+              theme={theme}
+              isDark={isDark}
+              primary
+              icon="open-outline"
+              label="Open event page"
+              onPress={() => actions.onOpenPage(event)}
+            />
+            <ActionButton
+              theme={theme}
+              isDark={isDark}
+              icon="pencil-outline"
+              label="Edit on web"
+              onPress={() => actions.onEditOnWeb(event)}
+            />
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <ActionButton
+                theme={theme}
+                isDark={isDark}
+                icon="link-outline"
+                label="Copy link"
+                onPress={() => actions.onCopyLink(event)}
+                grow
+              />
+              <ActionButton
+                theme={theme}
+                isDark={isDark}
+                icon="share-outline"
+                label="Share"
+                onPress={() => actions.onShare(event)}
+                grow
+              />
+            </View>
+            {canManage && event.status === "draft" ? (
+              <ActionButton
+                theme={theme}
+                isDark={isDark}
+                icon="rocket-outline"
+                label="Publish"
+                onPress={() => actions.onPublish(event)}
+              />
+            ) : null}
+            {canManage && event.status === "published" ? (
+              <ActionButton
+                theme={theme}
+                isDark={isDark}
+                icon="ban-outline"
+                label="Cancel event"
+                destructive
+                onPress={() => actions.onCancel(event)}
+              />
+            ) : null}
+            {canManage && event.status !== "published" ? (
+              <ActionButton
+                theme={theme}
+                isDark={isDark}
+                icon="trash-outline"
+                label="Delete event"
+                destructive
+                onPress={() => actions.onDelete(event)}
+              />
+            ) : null}
+          </View>
+        </View>
+      </ScrollView>
+    </>
+  );
+}
+
+type Theme = ReturnType<typeof getColors>;
+
+function Card({ theme, children }: { theme: Theme; children: ReactNode }) {
+  return (
+    <View
+      style={{
+        backgroundColor: theme.background,
+        borderColor: theme.border,
+        borderWidth: 1,
+        borderRadius: 16,
+        padding: 14,
+        marginTop: 16,
+      }}
+    >
+      {children}
+    </View>
+  );
+}
+
+function Row({
+  theme,
+  icon,
+  title,
+  subtitle,
+  onPress,
+}: {
+  theme: Theme;
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+}) {
+  const content = (
+    <View style={{ flexDirection: "row", alignItems: "flex-start", paddingVertical: 6 }}>
+      <Ionicons name={icon} size={20} color={theme.textSecondary} style={{ marginTop: 1 }} />
+      <View style={{ flex: 1, marginLeft: 10 }}>
+        <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>{title}</Text>
+        {subtitle ? (
+          <Text
+            style={{
+              color: onPress ? theme.accent : theme.textSecondary,
+              fontSize: 14,
+              marginTop: 2,
+            }}
+            numberOfLines={2}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+  if (!onPress) return content;
+  return (
+    <TouchableOpacity onPress={onPress} accessibilityRole="link">
+      {content}
+    </TouchableOpacity>
+  );
+}
+
+function ActionButton({
+  theme,
+  isDark,
+  icon,
+  label,
+  onPress,
+  primary = false,
+  destructive = false,
+  grow = false,
+}: {
+  theme: Theme;
+  isDark: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  primary?: boolean;
+  destructive?: boolean;
+  grow?: boolean;
+}) {
+  const background = primary ? (isDark ? "#FFFFFF" : "#111827") : theme.background;
+  const color = primary
+    ? isDark
+      ? "#000000"
+      : "#FFFFFF"
+    : destructive
+      ? theme.destructive
+      : theme.text;
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      accessibilityRole="button"
+      style={{
+        flex: grow ? 1 : undefined,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        height: 48,
+        borderRadius: 12,
+        borderWidth: primary ? 0 : 1,
+        borderColor: theme.border,
+        backgroundColor: background,
+      }}
+    >
+      <Ionicons name={icon} size={18} color={color} style={{ marginRight: 8 }} />
+      <Text style={{ color, fontSize: 16, fontWeight: "600" }}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+export type { CalEvent };
