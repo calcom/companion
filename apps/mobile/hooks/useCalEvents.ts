@@ -34,33 +34,33 @@ export function useCalEvents(teamId: number | null = null) {
  * detail screen paints instantly; the single-event response carries no `confirmedCount`,
  * so the listing's count is kept when the fresh copy has none.
  */
-export function useCalEvent(eventTypeUuid: string | undefined) {
+export function useCalEvent(uuid: string | undefined) {
   const queryClient = useQueryClient();
   return useQuery({
-    queryKey: queryKeys.calEvents.detail(eventTypeUuid ?? ""),
+    queryKey: queryKeys.calEvents.detail(uuid ?? ""),
     queryFn: async () => {
-      if (!eventTypeUuid) throw new Error("eventTypeUuid is required");
-      const fresh = await CalComAPIService.getCalEvent(eventTypeUuid);
+      if (!uuid) throw new Error("uuid is required");
+      const fresh = await CalComAPIService.getCalEvent(uuid);
       if (!fresh) return null;
-      const listed = findInLists(queryClient, eventTypeUuid);
+      const listed = findInLists(queryClient, uuid);
       return fresh.confirmedCount === null && listed
         ? { ...fresh, confirmedCount: listed.confirmedCount }
         : fresh;
     },
-    enabled: !!eventTypeUuid,
+    enabled: !!uuid,
     staleTime: CACHE_CONFIG.calEvents.staleTime,
-    placeholderData: () => (eventTypeUuid ? findInLists(queryClient, eventTypeUuid) : undefined),
+    placeholderData: () => (uuid ? findInLists(queryClient, uuid) : undefined),
   });
 }
 
 function findInLists(
   queryClient: ReturnType<typeof useQueryClient>,
-  eventTypeUuid: string
+  uuid: string
 ): CalEvent | undefined {
   for (const [, data] of queryClient.getQueriesData<CalEvent[]>({
     queryKey: queryKeys.calEvents.lists(),
   })) {
-    const match = data?.find((event) => event.eventTypeUuid === eventTypeUuid);
+    const match = data?.find((event) => event.uuid === uuid);
     if (match) return match;
   }
   return undefined;
@@ -70,9 +70,9 @@ function findInLists(
 export function usePublishCalEvent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (eventTypeUuid: string) => CalComAPIService.publishCalEvent(eventTypeUuid),
+    mutationFn: (uuid: string) => CalComAPIService.publishCalEvent(uuid),
     onSuccess: (event) => {
-      queryClient.setQueryData(queryKeys.calEvents.detail(event.eventTypeUuid), event);
+      queryClient.setQueryData(queryKeys.calEvents.detail(event.uuid), event);
     },
     onError: (error) => {
       console.error("Failed to publish cal event");
@@ -91,10 +91,10 @@ export function usePublishCalEvent() {
 export function useCancelCalEvent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ eventTypeUuid, reason }: { eventTypeUuid: string; reason?: string }) =>
-      CalComAPIService.cancelCalEvent(eventTypeUuid, reason),
+    mutationFn: ({ uuid, reason }: { uuid: string; reason?: string }) =>
+      CalComAPIService.cancelCalEvent(uuid, reason),
     onSuccess: (event) => {
-      queryClient.setQueryData(queryKeys.calEvents.detail(event.eventTypeUuid), event);
+      queryClient.setQueryData(queryKeys.calEvents.detail(event.uuid), event);
     },
     onError: (error) => {
       console.error("Failed to cancel cal event");
@@ -113,8 +113,8 @@ export function useCancelCalEvent() {
 export function useDeleteCalEvent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (eventTypeUuid: string) => CalComAPIService.deleteCalEvent(eventTypeUuid),
-    onMutate: async (eventTypeUuid) => {
+    mutationFn: (uuid: string) => CalComAPIService.deleteCalEvent(uuid),
+    onMutate: async (uuid) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.calEvents.lists() });
       const previous = queryClient.getQueriesData<CalEvent[]>({
         queryKey: queryKeys.calEvents.lists(),
@@ -123,13 +123,13 @@ export function useDeleteCalEvent() {
         if (data) {
           queryClient.setQueryData(
             key,
-            data.filter((event) => event.eventTypeUuid !== eventTypeUuid)
+            data.filter((event) => event.uuid !== uuid)
           );
         }
       }
       return { previous };
     },
-    onError: (error, _eventTypeUuid, context) => {
+    onError: (error, _uuid, context) => {
       for (const [key, data] of context?.previous ?? []) {
         queryClient.setQueryData(key, data);
       }

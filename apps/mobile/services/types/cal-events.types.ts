@@ -1,12 +1,11 @@
 /**
  * Cal Events — one-off RSVP events (meetups, parties, conferences), as managed at
- * app.cal.com/events. Mirrors the `/v2/cal-events` API v2 output shape.
+ * app.cal.com/events. Mirrors the `/v2/events` API v2 output, plus a few fields the
+ * app derives once per fetch (see services/calcom/cal-events.ts).
  */
 
 export type CalEventStatus = "draft" | "published" | "past" | "cancelled";
 export type CalEventVisibility = "PUBLIC" | "UNLISTED";
-export type CalEventCategory = "meetup" | "conference" | "music" | "sports";
-export type CalEventGuestListDisplay = "NAMES" | "COUNT";
 
 export interface CalEventHost {
   userId: number;
@@ -16,71 +15,53 @@ export interface CalEventHost {
   avatarUrl: string | null;
 }
 
-export interface CalEventLocation {
-  id: string;
-  /** `link` for a virtual event, `address` for an in-person one, or a conferencing app type. */
-  type: string;
-  address?: string;
-  link?: string;
-  customLabel?: string;
-  /** Smallest currency unit; null = free. */
-  price?: number | null;
-  currency?: string | null;
-  /** null = uncapped. */
-  capacity?: number | null;
-}
+export type CalEventLocation =
+  | { type: "address"; address: string }
+  | { type: "link"; link: string }
+  | { type: "integration"; integration: string; credentialId?: number }
+  | { type: "organizersDefaultApp" };
 
-export interface CalEventLiveStream {
-  provider: string;
-  url: string;
-}
-
-export interface CalEvent {
-  /** The event's identifier — the uuid of its underlying event type. */
-  eventTypeUuid: string;
-  eventTypeId: number;
-  title: string;
+/** One event as `/v2/events` returns it. Date fields are ISO 8601 strings in UTC. */
+export interface CalEventApi {
+  uuid: string;
   slug: string;
+  title: string;
   description: string | null;
-  publicUrl: string;
-  status: CalEventStatus;
-  /** ISO 8601, UTC. */
   startTime: string;
-  /** ISO 8601, UTC. */
   endTime: string;
   /** The event's own timezone — in-person events display venue time, not the viewer's. */
   timeZone: string;
-  category: CalEventCategory;
-  coverImageUrl: string | null;
-  mapImageUrl: string | null;
-  locationAddress: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  locations: CalEventLocation[];
-  liveStreams: CalEventLiveStream[];
   visibility: CalEventVisibility;
+  hidden: boolean;
+  publishedAt: string | null;
+  cancelledAt: string | null;
+  locations: CalEventLocation[];
+  coverImageUrl: string | null;
   requiresApproval: boolean;
   waitlistEnabled: boolean;
-  showGuestList: boolean;
-  guestListDisplay: CalEventGuestListDisplay;
+  /** Confirmed registrations. Present on the listing, absent on the single-event response. */
+  confirmedCount?: number;
+  /** True when the current user is an external co-host: may edit, may not publish/cancel/delete. Listing only. */
+  viewerIsCoHost?: boolean;
+  /** Ordered host roster, creator first. */
+  hosts: CalEventHost[];
+  /** Total seats; null = unlimited. */
+  capacity: number | null;
   /** Smallest currency unit; null = free. */
   price: number | null;
   currency: string | null;
-  /** Total seats; null = unlimited. */
-  capacity: number | null;
-  /** Confirmed registrations. Computed for the list endpoint only; null on the single-event response. */
-  confirmedCount: number | null;
-  /** Ordered host roster, creator first. */
-  hosts: CalEventHost[];
+  cancellationReason: string | null;
   userId: number | null;
   teamId: number | null;
-  /** True when the current user is an external co-host: may edit, may not publish/cancel/delete. */
-  viewerIsCoHost: boolean;
-  publishedAt: string | null;
-  cancelledAt: string | null;
-  cancellationReason: string | null;
-  createdAt: string;
-  updatedAt: string;
+}
+
+export interface CalEvent extends CalEventApi {
+  /** Derived from publishedAt / cancelledAt / endTime at fetch time. */
+  status: CalEventStatus;
+  /** The first address location, or null for a virtual event. */
+  locationAddress: string | null;
+  /** The public event page, `{webUrl}/{slug}`. */
+  publicUrl: string;
 }
 
 /** A team the user belongs to, from `/v2/teams`. */

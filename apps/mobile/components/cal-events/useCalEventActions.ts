@@ -26,7 +26,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
     (event: CalEvent) => {
       router.push({
         pathname: "/event-detail",
-        params: { eventTypeUuid: event.eventTypeUuid, title: event.title },
+        params: { uuid: event.uuid, title: event.title },
       });
     },
     [router]
@@ -42,7 +42,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
 
   const onEditOnWeb = useCallback(async (event: CalEvent) => {
     try {
-      await openInAppBrowser(getCalEventEditorUrl(event.eventTypeUuid), "event editor");
+      await openInAppBrowser(getCalEventEditorUrl(event.uuid), "event editor");
     } catch {
       showErrorAlert("Error", "Failed to open the event editor. Please try again.");
     }
@@ -75,7 +75,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
           {
             text: "Publish",
             onPress: () =>
-              publish(event.eventTypeUuid, {
+              publish(event.uuid, {
                 onSuccess: () => showSilentSuccessAlert("Published", "Your event is live"),
                 onError: (error) => {
                   console.error("Failed to publish cal event", describeError(error));
@@ -92,7 +92,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
   const runCancel = useCallback(
     (event: CalEvent, reason?: string) =>
       cancel(
-        { eventTypeUuid: event.eventTypeUuid, reason },
+        { uuid: event.uuid, reason },
         {
           onSuccess: () => showSilentSuccessAlert("Cancelled", "Your guests have been notified"),
           onError: (error) => {
@@ -144,7 +144,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
             text: "Delete",
             style: "destructive",
             onPress: () =>
-              remove(event.eventTypeUuid, {
+              remove(event.uuid, {
                 onSuccess: () => {
                   showSuccessAlert("Success", "Event deleted");
                   afterDelete?.();

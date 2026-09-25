@@ -26,15 +26,15 @@ const truncate = (value: string, max = 28) =>
   value.length > max ? `${value.slice(0, max - 1)}…` : value;
 
 export default function CalEventDetailScreen() {
-  const { eventTypeUuid, title } = useLocalSearchParams<{
-    eventTypeUuid: string;
+  const { uuid, title } = useLocalSearchParams<{
+    uuid: string;
     title?: string;
   }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
-  const { data: event, isLoading, error } = useCalEvent(eventTypeUuid);
+  const { data: event, isLoading, error } = useCalEvent(uuid);
   const actions = useCalEventActions({ afterDelete: () => router.back() });
 
   const headerTitle = truncate(event?.title ?? title ?? "Event");
@@ -85,9 +85,13 @@ export default function CalEventDetailScreen() {
   const status = getCalEventStatusColors(event.status, isDark);
   const canManage = canManageCalEventLifecycle(event);
   const inPerson = isCalEventInPerson(event);
-  const link = event.locations.find((location) => location.link)?.link ?? null;
+  const link =
+    event.locations.find(
+      (location): location is Extract<CalEvent["locations"][number], { type: "link" }> =>
+        location.type === "link"
+    )?.link ?? null;
   const goingLabel =
-    event.confirmedCount === null
+    event.confirmedCount === undefined
       ? null
       : event.capacity === null
         ? `${event.confirmedCount} going`
@@ -162,14 +166,6 @@ export default function CalEventDetailScreen() {
                   : undefined
               }
             />
-            {event.mapImageUrl ? (
-              <Image
-                source={{ uri: event.mapImageUrl }}
-                style={{ width: "100%", aspectRatio: 2, borderRadius: 12, marginTop: 4 }}
-                contentFit="cover"
-                accessibilityIgnoresInvertColors
-              />
-            ) : null}
             {goingLabel ? (
               <Row
                 theme={theme}

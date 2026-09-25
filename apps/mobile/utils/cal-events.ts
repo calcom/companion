@@ -5,7 +5,7 @@
  */
 
 import type { CalEvent, CalEventStatus } from "@/services/types/cal-events.types";
-import { getCalAppUrl } from "@/utils/region";
+import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
 
 export type CalEventsGroupKind = "drafts" | "upcoming" | "past";
 
@@ -46,6 +46,17 @@ export function filterCalEventsByTitle(events: CalEvent[], query: string): CalEv
   const needle = query.trim().toLowerCase();
   if (!needle) return events;
   return events.filter((e) => e.title.toLowerCase().includes(needle));
+}
+
+/** Same rule as the web listing: cancelled wins, then draft, then past once the end has passed. */
+export function deriveCalEventStatus(
+  event: Pick<CalEvent, "publishedAt" | "cancelledAt" | "endTime">,
+  now: Date = new Date()
+): CalEventStatus {
+  if (event.cancelledAt) return "cancelled";
+  if (!event.publishedAt) return "draft";
+  if (new Date(event.endTime).getTime() < now.getTime()) return "past";
+  return "published";
 }
 
 export const CAL_EVENT_STATUS_LABELS: Record<CalEventStatus, string> = {
@@ -173,9 +184,14 @@ export function formatCalEventTimeRange(
   return `${formatCalEventTime(startIso, timeZone)} – ${formatCalEventTime(endIso, timeZone)}`;
 }
 
+/** The public event page, root namespace: `{webUrl}/{slug}` — the same rule as the web listing. */
+export function getCalEventPublicUrl(slug: string): string {
+  return `${getCalWebUrl()}/${slug}`;
+}
+
 /** The web editor for an event (the app has no editor of its own). */
-export function getCalEventEditorUrl(eventTypeUuid: string): string {
-  return `${getCalAppUrl()}/events/${eventTypeUuid}`;
+export function getCalEventEditorUrl(uuid: string): string {
+  return `${getCalAppUrl()}/events/${uuid}`;
 }
 
 /** Whether the current user may publish/cancel/delete (hosts and owners; not external co-hosts). */

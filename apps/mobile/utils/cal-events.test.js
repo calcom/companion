@@ -1,10 +1,13 @@
 import { describe, expect, jest, test } from "@jest/globals";
 
+// Hostnames are stubbed: the region helpers own the real ones.
 jest.mock("@/utils/region", () => ({
-  getCalAppUrl: () => "https://app.cal.com",
+  getCalAppUrl: () => "https://app.example.test",
+  getCalWebUrl: () => "https://example.test",
 }));
 
 const {
+  deriveCalEventStatus,
   filterCalEventsByTitle,
   formatCalEventDate,
   formatCalEventPrice,
@@ -13,6 +16,7 @@ const {
   getCalEventEditorUrl,
   getCalEventFacts,
   getCalEventLocationLabel,
+  getCalEventPublicUrl,
   groupCalEvents,
 } = require("./cal-events");
 
@@ -20,29 +24,22 @@ const NOW = new Date("2026-09-25T12:00:00.000Z");
 
 function createEvent(overrides = {}) {
   return {
-    eventTypeUuid: "019f8549-65f0-7915-a8a5-0f8ce3b6f80a",
-    eventTypeId: 1,
+    uuid: "019f8549-65f0-7915-a8a5-0f8ce3b6f80a",
     title: "Rio turns one",
     slug: "rio-turns-one",
     description: null,
-    publicUrl: "https://cal.com/rio-turns-one",
+    publicUrl: "https://example.test/rio-turns-one",
     status: "published",
     startTime: "2026-10-10T14:00:00.000Z",
     endTime: "2026-10-10T19:00:00.000Z",
     timeZone: "Europe/Berlin",
-    category: "meetup",
     coverImageUrl: null,
-    mapImageUrl: null,
     locationAddress: null,
-    latitude: null,
-    longitude: null,
     locations: [],
-    liveStreams: [],
     visibility: "UNLISTED",
+    hidden: false,
     requiresApproval: false,
     waitlistEnabled: false,
-    showGuestList: true,
-    guestListDisplay: "NAMES",
     price: null,
     currency: null,
     capacity: null,
@@ -54,8 +51,6 @@ function createEvent(overrides = {}) {
     publishedAt: "2026-07-21T15:34:19.550Z",
     cancelledAt: null,
     cancellationReason: null,
-    createdAt: "2026-07-21T15:26:47.789Z",
-    updatedAt: "2026-09-23T10:13:12.240Z",
     ...overrides,
   };
 }
@@ -63,29 +58,29 @@ function createEvent(overrides = {}) {
 describe("groupCalEvents", () => {
   test("splits drafts, upcoming and past, sorted like the web listing", () => {
     const draft = createEvent({
-      eventTypeUuid: "d",
+      uuid: "d",
       status: "draft",
       startTime: "2026-12-01T10:00:00.000Z",
     });
-    const soon = createEvent({ eventTypeUuid: "s", startTime: "2026-10-01T10:00:00.000Z" });
-    const later = createEvent({ eventTypeUuid: "l", startTime: "2026-11-01T10:00:00.000Z" });
+    const soon = createEvent({ uuid: "s", startTime: "2026-10-01T10:00:00.000Z" });
+    const later = createEvent({ uuid: "l", startTime: "2026-11-01T10:00:00.000Z" });
     const cancelledUpcoming = createEvent({
-      eventTypeUuid: "cu",
+      uuid: "cu",
       status: "cancelled",
       startTime: "2026-10-15T10:00:00.000Z",
     });
     const old = createEvent({
-      eventTypeUuid: "o",
+      uuid: "o",
       status: "past",
       startTime: "2026-01-01T10:00:00.000Z",
     });
     const older = createEvent({
-      eventTypeUuid: "oo",
+      uuid: "oo",
       status: "past",
       startTime: "2025-01-01T10:00:00.000Z",
     });
     const cancelledPast = createEvent({
-      eventTypeUuid: "cp",
+      uuid: "cp",
       status: "cancelled",
       startTime: "2026-05-01T10:00:00.000Z",
     });
@@ -95,7 +90,7 @@ describe("groupCalEvents", () => {
       NOW
     );
 
-    expect(groups.map((g) => [g.kind, g.events.map((e) => e.eventTypeUuid)])).toEqual([
+    expect(groups.map((g) => [g.kind, g.events.map((e) => e.uuid)])).toEqual([
       ["drafts", ["d"]],
       ["upcoming", ["s", "cu", "l"]],
       ["past", ["cp", "o", "oo"]],
@@ -138,7 +133,9 @@ describe("getCalEventFacts", () => {
 
   test("treats a missing confirmedCount (single-event response) as nobody going", () => {
     expect(
-      getCalEventFacts(createEvent({ confirmedCount: null, capacity: 50, visibility: "PUBLIC" }))
+      getCalEventFacts(
+        createEvent({ confirmedCount: undefined, capacity: 50, visibility: "PUBLIC" })
+      )
     ).toEqual(["0 going", "50 cap"]);
   });
 
@@ -218,10 +215,24 @@ describe("date formatting", () => {
   });
 });
 
-describe("getCalEventEditorUrl", () => {
-  test("points at the web editor for the event", () => {
+describe("deriveCalEventStatus", () => {
+  test("reads cancelled, draft, past and published from the timestamps", () => {
+    expect(
+      deriveCalEventStatus(createEvent({ cancelledAt: "2026-09-01T00:00:00.000Z" }), NOW)
+    ).toBe("cancelled");
+    expect(deriveCalEventStatus(createEvent({ publishedAt: null }), NOW)).toBe("draft");
+    expect(deriveCalEventStatus(createEvent({ endTime: "2026-09-25T11:59:00.000Z" }), NOW)).toBe(
+      "past"
+    );
+    expect(deriveCalEventStatus(createEvent(), NOW)).toBe("published");
+  });
+});
+
+describe("urls", () => {
+  test("point at the public page and the web editor", () => {
+    expect(getCalEventPublicUrl("rio-turns-one")).toBe("https://example.test/rio-turns-one");
     expect(getCalEventEditorUrl("019f8549-65f0-7915-a8a5-0f8ce3b6f80a")).toBe(
-      "https://app.cal.com/events/019f8549-65f0-7915-a8a5-0f8ce3b6f80a"
+      "https://app.example.test/events/019f8549-65f0-7915-a8a5-0f8ce3b6f80a"
     );
   });
 });
