@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
-import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
@@ -19,6 +18,7 @@ import {
 import { type Booking, CalComAPIService } from "@/services/calcom";
 import { showInfoAlert, showSuccessAlert } from "@/utils/alerts";
 import { syncBookingCachesAfterMutation } from "@/utils/booking-cache";
+import { type NotificationData, resolveNotificationRoute } from "@/utils/notification-routing";
 
 // How long the pre-logout callback waits for an in-flight registration to
 // settle before deregistering, so a token that registered moments before
@@ -107,20 +107,13 @@ interface PushNotificationProviderProps {
   children: ReactNode;
 }
 
-function handleNotificationUrl(url: string, router: ReturnType<typeof useRouter>): void {
-  try {
-    const parsed = Linking.parse(url);
-    const uid = typeof parsed.queryParams?.uid === "string" ? parsed.queryParams.uid : null;
-    if (uid) {
-      router.push(
-        `/(tabs)/(bookings)/booking-detail?uid=${encodeURIComponent(uid)}&source=notification`,
-        {
-          withAnchor: true,
-        }
-      );
-    }
-  } catch {
-    // Malformed deep link — ignore.
+function navigateToNotification(
+  data: NotificationData,
+  router: ReturnType<typeof useRouter>
+): void {
+  const route = resolveNotificationRoute(data);
+  if (route) {
+    router.push(route, { withAnchor: true });
   }
 }
 
@@ -195,15 +188,12 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
         typeof data?.bookingUid === "string" && data.bookingUid.length > 0
           ? data.bookingUid
           : undefined;
-      const url = typeof data?.url === "string" ? data.url : undefined;
       const actionId = response.actionIdentifier;
 
       // Can't mutate without an authenticated session and a target booking —
-      // fall back to opening the booking detail if we have a deep link.
+      // fall back to notification routing if we have a resolvable target.
       if (!isAuthenticatedRef.current || !bookingUid) {
-        if (url) {
-          handleNotificationUrl(url, routerRef.current);
-        }
+        navigateToNotification(data, routerRef.current);
         return;
       }
 
@@ -358,10 +348,7 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
       const data = response.notification.request.content.data as
         | Record<string, unknown>
         | undefined;
-      const url = typeof data?.url === "string" ? data.url : undefined;
-      if (url) {
-        handleNotificationUrl(url, routerRef.current);
-      }
+      navigateToNotification(data, routerRef.current);
     });
 
     return () => subscription.remove();
@@ -418,10 +405,7 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
       const data = lastResponse.notification.request.content.data as
         | Record<string, unknown>
         | undefined;
-      const url = typeof data?.url === "string" ? data.url : undefined;
-      if (url) {
-        handleNotificationUrl(url, router);
-      }
+      navigateToNotification(data, router);
     })();
   }, [isAuthenticated, router, executeBookingRequestAction]);
 
