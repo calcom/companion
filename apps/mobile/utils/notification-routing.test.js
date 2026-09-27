@@ -1,4 +1,23 @@
 import { describe, expect, test } from "@jest/globals";
+
+// expo-linking ships untransformed ESM, which this Jest preset does not
+// transform — mock it with the scheme/hostname/path shape Linking.parse returns.
+jest.mock("expo-linking", () => ({
+  parse: jest.fn((url) => {
+    const match = /^([a-z][a-z0-9+.-]*):\/\/([^/?]*)([^?]*)(?:\?(.*))?$/.exec(url);
+    if (!match || !match[2]) throw new Error(`Unable to parse URL: ${url}`);
+    const [, scheme, hostname, rawPath, query] = match;
+    const queryParams = {};
+    if (query) {
+      for (const pair of query.split("&")) {
+        const [key, value = ""] = pair.split("=");
+        queryParams[key] = decodeURIComponent(value);
+      }
+    }
+    return { scheme, hostname, path: rawPath.replace(/^\//, ""), queryParams };
+  }),
+}));
+
 import { NOTIFICATION_EVENTS } from "@/constants/notifications";
 import { parseNotificationEvent, resolveNotificationRoute } from "@/utils/notification-routing";
 
