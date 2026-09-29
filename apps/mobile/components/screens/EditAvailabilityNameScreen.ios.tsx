@@ -1,28 +1,28 @@
-import { Button, ContextMenu, Host, HStack, Image } from "@expo/ui/swift-ui";
-import { buttonStyle, frame, padding } from "@expo/ui/swift-ui/modifiers";
 import { Ionicons } from "@expo/vector-icons";
-import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import {
   Alert,
+  FlatList,
   KeyboardAvoidingView,
+  Modal,
   ScrollView,
   Text,
   TextInput,
+  TouchableOpacity,
   useColorScheme,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppPressable } from "@/components/AppPressable";
 import { getColors } from "@/constants/colors";
-import { TIMEZONES as ALL_TIMEZONES } from "@/constants/timezones";
 import { type Schedule, useUpdateSchedule } from "@/hooks/useSchedules";
 import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
-
-// Format timezones for display
-const TIMEZONES = ALL_TIMEZONES.map((tz) => ({
-  id: tz,
-  label: tz.replace(/_/g, " "),
-}));
+import {
+  filterTimezones,
+  getDeviceTimezone,
+  getTimezoneLabel,
+  resolveTimezoneId,
+} from "@/utils/timezones";
 
 export interface EditAvailabilityNameScreenProps {
   schedule: Schedule | null;
@@ -54,6 +54,10 @@ export const EditAvailabilityNameScreen = forwardRef<
 
   const [name, setName] = useState("");
   const [timezone, setTimezone] = useState("UTC");
+  const [showTimezoneModal, setShowTimezoneModal] = useState(false);
+  const [timezoneSearch, setTimezoneSearch] = useState("");
+
+  const deviceTimezone = useMemo(() => getDeviceTimezone(), []);
 
   // Use the mutation hook for updating schedules with optimistic updates
   const { mutate: updateSchedule, isPending: isSaving } = useUpdateSchedule();
@@ -71,9 +75,18 @@ export const EditAvailabilityNameScreen = forwardRef<
     onSavingChange?.(isSaving);
   }, [isSaving, onSavingChange]);
 
-  const handleTimezoneSelect = useCallback((tz: string) => {
-    setTimezone(tz);
+  const closeTimezoneModal = useCallback(() => {
+    setShowTimezoneModal(false);
+    setTimezoneSearch("");
   }, []);
+
+  const handleTimezoneSelect = useCallback(
+    (tz: string) => {
+      setTimezone(tz);
+      closeTimezoneModal();
+    },
+    [closeTimezoneModal]
+  );
 
   const handleSubmit = useCallback(() => {
     if (!schedule || isSaving) return;
@@ -113,7 +126,12 @@ export const EditAvailabilityNameScreen = forwardRef<
     [handleSubmit]
   );
 
-  const selectedTimezoneLabel = TIMEZONES.find((tz) => tz.id === timezone)?.label || timezone;
+  const selectedTimezoneId = resolveTimezoneId(timezone) ?? timezone;
+  const selectedTimezoneLabel = getTimezoneLabel(timezone);
+  const filteredTimezones = useMemo(
+    () => filterTimezones(timezoneSearch, timezone, deviceTimezone),
+    [timezoneSearch, timezone, deviceTimezone]
+  );
 
   if (!schedule) {
     return (
@@ -158,55 +176,28 @@ export const EditAvailabilityNameScreen = forwardRef<
 
             {/* Timezone Selector - Glass UI */}
             <Text className="mb-2 px-1 text-[13px] font-medium text-[#A3A3A3]">Timezone</Text>
-            <View
-              className={`mb-4 flex-row items-center rounded-xl px-4 py-3 ${
-                isDark
-                  ? "border border-[#4D4D4D]/40 bg-[#171717]/80"
-                  : "border border-gray-300/40 bg-white/60"
-              }`}
-            >
-              <View className="mr-3 h-9 w-9 items-center justify-center rounded-lg bg-[#007AFF]/20">
-                <Ionicons name="globe-outline" size={20} color="#007AFF" />
+            <AppPressable onPress={() => setShowTimezoneModal(true)} disabled={isSaving}>
+              <View
+                className={`mb-4 flex-row items-center rounded-xl px-4 py-3 ${
+                  isDark
+                    ? "border border-[#4D4D4D]/40 bg-[#171717]/80"
+                    : "border border-gray-300/40 bg-white/60"
+                }`}
+              >
+                <View className="mr-3 h-9 w-9 items-center justify-center rounded-lg bg-[#007AFF]/20">
+                  <Ionicons name="globe-outline" size={20} color="#007AFF" />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    className={`text-[17px] font-medium ${isDark ? "text-white" : "text-black"}`}
+                  >
+                    {selectedTimezoneLabel}
+                  </Text>
+                  <Text className="mt-0.5 text-[13px] text-[#A3A3A3]">{timezone}</Text>
+                </View>
+                <Ionicons name="chevron-expand" size={18} color="#A3A3A3" />
               </View>
-              <View className="flex-1">
-                <Text className={`text-[17px] font-medium ${isDark ? "text-white" : "text-black"}`}>
-                  {selectedTimezoneLabel}
-                </Text>
-                <Text className="mt-0.5 text-[13px] text-[#A3A3A3]">{timezone}</Text>
-              </View>
-
-              {/* Native iOS Context Menu Button */}
-              <Host matchContents>
-                <ContextMenu
-                  modifiers={[
-                    buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered"),
-                    padding(),
-                  ]}
-                  activationMethod="singlePress"
-                >
-                  <ContextMenu.Items>
-                    {TIMEZONES.map((tz) => (
-                      <Button
-                        key={tz.id}
-                        systemImage={timezone === tz.id ? "checkmark" : "globe"}
-                        onPress={() => handleTimezoneSelect(tz.id)}
-                        label={tz.label}
-                      />
-                    ))}
-                  </ContextMenu.Items>
-                  <ContextMenu.Trigger>
-                    <HStack>
-                      <Image
-                        systemName="chevron.up.chevron.down"
-                        color="primary"
-                        size={16}
-                        modifiers={[frame({ height: 16, width: 16 })]}
-                      />
-                    </HStack>
-                  </ContextMenu.Trigger>
-                </ContextMenu>
-              </Host>
-            </View>
+            </AppPressable>
           </>
         ) : (
           <>
@@ -230,54 +221,110 @@ export const EditAvailabilityNameScreen = forwardRef<
             <Text className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-[#A3A3A3]">
               Timezone
             </Text>
-            <View
-              className={`mb-4 flex-row items-center rounded-xl px-4 py-3 ${isDark ? "bg-[#171717]" : "bg-white"}`}
-            >
-              <View className="mr-3 h-9 w-9 items-center justify-center rounded-lg bg-[#007AFF]/10">
-                <Ionicons name="globe-outline" size={20} color="#007AFF" />
+            <AppPressable onPress={() => setShowTimezoneModal(true)} disabled={isSaving}>
+              <View
+                className={`mb-4 flex-row items-center rounded-xl px-4 py-3 ${isDark ? "bg-[#171717]" : "bg-white"}`}
+              >
+                <View className="mr-3 h-9 w-9 items-center justify-center rounded-lg bg-[#007AFF]/10">
+                  <Ionicons name="globe-outline" size={20} color="#007AFF" />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    className={`text-[17px] font-medium ${isDark ? "text-white" : "text-black"}`}
+                  >
+                    {selectedTimezoneLabel}
+                  </Text>
+                  <Text className="mt-0.5 text-[13px] text-[#A3A3A3]">{timezone}</Text>
+                </View>
+                <Ionicons name="chevron-expand" size={18} color="#A3A3A3" />
               </View>
-              <View className="flex-1">
-                <Text className={`text-[17px] font-medium ${isDark ? "text-white" : "text-black"}`}>
-                  {selectedTimezoneLabel}
-                </Text>
-                <Text className="mt-0.5 text-[13px] text-[#A3A3A3]">{timezone}</Text>
-              </View>
-
-              {/* Native iOS Context Menu Button */}
-              <Host matchContents>
-                <ContextMenu
-                  modifiers={[
-                    buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered"),
-                    padding(),
-                  ]}
-                  activationMethod="singlePress"
-                >
-                  <ContextMenu.Items>
-                    {TIMEZONES.map((tz) => (
-                      <Button
-                        key={tz.id}
-                        systemImage={timezone === tz.id ? "checkmark" : "globe"}
-                        onPress={() => handleTimezoneSelect(tz.id)}
-                        label={tz.label}
-                      />
-                    ))}
-                  </ContextMenu.Items>
-                  <ContextMenu.Trigger>
-                    <HStack>
-                      <Image
-                        systemName="chevron.up.chevron.down"
-                        color="primary"
-                        size={16}
-                        modifiers={[frame({ height: 16, width: 16 })]}
-                      />
-                    </HStack>
-                  </ContextMenu.Trigger>
-                </ContextMenu>
-              </Host>
-            </View>
+            </AppPressable>
           </>
         )}
       </ScrollView>
+
+      <Modal
+        visible={showTimezoneModal}
+        animationType="slide"
+        presentationStyle="formSheet"
+        onRequestClose={closeTimezoneModal}
+      >
+        <View className="flex-1" style={{ backgroundColor: theme.backgroundSecondary }}>
+          <View
+            className="flex-row items-center justify-between border-b px-4 py-4"
+            style={{ borderBottomColor: theme.borderSubtle }}
+          >
+            <Text className="text-[17px] font-semibold" style={{ color: theme.text }}>
+              Select Timezone
+            </Text>
+            <TouchableOpacity
+              onPress={closeTimezoneModal}
+              accessibilityLabel="Close timezone picker"
+              accessibilityRole="button"
+            >
+              <Ionicons name="close" size={24} color={theme.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <View className="border-b px-4 py-3" style={{ borderBottomColor: theme.borderSubtle }}>
+            <TextInput
+              className="rounded-lg px-3 py-2.5 text-[17px]"
+              style={{
+                backgroundColor: isDark ? "#262626" : "#F2F2F7",
+                color: theme.text,
+              }}
+              placeholder="Search city or timezone"
+              placeholderTextColor={theme.textMuted}
+              value={timezoneSearch}
+              onChangeText={setTimezoneSearch}
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
+          </View>
+
+          <FlatList
+            data={filteredTimezones}
+            keyExtractor={(tz) => tz.id}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
+            initialNumToRender={15}
+            maxToRenderPerBatch={20}
+            windowSize={7}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+            renderItem={({ item: tz }) => {
+              const isSelected = tz.id === selectedTimezoneId;
+              return (
+                <TouchableOpacity
+                  className="flex-row items-center justify-between border-b px-4 py-3.5"
+                  style={{ borderBottomColor: theme.borderSubtle }}
+                  onPress={() => handleTimezoneSelect(tz.id)}
+                >
+                  <View className="mr-3 flex-1">
+                    <Text
+                      className={`text-[17px] ${isSelected ? "font-semibold" : "font-normal"}`}
+                      style={{ color: isSelected ? theme.accent : theme.text }}
+                    >
+                      {tz.label}
+                    </Text>
+                    <Text className="mt-0.5 text-[13px]" style={{ color: theme.textMuted }}>
+                      {tz.id}
+                    </Text>
+                  </View>
+                  {isSelected && <Ionicons name="checkmark" size={20} color={theme.accent} />}
+                </TouchableOpacity>
+              );
+            }}
+            ListEmptyComponent={
+              <View className="items-center py-10">
+                <Text className="text-[15px]" style={{ color: theme.textMuted }}>
+                  No matching timezones
+                </Text>
+              </View>
+            }
+          />
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 });
