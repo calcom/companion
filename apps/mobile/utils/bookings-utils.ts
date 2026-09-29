@@ -336,11 +336,11 @@ export const groupRecurringBookings = (bookings: Booking[]): RecurringBookingGro
  * @returns Filtered bookings
  */
 export const searchBookings = (bookings: Booking[], searchQuery: string): Booking[] => {
-  if (searchQuery.trim() === "") {
+  const searchLower = searchQuery.trim().toLowerCase();
+  if (searchLower === "") {
     return bookings;
   }
 
-  const searchLower = searchQuery.toLowerCase();
   return bookings.filter(
     (booking) =>
       // Search in booking title
