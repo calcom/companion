@@ -64,11 +64,12 @@ export interface CalEvent extends CalEventApi {
   publicUrl: string;
 }
 
-/** A team the user belongs to, from `/v2/teams`. */
+/** A team the user belongs to, from `/v2/teams`: organizations and pending memberships included. */
 export interface Team {
   id: number;
   name: string;
   slug?: string;
   logoUrl?: string;
   parentId?: number;
+  isOrganization: boolean;
 }

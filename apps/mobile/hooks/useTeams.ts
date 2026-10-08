@@ -9,10 +9,11 @@ import { useQuery } from "@tanstack/react-query";
 import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
 import { CalComAPIService, type Team } from "@/services/calcom";
 
-export function useTeams() {
+export function useTeams({ enabled = true } = {}) {
   return useQuery({
     queryKey: queryKeys.teams.lists(),
     queryFn: () => CalComAPIService.getTeams(),
+    enabled,
     staleTime: CACHE_CONFIG.userProfile.staleTime,
     placeholderData: (previousData) => previousData,
     retry: (failureCount, error) => {

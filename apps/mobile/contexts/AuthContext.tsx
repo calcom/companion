@@ -41,6 +41,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   accessToken: string | null;
   refreshToken: string | null;
+  /** The OAuth token's space-separated scopes; null when unrecorded or not an OAuth session. */
+  oauthScope: string | null;
   userInfo: AuthUserInfo | null;
   isWebSession: boolean;
   loginFromWebSession: (userInfo: UserProfile) => Promise<void>;
@@ -79,6 +81,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [oauthScope, setOAuthScope] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<AuthUserInfo | null>(null);
   const [isWebSession, setIsWebSession] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -287,6 +290,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const resetAuthState = useCallback(() => {
     setAccessToken(null);
     setRefreshToken(null);
+    setOAuthScope(null);
     setUserInfo(null);
     setIsAuthenticated(false);
     setIsWebSession(false);
@@ -439,6 +443,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Set state
       setAccessToken(tokens.accessToken);
       setRefreshToken(tokens.refreshToken || null);
+      setOAuthScope(tokens.scope ?? null);
       setIsAuthenticated(true);
       setIsWebSession(false);
 
@@ -508,6 +513,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // effect runs only once on mount.
   const logoutRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const refreshTokenRef = useRef<string | null>(null);
+  const oauthScopeRef = useRef<string | null>(null);
 
   useEffect(() => {
     logoutRef.current = logout;
@@ -516,6 +522,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     refreshTokenRef.current = refreshToken;
   }, [refreshToken]);
+
+  useEffect(() => {
+    oauthScopeRef.current = oauthScope;
+  }, [oauthScope]);
 
   // Mount-only by design. Refs (`logoutRef`, `refreshTokenRef`) handle live
   // `logout` / `refreshToken` updates; `subscribeRegion` + the preload branch
@@ -546,6 +556,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           refreshToken: newRefreshToken || refreshTokenRef.current || undefined,
           tokenType: "Bearer",
           expiresAt,
+          // A refresh keeps the original grant's scopes; dropping them here would make
+          // a fully-scoped session look like a pre-Events one on the next boot.
+          scope: oauthScopeRef.current ?? undefined,
         };
 
         if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
@@ -649,6 +662,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       CalComAPIService.clearAuth();
       setAccessToken(null);
       setRefreshToken(null);
+      setOAuthScope(null);
       // Capture the generation after the synchronous bumps above. If a logout or
       // another login advances it during the awaits below, this web-session
       // login is stale and must abort before applying its identity/tokens.
@@ -810,6 +824,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Update state
       setAccessToken(tokens.accessToken);
       setRefreshToken(tokens.refreshToken || null);
+      setOAuthScope(tokens.scope ?? null);
       setIsAuthenticated(true);
       setIsWebSession(false);
 
@@ -850,6 +865,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated,
     accessToken,
     refreshToken,
+    oauthScope,
     userInfo,
     isWebSession,
     loginFromWebSession,

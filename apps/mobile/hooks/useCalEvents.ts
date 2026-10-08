@@ -10,21 +10,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
 import { CalComAPIService, type CalEvent } from "@/services/calcom";
+import { ApiRequestError } from "@/services/calcom/request";
 
 const isNetworkError = (error: Error | null) =>
   !!error?.message && (error.message.includes("Network") || error.message.includes("fetch"));
+
+/** A 403 won't change on retry: a pending team membership, or a role that can't read events. */
+export const isForbiddenError = (error: Error | null) =>
+  error instanceof ApiRequestError && error.status === 403;
 
 /**
  * Hook to fetch the cal events of one profile: the user's own (plus co-hosted) when
  * `teamId` is null, else the team's.
  */
-export function useCalEvents(teamId: number | null = null) {
+export function useCalEvents(teamId: number | null = null, { enabled = true } = {}) {
   return useQuery({
     queryKey: queryKeys.calEvents.list(teamId),
     queryFn: () => CalComAPIService.getCalEvents(teamId),
+    enabled,
     staleTime: CACHE_CONFIG.calEvents.staleTime,
     placeholderData: (previousData) => previousData,
-    retry: (failureCount, error) => !isNetworkError(error) && failureCount < 2,
+    retry: (failureCount, error) =>
+      !isNetworkError(error) && !isForbiddenError(error) && failureCount < 2,
     refetchOnReconnect: true,
   });
 }

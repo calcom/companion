@@ -38,6 +38,7 @@ export {
 // Cal Events hooks
 export {
   type CalEvent,
+  isForbiddenError,
   useCalEvent,
   useCalEvents,
   useCancelCalEvent,

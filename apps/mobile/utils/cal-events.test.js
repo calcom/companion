@@ -7,6 +7,7 @@ jest.mock("@/utils/region", () => ({
 }));
 
 const {
+  canReadCalEvents,
   deriveCalEventStatus,
   filterCalEventsByTitle,
   formatCalEventDate,
@@ -17,6 +18,7 @@ const {
   getCalEventFacts,
   getCalEventLocationLabel,
   getCalEventPublicUrl,
+  getCalEventsProfileTeams,
   groupCalEvents,
 } = require("./cal-events");
 
@@ -234,5 +236,26 @@ describe("urls", () => {
     expect(getCalEventEditorUrl("019f8549-65f0-7915-a8a5-0f8ce3b6f80a")).toBe(
       "https://app.example.test/events/019f8549-65f0-7915-a8a5-0f8ce3b6f80a"
     );
+  });
+});
+
+describe("getCalEventsProfileTeams", () => {
+  test("drops organizations and keeps their sub-teams", () => {
+    const org = { id: 1, name: "Acme Inc", isOrganization: true };
+    const team = { id: 2, name: "Team 1", parentId: 1, isOrganization: false };
+    expect(getCalEventsProfileTeams([org, team])).toEqual([team]);
+  });
+});
+
+describe("canReadCalEvents", () => {
+  test("needs EVENT_READ in the token's scope", () => {
+    expect(canReadCalEvents("EVENT_TYPE_READ BOOKING_READ EVENT_READ TEAM_EVENT_READ")).toBe(true);
+    expect(canReadCalEvents("EVENT_TYPE_READ BOOKING_READ PROFILE_READ")).toBe(false);
+    expect(canReadCalEvents("TEAM_EVENT_READ")).toBe(false);
+  });
+
+  test("treats a token with no recorded scope as pre-Events", () => {
+    expect(canReadCalEvents(null)).toBe(false);
+    expect(canReadCalEvents(undefined)).toBe(false);
   });
 });

@@ -15,11 +15,14 @@ import { CalEventListItem } from "@/components/cal-event-list-item/CalEventListI
 import { CalEventListSkeleton } from "@/components/cal-event-list-item/CalEventListItemSkeleton";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { getColors } from "@/constants/colors";
-import { useCalEvents, useTeams, useUserProfile } from "@/hooks";
+import { useAuth } from "@/contexts/AuthContext";
+import { isForbiddenError, useCalEvents, useTeams, useUserProfile } from "@/hooks";
 import type { Team } from "@/services/calcom";
 import {
   CAL_EVENTS_GROUP_LABELS,
+  canReadCalEvents,
   filterCalEventsByTitle,
+  getCalEventsProfileTeams,
   groupCalEvents,
 } from "@/utils/cal-events";
 import { getDisplayError } from "@/utils/error";
@@ -48,19 +51,24 @@ export function CalEventsList({
   const theme = getColors(isDark);
   const [teamId, setTeamId] = useState<number | null>(null);
 
+  const { isWebSession, oauthScope, logout } = useAuth();
+  const needsReauth = !isWebSession && !canReadCalEvents(oauthScope);
+
   const { data: userProfile } = useUserProfile();
-  const { data: teams = [] } = useTeams();
+  const { data: teams = [] } = useTeams({ enabled: !needsReauth });
   const {
     data: events = [],
     isLoading,
     isFetching,
     error: queryError,
     refetch,
-  } = useCalEvents(teamId);
+  } = useCalEvents(teamId, { enabled: !needsReauth });
   const actions = useCalEventActions();
 
+  const profileTeams = getCalEventsProfileTeams(teams);
   const refreshing = isFetching && !isLoading;
-  const error = getDisplayError(queryError, "events");
+  const teamForbidden = teamId !== null && isForbiddenError(queryError);
+  const error = teamForbidden ? null : getDisplayError(queryError, "events");
   const onRefresh = () => offlineAwareRefresh(refetch);
 
   const groups = useMemo(
@@ -70,7 +78,7 @@ export function CalEventsList({
 
   const chips = (
     <ProfileChips
-      teams={teams}
+      teams={profileTeams}
       selectedTeamId={teamId}
       onSelect={setTeamId}
       personalName={userProfile?.name || userProfile?.username || "Personal"}
@@ -112,13 +120,37 @@ export function CalEventsList({
       contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior}
       keyboardShouldPersistTaps="handled"
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.textMuted} />
+        needsReauth ? undefined : (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.textMuted}
+          />
+        )
       }
     >
       {renderHeader?.()}
-      {teams.length > 0 ? chips : <View style={{ height: 8 }} />}
+      {profileTeams.length > 0 ? chips : <View style={{ height: 8 }} />}
 
-      {isLoading ? (
+      {needsReauth ? (
+        <View style={{ padding: 20 }}>
+          <EmptyScreen
+            icon="key-outline"
+            headline="Sign in again to see events"
+            description="Events need permissions your current sign-in doesn't include. Sign out and sign back in to grant them."
+            buttonText="Sign in again"
+            onButtonPress={logout}
+          />
+        </View>
+      ) : teamForbidden ? (
+        <View style={{ padding: 20 }}>
+          <EmptyScreen
+            icon="lock-closed-outline"
+            headline="You can't see this team's events"
+            description="Your invitation to this team may still be pending, or your role doesn't include viewing its events."
+          />
+        </View>
+      ) : isLoading ? (
         <CalEventListSkeleton />
       ) : groups.length === 0 ? (
         <View style={{ padding: 20 }}>

@@ -28,11 +28,11 @@ export function toCalEvent(event: CalEventApi, now: Date = new Date()): CalEvent
 }
 
 /**
- * Get the events the authenticated user hosts (own + co-hosted), or a team's when `teamId`
- * is given.
+ * Get the events the authenticated user hosts (own + co-hosted), or every event a team owns
+ * when `teamId` is given. 403 on a team the user isn't an accepted member of.
  */
 export async function getCalEvents(teamId?: number | null): Promise<CalEvent[]> {
-  const endpoint = teamId ? `/events?teamId=${teamId}` : "/events";
+  const endpoint = teamId ? `/teams/${teamId}/events` : "/events";
   const response = await makeRequest<ListResponse>(endpoint, {}, API_VERSION);
   const now = new Date();
   return Array.isArray(response?.data) ? response.data.map((event) => toCalEvent(event, now)) : [];

@@ -4,7 +4,7 @@
  * read the same event the same way.
  */
 
-import type { CalEvent, CalEventStatus } from "@/services/types/cal-events.types";
+import type { CalEvent, CalEventStatus, Team } from "@/services/types/cal-events.types";
 import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
 
 export type CalEventsGroupKind = "drafts" | "upcoming" | "past";
@@ -46,6 +46,20 @@ export function filterCalEventsByTitle(events: CalEvent[], query: string): CalEv
   const needle = query.trim().toLowerCase();
   if (!needle) return events;
   return events.filter((e) => e.title.toLowerCase().includes(needle));
+}
+
+/** The teams that get a profile chip: `/v2/teams` also lists the user's organizations. */
+export function getCalEventsProfileTeams(teams: Team[]): Team[] {
+  return teams.filter((team) => !team.isOrganization);
+}
+
+/**
+ * Whether an OAuth token's space-separated scope can read Events. A refreshed token keeps
+ * the scopes of its original sign-in, so tokens from before the Events tab never can; a
+ * token with no recorded scope predates it too.
+ */
+export function canReadCalEvents(scope: string | null | undefined): boolean {
+  return scope?.split(" ").includes("EVENT_READ") ?? false;
 }
 
 /** Same rule as the web listing: cancelled wins, then draft, then past once the end has passed. */
