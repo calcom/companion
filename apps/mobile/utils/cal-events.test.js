@@ -312,9 +312,8 @@ describe("canManageCalEventLifecycle", () => {
   const host = (userId) => ({ userId, name: `User ${userId}`, avatarUrl: "" });
 
   test("lets the owner and the hosts manage the event", () => {
-    expect(canManageCalEventLifecycle(createEvent({ userId: ME, hosts: [host(ME)] }), ME)).toBe(
-      true
-    );
+    // An empty roster, so only the owner check can let the owner through.
+    expect(canManageCalEventLifecycle(createEvent({ userId: ME, hosts: [] }), ME)).toBe(true);
     expect(
       canManageCalEventLifecycle(
         createEvent({ userId: null, teamId: 3, hosts: [host(1), host(ME)] }),
