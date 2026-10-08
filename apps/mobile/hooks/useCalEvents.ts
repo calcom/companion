@@ -50,7 +50,7 @@ export function useCalEvent(uuid: string | undefined) {
       const fresh = await CalComAPIService.getCalEvent(uuid);
       if (!fresh) return null;
       const listed = findInLists(queryClient, uuid);
-      return fresh.confirmedCount === null && listed
+      return fresh.confirmedCount === undefined && listed
         ? { ...fresh, confirmedCount: listed.confirmedCount }
         : fresh;
     },

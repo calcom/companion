@@ -12,6 +12,7 @@ import type { CalEvent } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 import {
   CAL_EVENT_STATUS_LABELS,
+  canDeleteCalEvent,
   canManageCalEventLifecycle,
   formatCalEventDate,
   formatCalEventPrice,
@@ -280,7 +281,7 @@ export default function CalEventDetailScreen() {
                 onPress={() => actions.onCancel(event)}
               />
             ) : null}
-            {canManage && event.status !== "published" ? (
+            {canManage && canDeleteCalEvent(event) ? (
               <ActionButton
                 theme={theme}
                 isDark={isDark}

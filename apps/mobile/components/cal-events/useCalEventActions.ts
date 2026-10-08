@@ -5,11 +5,18 @@ import { Alert, Platform, Share } from "react-native";
 import type { CalEventActions } from "@/components/cal-event-list-item/CalEventListItem";
 import { useCancelCalEvent, useDeleteCalEvent, usePublishCalEvent } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
+import { ApiRequestError } from "@/services/calcom/request";
 import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 import { getCalEventEditorUrl } from "@/utils/cal-events";
 
 const describeError = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+/** A 4xx reason from the Events API is written for users ("Cancel the event … before deleting"). */
+const getUserFacingApiReason = (error: unknown) =>
+  error instanceof ApiRequestError && error.status < 500
+    ? error.message.replace(/^API Error: \d+ /, "")
+    : null;
 
 /**
  * The actions an event row and the detail screen share: open, edit on web, copy, share,
@@ -153,7 +160,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
                   console.error("Failed to delete cal event", describeError(error));
                   showErrorAlert(
                     "Error",
-                    "Failed to delete the event. A published event with guests must be cancelled first."
+                    getUserFacingApiReason(error) ?? "Failed to delete the event. Please try again."
                   );
                 },
               }),

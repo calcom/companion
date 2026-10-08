@@ -15,6 +15,7 @@ import { useUserProfile } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import {
   CAL_EVENT_STATUS_LABELS,
+  canDeleteCalEvent,
   canManageCalEventLifecycle,
   formatCalEventDate,
   formatCalEventTime,
@@ -252,7 +253,7 @@ export function CalEventListItem({ event, onPress, ...actions }: CalEventListIte
                         <MenuText style={{ color: theme.destructive }}>Cancel event</MenuText>
                       </DropdownMenuItem>
                     ) : null}
-                    {event.status !== "published" ? (
+                    {canDeleteCalEvent(event) ? (
                       <DropdownMenuItem
                         variant="destructive"
                         onPress={() => actions.onDelete(event)}

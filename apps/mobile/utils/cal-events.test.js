@@ -7,6 +7,7 @@ jest.mock("@/utils/region", () => ({
 }));
 
 const {
+  canDeleteCalEvent,
   canManageCalEventLifecycle,
   canReadCalEvents,
   deriveCalEventStatus,
@@ -311,5 +312,48 @@ describe("canManageCalEventLifecycle", () => {
     expect(
       canManageCalEventLifecycle(createEvent({ userId: ME, hosts: [host(ME)] }), undefined)
     ).toBe(false);
+  });
+});
+
+describe("canDeleteCalEvent", () => {
+  const draft = { status: "draft", publishedAt: null, confirmedCount: 0 };
+  const PAID = { price: 1500, currency: "USD" };
+
+  test("allows deleting a draft", () => {
+    expect(canDeleteCalEvent(createEvent(draft))).toBe(true);
+  });
+
+  test("allows deleting a paid draft, which has no payment records yet", () => {
+    expect(canDeleteCalEvent(createEvent({ ...draft, ...PAID }))).toBe(true);
+  });
+
+  test("allows deleting an upcoming free event with no confirmed guests", () => {
+    expect(canDeleteCalEvent(createEvent({ confirmedCount: 0 }))).toBe(true);
+  });
+
+  test("blocks deleting an upcoming event with confirmed guests, which must be cancelled first", () => {
+    expect(canDeleteCalEvent(createEvent({ confirmedCount: 4 }))).toBe(false);
+  });
+
+  test("allows deleting a cancelled free event although its old guests still count", () => {
+    expect(
+      canDeleteCalEvent(
+        createEvent({
+          status: "cancelled",
+          cancelledAt: "2026-09-20T10:00:00.000Z",
+          confirmedCount: 4,
+        })
+      )
+    ).toBe(true);
+  });
+
+  test("blocks deleting a published paid event, upcoming, past or cancelled", () => {
+    for (const status of ["published", "past", "cancelled"]) {
+      expect(canDeleteCalEvent(createEvent({ ...PAID, status, confirmedCount: 0 }))).toBe(false);
+    }
+  });
+
+  test("blocks deleting a past event with confirmed guests", () => {
+    expect(canDeleteCalEvent(createEvent({ status: "past", confirmedCount: 4 }))).toBe(false);
   });
 });
