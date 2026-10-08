@@ -55,7 +55,12 @@ export function CalEventsList({
   const needsReauth = needsSignInAgainForCalEvents({ isWebSession, oauthScope });
 
   const { data: userProfile } = useUserProfile();
-  const { data: teams = [], refetch: refetchTeams } = useTeams({ enabled: !needsReauth });
+  const {
+    data: teams = [],
+    isLoadingError: teamsLoadError,
+    error: teamsQueryError,
+    refetch: refetchTeams,
+  } = useTeams({ enabled: !needsReauth });
   const profileTeams = getCalEventsProfileTeams(teams);
   // A refresh can drop the selected team (the user left or was removed): show Personal instead.
   const selectedTeamId = profileTeams.some((team) => team.id === teamId) ? teamId : null;
@@ -74,6 +79,18 @@ export function CalEventsList({
   const teamForbidden = selectedTeamId !== null && isForbiddenError(queryError);
   // The sign-in prompt wins over any error: a 403 from a stale fetch must not hide it.
   const error = needsReauth || teamForbidden ? null : getDisplayError(queryError, "events");
+  // Teams that never loaded would pass for having none: the chips would just be missing.
+  const teamsError =
+    needsReauth || !teamsLoadError ? null : getDisplayError(teamsQueryError, "teams");
+  const staleEvents = !!error && isRefetchError;
+  const notice =
+    staleEvents && teamsError
+      ? "Couldn't refresh or load your teams. These events may be out of date."
+      : staleEvents
+        ? "Couldn't refresh. These events may be out of date."
+        : teamsError
+          ? "Couldn't load your teams."
+          : null;
   // Teams never go stale on their own: a pull refreshes the profile chips with the events.
   const onRefresh = () => offlineAwareRefresh(() => Promise.all([refetch(), refetchTeams()]));
 
@@ -112,8 +129,8 @@ export function CalEventsList({
       {renderHeader?.()}
       {profileTeams.length > 0 ? chips : <View style={{ height: 8 }} />}
 
-      {/* A failed refetch keeps the cached events on screen and says so. */}
-      {error && isRefetchError && !refreshing ? (
+      {/* Cached events after a failed refetch, or teams that never loaded: say so, with Retry. */}
+      {notice && !refreshing ? (
         <View
           style={{
             flexDirection: "row",
@@ -128,7 +145,7 @@ export function CalEventsList({
         >
           <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
           <Text style={{ flex: 1, marginHorizontal: 8, color: theme.textSecondary, fontSize: 15 }}>
-            Couldn't refresh. These events may be out of date.
+            {notice}
           </Text>
           <TouchableOpacity onPress={onRefresh} accessibilityRole="button" hitSlop={8}>
             <Text style={{ color: theme.text, fontSize: 15, fontWeight: "600" }}>Retry</Text>
