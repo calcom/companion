@@ -174,6 +174,13 @@ export function CalEventsList({
               headline="No events found"
               description={`No event title matches "${searchQuery.trim()}".`}
             />
+          ) : isRefetchError ? (
+            // The cached list may be missing a new event: don't prompt a duplicate.
+            <EmptyScreen
+              icon="ticket-outline"
+              headline="No events to show"
+              description="Any new events will appear once a refresh succeeds."
+            />
           ) : (
             <EmptyScreen
               icon="ticket-outline"
