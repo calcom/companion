@@ -135,7 +135,7 @@ export function CalEventListItem({ event, onPress, ...actions }: CalEventListIte
                 accessibilityIgnoresInvertColors
               />
               <Text style={{ color: theme.textSecondary, fontSize: 15 }} numberOfLines={1}>
-                {host.name ?? "Host"}
+                {host.name || "Host"}
                 {extraHosts > 0 ? ` +${extraHosts}` : ""}
               </Text>
             </View>

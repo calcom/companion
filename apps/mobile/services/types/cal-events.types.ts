@@ -9,10 +9,12 @@ export type CalEventVisibility = "PUBLIC" | "UNLISTED";
 
 export interface CalEventHost {
   userId: number;
-  name: string | null;
+  /** Empty when the host has no name. */
+  name: string;
   /** Only present on the single-event response. */
   username?: string | null;
-  avatarUrl: string | null;
+  /** Empty when the host has no avatar. */
+  avatarUrl: string;
 }
 
 export type CalEventLocation =

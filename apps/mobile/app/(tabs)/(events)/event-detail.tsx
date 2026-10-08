@@ -217,7 +217,7 @@ export default function CalEventDetailScreen() {
                   accessibilityIgnoresInvertColors
                 />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.text, fontSize: 16 }}>{host.name ?? "Host"}</Text>
+                  <Text style={{ color: theme.text, fontSize: 16 }}>{host.name || "Host"}</Text>
                   {host.username ? (
                     <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
                       @{host.username}
