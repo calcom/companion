@@ -1,9 +1,14 @@
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
-import { Alert, Platform, Share } from "react-native";
+import { Alert, AppState, Platform, Share } from "react-native";
 import type { CalEventActions } from "@/components/cal-event-list-item/CalEventListItem";
-import { useCancelCalEvent, useDeleteCalEvent, usePublishCalEvent } from "@/hooks";
+import {
+  useCancelCalEvent,
+  useDeleteCalEvent,
+  useInvalidateCalEvents,
+  usePublishCalEvent,
+} from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { ApiRequestError } from "@/services/calcom/request";
 import {
@@ -33,11 +38,40 @@ const showLifecycleError = (error: unknown, fallback: string) =>
   showInfoAlert("Error", getUserFacingApiReason(error) ?? fallback);
 
 /**
+ * Opens the web editor like openInAppBrowser, then refreshes the cached events once the user is
+ * back so an event created or edited there shows up. iOS settles the browser promise when the
+ * sheet closes, but Android (a Custom Tab) and web (a popup) settle it as soon as the browser
+ * opens; those wait for the app to resume or the window to regain focus instead.
+ */
+export function useOpenCalEventEditor() {
+  const invalidateCalEvents = useInvalidateCalEvents();
+  return useCallback(
+    async (url: string, label: string) => {
+      await openInAppBrowser(url, label);
+      if (Platform.OS === "ios") {
+        invalidateCalEvents();
+      } else if (Platform.OS === "web") {
+        window.addEventListener("focus", () => invalidateCalEvents(), { once: true });
+      } else {
+        const subscription = AppState.addEventListener("change", (state) => {
+          if (state === "active") {
+            subscription.remove();
+            invalidateCalEvents();
+          }
+        });
+      }
+    },
+    [invalidateCalEvents]
+  );
+}
+
+/**
  * The actions an event row and the detail screen share: open, edit on web, copy, share,
  * and the host-only lifecycle changes behind a native confirmation.
  */
 export function useCalEventActions(options: { afterDelete?: () => void } = {}): CalEventActions {
   const router = useRouter();
+  const openEditor = useOpenCalEventEditor();
   const { mutate: publish } = usePublishCalEvent();
   const { mutate: cancel } = useCancelCalEvent();
   const { mutate: remove } = useDeleteCalEvent();
@@ -61,13 +95,16 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
     }
   }, []);
 
-  const onEditOnWeb = useCallback(async (event: CalEvent) => {
-    try {
-      await openInAppBrowser(getCalEventEditorUrl(event.uuid), "event editor");
-    } catch {
-      showErrorAlert("Error", "Failed to open the event editor. Please try again.");
-    }
-  }, []);
+  const onEditOnWeb = useCallback(
+    async (event: CalEvent) => {
+      try {
+        await openEditor(getCalEventEditorUrl(event.uuid), "event editor");
+      } catch {
+        showErrorAlert("Error", "Failed to open the event editor. Please try again.");
+      }
+    },
+    [openEditor]
+  );
 
   const onCopyLink = useCallback(async (event: CalEvent) => {
     try {

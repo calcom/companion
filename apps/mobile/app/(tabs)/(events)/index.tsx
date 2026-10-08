@@ -2,10 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 import { CalEventsList } from "@/components/cal-events/CalEventsList";
+import { useOpenCalEventEditor } from "@/components/cal-events/useCalEventActions";
 import { Header } from "@/components/Header";
 import { getColors } from "@/constants/colors";
 import { showErrorAlert } from "@/utils/alerts";
-import { openInAppBrowser } from "@/utils/browser";
 import { getCalAppUrl } from "@/utils/region";
 
 export default function Events() {
@@ -13,11 +13,12 @@ export default function Events() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
+  const openEditor = useOpenCalEventEditor();
 
   // Events are created in the web editor; the app lists and manages them.
   const handleCreate = async () => {
     try {
-      await openInAppBrowser(`${getCalAppUrl()}/events/new`, "new event");
+      await openEditor(`${getCalAppUrl()}/events/new`, "new event");
     } catch {
       showErrorAlert("Error", "Failed to open the event editor. Please try again.");
     }
