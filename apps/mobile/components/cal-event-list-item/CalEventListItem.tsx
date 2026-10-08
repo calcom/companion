@@ -103,15 +103,15 @@ export function CalEventListItem({ event, onPress, ...actions }: CalEventListIte
             {event.title}
           </Text>
 
-          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
-            <Text style={{ color: theme.text, fontSize: 15, fontWeight: "500" }}>
+          {/* One paragraph so a long date wraps instead of pushing the time off the card; the
+              no-break spaces keep "·" off the start of a line and the time in one piece. */}
+          <Text style={{ color: theme.textSecondary, fontSize: 15, marginTop: 6 }}>
+            <Text style={{ color: theme.text, fontWeight: "500" }}>
               {formatCalEventDate(event.startTime, event.endTime, event.timeZone)}
             </Text>
-            <Text style={{ color: theme.textSecondary, fontSize: 15 }}>
-              {"  ·  "}
-              {formatCalEventTime(event.startTime, event.timeZone)}
-            </Text>
-          </View>
+            {"\u00A0\u00A0·  "}
+            {formatCalEventTime(event.startTime, event.timeZone).replace(" ", "\u00A0")}
+          </Text>
 
           <View
             style={{ flexDirection: "row", alignItems: "center", marginTop: 8, flexWrap: "wrap" }}
