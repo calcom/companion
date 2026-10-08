@@ -1,10 +1,10 @@
 /**
  * Cal Events Query Hooks
  *
- * React Query hooks over `/v2/cal-events`: the listing per profile (personal or a
- * team), a single event, and the host-only lifecycle mutations (publish, cancel,
- * delete). The app has no event editor — editing happens on the web — so there is
- * no update mutation here.
+ * React Query hooks over `/v2/events`: the listing per profile (personal, or a team's
+ * via `/v2/teams/{teamId}/events`), a single event, and the host-only lifecycle
+ * mutations (publish, cancel, delete). The app has no event editor — editing happens
+ * on the web — so there is no update mutation here.
  */
 
 import { type QueryKey, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
