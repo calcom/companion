@@ -74,13 +74,26 @@ function findInLists(
   return undefined;
 }
 
+/**
+ * Puts a publish/cancel response in the detail cache. Like the single-event GET, it carries no
+ * `confirmedCount`, so the listing's count is kept and the attendance row doesn't drop out.
+ */
+export function setCalEventDetail(queryClient: ReturnType<typeof useQueryClient>, event: CalEvent) {
+  const listed =
+    event.confirmedCount === undefined ? findInLists(queryClient, event.uuid) : undefined;
+  queryClient.setQueryData(
+    queryKeys.calEvents.detail(event.uuid),
+    listed ? { ...event, confirmedCount: listed.confirmedCount } : event
+  );
+}
+
 /** Hook to publish a draft (hosts only). */
 export function usePublishCalEvent() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (uuid: string) => CalComAPIService.publishCalEvent(uuid),
     onSuccess: (event) => {
-      queryClient.setQueryData(queryKeys.calEvents.detail(event.uuid), event);
+      setCalEventDetail(queryClient, event);
     },
     onError: (error) => {
       console.error("Failed to publish cal event");
@@ -102,7 +115,7 @@ export function useCancelCalEvent() {
     mutationFn: ({ uuid, reason }: { uuid: string; reason?: string }) =>
       CalComAPIService.cancelCalEvent(uuid, reason),
     onSuccess: (event) => {
-      queryClient.setQueryData(queryKeys.calEvents.detail(event.uuid), event);
+      setCalEventDetail(queryClient, event);
     },
     onError: (error) => {
       console.error("Failed to cancel cal event");
