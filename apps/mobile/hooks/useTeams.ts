@@ -8,6 +8,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
+import { isForbiddenError } from "@/hooks/useCalEvents";
 import { CalComAPIService, type Team } from "@/services/calcom";
 
 export function useTeams({ enabled = true } = {}) {
@@ -21,7 +22,8 @@ export function useTeams({ enabled = true } = {}) {
       if (error?.message?.includes("Network") || error?.message?.includes("fetch")) {
         return false;
       }
-      return failureCount < 2;
+      // A 403 is a token without TEAM_PROFILE_READ: retrying can't grant it.
+      return !isForbiddenError(error) && failureCount < 2;
     },
   });
 }
