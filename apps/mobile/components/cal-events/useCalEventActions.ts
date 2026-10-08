@@ -6,7 +6,12 @@ import type { CalEventActions } from "@/components/cal-event-list-item/CalEventL
 import { useCancelCalEvent, useDeleteCalEvent, usePublishCalEvent } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { ApiRequestError } from "@/services/calcom/request";
-import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
+import {
+  showErrorAlert,
+  showInfoAlert,
+  showSilentSuccessAlert,
+  showSuccessAlert,
+} from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 import { getCalEventEditorUrl } from "@/utils/cal-events";
 
@@ -17,6 +22,15 @@ const getUserFacingApiReason = (error: unknown) =>
   error instanceof ApiRequestError && error.status < 500
     ? error.message.replace(/^API Error: \d+ /, "")
     : null;
+
+/**
+ * Reports a failed publish/cancel/delete with the API's reason when there is one. Unlike the
+ * dev-only showErrorAlert, showInfoAlert also shows in production: the reason ("Verify your email
+ * before publishing") tells the host what to do, and a failed delete otherwise just puts the
+ * event back.
+ */
+const showLifecycleError = (error: unknown, fallback: string) =>
+  showInfoAlert("Error", getUserFacingApiReason(error) ?? fallback);
 
 /**
  * The actions an event row and the detail screen share: open, edit on web, copy, share,
@@ -86,7 +100,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
                 onSuccess: () => showSilentSuccessAlert("Published", "Your event is live"),
                 onError: (error) => {
                   console.error("Failed to publish cal event", describeError(error));
-                  showErrorAlert("Error", "Failed to publish the event. Please try again.");
+                  showLifecycleError(error, "Failed to publish the event. Please try again.");
                 },
               }),
           },
@@ -104,7 +118,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
           onSuccess: () => showSilentSuccessAlert("Cancelled", "Your guests have been notified"),
           onError: (error) => {
             console.error("Failed to cancel cal event", describeError(error));
-            showErrorAlert("Error", "Failed to cancel the event. Please try again.");
+            showLifecycleError(error, "Failed to cancel the event. Please try again.");
           },
         }
       ),
@@ -158,10 +172,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
                 },
                 onError: (error) => {
                   console.error("Failed to delete cal event", describeError(error));
-                  showErrorAlert(
-                    "Error",
-                    getUserFacingApiReason(error) ?? "Failed to delete the event. Please try again."
-                  );
+                  showLifecycleError(error, "Failed to delete the event. Please try again.");
                 },
               }),
           },
