@@ -416,7 +416,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const generationAtStart = CalComAPIService.getAuthGeneration();
         try {
           console.log("Access token expired, refreshing...");
-          tokens = await service.refreshAccessToken(storedTokens.refreshToken);
+          const refreshedTokens = await service.refreshAccessToken(storedTokens.refreshToken);
+          // A refresh keeps the original grant's scopes, which its response may leave out
+          // (RFC 6749 §5.1); recording none would make a fully-scoped session look pre-Events.
+          tokens = { ...refreshedTokens, scope: refreshedTokens.scope ?? storedTokens.scope };
           if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
             return;
           }
