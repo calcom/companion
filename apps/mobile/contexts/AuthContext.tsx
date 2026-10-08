@@ -81,10 +81,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
-  const [oauthScope, setOAuthScope] = useState<string | null>(null);
+  const [oauthScope, setOAuthScopeState] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<AuthUserInfo | null>(null);
   const [isWebSession, setIsWebSession] = useState(false);
   const [loading, setLoading] = useState(true);
+  // `handleTokenRefresh` persists the session's scopes from this ref. Write it together with the
+  // state, not from an effect: a 401-driven refresh can land before a pending effect has run.
+  const oauthScopeRef = useRef<string | null>(null);
+  const setOAuthScope = useCallback((scope: string | null) => {
+    oauthScopeRef.current = scope;
+    setOAuthScopeState(scope);
+  }, []);
   // AuthProvider is mounted inside QueryProvider (see app/_layout.tsx), so
   // useQueryClient() resolves the live client we need to wipe on logout and
   // on cross-user cache rehydration.
@@ -296,7 +303,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsWebSession(false);
     CalComAPIService.clearAuth();
     CalComAPIService.clearUserProfile();
-  }, []);
+  }, [setOAuthScope]);
 
   const preLogoutCallbacksRef = useRef<PreLogoutCallback[]>([]);
 
@@ -475,7 +482,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       }
     },
-    [clearAuth, setupAfterLogin, setupRefreshTokenFunction]
+    [clearAuth, setOAuthScope, setupAfterLogin, setupRefreshTokenFunction]
   );
 
   // Handle web session authentication
@@ -516,7 +523,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // effect runs only once on mount.
   const logoutRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const refreshTokenRef = useRef<string | null>(null);
-  const oauthScopeRef = useRef<string | null>(null);
 
   useEffect(() => {
     logoutRef.current = logout;
@@ -525,10 +531,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     refreshTokenRef.current = refreshToken;
   }, [refreshToken]);
-
-  useEffect(() => {
-    oauthScopeRef.current = oauthScope;
-  }, [oauthScope]);
 
   // Mount-only by design. Refs (`logoutRef`, `refreshTokenRef`) handle live
   // `logout` / `refreshToken` updates; `subscribeRegion` + the preload branch
