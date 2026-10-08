@@ -23,6 +23,7 @@ const {
   getCalEventsProfileTeams,
   groupCalEvents,
   needsSignInAgainForCalEvents,
+  refreshCalEventStatuses,
 } = require("./cal-events");
 
 const NOW = new Date("2026-09-25T12:00:00.000Z");
@@ -416,5 +417,43 @@ describe("truncateCalEventTitle", () => {
   test("counts an emoji as one character", () => {
     expect(truncateCalEventTitle("🎉".repeat(28))).toBe("🎉".repeat(28));
     expect(truncateCalEventTitle("🎉".repeat(29))).toBe(`${"🎉".repeat(27)}…`);
+  });
+});
+
+describe("refreshCalEventStatuses", () => {
+  // Fetched at NOW (12:00Z): a published event ending at 15:00Z, a cancelled one starting at 14:00Z.
+  const endsToday = createEvent({
+    uuid: "e",
+    startTime: "2026-09-25T13:00:00.000Z",
+    endTime: "2026-09-25T15:00:00.000Z",
+  });
+  const cancelledToday = createEvent({
+    uuid: "c",
+    status: "cancelled",
+    cancelledAt: "2026-09-20T10:00:00.000Z",
+    startTime: "2026-09-25T14:00:00.000Z",
+    endTime: "2026-09-25T16:00:00.000Z",
+  });
+  const LATER = new Date("2026-09-25T15:30:00.000Z");
+  const readAt = (events, now) =>
+    groupCalEvents(refreshCalEventStatuses(events, now), now).map((g) => [
+      g.kind,
+      g.events.map((e) => `${e.uuid}:${e.status}`),
+    ]);
+
+  test("re-reads a cached list later: the ended event turns past, and both move to Past", () => {
+    expect(readAt([endsToday, cancelledToday], NOW)).toEqual([
+      ["upcoming", ["e:published", "c:cancelled"]],
+    ]);
+    expect(readAt([endsToday, cancelledToday], LATER)).toEqual([
+      ["past", ["c:cancelled", "e:past"]],
+    ]);
+  });
+
+  test("returns an event whose status holds as is, and leaves the cached one untouched", () => {
+    const [ended, cancelled] = refreshCalEventStatuses([endsToday, cancelledToday], LATER);
+    expect(cancelled).toBe(cancelledToday);
+    expect(ended).toEqual({ ...endsToday, status: "past" });
+    expect(endsToday.status).toBe("published");
   });
 });

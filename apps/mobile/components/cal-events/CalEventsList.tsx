@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  AppState,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -24,6 +25,7 @@ import {
   getCalEventsProfileTeams,
   groupCalEvents,
   needsSignInAgainForCalEvents,
+  refreshCalEventStatuses,
 } from "@/utils/cal-events";
 import { getDisplayError } from "@/utils/error";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
@@ -94,9 +96,16 @@ export function CalEventsList({
   // Teams never go stale on their own: a pull refreshes the profile chips with the events.
   const onRefresh = () => offlineAwareRefresh(() => Promise.all([refetch(), refetchTeams()]));
 
+  // Read at `now`, not at fetch time: an event that ends while the list is open, or cached since
+  // an earlier launch, moves to Past and loses Cancel without waiting for a refetch.
+  const now = useNow();
   const groups = useMemo(
-    () => groupCalEvents(filterCalEventsByTitle(events, searchQuery)),
-    [events, searchQuery]
+    () =>
+      groupCalEvents(
+        refreshCalEventStatuses(filterCalEventsByTitle(events, searchQuery), now),
+        now
+      ),
+    [events, searchQuery, now]
   );
 
   const chips = (
@@ -239,6 +248,26 @@ export function CalEventsList({
       )}
     </ScrollView>
   );
+}
+
+/**
+ * The time the list reads statuses and groups at. Nothing in the cached events changes as time
+ * passes, so it ticks every minute, and at once when the app is back in the foreground.
+ */
+function useNow(): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    const interval = setInterval(tick, 60_000);
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") tick();
+    });
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, []);
+  return now;
 }
 
 interface ProfileChipsProps {

@@ -86,6 +86,18 @@ export function deriveCalEventStatus(
   return "published";
 }
 
+/**
+ * The events with each status re-read at `now`. The status derived at fetch time stays in the
+ * (persisted) cache, so an event that has ended since would still read as published, group as
+ * upcoming and offer Cancel. An event whose status holds is returned as is.
+ */
+export function refreshCalEventStatuses(events: CalEvent[], now: Date = new Date()): CalEvent[] {
+  return events.map((event) => {
+    const status = deriveCalEventStatus(event, now);
+    return status === event.status ? event : { ...event, status };
+  });
+}
+
 export const CAL_EVENT_STATUS_LABELS: Record<CalEventStatus, string> = {
   draft: "Draft",
   published: "Published",
