@@ -87,22 +87,14 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
     [router]
   );
 
-  const onOpenPage = useCallback(async (event: CalEvent) => {
-    try {
-      await openInAppBrowser(event.publicUrl, "event page");
-    } catch {
-      showErrorAlert("Error", "Failed to open the event page. Please try again.");
-    }
-  }, []);
+  // No catch needed: openInAppBrowser (which openEditor wraps) alerts on failure and never rejects.
+  const onOpenPage = useCallback(
+    (event: CalEvent) => openInAppBrowser(event.publicUrl, "event page"),
+    []
+  );
 
   const onEditOnWeb = useCallback(
-    async (event: CalEvent) => {
-      try {
-        await openEditor(getCalEventEditorUrl(event.uuid), "event editor");
-      } catch {
-        showErrorAlert("Error", "Failed to open the event editor. Please try again.");
-      }
-    },
+    (event: CalEvent) => openEditor(getCalEventEditorUrl(event.uuid), "event editor"),
     [openEditor]
   );
 

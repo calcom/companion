@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useColorScheme } from "react-native";
 import { CalEventsList } from "@/components/cal-events/CalEventsList";
 import { useOpenCalEventEditor } from "@/components/cal-events/useCalEventActions";
-import { showErrorAlert } from "@/utils/alerts";
 import { getCalAppUrl } from "@/utils/region";
 
 export default function EventsIOS() {
@@ -14,13 +13,7 @@ export default function EventsIOS() {
   const openEditor = useOpenCalEventEditor();
 
   // Events are created in the web editor; the app lists and manages them.
-  const handleCreate = async () => {
-    try {
-      await openEditor(`${getCalAppUrl()}/events/new`, "new event");
-    } catch {
-      showErrorAlert("Error", "Failed to open the event editor. Please try again.");
-    }
-  };
+  const handleCreate = () => openEditor(`${getCalAppUrl()}/events/new`, "new event");
 
   return (
     <>

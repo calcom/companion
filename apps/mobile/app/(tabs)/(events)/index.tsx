@@ -5,7 +5,6 @@ import { CalEventsList } from "@/components/cal-events/CalEventsList";
 import { useOpenCalEventEditor } from "@/components/cal-events/useCalEventActions";
 import { Header } from "@/components/Header";
 import { getColors } from "@/constants/colors";
-import { showErrorAlert } from "@/utils/alerts";
 import { getCalAppUrl } from "@/utils/region";
 
 export default function Events() {
@@ -16,13 +15,7 @@ export default function Events() {
   const openEditor = useOpenCalEventEditor();
 
   // Events are created in the web editor; the app lists and manages them.
-  const handleCreate = async () => {
-    try {
-      await openEditor(`${getCalAppUrl()}/events/new`, "new event");
-    } catch {
-      showErrorAlert("Error", "Failed to open the event editor. Please try again.");
-    }
-  };
+  const handleCreate = () => openEditor(`${getCalAppUrl()}/events/new`, "new event");
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}>
