@@ -21,7 +21,9 @@ export const isForbiddenError = (error: Error | null) =>
 
 /**
  * Hook to fetch the cal events of one profile: the user's own (plus co-hosted) when
- * `teamId` is null, else the team's.
+ * `teamId` is null, else the team's. Deliberately no `placeholderData`: the key changes
+ * with the profile, so the previous data would be another profile's events. A newly
+ * selected profile shows its own loading state instead.
  */
 export function useCalEvents(teamId: number | null = null, { enabled = true } = {}) {
   return useQuery({
@@ -29,7 +31,6 @@ export function useCalEvents(teamId: number | null = null, { enabled = true } = 
     queryFn: () => CalComAPIService.getCalEvents(teamId),
     enabled,
     staleTime: CACHE_CONFIG.calEvents.staleTime,
-    placeholderData: (previousData) => previousData,
     retry: (failureCount, error) =>
       !isNetworkError(error) && !isForbiddenError(error) && failureCount < 2,
     refetchOnReconnect: true,
