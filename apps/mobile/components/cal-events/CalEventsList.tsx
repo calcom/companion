@@ -20,10 +20,10 @@ import { isForbiddenError, useCalEvents, useTeams, useUserProfile } from "@/hook
 import type { Team } from "@/services/calcom";
 import {
   CAL_EVENTS_GROUP_LABELS,
-  canReadCalEvents,
   filterCalEventsByTitle,
   getCalEventsProfileTeams,
   groupCalEvents,
+  needsSignInAgainForCalEvents,
 } from "@/utils/cal-events";
 import { getDisplayError } from "@/utils/error";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
@@ -52,7 +52,7 @@ export function CalEventsList({
   const [teamId, setTeamId] = useState<number | null>(null);
 
   const { isWebSession, oauthScope, logout } = useAuth();
-  const needsReauth = !isWebSession && !canReadCalEvents(oauthScope);
+  const needsReauth = needsSignInAgainForCalEvents({ isWebSession, oauthScope });
 
   const { data: userProfile } = useUserProfile();
   const { data: teams = [] } = useTeams({ enabled: !needsReauth });
@@ -68,7 +68,8 @@ export function CalEventsList({
   const profileTeams = getCalEventsProfileTeams(teams);
   const refreshing = isFetching && !isLoading;
   const teamForbidden = teamId !== null && isForbiddenError(queryError);
-  const error = teamForbidden ? null : getDisplayError(queryError, "events");
+  // The sign-in prompt wins over any error: a 403 from a stale fetch must not hide it.
+  const error = needsReauth || teamForbidden ? null : getDisplayError(queryError, "events");
   const onRefresh = () => offlineAwareRefresh(refetch);
 
   const groups = useMemo(

@@ -62,6 +62,14 @@ export function canReadCalEvents(scope: string | null | undefined): boolean {
   return scope?.split(" ").includes("EVENT_READ") ?? false;
 }
 
+/** Only OAuth sessions carry scopes: a web session (the extension) is never asked to sign in again. */
+export function needsSignInAgainForCalEvents(session: {
+  isWebSession: boolean;
+  oauthScope: string | null;
+}): boolean {
+  return !session.isWebSession && !canReadCalEvents(session.oauthScope);
+}
+
 /** Same rule as the web listing: cancelled wins, then draft, then past once the end has passed. */
 export function deriveCalEventStatus(
   event: Pick<CalEvent, "publishedAt" | "cancelledAt" | "endTime">,

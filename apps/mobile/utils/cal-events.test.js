@@ -20,6 +20,7 @@ const {
   getCalEventPublicUrl,
   getCalEventsProfileTeams,
   groupCalEvents,
+  needsSignInAgainForCalEvents,
 } = require("./cal-events");
 
 const NOW = new Date("2026-09-25T12:00:00.000Z");
@@ -257,5 +258,29 @@ describe("canReadCalEvents", () => {
   test("treats a token with no recorded scope as pre-Events", () => {
     expect(canReadCalEvents(null)).toBe(false);
     expect(canReadCalEvents(undefined)).toBe(false);
+  });
+});
+
+describe("needsSignInAgainForCalEvents", () => {
+  const PRE_EVENTS_SCOPE = "EVENT_TYPE_READ BOOKING_READ PROFILE_READ";
+
+  test("never asks a web session, which has no OAuth scope", () => {
+    expect(needsSignInAgainForCalEvents({ isWebSession: true, oauthScope: null })).toBe(false);
+    expect(needsSignInAgainForCalEvents({ isWebSession: true, oauthScope: PRE_EVENTS_SCOPE })).toBe(
+      false
+    );
+  });
+
+  test("asks an OAuth session whose token can't read events", () => {
+    expect(
+      needsSignInAgainForCalEvents({ isWebSession: false, oauthScope: PRE_EVENTS_SCOPE })
+    ).toBe(true);
+    expect(needsSignInAgainForCalEvents({ isWebSession: false, oauthScope: null })).toBe(true);
+    expect(
+      needsSignInAgainForCalEvents({
+        isWebSession: false,
+        oauthScope: `${PRE_EVENTS_SCOPE} EVENT_READ`,
+      })
+    ).toBe(false);
   });
 });
