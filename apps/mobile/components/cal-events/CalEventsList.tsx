@@ -227,7 +227,12 @@ export function CalEventsList({
               <View style={{ height: 8 }} />
             )}
             {group.events.map((event) => (
-              <CalEventListItem key={event.uuid} event={event} {...actions} />
+              <CalEventListItem
+                key={event.uuid}
+                event={event}
+                viewerId={userProfile?.id}
+                {...actions}
+              />
             ))}
           </View>
         ))
