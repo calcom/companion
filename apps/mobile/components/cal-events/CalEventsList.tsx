@@ -60,6 +60,8 @@ export function CalEventsList({
     data: events = [],
     isLoading,
     isFetching,
+    isLoadingError,
+    isRefetchError,
     error: queryError,
     refetch,
   } = useCalEvents(teamId, { enabled: !needsReauth });
@@ -87,32 +89,6 @@ export function CalEventsList({
     />
   );
 
-  if (error) {
-    return (
-      <View
-        className="flex-1 items-center justify-center p-5"
-        style={{ backgroundColor: theme.backgroundSecondary }}
-      >
-        <Ionicons name="alert-circle" size={64} color={theme.error} />
-        <Text className="mb-2 mt-4 text-center text-xl font-bold" style={{ color: theme.text }}>
-          Unable to load events
-        </Text>
-        <Text className="mb-6 text-center text-base" style={{ color: theme.textMuted }}>
-          {error}
-        </Text>
-        <TouchableOpacity
-          className="rounded-lg px-6 py-3"
-          style={{ backgroundColor: isDark ? "white" : "black" }}
-          onPress={() => refetch()}
-        >
-          <Text className="text-base font-semibold" style={{ color: isDark ? "black" : "white" }}>
-            Retry
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
@@ -132,6 +108,30 @@ export function CalEventsList({
     >
       {renderHeader?.()}
       {profileTeams.length > 0 ? chips : <View style={{ height: 8 }} />}
+
+      {/* A failed refetch keeps the cached events on screen and says so. */}
+      {error && isRefetchError && !refreshing ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            marginHorizontal: 16,
+            marginBottom: 12,
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 12,
+            backgroundColor: theme.background,
+          }}
+        >
+          <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
+          <Text style={{ flex: 1, marginHorizontal: 8, color: theme.textSecondary, fontSize: 15 }}>
+            Couldn't refresh. These events may be out of date.
+          </Text>
+          <TouchableOpacity onPress={onRefresh} accessibilityRole="button" hitSlop={8}>
+            <Text style={{ color: theme.text, fontSize: 15, fontWeight: "600" }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {needsReauth ? (
         <View style={{ padding: 20 }}>
@@ -153,6 +153,16 @@ export function CalEventsList({
         </View>
       ) : isLoading ? (
         <CalEventListSkeleton />
+      ) : error && isLoadingError ? (
+        <View style={{ padding: 20 }}>
+          <EmptyScreen
+            icon="alert-circle-outline"
+            headline="Unable to load events"
+            description={error}
+            buttonText="Retry"
+            onButtonPress={() => refetch()}
+          />
+        </View>
       ) : groups.length === 0 ? (
         <View style={{ padding: 20 }}>
           {searchQuery.trim() ? (
