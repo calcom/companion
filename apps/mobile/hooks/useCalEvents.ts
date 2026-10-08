@@ -7,7 +7,7 @@
  * no update mutation here.
  */
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryKey, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
 import { CalComAPIService, type CalEvent } from "@/services/calcom";
 import { ApiRequestError } from "@/services/calcom/request";
@@ -130,12 +130,33 @@ export function useCancelCalEvent() {
   });
 }
 
+/** The listings a delete took the event out of, and the auth session they belong to. */
+type CalEventListsSnapshot = {
+  previous: [QueryKey, CalEvent[] | undefined][];
+  authGeneration: number;
+};
+
+/**
+ * Puts back the listings a failed delete took the event out of, unless the user logged out or
+ * switched accounts meanwhile: that cleared the cache, and the list keys don't name the account,
+ * so the previous account's events would show under the next one.
+ */
+export function restoreCalEventLists(
+  queryClient: ReturnType<typeof useQueryClient>,
+  snapshot: CalEventListsSnapshot | undefined
+) {
+  if (snapshot?.authGeneration !== CalComAPIService.getAuthGeneration()) return;
+  for (const [key, data] of snapshot.previous) {
+    queryClient.setQueryData(key, data);
+  }
+}
+
 /** Hook to delete an event (hosts only). Removes it from every cached listing at once. */
 export function useDeleteCalEvent() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (uuid: string) => CalComAPIService.deleteCalEvent(uuid),
-    onMutate: async (uuid) => {
+    onMutate: async (uuid): Promise<CalEventListsSnapshot> => {
       await queryClient.cancelQueries({ queryKey: queryKeys.calEvents.lists() });
       const previous = queryClient.getQueriesData<CalEvent[]>({
         queryKey: queryKeys.calEvents.lists(),
@@ -148,12 +169,10 @@ export function useDeleteCalEvent() {
           );
         }
       }
-      return { previous };
+      return { previous, authGeneration: CalComAPIService.getAuthGeneration() };
     },
     onError: (error, _uuid, context) => {
-      for (const [key, data] of context?.previous ?? []) {
-        queryClient.setQueryData(key, data);
-      }
+      restoreCalEventLists(queryClient, context);
       console.error("Failed to delete cal event");
       if (__DEV__) {
         const message = error instanceof Error ? error.message : String(error);
