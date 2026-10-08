@@ -397,3 +397,24 @@ describe("canDeleteCalEvent", () => {
     ).toBe(true);
   });
 });
+
+describe("truncateCalEventTitle", () => {
+  const { truncateCalEventTitle } = require("./cal-events");
+
+  test("keeps a title that fits and cuts a longer one to 28 characters, the last one …", () => {
+    expect(truncateCalEventTitle("Rio turns one")).toBe("Rio turns one");
+    expect(truncateCalEventTitle("Rio turns one: a beach party in Lanzarote")).toBe(
+      "Rio turns one: a beach part…"
+    );
+  });
+
+  test("keeps an emoji at the cutoff whole instead of halving it into �", () => {
+    // 🎉 is two UTF-16 units: as the 27th character, a cut at unit 27 would keep only its first.
+    expect(truncateCalEventTitle(`${"a".repeat(26)}🎉 party`)).toBe(`${"a".repeat(26)}🎉…`);
+  });
+
+  test("counts an emoji as one character", () => {
+    expect(truncateCalEventTitle("🎉".repeat(28))).toBe("🎉".repeat(28));
+    expect(truncateCalEventTitle("🎉".repeat(29))).toBe(`${"🎉".repeat(27)}…`);
+  });
+});

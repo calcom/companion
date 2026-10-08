@@ -271,3 +271,13 @@ export function getCalEventStatusColors(
         : { background: "#F3F4F6", text: "#4B5563" };
   }
 }
+
+/**
+ * A title short enough for the navigation bar: at most `max` characters, the last one "…".
+ * Counts code points, not UTF-16 units, so an emoji at the cutoff is kept or dropped whole rather
+ * than halved into "�" (Hermes has no Intl.Segmenter to count graphemes).
+ */
+export function truncateCalEventTitle(title: string, max = 28): string {
+  const characters = Array.from(title);
+  return characters.length > max ? `${characters.slice(0, max - 1).join("")}…` : title;
+}

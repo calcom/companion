@@ -20,11 +20,9 @@ import {
   getCalEventLocationLabel,
   getCalEventStatusColors,
   isCalEventInPerson,
+  truncateCalEventTitle,
 } from "@/utils/cal-events";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
-
-const truncate = (value: string, max = 28) =>
-  value.length > max ? `${value.slice(0, max - 1)}…` : value;
 
 export default function CalEventDetailScreen() {
   const { uuid, title } = useLocalSearchParams<{
@@ -39,7 +37,7 @@ export default function CalEventDetailScreen() {
   const { data: me } = useUserProfile();
   const actions = useCalEventActions({ afterDelete: () => router.back() });
 
-  const headerTitle = truncate(event?.title ?? title ?? "Event");
+  const headerTitle = truncateCalEventTitle(event?.title ?? title ?? "Event");
 
   if (isLoading && !event) {
     return (
