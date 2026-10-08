@@ -230,14 +230,16 @@ export function canManageCalEventLifecycle(
 
 /**
  * Whether the server will accept a delete: never a published paid event (its payment records are
- * kept), and only without confirmed guests. A cancelled event is the exception: its confirmedCount
- * still counts the cancelled booking's seats, which the server ignores.
+ * kept), and only without confirmed guests. A draft can't have any, and a cancelled event's
+ * confirmedCount still counts the cancelled booking's seats, which the server ignores. Otherwise a
+ * missing count (the single-event response has none) is unknown, not zero.
  */
 export function canDeleteCalEvent(
   event: Pick<CalEvent, "publishedAt" | "price" | "status" | "confirmedCount">
 ): boolean {
   if (event.publishedAt && event.price) return false;
-  return event.status === "cancelled" || (event.confirmedCount ?? 0) === 0;
+  if (event.status === "draft" || event.status === "cancelled") return true;
+  return event.confirmedCount === 0;
 }
 
 /** A row's status badge colors, matching the web variants (warning/success/secondary/error). */

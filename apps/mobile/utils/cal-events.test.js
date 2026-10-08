@@ -361,4 +361,24 @@ describe("canDeleteCalEvent", () => {
   test("blocks deleting a past event with confirmed guests", () => {
     expect(canDeleteCalEvent(createEvent({ status: "past", confirmedCount: 4 }))).toBe(false);
   });
+
+  test("blocks deleting an upcoming or past event whose guest count is unknown", () => {
+    // The single-event response carries no confirmedCount, and the event may have guests.
+    for (const status of ["published", "past"]) {
+      expect(canDeleteCalEvent(createEvent({ status, confirmedCount: undefined }))).toBe(false);
+    }
+  });
+
+  test("allows deleting a draft or cancelled event whose guest count is unknown", () => {
+    expect(canDeleteCalEvent(createEvent({ ...draft, confirmedCount: undefined }))).toBe(true);
+    expect(
+      canDeleteCalEvent(
+        createEvent({
+          status: "cancelled",
+          cancelledAt: "2026-09-20T10:00:00.000Z",
+          confirmedCount: undefined,
+        })
+      )
+    ).toBe(true);
+  });
 });
