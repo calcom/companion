@@ -1,4 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
+import { getRouteFromPreference } from "@/hooks/useUserPreferences";
 import { getInitialLandingRedirectDecision } from "@/utils/landing-page-navigation";
 
 describe("getInitialLandingRedirectDecision", () => {
@@ -6,6 +7,15 @@ describe("getInitialLandingRedirectDecision", () => {
     expect(
       getInitialLandingRedirectDecision({
         landingPage: "event-types",
+        segments: ["(tabs)"],
+      })
+    ).toBe("redirect");
+  });
+
+  test("redirects events preference from the tabs root", () => {
+    expect(
+      getInitialLandingRedirectDecision({
+        landingPage: "events",
         segments: ["(tabs)"],
       })
     ).toBe("redirect");
@@ -61,5 +71,11 @@ describe("getInitialLandingRedirectDecision", () => {
         segments: ["profile-sheet"],
       })
     ).toBe("wait");
+  });
+});
+
+describe("getRouteFromPreference", () => {
+  test("routes events preference to the Events tab", () => {
+    expect(getRouteFromPreference("events")).toBe("/(tabs)/(events)");
   });
 });
