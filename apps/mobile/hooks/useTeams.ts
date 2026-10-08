@@ -2,7 +2,8 @@
  * Teams Query Hook
  *
  * The teams the user belongs to, for the profile chips on screens that list
- * per-profile resources (Events). Rarely changes: refreshed on manual reload only.
+ * per-profile resources (Events). Rarely changes, so never stale: the Events
+ * pull-to-refresh refetches it.
  */
 
 import { useQuery } from "@tanstack/react-query";

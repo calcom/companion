@@ -55,7 +55,10 @@ export function CalEventsList({
   const needsReauth = needsSignInAgainForCalEvents({ isWebSession, oauthScope });
 
   const { data: userProfile } = useUserProfile();
-  const { data: teams = [] } = useTeams({ enabled: !needsReauth });
+  const { data: teams = [], refetch: refetchTeams } = useTeams({ enabled: !needsReauth });
+  const profileTeams = getCalEventsProfileTeams(teams);
+  // A refresh can drop the selected team (the user left or was removed): show Personal instead.
+  const selectedTeamId = profileTeams.some((team) => team.id === teamId) ? teamId : null;
   const {
     data: events = [],
     isLoading,
@@ -64,15 +67,15 @@ export function CalEventsList({
     isRefetchError,
     error: queryError,
     refetch,
-  } = useCalEvents(teamId, { enabled: !needsReauth });
+  } = useCalEvents(selectedTeamId, { enabled: !needsReauth });
   const actions = useCalEventActions();
 
-  const profileTeams = getCalEventsProfileTeams(teams);
   const refreshing = isFetching && !isLoading;
-  const teamForbidden = teamId !== null && isForbiddenError(queryError);
+  const teamForbidden = selectedTeamId !== null && isForbiddenError(queryError);
   // The sign-in prompt wins over any error: a 403 from a stale fetch must not hide it.
   const error = needsReauth || teamForbidden ? null : getDisplayError(queryError, "events");
-  const onRefresh = () => offlineAwareRefresh(refetch);
+  // Teams never go stale on their own: a pull refreshes the profile chips with the events.
+  const onRefresh = () => offlineAwareRefresh(() => Promise.all([refetch(), refetchTeams()]));
 
   const groups = useMemo(
     () => groupCalEvents(filterCalEventsByTitle(events, searchQuery)),
@@ -82,7 +85,7 @@ export function CalEventsList({
   const chips = (
     <ProfileChips
       teams={profileTeams}
-      selectedTeamId={teamId}
+      selectedTeamId={selectedTeamId}
       onSelect={setTeamId}
       personalName={userProfile?.name || userProfile?.username || "Personal"}
       personalAvatarUrl={userProfile?.avatarUrl}
