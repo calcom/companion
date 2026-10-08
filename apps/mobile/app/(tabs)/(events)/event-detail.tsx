@@ -7,7 +7,7 @@ import { CalEventListItemSkeleton } from "@/components/cal-event-list-item/CalEv
 import { useCalEventActions } from "@/components/cal-events/useCalEventActions";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { getColors } from "@/constants/colors";
-import { useCalEvent, useUserProfile } from "@/hooks";
+import { isForbiddenError, useCalEvent, useUserProfile } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 import {
@@ -33,7 +33,7 @@ export default function CalEventDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
-  const { data: event, isLoading, error } = useCalEvent(uuid);
+  const { data: event, isLoading, error, refetch } = useCalEvent(uuid);
   const { data: me } = useUserProfile();
   const actions = useCalEventActions({ afterDelete: () => router.back() });
 
@@ -54,6 +54,18 @@ export default function CalEventDetailScreen() {
   }
 
   if (!event) {
+    // null is a 404: deleted, or not this user's to manage. A 403 is a sign-in without the Events
+    // scope, which no retry can fix. Any other failure may pass, so only it gets Retry.
+    const forbidden = isForbiddenError(error);
+    const canRetry = !!error && !forbidden;
+    const [headline, description] = forbidden
+      ? [
+          "Sign in again to see this event",
+          "Events need permissions your current sign-in doesn't include. Sign out and sign back in to grant them.",
+        ]
+      : error
+        ? ["Unable to load event", "Check your connection and try again."]
+        : ["Event not found", "This event was deleted, or you no longer manage it."];
     return (
       <>
         <Stack.Screen options={{ title: headerTitle }} />
@@ -68,15 +80,18 @@ export default function CalEventDetailScreen() {
         >
           <EmptyScreen
             icon="ticket-outline"
-            headline={error ? "Unable to load event" : "Event not found"}
-            description={
-              error
-                ? "Check your connection and try again."
-                : "This event was deleted, or you no longer manage it."
-            }
-            buttonText="Back to events"
-            onButtonPress={() => router.back()}
+            headline={headline}
+            description={description}
+            buttonText={canRetry ? "Retry" : "Back to events"}
+            onButtonPress={() => (canRetry ? refetch() : router.back())}
           />
+          {canRetry ? (
+            <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" hitSlop={12}>
+              <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>
+                Back to events
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </>
     );
