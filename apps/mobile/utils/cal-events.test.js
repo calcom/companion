@@ -149,6 +149,11 @@ describe("getCalEventFacts", () => {
     ).toEqual(["4 going", "€15.00"]);
     expect(formatCalEventPrice(999, "usd")).toBe("$9.99");
   });
+
+  test("falls back to the amount and code for a malformed currency code", () => {
+    // Intl throws only for a malformed code; a well-formed unknown one like "XYZ" still formats.
+    expect(formatCalEventPrice(1500, "euro")).toBe("15.00 EURO");
+  });
 });
 
 describe("getCalEventLocationLabel", () => {

@@ -97,7 +97,7 @@ export function isCalEventInPerson(event: Pick<CalEvent, "locationAddress">): bo
   return !!event.locationAddress?.trim();
 }
 
-/** "€15.00", from the smallest currency unit. Falls back to "15.00 EUR" if Intl lacks the currency. */
+/** "€15.00", from the smallest currency unit. Falls back to "15.00 EURO" for a malformed code. */
 export function formatCalEventPrice(price: number, currency: string | null): string {
   const amount = price / 100;
   const code = (currency || "usd").toUpperCase();
