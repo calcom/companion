@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CalEventsList } from "@/components/cal-events/CalEventsList";
 import { Header } from "@/components/Header";
 import { getColors } from "@/constants/colors";
@@ -14,7 +13,6 @@ export default function Events() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
-  const insets = useSafeAreaInsets();
 
   // Events are created in the web editor; the app lists and manages them.
   const handleCreate = async () => {
@@ -26,7 +24,7 @@ export default function Events() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.backgroundSecondary, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}>
       <Header />
       <View
         style={{
