@@ -95,7 +95,7 @@ export function CalEventListItem({ event, onPress, ...actions }: CalEventListIte
           </View>
         )}
 
-        <View style={{ padding: 16 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
           <Text
             style={{ color: theme.text, fontSize: 18, fontWeight: "600", lineHeight: 24 }}
             numberOfLines={2}
@@ -140,140 +140,136 @@ export function CalEventListItem({ event, onPress, ...actions }: CalEventListIte
               </Text>
             </View>
           ) : null}
-
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginTop: 12,
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: status.background,
-                borderRadius: 6,
-                paddingHorizontal: 8,
-                paddingVertical: 3,
-              }}
-            >
-              <Text style={{ color: status.text, fontSize: 13, fontWeight: "600" }}>
-                {CAL_EVENT_STATUS_LABELS[event.status]}
-              </Text>
-            </View>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`More actions for ${event.title}`}
-                  hitSlop={8}
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: theme.border,
-                    backgroundColor: isDark ? "#171717" : "#FFFFFF",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Ionicons name="ellipsis-horizontal" size={18} color={theme.text} />
-                </Pressable>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                insets={{ top: insets.top, bottom: insets.bottom, left: 12, right: 12 }}
-                sideOffset={8}
-                className="w-48"
-                align="end"
-              >
-                <DropdownMenuItem onPress={() => actions.onOpenPage(event)}>
-                  <Ionicons
-                    name="open-outline"
-                    size={18}
-                    color={menuIconColor}
-                    style={{ marginRight: 8 }}
-                  />
-                  <MenuText>Open event page</MenuText>
-                </DropdownMenuItem>
-                <DropdownMenuItem onPress={() => actions.onEditOnWeb(event)}>
-                  <Ionicons
-                    name="pencil-outline"
-                    size={18}
-                    color={menuIconColor}
-                    style={{ marginRight: 8 }}
-                  />
-                  <MenuText>Edit on web</MenuText>
-                </DropdownMenuItem>
-                <DropdownMenuItem onPress={() => actions.onCopyLink(event)}>
-                  <Ionicons
-                    name="link-outline"
-                    size={18}
-                    color={menuIconColor}
-                    style={{ marginRight: 8 }}
-                  />
-                  <MenuText>Copy link</MenuText>
-                </DropdownMenuItem>
-                <DropdownMenuItem onPress={() => actions.onShare(event)}>
-                  <Ionicons
-                    name="share-outline"
-                    size={18}
-                    color={menuIconColor}
-                    style={{ marginRight: 8 }}
-                  />
-                  <MenuText>Share</MenuText>
-                </DropdownMenuItem>
-
-                {canManage ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    {event.status === "draft" ? (
-                      <DropdownMenuItem onPress={() => actions.onPublish(event)}>
-                        <Ionicons
-                          name="rocket-outline"
-                          size={18}
-                          color={menuIconColor}
-                          style={{ marginRight: 8 }}
-                        />
-                        <MenuText>Publish</MenuText>
-                      </DropdownMenuItem>
-                    ) : null}
-                    {event.status === "published" ? (
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onPress={() => actions.onCancel(event)}
-                      >
-                        <Ionicons
-                          name="ban-outline"
-                          size={18}
-                          color={theme.destructive}
-                          style={{ marginRight: 8 }}
-                        />
-                        <MenuText style={{ color: theme.destructive }}>Cancel event</MenuText>
-                      </DropdownMenuItem>
-                    ) : null}
-                    {canDeleteCalEvent(event) ? (
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onPress={() => actions.onDelete(event)}
-                      >
-                        <Ionicons
-                          name="trash-outline"
-                          size={18}
-                          color={theme.destructive}
-                          style={{ marginRight: 8 }}
-                        />
-                        <MenuText style={{ color: theme.destructive }}>Delete</MenuText>
-                      </DropdownMenuItem>
-                    ) : null}
-                  </>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </View>
         </View>
       </Pressable>
+
+      {/* Outside the card's Pressable so VoiceOver can reach the menu button. */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 16,
+          paddingBottom: 16,
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: status.background,
+            borderRadius: 6,
+            paddingHorizontal: 8,
+            paddingVertical: 3,
+          }}
+        >
+          <Text style={{ color: status.text, fontSize: 13, fontWeight: "600" }}>
+            {CAL_EVENT_STATUS_LABELS[event.status]}
+          </Text>
+        </View>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`More actions for ${event.title}`}
+              hitSlop={8}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: theme.border,
+                backgroundColor: isDark ? "#171717" : "#FFFFFF",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="ellipsis-horizontal" size={18} color={theme.text} />
+            </Pressable>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            insets={{ top: insets.top, bottom: insets.bottom, left: 12, right: 12 }}
+            sideOffset={8}
+            className="w-48"
+            align="end"
+          >
+            <DropdownMenuItem onPress={() => actions.onOpenPage(event)}>
+              <Ionicons
+                name="open-outline"
+                size={18}
+                color={menuIconColor}
+                style={{ marginRight: 8 }}
+              />
+              <MenuText>Open event page</MenuText>
+            </DropdownMenuItem>
+            <DropdownMenuItem onPress={() => actions.onEditOnWeb(event)}>
+              <Ionicons
+                name="pencil-outline"
+                size={18}
+                color={menuIconColor}
+                style={{ marginRight: 8 }}
+              />
+              <MenuText>Edit on web</MenuText>
+            </DropdownMenuItem>
+            <DropdownMenuItem onPress={() => actions.onCopyLink(event)}>
+              <Ionicons
+                name="link-outline"
+                size={18}
+                color={menuIconColor}
+                style={{ marginRight: 8 }}
+              />
+              <MenuText>Copy link</MenuText>
+            </DropdownMenuItem>
+            <DropdownMenuItem onPress={() => actions.onShare(event)}>
+              <Ionicons
+                name="share-outline"
+                size={18}
+                color={menuIconColor}
+                style={{ marginRight: 8 }}
+              />
+              <MenuText>Share</MenuText>
+            </DropdownMenuItem>
+
+            {canManage ? (
+              <>
+                <DropdownMenuSeparator />
+                {event.status === "draft" ? (
+                  <DropdownMenuItem onPress={() => actions.onPublish(event)}>
+                    <Ionicons
+                      name="rocket-outline"
+                      size={18}
+                      color={menuIconColor}
+                      style={{ marginRight: 8 }}
+                    />
+                    <MenuText>Publish</MenuText>
+                  </DropdownMenuItem>
+                ) : null}
+                {event.status === "published" ? (
+                  <DropdownMenuItem variant="destructive" onPress={() => actions.onCancel(event)}>
+                    <Ionicons
+                      name="ban-outline"
+                      size={18}
+                      color={theme.destructive}
+                      style={{ marginRight: 8 }}
+                    />
+                    <MenuText style={{ color: theme.destructive }}>Cancel event</MenuText>
+                  </DropdownMenuItem>
+                ) : null}
+                {canDeleteCalEvent(event) ? (
+                  <DropdownMenuItem variant="destructive" onPress={() => actions.onDelete(event)}>
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={theme.destructive}
+                      style={{ marginRight: 8 }}
+                    />
+                    <MenuText style={{ color: theme.destructive }}>Delete</MenuText>
+                  </DropdownMenuItem>
+                ) : null}
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </View>
     </View>
   );
 }
