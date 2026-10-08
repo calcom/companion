@@ -57,6 +57,8 @@ export function useCalEvent(uuid: string | undefined) {
     },
     enabled: !!uuid,
     staleTime: CACHE_CONFIG.calEvents.staleTime,
+    retry: (failureCount, error) =>
+      !isNetworkError(error) && !isForbiddenError(error) && failureCount < 2,
     placeholderData: () => (uuid ? findInLists(queryClient, uuid) : undefined),
   });
 }
