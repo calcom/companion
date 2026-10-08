@@ -18,6 +18,7 @@ const {
   formatCalEventTimeRange,
   getCalEventEditorUrl,
   getCalEventFacts,
+  getCalEventLinkActions,
   getCalEventLocationLabel,
   getCalEventPublicUrl,
   getCalEventsProfileTeams,
@@ -455,5 +456,21 @@ describe("refreshCalEventStatuses", () => {
     expect(cancelled).toBe(cancelledToday);
     expect(ended).toEqual({ ...endsToday, status: "past" });
     expect(endsToday.status).toBe("published");
+  });
+});
+
+describe("getCalEventLinkActions", () => {
+  test("lets an upcoming or past event open, copy and share its page", () => {
+    for (const status of ["published", "past"]) {
+      expect(getCalEventLinkActions(status)).toEqual({ canViewPage: true, canShare: true });
+    }
+  });
+
+  test("lets a cancelled event open its cancellation notice but not copy or share the link", () => {
+    expect(getCalEventLinkActions("cancelled")).toEqual({ canViewPage: true, canShare: false });
+  });
+
+  test("offers no page actions on a draft, whose page 404s until it is published", () => {
+    expect(getCalEventLinkActions("draft")).toEqual({ canViewPage: false, canShare: false });
   });
 });

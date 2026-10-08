@@ -19,6 +19,7 @@ import {
   formatCalEventDate,
   formatCalEventTime,
   getCalEventFacts,
+  getCalEventLinkActions,
   getCalEventLocationLabel,
   getCalEventStatusColors,
   isCalEventInPerson,
@@ -53,6 +54,7 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
   const host = event.hosts[0];
   const extraHosts = event.hosts.length - 1;
   const canManage = canManageCalEventLifecycle(event, viewerId);
+  const { canViewPage, canShare } = getCalEventLinkActions(event.status);
   const menuIconColor = isDark ? "#E5E5EA" : "#374151";
 
   return (
@@ -192,15 +194,17 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
             className="w-48"
             align="end"
           >
-            <DropdownMenuItem onPress={() => actions.onOpenPage(event)}>
-              <Ionicons
-                name="open-outline"
-                size={18}
-                color={menuIconColor}
-                style={{ marginRight: 8 }}
-              />
-              <MenuText>Open event page</MenuText>
-            </DropdownMenuItem>
+            {canViewPage ? (
+              <DropdownMenuItem onPress={() => actions.onOpenPage(event)}>
+                <Ionicons
+                  name="open-outline"
+                  size={18}
+                  color={menuIconColor}
+                  style={{ marginRight: 8 }}
+                />
+                <MenuText>Open event page</MenuText>
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem onPress={() => actions.onEditOnWeb(event)}>
               <Ionicons
                 name="pencil-outline"
@@ -210,24 +214,28 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
               />
               <MenuText>Edit on web</MenuText>
             </DropdownMenuItem>
-            <DropdownMenuItem onPress={() => actions.onCopyLink(event)}>
-              <Ionicons
-                name="link-outline"
-                size={18}
-                color={menuIconColor}
-                style={{ marginRight: 8 }}
-              />
-              <MenuText>Copy link</MenuText>
-            </DropdownMenuItem>
-            <DropdownMenuItem onPress={() => actions.onShare(event)}>
-              <Ionicons
-                name="share-outline"
-                size={18}
-                color={menuIconColor}
-                style={{ marginRight: 8 }}
-              />
-              <MenuText>Share</MenuText>
-            </DropdownMenuItem>
+            {canShare ? (
+              <>
+                <DropdownMenuItem onPress={() => actions.onCopyLink(event)}>
+                  <Ionicons
+                    name="link-outline"
+                    size={18}
+                    color={menuIconColor}
+                    style={{ marginRight: 8 }}
+                  />
+                  <MenuText>Copy link</MenuText>
+                </DropdownMenuItem>
+                <DropdownMenuItem onPress={() => actions.onShare(event)}>
+                  <Ionicons
+                    name="share-outline"
+                    size={18}
+                    color={menuIconColor}
+                    style={{ marginRight: 8 }}
+                  />
+                  <MenuText>Share</MenuText>
+                </DropdownMenuItem>
+              </>
+            ) : null}
 
             {canManage ? (
               <>

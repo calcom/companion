@@ -259,6 +259,19 @@ export function canDeleteCalEvent(
   return event.confirmedCount === 0;
 }
 
+/**
+ * Which public-page actions an event offers, by the web listing's rule. A draft's page 404s until
+ * it is published (only a host signed in on the web sees it, and the in-app browser may not be),
+ * so it offers none; a cancelled event's page shows the cancellation notice: opened, not shared.
+ */
+export function getCalEventLinkActions(status: CalEventStatus): {
+  canViewPage: boolean;
+  canShare: boolean;
+} {
+  const canShare = status === "published" || status === "past";
+  return { canViewPage: canShare || status === "cancelled", canShare };
+}
+
 /** A row's status badge colors, matching the web variants (warning/success/secondary/error). */
 export function getCalEventStatusColors(
   status: CalEventStatus,

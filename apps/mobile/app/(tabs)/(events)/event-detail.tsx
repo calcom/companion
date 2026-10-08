@@ -17,6 +17,7 @@ import {
   formatCalEventDate,
   formatCalEventPrice,
   formatCalEventTimeRange,
+  getCalEventLinkActions,
   getCalEventLocationLabel,
   getCalEventStatusColors,
   isCalEventInPerson,
@@ -99,6 +100,7 @@ export default function CalEventDetailScreen() {
 
   const status = getCalEventStatusColors(event.status, isDark);
   const canManage = canManageCalEventLifecycle(event, me?.id);
+  const { canViewPage, canShare } = getCalEventLinkActions(event.status);
   const inPerson = isCalEventInPerson(event);
   const link =
     event.locations.find(
@@ -242,14 +244,16 @@ export default function CalEventDetailScreen() {
           </Card>
 
           <View style={{ marginTop: 16, gap: 10 }}>
-            <ActionButton
-              theme={theme}
-              isDark={isDark}
-              primary
-              icon="open-outline"
-              label="Open event page"
-              onPress={() => actions.onOpenPage(event)}
-            />
+            {canViewPage ? (
+              <ActionButton
+                theme={theme}
+                isDark={isDark}
+                primary
+                icon="open-outline"
+                label="Open event page"
+                onPress={() => actions.onOpenPage(event)}
+              />
+            ) : null}
             <ActionButton
               theme={theme}
               isDark={isDark}
@@ -257,24 +261,26 @@ export default function CalEventDetailScreen() {
               label="Edit on web"
               onPress={() => actions.onEditOnWeb(event)}
             />
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <ActionButton
-                theme={theme}
-                isDark={isDark}
-                icon="link-outline"
-                label="Copy link"
-                onPress={() => actions.onCopyLink(event)}
-                grow
-              />
-              <ActionButton
-                theme={theme}
-                isDark={isDark}
-                icon="share-outline"
-                label="Share"
-                onPress={() => actions.onShare(event)}
-                grow
-              />
-            </View>
+            {canShare ? (
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <ActionButton
+                  theme={theme}
+                  isDark={isDark}
+                  icon="link-outline"
+                  label="Copy link"
+                  onPress={() => actions.onCopyLink(event)}
+                  grow
+                />
+                <ActionButton
+                  theme={theme}
+                  isDark={isDark}
+                  icon="share-outline"
+                  label="Share"
+                  onPress={() => actions.onShare(event)}
+                  grow
+                />
+              </View>
+            ) : null}
             {canManage && event.status === "draft" ? (
               <ActionButton
                 theme={theme}
