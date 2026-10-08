@@ -41,6 +41,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   accessToken: string | null;
   refreshToken: string | null;
+  /** The OAuth token's space-separated scopes; null when unrecorded or not an OAuth session. */
+  oauthScope: string | null;
   userInfo: AuthUserInfo | null;
   isWebSession: boolean;
   loginFromWebSession: (userInfo: UserProfile) => Promise<void>;
@@ -79,9 +81,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [oauthScope, setOAuthScopeState] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<AuthUserInfo | null>(null);
   const [isWebSession, setIsWebSession] = useState(false);
   const [loading, setLoading] = useState(true);
+  // `handleTokenRefresh` persists the session's scopes from this ref. Write it together with the
+  // state, not from an effect: a 401-driven refresh can land before a pending effect has run.
+  const oauthScopeRef = useRef<string | null>(null);
+  const setOAuthScope = useCallback((scope: string | null) => {
+    oauthScopeRef.current = scope;
+    setOAuthScopeState(scope);
+  }, []);
   // AuthProvider is mounted inside QueryProvider (see app/_layout.tsx), so
   // useQueryClient() resolves the live client we need to wipe on logout and
   // on cross-user cache rehydration.
@@ -287,12 +297,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const resetAuthState = useCallback(() => {
     setAccessToken(null);
     setRefreshToken(null);
+    setOAuthScope(null);
     setUserInfo(null);
     setIsAuthenticated(false);
     setIsWebSession(false);
     CalComAPIService.clearAuth();
     CalComAPIService.clearUserProfile();
-  }, []);
+  }, [setOAuthScope]);
 
   const preLogoutCallbacksRef = useRef<PreLogoutCallback[]>([]);
 
@@ -412,7 +423,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const generationAtStart = CalComAPIService.getAuthGeneration();
         try {
           console.log("Access token expired, refreshing...");
-          tokens = await service.refreshAccessToken(storedTokens.refreshToken);
+          const refreshedTokens = await service.refreshAccessToken(storedTokens.refreshToken);
+          // A refresh keeps the original grant's scopes, which its response may leave out
+          // (RFC 6749 §5.1); recording none would make a fully-scoped session look pre-Events.
+          tokens = { ...refreshedTokens, scope: refreshedTokens.scope ?? storedTokens.scope };
           if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
             return;
           }
@@ -439,6 +453,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Set state
       setAccessToken(tokens.accessToken);
       setRefreshToken(tokens.refreshToken || null);
+      setOAuthScope(tokens.scope ?? null);
       setIsAuthenticated(true);
       setIsWebSession(false);
 
@@ -467,7 +482,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       }
     },
-    [clearAuth, setupAfterLogin, setupRefreshTokenFunction]
+    [clearAuth, setOAuthScope, setupAfterLogin, setupRefreshTokenFunction]
   );
 
   // Handle web session authentication
@@ -546,6 +561,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           refreshToken: newRefreshToken || refreshTokenRef.current || undefined,
           tokenType: "Bearer",
           expiresAt,
+          // A refresh keeps the original grant's scopes; dropping them here would make
+          // a fully-scoped session look like a pre-Events one on the next boot.
+          scope: oauthScopeRef.current ?? undefined,
         };
 
         if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
@@ -649,6 +667,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       CalComAPIService.clearAuth();
       setAccessToken(null);
       setRefreshToken(null);
+      setOAuthScope(null);
       // Capture the generation after the synchronous bumps above. If a logout or
       // another login advances it during the awaits below, this web-session
       // login is stale and must abort before applying its identity/tokens.
@@ -810,6 +829,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Update state
       setAccessToken(tokens.accessToken);
       setRefreshToken(tokens.refreshToken || null);
+      setOAuthScope(tokens.scope ?? null);
       setIsAuthenticated(true);
       setIsWebSession(false);
 
@@ -850,6 +870,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated,
     accessToken,
     refreshToken,
+    oauthScope,
     userInfo,
     isWebSession,
     loginFromWebSession,

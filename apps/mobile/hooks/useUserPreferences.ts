@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { generalStorage } from "@/utils/storage";
 
-export type LandingPage = "event-types" | "bookings" | "bookings:unconfirmed";
+export type LandingPage = "event-types" | "events" | "bookings" | "bookings:unconfirmed";
 
 export interface UserPreferences {
   landingPage: LandingPage;
@@ -20,6 +20,7 @@ export interface LandingPageOption {
 
 export const LANDING_PAGE_OPTIONS: LandingPageOption[] = [
   { value: "event-types", label: "Links" },
+  { value: "events", label: "Events" },
   { value: "bookings", label: "Bookings" },
   { value: "bookings:unconfirmed", label: "Bookings (Unconfirmed)" },
 ];
@@ -33,6 +34,8 @@ export function getRouteFromPreference(landingPage: LandingPage): string {
   switch (landingPage) {
     case "event-types":
       return "/(tabs)/(event-types)";
+    case "events":
+      return "/(tabs)/(events)";
     case "bookings":
       return "/(tabs)/(bookings)";
     case "bookings:unconfirmed":

@@ -103,6 +103,19 @@ export default function TabLayout() {
         <NativeTabs.Trigger.Label>Links</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
+      <NativeTabs.Trigger name="(events)">
+        {Platform.select({
+          ios: <NativeTabs.Trigger.Icon sf={{ default: "ticket", selected: "ticket.fill" }} />,
+          android: (
+            <NativeTabs.Trigger.Icon
+              src={<VectorIcon family={Ionicons as VectorIconFamily} name="ticket-outline" />}
+              selectedColor={colors.selected}
+            />
+          ),
+        })}
+        <NativeTabs.Trigger.Label>Events</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+
       <NativeTabs.Trigger name="(availability)">
         {Platform.select({
           ios: <NativeTabs.Trigger.Icon sf={{ default: "clock", selected: "clock.fill" }} />,
@@ -180,6 +193,16 @@ function WebTabs({ colors }: { colors: TabColors }) {
           title: "Bookings",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "calendar" : "calendar-outline"} size={24} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="(events)"
+        options={{
+          title: "Events",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "ticket" : "ticket-outline"} size={24} color={color} />
           ),
         }}
       />
