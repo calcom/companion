@@ -41,9 +41,7 @@ export interface CalEventApi {
   waitlistEnabled: boolean;
   /** Confirmed registrations. Present on the listing, absent on the single-event response. */
   confirmedCount?: number;
-  /** True when the current user is an external co-host: may edit, may not publish/cancel/delete. Listing only. */
-  viewerIsCoHost?: boolean;
-  /** Ordered host roster, creator first. */
+  /** Ordered host roster, creator first. External co-hosts are not included. */
   hosts: CalEventHost[];
   /** Total seats; null = unlimited. */
   capacity: number | null;

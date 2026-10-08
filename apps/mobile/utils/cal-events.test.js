@@ -7,6 +7,7 @@ jest.mock("@/utils/region", () => ({
 }));
 
 const {
+  canManageCalEventLifecycle,
   canReadCalEvents,
   deriveCalEventStatus,
   filterCalEventsByTitle,
@@ -50,7 +51,6 @@ function createEvent(overrides = {}) {
     hosts: [],
     userId: 1,
     teamId: null,
-    viewerIsCoHost: false,
     publishedAt: "2026-07-21T15:34:19.550Z",
     cancelledAt: null,
     cancellationReason: null,
@@ -281,6 +281,35 @@ describe("needsSignInAgainForCalEvents", () => {
         isWebSession: false,
         oauthScope: `${PRE_EVENTS_SCOPE} EVENT_READ`,
       })
+    ).toBe(false);
+  });
+});
+
+describe("canManageCalEventLifecycle", () => {
+  const ME = 7;
+  const host = (userId) => ({ userId, name: `User ${userId}`, avatarUrl: "" });
+
+  test("lets the owner and the hosts manage the event", () => {
+    expect(canManageCalEventLifecycle(createEvent({ userId: ME, hosts: [host(ME)] }), ME)).toBe(
+      true
+    );
+    expect(
+      canManageCalEventLifecycle(
+        createEvent({ userId: null, teamId: 3, hosts: [host(1), host(ME)] }),
+        ME
+      )
+    ).toBe(true);
+  });
+
+  test("hides the actions from a team member who isn't a host", () => {
+    expect(
+      canManageCalEventLifecycle(createEvent({ userId: 1, teamId: 3, hosts: [host(1)] }), ME)
+    ).toBe(false);
+  });
+
+  test("hides the actions until the viewer is known", () => {
+    expect(
+      canManageCalEventLifecycle(createEvent({ userId: ME, hosts: [host(ME)] }), undefined)
     ).toBe(false);
   });
 });

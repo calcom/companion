@@ -216,9 +216,16 @@ export function getCalEventEditorUrl(uuid: string): string {
   return `${getCalAppUrl()}/events/${uuid}`;
 }
 
-/** Whether the current user may publish/cancel/delete (hosts and owners; not external co-hosts). */
-export function canManageCalEventLifecycle(event: Pick<CalEvent, "viewerIsCoHost">): boolean {
-  return !event.viewerIsCoHost;
+/**
+ * Whether the viewer may publish/cancel/delete: the event's owner or one of its hosts. The API's
+ * host roster leaves out external co-hosts, and an unknown viewer (profile not loaded) may not.
+ */
+export function canManageCalEventLifecycle(
+  event: Pick<CalEvent, "userId" | "hosts">,
+  viewerId: number | undefined
+): boolean {
+  if (viewerId === undefined) return false;
+  return event.userId === viewerId || event.hosts.some((host) => host.userId === viewerId);
 }
 
 /** A row's status badge colors, matching the web variants (warning/success/secondary/error). */

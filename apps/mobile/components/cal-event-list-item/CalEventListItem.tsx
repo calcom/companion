@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Text as MenuText } from "@/components/ui/text";
 import { getColors } from "@/constants/colors";
+import { useUserProfile } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import {
   CAL_EVENT_STATUS_LABELS,
@@ -49,7 +50,8 @@ export function CalEventListItem({ event, onPress, ...actions }: CalEventListIte
   const facts = [getCalEventLocationLabel(event), ...getCalEventFacts(event)];
   const host = event.hosts[0];
   const extraHosts = event.hosts.length - 1;
-  const canManage = canManageCalEventLifecycle(event);
+  const { data: me } = useUserProfile();
+  const canManage = canManageCalEventLifecycle(event, me?.id);
   const menuIconColor = isDark ? "#E5E5EA" : "#374151";
 
   return (

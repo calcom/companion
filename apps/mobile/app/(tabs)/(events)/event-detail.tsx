@@ -7,7 +7,7 @@ import { CalEventListItemSkeleton } from "@/components/cal-event-list-item/CalEv
 import { useCalEventActions } from "@/components/cal-events/useCalEventActions";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { getColors } from "@/constants/colors";
-import { useCalEvent } from "@/hooks";
+import { useCalEvent, useUserProfile } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 import {
@@ -35,6 +35,7 @@ export default function CalEventDetailScreen() {
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
   const { data: event, isLoading, error } = useCalEvent(uuid);
+  const { data: me } = useUserProfile();
   const actions = useCalEventActions({ afterDelete: () => router.back() });
 
   const headerTitle = truncate(event?.title ?? title ?? "Event");
@@ -83,7 +84,7 @@ export default function CalEventDetailScreen() {
   }
 
   const status = getCalEventStatusColors(event.status, isDark);
-  const canManage = canManageCalEventLifecycle(event);
+  const canManage = canManageCalEventLifecycle(event, me?.id);
   const inPerson = isCalEventInPerson(event);
   const link =
     event.locations.find(
