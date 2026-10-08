@@ -6,7 +6,7 @@ import { deriveCalEventStatus, getCalEventPublicUrl } from "@/utils/cal-events";
 
 import type { CalEvent, CalEventApi } from "../types";
 
-import { makeRequest } from "./request";
+import { ApiRequestError, makeRequest } from "./request";
 
 const API_VERSION = "2024-06-14";
 
@@ -46,7 +46,7 @@ export async function getCalEvent(uuid: string): Promise<CalEvent | null> {
     const response = await makeRequest<SingleResponse>(`/events/${uuid}`, {}, API_VERSION);
     return response?.data ? toCalEvent(response.data) : null;
   } catch (error) {
-    if (error instanceof Error && /API Error: 404/.test(error.message)) {
+    if (error instanceof ApiRequestError && error.status === 404) {
       return null;
     }
     throw error;
