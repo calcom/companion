@@ -255,10 +255,19 @@ describe("getCalEventsProfileTeams", () => {
 });
 
 describe("canReadCalEvents", () => {
-  test("needs EVENT_READ in the token's scope", () => {
-    expect(canReadCalEvents("EVENT_TYPE_READ BOOKING_READ EVENT_READ TEAM_EVENT_READ")).toBe(true);
+  test("needs the personal, team and teams-list read scopes in the token's scope", () => {
+    expect(
+      canReadCalEvents("EVENT_TYPE_READ BOOKING_READ EVENT_READ TEAM_EVENT_READ TEAM_PROFILE_READ")
+    ).toBe(true);
     expect(canReadCalEvents("EVENT_TYPE_READ BOOKING_READ PROFILE_READ")).toBe(false);
     expect(canReadCalEvents("TEAM_EVENT_READ")).toBe(false);
+  });
+
+  test("can't read when any one of them is missing", () => {
+    // Without TEAM_EVENT_READ, a team's 403 would read as a membership problem.
+    expect(canReadCalEvents("EVENT_READ TEAM_PROFILE_READ")).toBe(false);
+    expect(canReadCalEvents("EVENT_READ TEAM_EVENT_READ")).toBe(false);
+    expect(canReadCalEvents("TEAM_EVENT_READ TEAM_PROFILE_READ")).toBe(false);
   });
 
   test("treats a token with no recorded scope as pre-Events", () => {
@@ -269,6 +278,7 @@ describe("canReadCalEvents", () => {
 
 describe("needsSignInAgainForCalEvents", () => {
   const PRE_EVENTS_SCOPE = "EVENT_TYPE_READ BOOKING_READ PROFILE_READ";
+  const EVENTS_SCOPE = `${PRE_EVENTS_SCOPE} EVENT_READ EVENT_WRITE TEAM_EVENT_READ TEAM_PROFILE_READ`;
 
   test("never asks a web session, which has no OAuth scope", () => {
     expect(needsSignInAgainForCalEvents({ isWebSession: true, oauthScope: null })).toBe(false);
@@ -282,12 +292,18 @@ describe("needsSignInAgainForCalEvents", () => {
       needsSignInAgainForCalEvents({ isWebSession: false, oauthScope: PRE_EVENTS_SCOPE })
     ).toBe(true);
     expect(needsSignInAgainForCalEvents({ isWebSession: false, oauthScope: null })).toBe(true);
+    expect(needsSignInAgainForCalEvents({ isWebSession: false, oauthScope: EVENTS_SCOPE })).toBe(
+      false
+    );
+  });
+
+  test("asks an OAuth session that can read personal events but not a team's", () => {
     expect(
       needsSignInAgainForCalEvents({
         isWebSession: false,
-        oauthScope: `${PRE_EVENTS_SCOPE} EVENT_READ`,
+        oauthScope: `${PRE_EVENTS_SCOPE} EVENT_READ EVENT_WRITE TEAM_PROFILE_READ`,
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 });
 

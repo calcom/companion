@@ -53,13 +53,18 @@ export function getCalEventsProfileTeams(teams: Team[]): Team[] {
   return teams.filter((team) => !team.isOrganization);
 }
 
+/** One per route the tab reads: `/v2/events`, `/v2/teams/{teamId}/events`, `/v2/teams` (chips). */
+const CAL_EVENTS_READ_SCOPES = ["EVENT_READ", "TEAM_EVENT_READ", "TEAM_PROFILE_READ"];
+
 /**
- * Whether an OAuth token's space-separated scope can read Events. A refreshed token keeps
- * the scopes of its original sign-in, so tokens from before the Events tab never can; a
- * token with no recorded scope predates it too.
+ * Whether an OAuth token's space-separated scope can read every Events listing, so a team's 403
+ * means membership or role, never a missing scope. A refreshed token keeps the scopes of its
+ * original sign-in, so tokens from before the Events tab never can; a token with no recorded
+ * scope predates it too.
  */
 export function canReadCalEvents(scope: string | null | undefined): boolean {
-  return scope?.split(" ").includes("EVENT_READ") ?? false;
+  const granted = scope?.split(" ") ?? [];
+  return CAL_EVENTS_READ_SCOPES.every((required) => granted.includes(required));
 }
 
 /** Only OAuth sessions carry scopes: a web session (the extension) is never asked to sign in again. */
