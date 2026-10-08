@@ -59,7 +59,12 @@ export default function Events() {
             accessibilityLabel="Search events"
           />
           {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
+            <TouchableOpacity
+              onPress={() => setSearchQuery("")}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              hitSlop={8}
+            >
               <Ionicons name="close-circle" size={18} color={theme.textMuted} />
             </TouchableOpacity>
           ) : null}
