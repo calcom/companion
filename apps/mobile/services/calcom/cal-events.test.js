@@ -20,20 +20,86 @@ jest.mock("./request", () => ({
 const { getCalEvent, getCalEvents } = require("./cal-events");
 const { ApiRequestError } = require("./request");
 
+function createApiEvent(overrides = {}) {
+  return {
+    uuid: "event-1",
+    slug: "meetup",
+    title: "Meetup",
+    startTime: "2030-01-01T18:00:00.000Z",
+    endTime: "2030-01-01T20:00:00.000Z",
+    timeZone: "UTC",
+    publishedAt: "2029-12-01T00:00:00.000Z",
+    cancelledAt: null,
+    locations: [],
+    hosts: [],
+    ...overrides,
+  };
+}
+
 describe("getCalEvents", () => {
   beforeEach(() => {
     mockMakeRequest.mockReset();
-    mockMakeRequest.mockResolvedValue({ status: "success", data: [] });
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: [],
+      pagination: { nextCursor: null, hasMore: false },
+    });
   });
 
-  test("lists the user's own events without a team", async () => {
+  test("asks for the first page of the user's own events, on the cursor-paginated version", async () => {
     await getCalEvents(null);
-    expect(mockMakeRequest).toHaveBeenCalledWith("/events", {}, "2024-06-14");
+    expect(mockMakeRequest).toHaveBeenCalledWith("/events?limit=25", {}, "2026-05-01");
   });
 
   test("lists a team's events from the team route, since /events ignores teamId", async () => {
     await getCalEvents(7);
-    expect(mockMakeRequest).toHaveBeenCalledWith("/teams/7/events", {}, "2024-06-14");
+    expect(mockMakeRequest).toHaveBeenCalledWith("/teams/7/events?limit=25", {}, "2026-05-01");
+  });
+
+  test("passes the cursor for a later page", async () => {
+    await getCalEvents(7, "eyJ2IjoyfQ");
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/teams/7/events?limit=25&cursor=eyJ2IjoyfQ",
+      {},
+      "2026-05-01"
+    );
+  });
+
+  test("returns the page's events with the cursor to the next one", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: [createApiEvent()],
+      pagination: { nextCursor: "next-page", hasMore: true },
+    });
+
+    const page = await getCalEvents(null);
+
+    expect(page.events.map((event) => event.uuid)).toEqual(["event-1"]);
+    expect(page.events[0].publicUrl).toBe("https://example.test/meetup");
+    expect(page).toMatchObject({ nextCursor: "next-page", hasMore: true });
+  });
+
+  test("ends the listing on the last page", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: [createApiEvent()],
+      pagination: { nextCursor: null, hasMore: false },
+    });
+    await expect(getCalEvents(null)).resolves.toMatchObject({ nextCursor: null, hasMore: false });
+  });
+
+  test("ends the listing when there is no cursor to ask for more with", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: [createApiEvent()],
+      pagination: { nextCursor: null, hasMore: true },
+    });
+    await expect(getCalEvents(null)).resolves.toMatchObject({ hasMore: false });
+  });
+
+  test("ends the listing when the response has no pagination", async () => {
+    mockMakeRequest.mockResolvedValue({ status: "success", data: [createApiEvent()] });
+    await expect(getCalEvents(null)).resolves.toMatchObject({ nextCursor: null, hasMore: false });
   });
 });
 

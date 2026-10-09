@@ -64,6 +64,13 @@ export interface CalEvent extends CalEventApi {
   publicUrl: string;
 }
 
+/** One page of a listing. Pass `nextCursor` back for the next page; it is null on the last one. */
+export interface CalEventsPage {
+  events: CalEvent[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 /** A team the user belongs to, from `/v2/teams`: organizations and pending memberships included. */
 export interface Team {
   id: number;
