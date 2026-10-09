@@ -3,7 +3,9 @@ import { Image } from "expo-image";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   AppState,
+  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,10 +19,17 @@ import { CalEventListSkeleton } from "@/components/cal-event-list-item/CalEventL
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { getColors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
-import { isForbiddenError, useCalEvents, useTeams, useUserProfile } from "@/hooks";
-import type { Team } from "@/services/calcom";
+import {
+  isForbiddenError,
+  useCalEvents,
+  useRestartCalEvents,
+  useTeams,
+  useUserProfile,
+} from "@/hooks";
+import type { CalEvent, Team } from "@/services/calcom";
 import {
   CAL_EVENTS_GROUP_LABELS,
+  type CalEventsGroupKind,
   filterCalEventsByTitle,
   getCalEventsProfileTeams,
   groupCalEvents,
@@ -40,6 +49,11 @@ interface CalEventsListProps {
   /** iOS: let the large-title header collapse over the list. */
   contentInsetAdjustmentBehavior?: "automatic" | "never";
 }
+
+/** A group's label (or the spacer that stands in for it), or one event card. */
+type CalEventsListRow =
+  | { type: "group"; kind: CalEventsGroupKind; labelled: boolean }
+  | { type: "event"; event: CalEvent };
 
 /** The Events tab body: profile chips (personal + teams), grouped event cards, states. */
 export function CalEventsList({
@@ -70,14 +84,21 @@ export function CalEventsList({
     data: events = [],
     isLoading,
     isFetching,
+    isRefetching,
     isLoadingError,
     isRefetchError,
     error: queryError,
     refetch,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
   } = useCalEvents(selectedTeamId, { enabled: !needsReauth });
+  const restartEvents = useRestartCalEvents(selectedTeamId);
   const actions = useCalEventActions();
 
-  const refreshing = isFetching && !isLoading;
+  // Not while a page loads at the end of the list: that has its own spinner there.
+  const refreshing = isRefetching;
   const teamForbidden = selectedTeamId !== null && isForbiddenError(queryError);
   // The sign-in prompt wins over any error: a 403 from a stale fetch must not hide it.
   const error = needsReauth || teamForbidden ? null : getDisplayError(queryError, "events");
@@ -94,7 +115,23 @@ export function CalEventsList({
           ? "Couldn't load your teams."
           : null;
   // Teams never go stale on their own: a pull refreshes the profile chips with the events.
-  const onRefresh = () => offlineAwareRefresh(() => Promise.all([refetch(), refetchTeams()]));
+  const onRefresh = () => offlineAwareRefresh(() => Promise.all([restartEvents(), refetchTeams()]));
+
+  // The API has no title search, so a search matches the loaded events and keeps loading pages
+  // until every event has been searched. Scrolling to the end loads the next page too. Either
+  // waits for a refetch in flight: it re-walks the loaded pages, and a page load would cancel it.
+  const searching = searchQuery.trim() !== "";
+  const [endReached, setEndReached] = useState(false);
+  const wantsNextPage = (searching || endReached) && hasNextPage && !isFetchNextPageError;
+  useEffect(() => {
+    if (!wantsNextPage || isFetching) return;
+    setEndReached(false);
+    fetchNextPage();
+  }, [wantsNextPage, isFetching, fetchNextPage]);
+  const selectProfile = (id: number | null) => {
+    setEndReached(false);
+    setTeamId(id);
+  };
 
   // Read at `now`, not at fetch time: an event that ends while the list is open, or cached since
   // an earlier launch, moves to Past and loses Cancel without waiting for a refetch.
@@ -107,19 +144,113 @@ export function CalEventsList({
       ),
     [events, searchQuery, now]
   );
+  const rows = useMemo(
+    () =>
+      groups.flatMap((group): CalEventsListRow[] => [
+        {
+          type: "group",
+          kind: group.kind,
+          labelled: groups.length > 1 || group.kind !== "upcoming",
+        },
+        ...group.events.map((event): CalEventsListRow => ({ type: "event", event })),
+      ]),
+    [groups]
+  );
 
   const chips = (
     <ProfileChips
       teams={profileTeams}
       selectedTeamId={selectedTeamId}
-      onSelect={setTeamId}
+      onSelect={selectProfile}
       personalName={userProfile?.name || userProfile?.username || "Personal"}
       personalAvatarUrl={userProfile?.avatarUrl}
     />
   );
 
+  // What shows instead of the cards. The states before `groups` win even over cached events.
+  const listState = needsReauth ? (
+    <View style={{ padding: 20 }}>
+      <EmptyScreen
+        icon="key-outline"
+        headline="Sign in again to see events"
+        description="Events need permissions your current sign-in doesn't include. Sign out and sign back in to grant them."
+        buttonText="Sign in again"
+        onButtonPress={logout}
+      />
+    </View>
+  ) : teamForbidden ? (
+    <View style={{ padding: 20 }}>
+      <EmptyScreen
+        icon="lock-closed-outline"
+        headline="You can't see this team's events"
+        description="Your invitation to this team may still be pending, or your role doesn't include viewing its events."
+      />
+    </View>
+  ) : isLoading ? (
+    <CalEventListSkeleton />
+  ) : error && isLoadingError ? (
+    <View style={{ padding: 20 }}>
+      <EmptyScreen
+        icon="alert-circle-outline"
+        headline="Unable to load events"
+        description={error}
+        buttonText="Retry"
+        onButtonPress={() => refetch()}
+      />
+    </View>
+  ) : groups.length > 0 || (searching && hasNextPage) ? null : (
+    // A search with pages left to load isn't over: the footer's spinner or Retry says so.
+    <View style={{ padding: 20 }}>
+      {searching ? (
+        <EmptyScreen
+          icon="search-outline"
+          headline="No events found"
+          description={`No event title matches "${searchQuery.trim()}".`}
+        />
+      ) : isRefetchError ? (
+        // The cached list may be missing a new event: don't prompt a duplicate.
+        <EmptyScreen
+          icon="ticket-outline"
+          headline="No events to show"
+          description="Any new events will appear once a refresh succeeds."
+        />
+      ) : (
+        <EmptyScreen
+          icon="ticket-outline"
+          headline="Host your first event"
+          description="Meetups, parties, launches: create an event page, share the link and collect RSVPs."
+          buttonText="New event"
+          onButtonPress={onCreate}
+        />
+      )}
+    </View>
+  );
+  const showingEvents = !needsReauth && !teamForbidden && !isLoading && !(error && isLoadingError);
+
+  const renderRow = ({ item }: { item: CalEventsListRow }) =>
+    item.type === "event" ? (
+      <CalEventListItem event={item.event} viewerId={userProfile?.id} {...actions} />
+    ) : item.labelled ? (
+      <Text
+        style={{
+          color: theme.textSecondary,
+          fontSize: 15,
+          paddingHorizontal: 16,
+          paddingTop: 8,
+          paddingBottom: 12,
+        }}
+      >
+        {CAL_EVENTS_GROUP_LABELS[item.kind]}
+      </Text>
+    ) : (
+      <View style={{ height: 8 }} />
+    );
+
   return (
-    <ScrollView
+    <FlatList
+      data={showingEvents ? rows : []}
+      keyExtractor={(row) => (row.type === "event" ? row.event.uuid : `group-${row.kind}`)}
+      renderItem={renderRow}
       style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
       contentContainerStyle={{ paddingBottom: 120 }}
       showsVerticalScrollIndicator={false}
@@ -134,119 +265,55 @@ export function CalEventsList({
           />
         )
       }
+      // Ignored while a page loads: its spinner growing the list would ask for one more.
+      onEndReached={() => {
+        if (hasNextPage && !isFetchingNextPage) setEndReached(true);
+      }}
+      ListHeaderComponent={
+        <>
+          {renderHeader?.()}
+          {profileTeams.length > 0 ? chips : <View style={{ height: 8 }} />}
+          {/* Cached events after a failed refetch, or teams that never loaded: say so, with Retry. */}
+          {notice && !refreshing ? <ListNotice message={notice} onRetry={onRefresh} /> : null}
+        </>
+      }
+      ListEmptyComponent={listState}
+      ListFooterComponent={
+        !showingEvents ? null : isFetchNextPageError ? (
+          <ListNotice message="Couldn't load more events." onRetry={() => fetchNextPage()} />
+        ) : isFetchingNextPage || wantsNextPage ? (
+          <ActivityIndicator color={theme.textMuted} style={{ paddingVertical: 16 }} />
+        ) : null
+      }
+    />
+  );
+}
+
+/** A one-line problem with the list, and Retry. */
+function ListNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const colorScheme = useColorScheme();
+  const theme = getColors(colorScheme === "dark");
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        marginHorizontal: 16,
+        marginBottom: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 12,
+        backgroundColor: theme.background,
+      }}
     >
-      {renderHeader?.()}
-      {profileTeams.length > 0 ? chips : <View style={{ height: 8 }} />}
-
-      {/* Cached events after a failed refetch, or teams that never loaded: say so, with Retry. */}
-      {notice && !refreshing ? (
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginHorizontal: 16,
-            marginBottom: 12,
-            paddingVertical: 10,
-            paddingHorizontal: 14,
-            borderRadius: 12,
-            backgroundColor: theme.background,
-          }}
-        >
-          <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
-          <Text style={{ flex: 1, marginHorizontal: 8, color: theme.textSecondary, fontSize: 15 }}>
-            {notice}
-          </Text>
-          <TouchableOpacity onPress={onRefresh} accessibilityRole="button" hitSlop={8}>
-            <Text style={{ color: theme.text, fontSize: 15, fontWeight: "600" }}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
-      {needsReauth ? (
-        <View style={{ padding: 20 }}>
-          <EmptyScreen
-            icon="key-outline"
-            headline="Sign in again to see events"
-            description="Events need permissions your current sign-in doesn't include. Sign out and sign back in to grant them."
-            buttonText="Sign in again"
-            onButtonPress={logout}
-          />
-        </View>
-      ) : teamForbidden ? (
-        <View style={{ padding: 20 }}>
-          <EmptyScreen
-            icon="lock-closed-outline"
-            headline="You can't see this team's events"
-            description="Your invitation to this team may still be pending, or your role doesn't include viewing its events."
-          />
-        </View>
-      ) : isLoading ? (
-        <CalEventListSkeleton />
-      ) : error && isLoadingError ? (
-        <View style={{ padding: 20 }}>
-          <EmptyScreen
-            icon="alert-circle-outline"
-            headline="Unable to load events"
-            description={error}
-            buttonText="Retry"
-            onButtonPress={() => refetch()}
-          />
-        </View>
-      ) : groups.length === 0 ? (
-        <View style={{ padding: 20 }}>
-          {searchQuery.trim() ? (
-            <EmptyScreen
-              icon="search-outline"
-              headline="No events found"
-              description={`No event title matches "${searchQuery.trim()}".`}
-            />
-          ) : isRefetchError ? (
-            // The cached list may be missing a new event: don't prompt a duplicate.
-            <EmptyScreen
-              icon="ticket-outline"
-              headline="No events to show"
-              description="Any new events will appear once a refresh succeeds."
-            />
-          ) : (
-            <EmptyScreen
-              icon="ticket-outline"
-              headline="Host your first event"
-              description="Meetups, parties, launches: create an event page, share the link and collect RSVPs."
-              buttonText="New event"
-              onButtonPress={onCreate}
-            />
-          )}
-        </View>
-      ) : (
-        groups.map((group) => (
-          <View key={group.kind}>
-            {groups.length > 1 || group.kind !== "upcoming" ? (
-              <Text
-                style={{
-                  color: theme.textSecondary,
-                  fontSize: 15,
-                  paddingHorizontal: 16,
-                  paddingTop: 8,
-                  paddingBottom: 12,
-                }}
-              >
-                {CAL_EVENTS_GROUP_LABELS[group.kind]}
-              </Text>
-            ) : (
-              <View style={{ height: 8 }} />
-            )}
-            {group.events.map((event) => (
-              <CalEventListItem
-                key={event.uuid}
-                event={event}
-                viewerId={userProfile?.id}
-                {...actions}
-              />
-            ))}
-          </View>
-        ))
-      )}
-    </ScrollView>
+      <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
+      <Text style={{ flex: 1, marginHorizontal: 8, color: theme.textSecondary, fontSize: 15 }}>
+        {message}
+      </Text>
+      <TouchableOpacity onPress={onRetry} accessibilityRole="button" hitSlop={8}>
+        <Text style={{ color: theme.text, fontSize: 15, fontWeight: "600" }}>Retry</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
