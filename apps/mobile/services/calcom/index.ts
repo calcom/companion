@@ -38,6 +38,8 @@ export type {
   CalEventSchedulePerson,
   CalEventShaderId,
   CalEventStatus,
+  CalEventsListingStatus,
+  CalEventsPage,
   CalEventTheme,
   ConferencingOption,
   ConfirmationPolicy,

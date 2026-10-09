@@ -52,6 +52,7 @@ export {
   useInvalidateCalEvents,
   usePublishCalEvent,
   useRemoveCalEventLocation,
+  useRestartCalEvents,
   useUpdateCalEvent,
   useUpdateCalEventLocation,
   useUploadCalEventPersonAvatar,

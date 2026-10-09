@@ -259,6 +259,23 @@ export interface CalEventCoHost {
   avatarUrl: string | null;
 }
 
+/**
+ * One group of a listing, as `status` on `GET /v2/events` filters it. Drafts and upcoming come
+ * soonest first, past latest first, so each group's next page goes below the one before.
+ */
+export type CalEventsListingStatus = "draft" | "upcoming" | "past";
+
+/**
+ * One page of a listing group. Pass `nextCursor` back, with the same `status`, for the group's
+ * next page; it is null on the group's last one.
+ */
+export interface CalEventsPage {
+  status: CalEventsListingStatus;
+  events: CalEvent[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 /** A team the user belongs to, from `/v2/teams`: organizations and pending memberships included. */
 export interface Team {
   id: number;

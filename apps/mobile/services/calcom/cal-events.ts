@@ -10,6 +10,8 @@ import type {
   CalEventApi,
   CalEventCoHost,
   CalEventLocation,
+  CalEventsListingStatus,
+  CalEventsPage,
   CreateCalEventInput,
   UpdateCalEventInput,
   UpdateCalEventLocationInput,
@@ -18,8 +20,16 @@ import type {
 import { ApiRequestError, makeRequest } from "./request";
 
 const API_VERSION = "2024-06-14";
+/** From this version on, the listings page with `limit` + `cursor` and filter by `status`. */
+const LIST_API_VERSION = "2026-05-01";
+/** Events per page; the API defaults to 50. */
+export const CAL_EVENTS_PAGE_SIZE = 25;
 
-type ListResponse = { status: string; data: CalEventApi[] };
+type ListResponse = {
+  status: string;
+  data: CalEventApi[];
+  pagination?: { nextCursor: string | null; hasMore: boolean };
+};
 type SingleResponse = { status: string; data: CalEventApi };
 
 /** The app's view of an event: the API row plus what every screen derives from it. */
@@ -37,14 +47,32 @@ export function toCalEvent(event: CalEventApi, now: Date = new Date()): CalEvent
 }
 
 /**
- * Get the events the authenticated user hosts (own + co-hosted), or every event a team owns
- * when `teamId` is given. 403 on a team the user isn't an accepted member of.
+ * Get one page of a listing group (`status`) of the events the authenticated user hosts (own +
+ * co-hosted), or of every event a team owns when `teamId` is given. Omit `cursor` for the group's
+ * first page. 403 on a team the user isn't an accepted member of.
  */
-export async function getCalEvents(teamId?: number | null): Promise<CalEvent[]> {
-  const endpoint = teamId ? `/teams/${teamId}/events` : "/events";
-  const response = await makeRequest<ListResponse>(endpoint, {}, API_VERSION);
+export async function getCalEvents(
+  teamId: number | null | undefined,
+  status: CalEventsListingStatus,
+  cursor?: string | null
+): Promise<CalEventsPage> {
+  const params = new URLSearchParams({ status, limit: String(CAL_EVENTS_PAGE_SIZE) });
+  // A cursor only continues the status it came from: another status gets a 400.
+  if (cursor) params.append("cursor", cursor);
+  const endpoint = `${teamId ? `/teams/${teamId}/events` : "/events"}?${params.toString()}`;
+  const response = await makeRequest<ListResponse>(endpoint, {}, LIST_API_VERSION);
   const now = new Date();
-  return Array.isArray(response?.data) ? response.data.map((event) => toCalEvent(event, now)) : [];
+  const events = Array.isArray(response?.data)
+    ? response.data.map((event) => toCalEvent(event, now))
+    : [];
+  const nextCursor = response?.pagination?.nextCursor ?? null;
+  // Without a cursor there is no way to ask for the next page, whatever `hasMore` says.
+  return {
+    status,
+    events,
+    nextCursor,
+    hasMore: !!response?.pagination?.hasMore && nextCursor !== null,
+  };
 }
 
 /**
