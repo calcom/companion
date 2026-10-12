@@ -632,6 +632,12 @@ describe("getCalEventCheckInErrorMessage", () => {
     );
   });
 
+  test("falls back when the API's 4xx error message is empty", () => {
+    expect(getCalEventCheckInErrorMessage(apiError(400, ""))).toBe(
+      "Something went wrong. Try again."
+    );
+  });
+
   test("explains a missing scope, a guest who is gone and a rate limit", () => {
     expect(getCalEventCheckInErrorMessage(apiError(403, "Forbidden"))).toMatch(/sign back in/);
     expect(getCalEventCheckInErrorMessage(apiError(404, "Registration not found"))).toBe(

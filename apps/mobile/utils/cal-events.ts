@@ -375,7 +375,10 @@ export function getCalEventCheckInErrorMessage(error: unknown): string {
   }
   if (error.status === 404) return "This guest is no longer on the list.";
   if (error.status === 429) return "Too many check-ins at once. Wait a moment and try again.";
-  if (error.status < 500) return error.message.replace(/^API Error: \d+ /, "");
+  if (error.status < 500) {
+    const message = error.message.replace(/^API Error: \d+ /, "").trim();
+    return message || "Something went wrong. Try again.";
+  }
   return "Something went wrong. Try again.";
 }
 
