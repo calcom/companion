@@ -6,7 +6,15 @@
  * "N of M checked in" count, since the screen derives it from the list.
  */
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  type MutationObserverOptions,
+  type QueryClient,
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useMemo } from "react";
 import { queryKeys } from "@/config/cache.config";
 import {
   CalComAPIService,
@@ -35,12 +43,46 @@ export function useCalEventGuests(uuid: string | undefined) {
   });
 }
 
+/** What the guest showed before the tap, put back if the call fails. */
+type GuestCheckInContext = { previous: string | null };
+
+/** In-flight check-ins and undos of one event's guest list. Both mutations share the list's key. */
+const pendingGuestMutations = (uuid: string) =>
+  ({ mutationKey: queryKeys.calEvents.guests(uuid), status: "pending" }) as const;
+
+/**
+ * Whether a check-in or undo for this guest is still in flight. Read straight from the mutation
+ * cache, so a second tap is caught even before the screen re-renders with the row disabled.
+ */
+export function isCalEventGuestPending(
+  queryClient: QueryClient,
+  uuid: string,
+  guestId: string
+): boolean {
+  return (
+    queryClient.isMutating({
+      ...pendingGuestMutations(uuid),
+      predicate: (mutation) => mutation.state.variables === guestId,
+    }) > 0
+  );
+}
+
+/** Hook returning the guests whose check-in or undo is still in flight, to disable their rows. */
+export function usePendingCalEventGuestIds(uuid: string): ReadonlySet<string> {
+  const guestIds = useMutationState({
+    filters: pendingGuestMutations(uuid),
+    select: (mutation) => mutation.state.variables as string,
+  });
+  return useMemo(() => new Set(guestIds), [guestIds]);
+}
+
 /**
  * Check-in and undo share this: the guest flips in the cache at once and flips back if the call
  * fails. The list refetches only once the last tap in flight settles, so a refetch that started
  * before a newer tap reached the server can't flip that guest back.
  */
-function useGuestCheckInMutation<TResult>(
+function guestCheckInMutationOptions<TResult>(
+  queryClient: QueryClient,
   uuid: string,
   {
     mutationFn,
@@ -52,20 +94,19 @@ function useGuestCheckInMutation<TResult>(
     /** Where the response disagrees with the optimistic flip: the guest's actual check-in. */
     confirmedCheckedInAt?: (result: TResult) => string | null | undefined;
   }
-) {
-  const queryClient = useQueryClient();
+): MutationObserverOptions<TResult, Error, string, GuestCheckInContext> {
   const queryKey = queryKeys.calEvents.guests(uuid);
   const setCheckedInAt = (guestId: string, checkedInAt: string | null) =>
     queryClient.setQueryData<CalEventGuestsPage>(queryKey, (page) =>
       setCalEventGuestCheckedInAt(page, guestId, checkedInAt)
     );
 
-  return useMutation({
+  return {
     mutationKey: queryKey,
     mutationFn,
     // The host retries by tapping again. A retry behind their back could flip the row much later.
     retry: false,
-    onMutate: async (guestId: string) => {
+    onMutate: async (guestId) => {
       await queryClient.cancelQueries({ queryKey });
       const page = queryClient.getQueryData<CalEventGuestsPage>(queryKey);
       const previous = page?.guests.find((guest) => guest.id === guestId)?.checkedInAt ?? null;
@@ -90,12 +131,12 @@ function useGuestCheckInMutation<TResult>(
         queryClient.invalidateQueries({ queryKey });
       }
     },
-  });
+  };
 }
 
-/** Hook to check a guest in at the door (hosts only). */
-export function useCheckInCalEventGuest(uuid: string) {
-  return useGuestCheckInMutation(uuid, {
+/** Check-in's mutation options, apart from the hook so tests can run them on a bare QueryClient. */
+export function checkInCalEventGuestMutationOptions(queryClient: QueryClient, uuid: string) {
+  return guestCheckInMutationOptions(queryClient, uuid, {
     mutationFn: (guestId) => CalComAPIService.checkInCalEventGuest(uuid, guestId),
     optimisticCheckedInAt: () => new Date().toISOString(),
     // An earlier check-in's time stands, and a guest who is no longer confirmed stays unchecked.
@@ -108,10 +149,25 @@ export function useCheckInCalEventGuest(uuid: string) {
   });
 }
 
-/** Hook to undo a guest's check-in (hosts only). */
-export function useUndoCalEventGuestCheckIn(uuid: string) {
-  return useGuestCheckInMutation(uuid, {
+/** Undo's mutation options, apart from the hook so tests can run them on a bare QueryClient. */
+export function undoCalEventGuestCheckInMutationOptions(queryClient: QueryClient, uuid: string) {
+  return guestCheckInMutationOptions(queryClient, uuid, {
     mutationFn: (guestId) => CalComAPIService.undoCalEventGuestCheckIn(uuid, guestId),
     optimisticCheckedInAt: () => null,
   });
+}
+
+/**
+ * Hook to check a guest in at the door (hosts only). Use `mutateAsync`, one call per tap: callbacks
+ * passed to `mutate` only fire for the latest call, so an earlier tap's failure would go unreported.
+ */
+export function useCheckInCalEventGuest(uuid: string) {
+  const queryClient = useQueryClient();
+  return useMutation(checkInCalEventGuestMutationOptions(queryClient, uuid));
+}
+
+/** Hook to undo a guest's check-in (hosts only). Use `mutateAsync`, as for check-in. */
+export function useUndoCalEventGuestCheckIn(uuid: string) {
+  const queryClient = useQueryClient();
+  return useMutation(undoCalEventGuestCheckInMutationOptions(queryClient, uuid));
 }

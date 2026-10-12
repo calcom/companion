@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
@@ -16,9 +17,11 @@ import { EmptyScreen } from "@/components/EmptyScreen";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getColors } from "@/constants/colors";
 import {
+  isCalEventGuestPending,
   isForbiddenError,
   useCalEventGuests,
   useCheckInCalEventGuest,
+  usePendingCalEventGuestIds,
   useUndoCalEventGuestCheckIn,
 } from "@/hooks";
 import type { CalEventGuest } from "@/services/calcom";
@@ -48,8 +51,10 @@ export default function CalEventCheckInScreen() {
   // Not isFetching: the list also refetches after every tap, and that shouldn't spin the control.
   const [pulling, setPulling] = useState(false);
   const { data: page, isLoading, isRefetchError, error, refetch } = useCalEventGuests(uuid);
-  const { mutate: checkIn } = useCheckInCalEventGuest(uuid);
-  const { mutate: undoCheckIn } = useUndoCalEventGuestCheckIn(uuid);
+  const queryClient = useQueryClient();
+  const { mutateAsync: checkIn } = useCheckInCalEventGuest(uuid);
+  const { mutateAsync: undoCheckIn } = useUndoCalEventGuestCheckIn(uuid);
+  const pendingGuestIds = usePendingCalEventGuestIds(uuid);
 
   const guests = useMemo(
     () => filterCalEventGuests(sortCalEventGuests(page?.guests ?? []), searchQuery),
@@ -62,42 +67,47 @@ export default function CalEventCheckInScreen() {
     setPulling(false);
   };
 
-  const onPressGuest = (guest: CalEventGuest) => {
+  // One mutateAsync call per tap, so every tap reports its own outcome, even when the host taps
+  // several guests before the first answer comes back.
+  const onCheckIn = async (guest: CalEventGuest) => {
     const name = getCalEventGuestName(guest);
+    try {
+      const result = await checkIn(guest.id);
+      if (result.kind === "already_checked_in") {
+        showInfoAlert(
+          "Already checked in",
+          `${name} was checked in at ${formatCheckInTime(result.checkedInAt)}.`
+        );
+      } else if (result.kind === "not_confirmed") {
+        showInfoAlert("Not checked in", `${name} is no longer a confirmed guest.`);
+      }
+    } catch (mutationError) {
+      showInfoAlert("Couldn't check in", getCalEventCheckInErrorMessage(mutationError));
+    }
+  };
+
+  const onUndoCheckIn = async (guest: CalEventGuest) => {
+    try {
+      await undoCheckIn(guest.id);
+    } catch (mutationError) {
+      showInfoAlert("Couldn't undo check-in", getCalEventCheckInErrorMessage(mutationError));
+    }
+  };
+
+  const onPressGuest = (guest: CalEventGuest) => {
+    // A guest takes one call at a time: an undo sent while the check-in is still on its way could
+    // reach the server first, and the check-in would then win.
+    if (isCalEventGuestPending(queryClient, uuid, guest.id)) return;
     if (!guest.checkedInAt) {
-      checkIn(guest.id, {
-        onSuccess: (result) => {
-          if (result.kind === "already_checked_in") {
-            showInfoAlert(
-              "Already checked in",
-              `${name} was checked in at ${formatCheckInTime(result.checkedInAt)}.`
-            );
-          } else if (result.kind === "not_confirmed") {
-            showInfoAlert("Not checked in", `${name} is no longer a confirmed guest.`);
-          }
-        },
-        onError: (mutationError) =>
-          showInfoAlert("Couldn't check in", getCalEventCheckInErrorMessage(mutationError)),
-      });
+      onCheckIn(guest);
       return;
     }
     Alert.alert(
       "Undo check-in?",
-      `${name} was checked in at ${formatCheckInTime(guest.checkedInAt)}.`,
+      `${getCalEventGuestName(guest)} was checked in at ${formatCheckInTime(guest.checkedInAt)}.`,
       [
         { text: "Cancel", style: "cancel" },
-        {
-          text: "Undo",
-          style: "destructive",
-          onPress: () =>
-            undoCheckIn(guest.id, {
-              onError: (mutationError) =>
-                showInfoAlert(
-                  "Couldn't undo check-in",
-                  getCalEventCheckInErrorMessage(mutationError)
-                ),
-            }),
-        },
+        { text: "Undo", style: "destructive", onPress: () => onUndoCheckIn(guest) },
       ]
     );
   };
@@ -204,7 +214,14 @@ export default function CalEventCheckInScreen() {
         <FlatList
           data={guests}
           keyExtractor={(guest) => guest.id}
-          renderItem={({ item }) => <GuestRow guest={item} theme={theme} onPress={onPressGuest} />}
+          renderItem={({ item }) => (
+            <GuestRow
+              guest={item}
+              pending={pendingGuestIds.has(item.id)}
+              theme={theme}
+              onPress={onPressGuest}
+            />
+          )}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           contentContainerStyle={{ paddingBottom: 120 }}
@@ -302,10 +319,13 @@ function SearchField({
 /** One guest: tap to check in, or, once checked in, tap to undo behind a confirmation. */
 function GuestRow({
   guest,
+  pending,
   theme,
   onPress,
 }: {
   guest: CalEventGuest;
+  /** A check-in or undo for this guest is on its way: the row waits for it. */
+  pending: boolean;
   theme: Theme;
   onPress: (guest: CalEventGuest) => void;
 }) {
@@ -317,6 +337,8 @@ function GuestRow({
   return (
     <TouchableOpacity
       onPress={() => onPress(guest)}
+      disabled={pending}
+      accessibilityState={{ busy: pending, disabled: pending }}
       accessibilityRole="button"
       accessibilityLabel={
         guest.checkedInAt ? `${name}, checked in. Undo check-in` : `Check in ${name}`
@@ -330,6 +352,7 @@ function GuestRow({
         backgroundColor: theme.background,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: theme.border,
+        opacity: pending ? 0.5 : 1,
       }}
     >
       <View style={{ flex: 1, marginRight: 12 }}>
