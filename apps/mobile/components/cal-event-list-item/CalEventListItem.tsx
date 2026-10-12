@@ -115,16 +115,17 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
             {formatCalEventTime(event.startTime, event.timeZone).replace(" ", "\u00A0")}
           </Text>
 
-          <View
-            style={{ flexDirection: "row", alignItems: "center", marginTop: 8, flexWrap: "wrap" }}
-          >
+          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
             <Ionicons
               name={isCalEventInPerson(event) ? "location-outline" : "videocam-outline"}
               size={15}
               color={theme.textSecondary}
               style={{ marginRight: 6 }}
             />
-            <Text style={{ color: theme.textSecondary, fontSize: 15 }} numberOfLines={1}>
+            <Text
+              style={{ color: theme.textSecondary, fontSize: 15, flexShrink: 1 }}
+              numberOfLines={1}
+            >
               {facts.join("  ·  ")}
             </Text>
           </View>
