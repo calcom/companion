@@ -167,11 +167,15 @@ describe("checkInCalEventGuest", () => {
   test("posts to the registration's check-in", async () => {
     mockMakeRequest.mockResolvedValue({
       status: "success",
-      data: { kind: "checked_in", registration: createRegistration() },
+      data: {
+        kind: "checked_in",
+        registration: createRegistration({ checkedInAt: "2026-10-09T18:05:00.000Z" }),
+      },
     });
 
     await expect(checkInCalEventGuest("event-uuid", "registration-id")).resolves.toEqual({
       kind: "checked_in",
+      checkedInAt: "2026-10-09T18:05:00.000Z",
     });
     expect(mockMakeRequest).toHaveBeenCalledWith(
       "/events/event-uuid/registrations/registration-id/check-in",

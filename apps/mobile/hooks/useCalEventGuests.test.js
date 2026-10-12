@@ -98,6 +98,26 @@ describe("checking a guest in", () => {
     expect(isCalEventGuestPending(queryClient, UUID, "a")).toBe(false);
   });
 
+  test("uses the server's check-in time instead of the optimistic time", async () => {
+    const { queryClient, checkedInAt } = setup([createGuest("a")]);
+    const answer = deferred();
+    mockCheckIn.mockReturnValue(answer.promise);
+    const observer = new MutationObserver(
+      queryClient,
+      checkInCalEventGuestMutationOptions(queryClient, UUID)
+    );
+
+    const tap = observer.mutate("a");
+    await flush();
+    const optimisticTime = checkedInAt("a");
+
+    answer.resolve({ kind: "checked_in", checkedInAt: EARLIER });
+    await expect(tap).resolves.toEqual({ kind: "checked_in", checkedInAt: EARLIER });
+
+    expect(checkedInAt("a")).toBe(EARLIER);
+    expect(checkedInAt("a")).not.toBe(optimisticTime);
+  });
+
   test("puts back only the guest whose check-in failed, and answers each tap on its own", async () => {
     const { queryClient, checkedInAt } = setup([createGuest("a"), createGuest("b")]);
     const answers = { a: deferred(), b: deferred() };

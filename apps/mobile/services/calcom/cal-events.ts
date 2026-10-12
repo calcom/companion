@@ -149,6 +149,9 @@ export async function checkInCalEventGuest(
   );
   const outcome = response?.data;
   if (!outcome?.kind) throw new Error("Invalid response from check-in API");
+  if (outcome.kind === "checked_in") {
+    return { kind: outcome.kind, checkedInAt: outcome.registration?.checkedInAt ?? undefined };
+  }
   return outcome.kind === "already_checked_in"
     ? { kind: outcome.kind, checkedInAt: outcome.checkedInAt }
     : { kind: outcome.kind };

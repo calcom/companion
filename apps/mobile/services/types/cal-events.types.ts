@@ -152,7 +152,7 @@ export interface CalEventGuestsPage {
  * `not_confirmed` means the guest's registration is no longer confirmed, so nothing was recorded.
  */
 export type CalEventCheckInResult =
-  | { kind: "checked_in" }
+  | { kind: "checked_in"; checkedInAt?: string }
   | { kind: "already_checked_in"; checkedInAt: string }
   | { kind: "not_confirmed" };
 

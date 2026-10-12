@@ -139,13 +139,13 @@ export function checkInCalEventGuestMutationOptions(queryClient: QueryClient, uu
   return guestCheckInMutationOptions(queryClient, uuid, {
     mutationFn: (guestId) => CalComAPIService.checkInCalEventGuest(uuid, guestId),
     optimisticCheckedInAt: () => new Date().toISOString(),
-    // An earlier check-in's time stands, and a guest who is no longer confirmed stays unchecked.
+    // The server's time wins when present; an earlier check-in stands, and an unconfirmed guest stays unchecked.
     confirmedCheckedInAt: (result: CalEventCheckInResult) =>
       result.kind === "already_checked_in"
         ? result.checkedInAt
-        : result.kind === "not_confirmed"
-          ? null
-          : undefined,
+        : result.kind === "checked_in"
+          ? result.checkedInAt
+          : null,
   });
 }
 
