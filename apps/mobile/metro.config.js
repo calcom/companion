@@ -18,7 +18,7 @@ require("node:module").Module._initPaths();
 // Force resolution of react, react-dom, react/compiler-runtime, and
 // react-native-css-interop to the copies inside apps/mobile/node_modules.
 // Without this, Metro may resolve these from the monorepo root where a
-// different React version is hoisted (e.g. 19.2.3 from apps/chat), causing
+// different React version is hoisted, causing
 // duplicate React instances and breaking the React Compiler on web.
 const mobileNodeModules = path.resolve(__dirname, "node_modules");
 const originalResolveRequest = config.resolver.resolveRequest;

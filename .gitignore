@@ -79,8 +79,5 @@ apps/extension/*.zip
 coverage/
 .nyc_output/
 
-# MCP server OAuth token cache
-apps/mcp-server/.cal-oauth-tokens.json
-
 # Misc
 *.code-workspace
