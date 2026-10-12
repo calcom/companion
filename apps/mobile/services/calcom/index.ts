@@ -22,6 +22,10 @@ export type {
   BookingLimitsCount,
   BookingLimitsDuration,
   BookingParticipationResult,
+  CalEvent,
+  CalEventHost,
+  CalEventLocation,
+  CalEventStatus,
   ConferencingOption,
   ConfirmationPolicy,
   CreateEventTypeInput,
@@ -30,6 +34,7 @@ export type {
   EventType,
   PrivateLink,
   Schedule,
+  Team,
   UpdatePrivateLinkInput,
   UpdateWebhookInput,
   UserProfile,
@@ -65,6 +70,13 @@ import {
   updateLocation,
   updateLocationV2,
 } from "./bookings";
+import {
+  cancelCalEvent,
+  deleteCalEvent,
+  getCalEvent,
+  getCalEvents,
+  publishCalEvent,
+} from "./cal-events";
 import { getConferencingOptions } from "./conferencing";
 import {
   createEventType,
@@ -89,6 +101,7 @@ import {
   getSchedules,
   updateSchedule,
 } from "./schedules";
+import { getTeams } from "./teams";
 import {
   clearUserProfile,
   getCurrentUser,
@@ -140,6 +153,16 @@ export const CalComAPIService = {
   getEventTypes,
   getEventTypeById,
   updateEventType,
+
+  // Cal Events
+  getCalEvents,
+  getCalEvent,
+  publishCalEvent,
+  cancelCalEvent,
+  deleteCalEvent,
+
+  // Teams
+  getTeams,
 
   // Bookings
   cancelBooking,

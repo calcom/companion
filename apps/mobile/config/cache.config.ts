@@ -28,6 +28,7 @@ const minutesToMs = (minutes: number): number => {
  */
 const DEFAULT_STALE_TIME_MINUTES = 5;
 const DEFAULT_BOOKINGS_STALE_TIME_MINUTES = 5;
+const DEFAULT_CAL_EVENTS_STALE_TIME_MINUTES = 5; // Guests register externally, like bookings
 const DEFAULT_EVENT_TYPES_STALE_TIME_MINUTES = -1; // Never stale - only refresh on mutations
 const DEFAULT_SCHEDULES_STALE_TIME_MINUTES = -1; // Never stale - only refresh on mutations
 const DEFAULT_USER_PROFILE_STALE_TIME_MINUTES = -1; // Never stale - only refresh on manual reload
@@ -75,6 +76,16 @@ export const CACHE_CONFIG = {
       getEnvNumber(
         "EXPO_PUBLIC_EVENT_TYPES_CACHE_STALE_TIME_MINUTES",
         DEFAULT_EVENT_TYPES_STALE_TIME_MINUTES
+      )
+    ),
+  },
+
+  calEvents: {
+    /** 5 min: registrations and publish state change outside the app */
+    staleTime: minutesToMs(
+      getEnvNumber(
+        "EXPO_PUBLIC_CAL_EVENTS_CACHE_STALE_TIME_MINUTES",
+        DEFAULT_CAL_EVENTS_STALE_TIME_MINUTES
       )
     ),
   },
@@ -155,6 +166,21 @@ export const queryKeys = {
     detail: (id: number) => [...queryKeys.eventTypes.details(), id] as const,
   },
 
+  // Cal Events (one-off RSVP events)
+  calEvents: {
+    all: ["calEvents"] as const,
+    lists: () => [...queryKeys.calEvents.all, "list"] as const,
+    list: (teamId: number | null) => [...queryKeys.calEvents.lists(), { teamId }] as const,
+    details: () => [...queryKeys.calEvents.all, "detail"] as const,
+    detail: (eventTypeUuid: string) => [...queryKeys.calEvents.details(), eventTypeUuid] as const,
+  },
+
+  // Teams
+  teams: {
+    all: ["teams"] as const,
+    lists: () => [...queryKeys.teams.all, "list"] as const,
+  },
+
   // Schedules (Availability)
   schedules: {
     all: ["schedules"] as const,
@@ -198,5 +224,6 @@ export const queryKeys = {
 export type QueryKeys = typeof queryKeys;
 export type BookingQueryKeys = typeof queryKeys.bookings;
 export type EventTypeQueryKeys = typeof queryKeys.eventTypes;
+export type CalEventQueryKeys = typeof queryKeys.calEvents;
 export type ScheduleQueryKeys = typeof queryKeys.schedules;
 export type UserProfileQueryKeys = typeof queryKeys.userProfile;
