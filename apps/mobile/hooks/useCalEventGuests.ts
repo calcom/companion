@@ -14,8 +14,8 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { AppState } from "react-native";
 import { useEffect, useMemo } from "react";
+import { AppState } from "react-native";
 import { queryKeys } from "@/config/cache.config";
 import {
   CalComAPIService,
