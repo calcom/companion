@@ -19,13 +19,13 @@ import { getColors } from "@/constants/colors";
 import {
   isCalEventGuestPending,
   isForbiddenError,
+  isNotFoundError,
   useCalEventGuests,
   useCheckInCalEventGuest,
   usePendingCalEventGuestIds,
   useUndoCalEventGuestCheckIn,
 } from "@/hooks";
 import type { CalEventGuest } from "@/services/calcom";
-import { ApiRequestError } from "@/services/calcom/request";
 import { showInfoAlert } from "@/utils/alerts";
 import {
   filterCalEventGuests,
@@ -132,7 +132,7 @@ export default function CalEventCheckInScreen() {
     // A 404 is a deleted event, or one this user can't manage. A 403 is a sign-in without the
     // Events scopes, which no retry can fix. Any other failure may pass, so only it gets Retry.
     const forbidden = isForbiddenError(error);
-    const notFound = error instanceof ApiRequestError && error.status === 404;
+    const notFound = isNotFoundError(error);
     const canRetry = !forbidden && !notFound;
     const [headline, description] = forbidden
       ? [

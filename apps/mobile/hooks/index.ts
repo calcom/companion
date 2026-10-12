@@ -47,6 +47,7 @@ export {
 export {
   type CalEvent,
   isForbiddenError,
+  isNotFoundError,
   useCalEvent,
   useCalEvents,
   useCancelCalEvent,

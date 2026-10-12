@@ -19,6 +19,10 @@ export const isNetworkError = (error: Error | null) =>
 export const isForbiddenError = (error: Error | null) =>
   error instanceof ApiRequestError && error.status === 403;
 
+/** A 404 won't change on retry: the event was deleted, or the user no longer manages it. */
+export const isNotFoundError = (error: Error | null) =>
+  error instanceof ApiRequestError && error.status === 404;
+
 /**
  * Hook to fetch the cal events of one profile: the user's own (plus co-hosted) when
  * `teamId` is null, else the team's. Deliberately no `placeholderData`: the key changes

@@ -23,7 +23,7 @@ import {
   type CalEventGuestsPage,
 } from "@/services/calcom";
 import { setCalEventGuestCheckedInAt } from "@/utils/cal-events";
-import { isForbiddenError, isNetworkError } from "./useCalEvents";
+import { isForbiddenError, isNetworkError, isNotFoundError } from "./useCalEvents";
 
 /**
  * Hook to fetch an event's confirmed guests (the first page). Other hosts check guests in too, so
@@ -49,7 +49,10 @@ export function useCalEventGuests(uuid: string | undefined) {
     staleTime: 0,
     refetchOnMount: true,
     retry: (failureCount, error) =>
-      !isNetworkError(error) && !isForbiddenError(error) && failureCount < 2,
+      !isNetworkError(error) &&
+      !isForbiddenError(error) &&
+      !isNotFoundError(error) &&
+      failureCount < 2,
   });
 }
 
