@@ -183,7 +183,7 @@ export default function CalEventCheckInScreen() {
           >
             {getCalEventCheckInProgress(page)}
           </Text>
-          {page.guests.length > 0 ? (
+          {page.guests.length > 0 || searchQuery ? (
             <SearchField theme={theme} value={searchQuery} onChangeText={setSearchQuery} />
           ) : null}
           {/* Cached guests after a failed refetch: say so, with Retry. */}
