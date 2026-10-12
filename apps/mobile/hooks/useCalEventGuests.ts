@@ -14,7 +14,8 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { AppState } from "react-native";
+import { useEffect, useMemo } from "react";
 import { queryKeys } from "@/config/cache.config";
 import {
   CalComAPIService,
@@ -29,6 +30,15 @@ import { isForbiddenError, isNetworkError } from "./useCalEvents";
  * the list is never fresh for long: it refetches whenever the screen opens or the app comes back.
  */
 export function useCalEventGuests(uuid: string | undefined) {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!uuid) return;
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") refetchCalEventGuestsIfIdle(queryClient, uuid);
+    });
+    return () => subscription.remove();
+  }, [queryClient, uuid]);
+
   return useQuery({
     queryKey: queryKeys.calEvents.guests(uuid ?? ""),
     queryFn: () => {
@@ -41,6 +51,13 @@ export function useCalEventGuests(uuid: string | undefined) {
     retry: (failureCount, error) =>
       !isNetworkError(error) && !isForbiddenError(error) && failureCount < 2,
   });
+}
+
+export function refetchCalEventGuestsIfIdle(queryClient: QueryClient, uuid: string) {
+  const queryKey = queryKeys.calEvents.guests(uuid);
+  if (queryClient.isMutating({ mutationKey: queryKey }) === 0) {
+    queryClient.invalidateQueries({ queryKey });
+  }
 }
 
 /** What the guest showed before the tap, put back if the call fails. */

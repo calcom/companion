@@ -29,6 +29,7 @@ jest.mock("@/utils/region", () => ({
 const {
   checkInCalEventGuestMutationOptions,
   isCalEventGuestPending,
+  refetchCalEventGuestsIfIdle,
   undoCalEventGuestCheckInMutationOptions,
 } = require("./useCalEventGuests");
 
@@ -61,6 +62,39 @@ function setup(guests) {
 function createGuest(id, checkedInAt = null) {
   return { id, name: `Guest ${id}`, email: `${id}@example.com`, phoneNumber: null, checkedInAt };
 }
+
+describe("refetchCalEventGuestsIfIdle", () => {
+  test("invalidates the guest list when no guest mutation is pending", () => {
+    const { queryClient } = setup([]);
+    const invalidateQueries = jest.spyOn(queryClient, "invalidateQueries");
+
+    refetchCalEventGuestsIfIdle(queryClient, UUID);
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: queryKeys.calEvents.guests(UUID),
+    });
+  });
+
+  test("does not invalidate the guest list while a guest mutation is pending", async () => {
+    const { queryClient } = setup([createGuest("a")]);
+    const answer = deferred();
+    mockCheckIn.mockReturnValue(answer.promise);
+    const invalidateQueries = jest.spyOn(queryClient, "invalidateQueries");
+    const tap = new MutationObserver(
+      queryClient,
+      checkInCalEventGuestMutationOptions(queryClient, UUID)
+    ).mutate("a");
+    await flush();
+    invalidateQueries.mockClear();
+
+    refetchCalEventGuestsIfIdle(queryClient, UUID);
+
+    expect(invalidateQueries).not.toHaveBeenCalled();
+
+    answer.resolve({ kind: "checked_in" });
+    await tap;
+  });
+});
 
 beforeEach(() => {
   mockCheckIn.mockReset();
