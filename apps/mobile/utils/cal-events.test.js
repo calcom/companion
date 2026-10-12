@@ -5,7 +5,7 @@ jest.mock("@/utils/region", () => ({
   getCalAppUrl: () => "https://app.example.test",
   getCalWebUrl: () => "https://example.test",
 }));
-// Same exports as services/calcom/cal-events.test.js mocks: bun shares module mocks across files.
+// utils/cal-events.ts imports ApiRequestError: stub request.ts so its native networking isn't loaded.
 jest.mock("@/services/calcom/request", () => ({
   ApiRequestError: class ApiRequestError extends Error {
     constructor(status, message) {
