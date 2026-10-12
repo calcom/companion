@@ -5,19 +5,34 @@ jest.mock("@/utils/region", () => ({
   getCalAppUrl: () => "https://app.example.test",
   getCalWebUrl: () => "https://example.test",
 }));
+// Same exports as services/calcom/cal-events.test.js mocks: bun shares module mocks across files.
+jest.mock("@/services/calcom/request", () => ({
+  ApiRequestError: class ApiRequestError extends Error {
+    constructor(status, message) {
+      super(message);
+      this.status = status;
+    }
+  },
+  makeRequest: () => Promise.reject(new Error("not under test")),
+}));
 
 const {
+  canCheckInCalEventGuests,
   canDeleteCalEvent,
   canManageCalEventLifecycle,
   canReadCalEvents,
   deriveCalEventStatus,
+  filterCalEventGuests,
   filterCalEventsByTitle,
   formatCalEventDate,
   formatCalEventPrice,
   formatCalEventTime,
   formatCalEventTimeRange,
+  getCalEventCheckInErrorMessage,
+  getCalEventCheckInProgress,
   getCalEventEditorUrl,
   getCalEventFacts,
+  getCalEventGuestName,
   getCalEventLinkActions,
   getCalEventLocationLabel,
   getCalEventPublicUrl,
@@ -25,7 +40,10 @@ const {
   groupCalEvents,
   needsSignInAgainForCalEvents,
   refreshCalEventStatuses,
+  setCalEventGuestCheckedInAt,
+  sortCalEventGuests,
 } = require("./cal-events");
+const { ApiRequestError } = require("@/services/calcom/request");
 
 const NOW = new Date("2026-09-25T12:00:00.000Z");
 
@@ -472,5 +490,164 @@ describe("getCalEventLinkActions", () => {
 
   test("offers no page actions on a draft, whose page 404s until it is published", () => {
     expect(getCalEventLinkActions("draft")).toEqual({ canViewPage: false, canShare: false });
+  });
+});
+
+describe("canCheckInCalEventGuests", () => {
+  const ME = 7;
+  const host = (userId) => ({ userId, name: `User ${userId}`, avatarUrl: "" });
+
+  test("opens the door list to a host of a published or past event", () => {
+    for (const status of ["published", "past"]) {
+      expect(canCheckInCalEventGuests(createEvent({ status, userId: ME, hosts: [] }), ME)).toBe(
+        true
+      );
+    }
+  });
+
+  test("offers no check-in on a draft or a cancelled event", () => {
+    for (const status of ["draft", "cancelled"]) {
+      expect(
+        canCheckInCalEventGuests(createEvent({ status, userId: ME, hosts: [host(ME)] }), ME)
+      ).toBe(false);
+    }
+  });
+
+  test("hides it from a team member who isn't a host, and until the viewer is known", () => {
+    const teamEvent = createEvent({ userId: null, teamId: 3, hosts: [host(1)] });
+    expect(canCheckInCalEventGuests(teamEvent, ME)).toBe(false);
+    expect(canCheckInCalEventGuests(teamEvent, undefined)).toBe(false);
+  });
+});
+
+function createGuest(overrides = {}) {
+  return {
+    id: "registration-1",
+    name: "Ada Lovelace",
+    email: "ada@example.com",
+    phoneNumber: null,
+    checkedInAt: null,
+    ...overrides,
+  };
+}
+
+describe("getCalEventGuestName", () => {
+  test("lists a guest who gave no name by their email", () => {
+    expect(getCalEventGuestName(createGuest())).toBe("Ada Lovelace");
+    expect(getCalEventGuestName(createGuest({ name: "  " }))).toBe("ada@example.com");
+  });
+});
+
+describe("sortCalEventGuests", () => {
+  test("orders guests by name, ignoring case, then namesakes by email", () => {
+    const guests = [
+      createGuest({ id: "1", name: "grace Hopper", email: "grace@example.com" }),
+      createGuest({ id: "2", name: "Ada Lovelace", email: "ada.b@example.com" }),
+      createGuest({ id: "3", name: "Ada Lovelace", email: "ada.a@example.com" }),
+      createGuest({ id: "4", name: "", email: "alan@example.com" }),
+    ];
+
+    expect(sortCalEventGuests(guests).map((guest) => guest.id)).toEqual(["3", "2", "4", "1"]);
+  });
+
+  test("leaves the cached list as it was", () => {
+    const guests = [createGuest({ id: "1", name: "Zoe" }), createGuest({ id: "2", name: "Ada" })];
+    sortCalEventGuests(guests);
+    expect(guests.map((guest) => guest.id)).toEqual(["1", "2"]);
+  });
+});
+
+describe("filterCalEventGuests", () => {
+  const guests = [
+    createGuest({ id: "1", name: "Ada Lovelace", email: "ada@example.com" }),
+    createGuest({ id: "2", name: "Grace Hopper", email: "admiral@navy.example" }),
+  ];
+
+  test("matches a name or an email, ignoring case and surrounding spaces", () => {
+    expect(filterCalEventGuests(guests, " LOVE ").map((guest) => guest.id)).toEqual(["1"]);
+    expect(filterCalEventGuests(guests, "navy").map((guest) => guest.id)).toEqual(["2"]);
+  });
+
+  test("keeps every guest for an empty query", () => {
+    expect(filterCalEventGuests(guests, "  ")).toBe(guests);
+  });
+});
+
+describe("getCalEventCheckInProgress", () => {
+  test("counts checked-in guests out of the confirmed ones", () => {
+    const guests = [
+      createGuest({ id: "1", checkedInAt: "2026-10-09T18:05:00.000Z" }),
+      createGuest({ id: "2" }),
+      createGuest({ id: "3" }),
+    ];
+    expect(getCalEventCheckInProgress({ guests, hasMore: false })).toBe("1 of 3 checked in");
+    expect(getCalEventCheckInProgress({ guests: [], hasMore: false })).toBe("0 of 0 checked in");
+  });
+
+  test("says the count covers only the loaded guests when more follow", () => {
+    const guests = [createGuest({ checkedInAt: "2026-10-09T18:05:00.000Z" }), createGuest()];
+    expect(getCalEventCheckInProgress({ guests, hasMore: true })).toBe(
+      "1 of the first 2 checked in"
+    );
+  });
+});
+
+describe("setCalEventGuestCheckedInAt", () => {
+  const page = {
+    guests: [createGuest({ id: "1" }), createGuest({ id: "2" })],
+    hasMore: false,
+  };
+
+  test("checks one guest in, and the count with it", () => {
+    const next = setCalEventGuestCheckedInAt(page, "2", "2026-10-09T18:05:00.000Z");
+
+    expect(next.guests.map((guest) => guest.checkedInAt)).toEqual([
+      null,
+      "2026-10-09T18:05:00.000Z",
+    ]);
+    expect(getCalEventCheckInProgress(next)).toBe("1 of 2 checked in");
+    expect(page.guests[1].checkedInAt).toBeNull();
+  });
+
+  test("undoes a check-in", () => {
+    const checkedIn = setCalEventGuestCheckedInAt(page, "1", "2026-10-09T18:05:00.000Z");
+    expect(setCalEventGuestCheckedInAt(checkedIn, "1", null).guests[0].checkedInAt).toBeNull();
+  });
+
+  test("leaves a cache that was cleared (logged out) empty", () => {
+    expect(setCalEventGuestCheckedInAt(undefined, "1", null)).toBeUndefined();
+  });
+});
+
+describe("getCalEventCheckInErrorMessage", () => {
+  const apiError = (status, reason) =>
+    new ApiRequestError(status, `API Error: ${status} ${reason}`);
+
+  test("shows the API's reason outside the check-in window or on a cancelled event", () => {
+    expect(
+      getCalEventCheckInErrorMessage(apiError(400, "Check-in is closed outside the event window"))
+    ).toBe("Check-in is closed outside the event window");
+    expect(getCalEventCheckInErrorMessage(apiError(400, "This event has been cancelled"))).toBe(
+      "This event has been cancelled"
+    );
+  });
+
+  test("explains a missing scope, a guest who is gone and a rate limit", () => {
+    expect(getCalEventCheckInErrorMessage(apiError(403, "Forbidden"))).toMatch(/sign back in/);
+    expect(getCalEventCheckInErrorMessage(apiError(404, "Registration not found"))).toBe(
+      "This guest is no longer on the list."
+    );
+    expect(getCalEventCheckInErrorMessage(apiError(429, "Too many requests"))).toMatch(
+      /Wait a moment/
+    );
+  });
+
+  test("hides server errors and blames the connection when the request never got an answer", () => {
+    expect(getCalEventCheckInErrorMessage(apiError(500, "Internal server error"))).toBe(
+      "Something went wrong. Try again."
+    );
+    expect(getCalEventCheckInErrorMessage(new Error("Network request failed"))).toBe(
+      "Check your connection and try again."
+    );
   });
 });

@@ -173,6 +173,8 @@ export const queryKeys = {
     list: (teamId: number | null) => [...queryKeys.calEvents.lists(), { teamId }] as const,
     details: () => [...queryKeys.calEvents.all, "detail"] as const,
     detail: (eventTypeUuid: string) => [...queryKeys.calEvents.details(), eventTypeUuid] as const,
+    guests: (eventTypeUuid: string) =>
+      [...queryKeys.calEvents.all, "guests", eventTypeUuid] as const,
   },
 
   // Teams

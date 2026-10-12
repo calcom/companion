@@ -35,6 +35,12 @@ export {
   usePrefetchBookings,
   useRescheduleBooking,
 } from "./useBookings";
+// Cal Event guests (check-in) hooks
+export {
+  useCalEventGuests,
+  useCheckInCalEventGuest,
+  useUndoCalEventGuestCheckIn,
+} from "./useCalEventGuests";
 // Cal Events hooks
 export {
   type CalEvent,

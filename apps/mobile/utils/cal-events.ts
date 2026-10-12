@@ -4,7 +4,14 @@
  * read the same event the same way.
  */
 
-import type { CalEvent, CalEventStatus, Team } from "@/services/types/cal-events.types";
+import { ApiRequestError } from "@/services/calcom/request";
+import type {
+  CalEvent,
+  CalEventGuest,
+  CalEventGuestsPage,
+  CalEventStatus,
+  Team,
+} from "@/services/types/cal-events.types";
 import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
 
 export type CalEventsGroupKind = "drafts" | "upcoming" | "past";
@@ -246,6 +253,21 @@ export function canManageCalEventLifecycle(
 }
 
 /**
+ * Whether the viewer gets the check-in screen: a host (as above) of a published or past event,
+ * since a draft has no guests and a cancelled event refuses check-ins. The API also lets accepted
+ * external co-hosts and team members with check-in permission in, but the app can't tell them apart.
+ */
+export function canCheckInCalEventGuests(
+  event: Pick<CalEvent, "userId" | "hosts" | "status">,
+  viewerId: number | undefined
+): boolean {
+  return (
+    (event.status === "published" || event.status === "past") &&
+    canManageCalEventLifecycle(event, viewerId)
+  );
+}
+
+/**
  * Whether the server will accept a delete: never a published paid event (its payment records are
  * kept), and only without confirmed guests. A draft can't have any, and a cancelled event's
  * confirmedCount still counts the cancelled booking's seats, which the server ignores. Otherwise a
@@ -305,4 +327,67 @@ export function getCalEventStatusColors(
 export function truncateCalEventTitle(title: string, max = 28): string {
   const characters = Array.from(title);
   return characters.length > max ? `${characters.slice(0, max - 1).join("")}…` : title;
+}
+
+/** How a guest is listed: their name, or their email when they gave none. */
+export function getCalEventGuestName(guest: Pick<CalEventGuest, "name" | "email">): string {
+  return guest.name.trim() || guest.email;
+}
+
+/** A door list reads alphabetically: by name, then email to keep namesakes in a stable order. */
+export function sortCalEventGuests(guests: CalEventGuest[]): CalEventGuest[] {
+  return [...guests].sort(
+    (a, b) =>
+      getCalEventGuestName(a).localeCompare(getCalEventGuestName(b), undefined, {
+        sensitivity: "base",
+      }) || a.email.localeCompare(b.email)
+  );
+}
+
+/** Guests whose name or email contains the query, case-insensitively. */
+export function filterCalEventGuests(guests: CalEventGuest[], query: string): CalEventGuest[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return guests;
+  return guests.filter(
+    (guest) =>
+      guest.name.toLowerCase().includes(needle) || guest.email.toLowerCase().includes(needle)
+  );
+}
+
+/**
+ * "1 of 3 checked in". Only the first page of guests is loaded, so when more follow, the count
+ * covers just those: "4 of the first 50 checked in".
+ */
+export function getCalEventCheckInProgress(page: CalEventGuestsPage): string {
+  const checkedIn = page.guests.filter((guest) => guest.checkedInAt).length;
+  const total = page.hasMore ? `the first ${page.guests.length}` : `${page.guests.length}`;
+  return `${checkedIn} of ${total} checked in`;
+}
+
+/**
+ * Why a check-in or undo failed. The API's other 4xx reasons are written for people ("Check-in is
+ * closed outside the event window", "This event has been cancelled"), so they show as they are.
+ */
+export function getCalEventCheckInErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiRequestError)) return "Check your connection and try again.";
+  if (error.status === 403) {
+    return "Your sign-in doesn't include checking guests in. Sign out and sign back in to grant it.";
+  }
+  if (error.status === 404) return "This guest is no longer on the list.";
+  if (error.status === 429) return "Too many check-ins at once. Wait a moment and try again.";
+  if (error.status < 500) return error.message.replace(/^API Error: \d+ /, "");
+  return "Something went wrong. Try again.";
+}
+
+/** The page with one guest checked in at `checkedInAt`, or unchecked when it is null. */
+export function setCalEventGuestCheckedInAt(
+  page: CalEventGuestsPage | undefined,
+  guestId: string,
+  checkedInAt: string | null
+): CalEventGuestsPage | undefined {
+  if (!page) return page;
+  return {
+    ...page,
+    guests: page.guests.map((guest) => (guest.id === guestId ? { ...guest, checkedInAt } : guest)),
+  };
 }

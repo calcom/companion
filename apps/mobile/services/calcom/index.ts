@@ -23,6 +23,9 @@ export type {
   BookingLimitsDuration,
   BookingParticipationResult,
   CalEvent,
+  CalEventCheckInResult,
+  CalEventGuest,
+  CalEventGuestsPage,
   CalEventHost,
   CalEventLocation,
   CalEventStatus,
@@ -72,10 +75,13 @@ import {
 } from "./bookings";
 import {
   cancelCalEvent,
+  checkInCalEventGuest,
   deleteCalEvent,
   getCalEvent,
+  getCalEventGuests,
   getCalEvents,
   publishCalEvent,
+  undoCalEventGuestCheckIn,
 } from "./cal-events";
 import { getConferencingOptions } from "./conferencing";
 import {
@@ -160,6 +166,9 @@ export const CalComAPIService = {
   publishCalEvent,
   cancelCalEvent,
   deleteCalEvent,
+  getCalEventGuests,
+  checkInCalEventGuest,
+  undoCalEventGuestCheckIn,
 
   // Teams
   getTeams,
