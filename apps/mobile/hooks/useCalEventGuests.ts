@@ -56,6 +56,7 @@ export function useCalEventGuests(uuid: string | undefined) {
   });
 }
 
+/** Skipped while a tap is in flight: its onSettled refetches, and a refetch now could flip its guest back. */
 export function refetchCalEventGuestsIfIdle(queryClient: QueryClient, uuid: string) {
   const queryKey = queryKeys.calEvents.guests(uuid);
   if (queryClient.isMutating({ mutationKey: queryKey }) === 0) {
