@@ -45,6 +45,7 @@ export {
   useDeleteCalEvent,
   useInvalidateCalEvents,
   usePublishCalEvent,
+  useRestartCalEvents,
 } from "./useCalEvents";
 // Event Types hooks
 export {

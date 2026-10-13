@@ -26,6 +26,7 @@ export type {
   CalEventHost,
   CalEventLocation,
   CalEventStatus,
+  CalEventsPage,
   ConferencingOption,
   ConfirmationPolicy,
   CreateEventTypeInput,
