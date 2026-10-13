@@ -28,12 +28,14 @@ jest.mock("@/utils/region", () => ({
   getCalWebUrl: () => "https://example.test",
 }));
 
+const { act, renderHook } = require("@testing-library/react-native");
 const {
   checkInCalEventGuestByTicketMutationOptions,
   checkInCalEventGuestMutationOptions,
   isCalEventGuestPending,
   refetchCalEventGuestsIfIdle,
   undoCalEventGuestCheckInMutationOptions,
+  useCalEventCheckInAvailability,
 } = require("./useCalEventGuests");
 
 const UUID = "event-uuid";
@@ -305,5 +307,62 @@ describe("checking a guest in from a ticket", () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: queryKeys.calEvents.guests(UUID),
     });
+  });
+});
+
+describe("useCalEventCheckInAvailability", () => {
+  const T0 = new Date("2026-10-13T10:00:00.000Z").getTime();
+  const HOUR = 60 * 60 * 1000;
+  // The door takes check-ins from 12 h before the start until 12 h after the end.
+  const eventAt = (startOffset, endOffset) => ({
+    startTime: new Date(T0 + startOffset).toISOString(),
+    endTime: new Date(T0 + endOffset).toISOString(),
+  });
+  // The hook's own timers wait for a window boundary; React's and the test renderer's are short.
+  const windowTimers = (setTimeoutSpy) =>
+    setTimeoutSpy.mock.calls.filter(([, delay]) => delay >= 60 * 1000);
+  const render = (event) =>
+    renderHook((props) => useCalEventCheckInAvailability(props.event), {
+      initialProps: { event },
+    });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(T0);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test("closes when the window does, then stops ticking", async () => {
+    // Ends an hour from now, so check-in closes 13 h from now.
+    const { result } = await render(eventAt(-HOUR, HOUR));
+    expect(result.current.kind).toBe("open");
+
+    await act(() => jest.advanceTimersByTime(13 * HOUR + 1));
+    expect(result.current.kind).toBe("closed");
+
+    const setTimeoutSpy = jest.spyOn(global, "setTimeout");
+    await act(() => jest.advanceTimersByTime(48 * HOUR));
+    expect(result.current.kind).toBe("closed");
+    expect(windowTimers(setTimeoutSpy)).toHaveLength(0);
+  });
+
+  test("reads a rescheduled event against the current time, not the last tick", async () => {
+    const { result, rerender } = await render(eventAt(HOUR, 3 * HOUR));
+    expect(result.current.kind).toBe("open");
+
+    // Two hours pass with no tick, then a refetch brings the event moved into the past: its window
+    // closed an hour ago, though it was still open at the last tick.
+    jest.setSystemTime(T0 + 2 * HOUR);
+    const setTimeoutSpy = jest.spyOn(global, "setTimeout");
+    await rerender({ event: eventAt(-13 * HOUR, -11 * HOUR) });
+
+    expect(result.current).toEqual({
+      kind: "closed",
+      closedAt: new Date(T0 + HOUR).toISOString(),
+    });
+    expect(windowTimers(setTimeoutSpy)).toHaveLength(0);
   });
 });
