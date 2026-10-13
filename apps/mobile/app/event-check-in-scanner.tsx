@@ -58,8 +58,9 @@ export default function CalEventCheckInScannerScreen() {
     requestPermission().finally(() => setPermissionAsk("asked"));
   }, [permission, permissionAsk, requestPermission]);
 
+  // Android reads the result box out through its live region; iOS has none, so announce it there.
   useEffect(() => {
-    if (!result) return;
+    if (!result || Platform.OS !== "ios") return;
     const detail = result.tone === "error" ? "" : `, ${result.detail}`;
     AccessibilityInfo.announceForAccessibility(`${result.title}${detail}`);
   }, [result]);
