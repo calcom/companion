@@ -38,8 +38,10 @@ export {
 // Cal Event guests (check-in) hooks
 export {
   isCalEventGuestPending,
+  useCalEventCheckInAvailability,
   useCalEventGuests,
   useCheckInCalEventGuest,
+  useCheckInCalEventGuestByTicket,
   usePendingCalEventGuestIds,
   useUndoCalEventGuestCheckIn,
 } from "./useCalEventGuests";

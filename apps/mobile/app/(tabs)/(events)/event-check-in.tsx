@@ -20,6 +20,8 @@ import {
   isCalEventGuestPending,
   isForbiddenError,
   isNotFoundError,
+  useCalEvent,
+  useCalEventCheckInAvailability,
   useCalEventGuests,
   useCheckInCalEventGuest,
   usePendingCalEventGuestIds,
@@ -29,18 +31,16 @@ import type { CalEventGuest } from "@/services/calcom";
 import { showInfoAlert } from "@/utils/alerts";
 import {
   filterCalEventGuests,
+  formatCalEventCheckInTime,
   getCalEventCheckInErrorMessage,
   getCalEventCheckInProgress,
+  getCalEventCheckInWindowNotice,
   getCalEventGuestName,
   sortCalEventGuests,
 } from "@/utils/cal-events";
 import { offlineAwareRefresh } from "@/utils/network";
 
 type Theme = ReturnType<typeof getColors>;
-
-/** "6:05 PM" on the device's clock, which at the door is the venue's. */
-const formatCheckInTime = (iso: string) =>
-  new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(iso));
 
 export default function CalEventCheckInScreen() {
   const { uuid, title } = useLocalSearchParams<{ uuid: string; title?: string }>();
@@ -51,6 +51,11 @@ export default function CalEventCheckInScreen() {
   // Not isFetching: the list also refetches after every tap, and that shouldn't spin the control.
   const [pulling, setPulling] = useState(false);
   const { data: page, isLoading, isRefetchError, error, refetch } = useCalEventGuests(uuid);
+  // Usually cached from the event's detail; until it loads, there's no window to show a scanner in.
+  const { data: event } = useCalEvent(uuid);
+  const availability = useCalEventCheckInAvailability(event);
+  const windowNotice =
+    event && availability ? getCalEventCheckInWindowNotice(availability, event.timeZone) : null;
   const queryClient = useQueryClient();
   const { mutateAsync: checkIn } = useCheckInCalEventGuest(uuid);
   const { mutateAsync: undoCheckIn } = useUndoCalEventGuestCheckIn(uuid);
@@ -76,7 +81,7 @@ export default function CalEventCheckInScreen() {
       if (result.kind === "already_checked_in") {
         showInfoAlert(
           "Already checked in",
-          `${name} was checked in at ${formatCheckInTime(result.checkedInAt)}.`
+          `${name} was checked in at ${formatCalEventCheckInTime(result.checkedInAt)}.`
         );
       } else if (result.kind === "not_confirmed") {
         showInfoAlert("Not checked in", `${name} is no longer a confirmed guest.`);
@@ -104,7 +109,7 @@ export default function CalEventCheckInScreen() {
     }
     Alert.alert(
       "Undo check-in?",
-      `${getCalEventGuestName(guest)} was checked in at ${formatCheckInTime(guest.checkedInAt)}.`,
+      `${getCalEventGuestName(guest)} was checked in at ${formatCalEventCheckInTime(guest.checkedInAt)}.`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Undo", style: "destructive", onPress: () => onUndoCheckIn(guest) },
@@ -183,6 +188,32 @@ export default function CalEventCheckInScreen() {
           >
             {getCalEventCheckInProgress(page)}
           </Text>
+          {availability?.kind === "open" ? (
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/event-check-in-scanner", params: { uuid } })}
+              accessibilityRole="button"
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                height: 44,
+                marginTop: 12,
+                borderRadius: 10,
+                backgroundColor: theme.text,
+              }}
+            >
+              <Ionicons name="qr-code-outline" size={18} color={theme.background} />
+              <Text
+                style={{ color: theme.background, fontSize: 16, fontWeight: "600", marginLeft: 8 }}
+              >
+                Scan ticket
+              </Text>
+            </TouchableOpacity>
+          ) : windowNotice ? (
+            <Text style={{ color: theme.textSecondary, fontSize: 15, marginTop: 8 }}>
+              {windowNotice}
+            </Text>
+          ) : null}
           {page.guests.length > 0 || searchQuery ? (
             <SearchField theme={theme} value={searchQuery} onChangeText={setSearchQuery} />
           ) : null}
@@ -372,7 +403,7 @@ function GuestRow({
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Ionicons name="checkmark-circle" size={24} color={theme.success} />
           <Text style={{ color: theme.textSecondary, fontSize: 14, marginLeft: 6 }}>
-            {formatCheckInTime(guest.checkedInAt)}
+            {formatCalEventCheckInTime(guest.checkedInAt)}
           </Text>
         </View>
       ) : (

@@ -5,10 +5,12 @@ import { queryKeys } from "@/config/cache.config";
 // The API client is the test boundary: each test decides when a call answers.
 const mockCheckIn = jest.fn();
 const mockUndo = jest.fn();
+const mockCheckInByTicket = jest.fn();
 jest.mock("@/services/calcom", () => ({
   CalComAPIService: {
     checkInCalEventGuest: (...args) => mockCheckIn(...args),
     undoCalEventGuestCheckIn: (...args) => mockUndo(...args),
+    checkInCalEventGuestByTicket: (...args) => mockCheckInByTicket(...args),
   },
 }));
 // Same exports as services/calcom/cal-events.test.js mocks: bun shares module mocks across files.
@@ -27,6 +29,7 @@ jest.mock("@/utils/region", () => ({
 }));
 
 const {
+  checkInCalEventGuestByTicketMutationOptions,
   checkInCalEventGuestMutationOptions,
   isCalEventGuestPending,
   refetchCalEventGuestsIfIdle,
@@ -99,6 +102,7 @@ describe("refetchCalEventGuestsIfIdle", () => {
 beforeEach(() => {
   mockCheckIn.mockReset();
   mockUndo.mockReset();
+  mockCheckInByTicket.mockReset();
   jest.spyOn(console, "error").mockImplementation(() => {});
   jest.spyOn(console, "debug").mockImplementation(() => {});
 });
@@ -225,5 +229,81 @@ describe("undoing a check-in", () => {
     await expect(tap).rejects.toBe(failure);
     expect(checkedInAt("a")).toBe(EARLIER);
     expect(isCalEventGuestPending(queryClient, UUID, "a")).toBe(false);
+  });
+});
+
+describe("checking a guest in from a ticket", () => {
+  const scan = (queryClient, token) =>
+    new MutationObserver(
+      queryClient,
+      checkInCalEventGuestByTicketMutationOptions(queryClient, UUID)
+    ).mutate(token);
+
+  test("checks in the guest the server names, at the server's time", async () => {
+    const { queryClient, checkedInAt } = setup([createGuest("a"), createGuest("b")]);
+    mockCheckInByTicket.mockResolvedValue({
+      kind: "checked_in",
+      guest: createGuest("b", EARLIER),
+    });
+
+    await scan(queryClient, "ticket-b");
+
+    expect(mockCheckInByTicket).toHaveBeenCalledWith(UUID, "ticket-b");
+    expect(checkedInAt("a")).toBeNull();
+    expect(checkedInAt("b")).toBe(EARLIER);
+  });
+
+  test("shows the first check-in's time for a ticket used before", async () => {
+    const { queryClient, checkedInAt } = setup([createGuest("a")]);
+    mockCheckInByTicket.mockResolvedValue({
+      kind: "already_checked_in",
+      guest: createGuest("a", EARLIER),
+      checkedInAt: EARLIER,
+    });
+
+    await scan(queryClient, "ticket-a");
+
+    expect(checkedInAt("a")).toBe(EARLIER);
+  });
+
+  test("holds no guest's row while in flight, even when the token matches a guest id", async () => {
+    const { queryClient } = setup([createGuest("a")]);
+    const answer = deferred();
+    mockCheckInByTicket.mockReturnValue(answer.promise);
+
+    const scanning = scan(queryClient, "a");
+    await flush();
+
+    expect(isCalEventGuestPending(queryClient, UUID, "a")).toBe(false);
+
+    answer.resolve({ kind: "not_confirmed" });
+    await scanning;
+  });
+
+  test("refetches the list only once the last of a scan and a tap settles", async () => {
+    const { queryClient } = setup([createGuest("a"), createGuest("b")]);
+    const tapAnswer = deferred();
+    mockCheckIn.mockReturnValue(tapAnswer.promise);
+    const scanAnswer = deferred();
+    mockCheckInByTicket.mockReturnValue(scanAnswer.promise);
+    const invalidateQueries = jest.spyOn(queryClient, "invalidateQueries");
+
+    const tap = new MutationObserver(
+      queryClient,
+      checkInCalEventGuestMutationOptions(queryClient, UUID)
+    ).mutate("a");
+    const scanning = scan(queryClient, "ticket-b");
+    await flush();
+
+    scanAnswer.resolve({ kind: "checked_in", guest: createGuest("b", EARLIER) });
+    await scanning;
+    expect(invalidateQueries).not.toHaveBeenCalled();
+
+    tapAnswer.resolve({ kind: "checked_in" });
+    await tap;
+    expect(invalidateQueries).toHaveBeenCalledTimes(1);
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: queryKeys.calEvents.guests(UUID),
+    });
   });
 });

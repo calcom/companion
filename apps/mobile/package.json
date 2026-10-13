@@ -45,6 +45,7 @@
     "clsx": "2.1.1",
     "expo": "55.0.0-canary-20251230-fc48ddc",
     "expo-auth-session": "7.0.11-canary-20251230-fc48ddc",
+    "expo-camera": "17.1.0-canary-20251230-fc48ddc",
     "expo-clipboard": "9.0.0-canary-20251230-fc48ddc",
     "expo-constants": "18.1.0-canary-20251230-fc48ddc",
     "expo-crypto": "15.0.9-canary-20251230-fc48ddc",

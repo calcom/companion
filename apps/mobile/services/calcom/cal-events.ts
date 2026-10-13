@@ -12,7 +12,9 @@ import type {
   CalEventCheckInResult,
   CalEventGuest,
   CalEventGuestsPage,
+  CalEventRegistrationApi,
   CalEventsCursorPaginationApi,
+  CalEventTicketCheckInResult,
   CalEventUndoCheckInOutcomeApi,
 } from "../types";
 
@@ -155,6 +157,46 @@ export async function checkInCalEventGuest(
   return outcome.kind === "already_checked_in"
     ? { kind: outcome.kind, checkedInAt: outcome.checkedInAt }
     : { kind: outcome.kind };
+}
+
+/** A registration from the check-in endpoints, as the guest list shows it. */
+function registrationToCalEventGuest(registration: CalEventRegistrationApi): CalEventGuest {
+  return {
+    id: registration.id,
+    name: registration.name,
+    email: registration.email,
+    phoneNumber: registration.phoneNumber ?? null,
+    checkedInAt: registration.checkedInAt ?? null,
+  };
+}
+
+/**
+ * Check a guest in from their scanned QR ticket. The token goes in the body, since URLs land in
+ * logs. A forged ticket and one for another event get the same 404 as an unknown guest; 400 on a
+ * cancelled event, or outside its check-in window.
+ */
+export async function checkInCalEventGuestByTicket(
+  uuid: string,
+  checkInToken: string
+): Promise<CalEventTicketCheckInResult> {
+  const response = await makeRequest<{ status: string; data: CalEventCheckInOutcomeApi }>(
+    `/events/${uuid}/check-ins`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checkInToken }),
+    },
+    API_VERSION
+  );
+  const outcome = response?.data;
+  if (outcome?.kind === "not_confirmed") return { kind: outcome.kind };
+  if (!outcome?.kind || !outcome.registration) {
+    throw new Error("Invalid response from check-in API");
+  }
+  const guest = registrationToCalEventGuest(outcome.registration);
+  return outcome.kind === "already_checked_in"
+    ? { kind: outcome.kind, guest, checkedInAt: outcome.checkedInAt }
+    : { kind: outcome.kind, guest };
 }
 
 /**

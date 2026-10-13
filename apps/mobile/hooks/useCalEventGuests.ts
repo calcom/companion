@@ -1,9 +1,9 @@
 /**
  * Cal Event Guests Query Hooks
  *
- * An event's door list: its confirmed guests (`/v2/events/{uuid}/bookings`), and check-in and
- * undo. Both mutations flip the guest in the cache at once, which also moves the screen's
- * "N of M checked in" count, since the screen derives it from the list.
+ * An event's door list: its confirmed guests (`/v2/events/{uuid}/bookings`), and check-in, undo
+ * and scanned-ticket check-in. Each one flips the guest in the cache, which also moves the
+ * screen's "N of M checked in" count, since the screen derives it from the list.
  */
 
 import {
@@ -14,15 +14,22 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppState } from "react-native";
 import { queryKeys } from "@/config/cache.config";
 import {
   CalComAPIService,
+  type CalEvent,
   type CalEventCheckInResult,
   type CalEventGuestsPage,
+  type CalEventTicketCheckInResult,
 } from "@/services/calcom";
-import { setCalEventGuestCheckedInAt } from "@/utils/cal-events";
+import {
+  type CalEventCheckInAvailability,
+  getCalEventCheckInAvailability,
+  getCalEventCheckInAvailabilityDelayMs,
+  setCalEventGuestCheckedInAt,
+} from "@/utils/cal-events";
 import { isForbiddenError, isNetworkError, isNotFoundError } from "./useCalEvents";
 
 /**
@@ -67,9 +74,12 @@ export function refetchCalEventGuestsIfIdle(queryClient: QueryClient, uuid: stri
 /** What the guest showed before the tap, put back if the call fails. */
 type GuestCheckInContext = { previous: string | null };
 
-/** In-flight check-ins and undos of one event's guest list. Both mutations share the list's key. */
+/**
+ * In-flight check-ins and undos of one event's guest list. Both mutations share the list's key;
+ * `exact` leaves out scanned tickets, whose key extends it and whose variables are tokens.
+ */
 const pendingGuestMutations = (uuid: string) =>
-  ({ mutationKey: queryKeys.calEvents.guests(uuid), status: "pending" }) as const;
+  ({ mutationKey: queryKeys.calEvents.guests(uuid), exact: true, status: "pending" }) as const;
 
 /**
  * Whether a check-in or undo for this guest is still in flight. Read straight from the mutation
@@ -179,6 +189,49 @@ export function undoCalEventGuestCheckInMutationOptions(queryClient: QueryClient
 }
 
 /**
+ * Scanned-ticket check-in's mutation options, apart from the hook so tests can run them on a bare
+ * QueryClient. Only the server knows whose ticket it is, so nothing flips until it answers. The
+ * key extends the list's, so the list's "refetch once the last call settles" rule covers scans too.
+ */
+export function checkInCalEventGuestByTicketMutationOptions(
+  queryClient: QueryClient,
+  uuid: string
+): MutationObserverOptions<CalEventTicketCheckInResult, Error, string> {
+  const queryKey = queryKeys.calEvents.guests(uuid);
+  return {
+    mutationKey: [...queryKey, "ticket"],
+    mutationFn: (checkInToken) => CalComAPIService.checkInCalEventGuestByTicket(uuid, checkInToken),
+    // A code held in front of the camera is sent again after a pause; that's the retry.
+    retry: false,
+    // A refetch that started before this check-in landed would flip the guest back.
+    onMutate: () => queryClient.cancelQueries({ queryKey }),
+    onSuccess: (result) => {
+      if (result.kind === "not_confirmed") return;
+      const checkedInAt =
+        result.kind === "already_checked_in"
+          ? result.checkedInAt
+          : (result.guest.checkedInAt ?? new Date().toISOString());
+      queryClient.setQueryData<CalEventGuestsPage>(queryKey, (page) =>
+        setCalEventGuestCheckedInAt(page, result.guest.id, checkedInAt)
+      );
+    },
+    onError: (error) => {
+      console.error("Failed to check a guest in from a ticket");
+      if (__DEV__) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.debug("[useCalEventGuests] ticket check-in failed", { message });
+      }
+    },
+    onSettled: () => {
+      // As for a tap: 1 is this scan, so no other call is pending.
+      if (queryClient.isMutating({ mutationKey: queryKey }) === 1) {
+        queryClient.invalidateQueries({ queryKey });
+      }
+    },
+  };
+}
+
+/**
  * Hook to check a guest in at the door (hosts only). Use `mutateAsync`, one call per tap: callbacks
  * passed to `mutate` only fire for the latest call, so an earlier tap's failure would go unreported.
  */
@@ -191,4 +244,33 @@ export function useCheckInCalEventGuest(uuid: string) {
 export function useUndoCalEventGuestCheckIn(uuid: string) {
   const queryClient = useQueryClient();
   return useMutation(undoCalEventGuestCheckInMutationOptions(queryClient, uuid));
+}
+
+/** Hook to check a guest in from a scanned QR ticket (hosts only). Use `mutateAsync`, one call per scan. */
+export function useCheckInCalEventGuestByTicket(uuid: string) {
+  const queryClient = useQueryClient();
+  return useMutation(checkInCalEventGuestByTicketMutationOptions(queryClient, uuid));
+}
+
+/**
+ * Hook returning whether the event's door takes check-ins, kept current while the screen stays
+ * open: it reads the clock again when the window opens or closes. The clock is state rather than
+ * read during render, since the React Compiler would cache the answer for as long as the event
+ * object stays the same.
+ */
+export function useCalEventCheckInAvailability(
+  event: Pick<CalEvent, "startTime" | "endTime"> | null | undefined
+): CalEventCheckInAvailability | null {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!event) return;
+    const delayMs = getCalEventCheckInAvailabilityDelayMs(
+      getCalEventCheckInAvailability(event, now),
+      now
+    );
+    if (delayMs === null) return;
+    const timer = setTimeout(() => setNow(new Date()), delayMs);
+    return () => clearTimeout(timer);
+  }, [event, now]);
+  return event ? getCalEventCheckInAvailability(event, now) : null;
 }

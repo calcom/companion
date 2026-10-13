@@ -19,6 +19,7 @@ jest.mock("./request", () => ({
 
 const {
   checkInCalEventGuest,
+  checkInCalEventGuestByTicket,
   getCalEvent,
   getCalEventGuests,
   getCalEvents,
@@ -234,5 +235,75 @@ describe("undoCalEventGuestCheckIn", () => {
       { method: "DELETE" },
       "2024-06-14"
     );
+  });
+});
+
+describe("checkInCalEventGuestByTicket", () => {
+  beforeEach(() => {
+    mockMakeRequest.mockReset();
+  });
+
+  test("posts the scanned token in the body, never the URL, and names the guest", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: {
+        kind: "checked_in",
+        registration: createRegistration({ checkedInAt: "2026-10-09T18:05:00.000Z" }),
+      },
+    });
+
+    await expect(checkInCalEventGuestByTicket("event-uuid", "short.signature")).resolves.toEqual({
+      kind: "checked_in",
+      guest: {
+        id: "0199a1b2-0000-7000-8000-000000000001",
+        name: "Ada Lovelace",
+        email: "ada@example.com",
+        phoneNumber: null,
+        checkedInAt: "2026-10-09T18:05:00.000Z",
+      },
+    });
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/check-ins",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkInToken: "short.signature" }),
+      },
+      "2024-06-14"
+    );
+  });
+
+  test("reports when the ticket was already used, with the first check-in's time", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: {
+        kind: "already_checked_in",
+        registration: createRegistration({ checkedInAt: "2026-10-09T18:05:00.000Z" }),
+        checkedInAt: "2026-10-09T18:05:00.000Z",
+      },
+    });
+
+    await expect(checkInCalEventGuestByTicket("event-uuid", "short.signature")).resolves.toEqual({
+      kind: "already_checked_in",
+      guest: expect.objectContaining({ name: "Ada Lovelace" }),
+      checkedInAt: "2026-10-09T18:05:00.000Z",
+    });
+  });
+
+  test("reports a ticket whose registration is no longer confirmed", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: { kind: "not_confirmed", status: "CANCELLED" },
+    });
+
+    await expect(checkInCalEventGuestByTicket("event-uuid", "short.signature")).resolves.toEqual({
+      kind: "not_confirmed",
+    });
+  });
+
+  test("rethrows the API's 404 for a forged ticket or one for another event", async () => {
+    const error = new ApiRequestError(404, "API Error: 404 Registration not found");
+    mockMakeRequest.mockRejectedValue(error);
+    await expect(checkInCalEventGuestByTicket("event-uuid", "forged")).rejects.toBe(error);
   });
 });
