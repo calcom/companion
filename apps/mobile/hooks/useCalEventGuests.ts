@@ -254,9 +254,9 @@ export function useCheckInCalEventGuestByTicket(uuid: string) {
 
 /**
  * Hook returning whether the event's door takes check-ins, kept current while the screen stays
- * open: it reads the clock again when the window opens or closes. The clock is state rather than
- * read during render, since the React Compiler would cache the answer for as long as the event
- * object stays the same.
+ * open: it reads the clock again when the window opens or closes, and when the event changes. The
+ * clock is state rather than read during render, since the React Compiler would cache the answer
+ * for as long as the event object stays the same.
  */
 export function useCalEventCheckInAvailability(
   event: Pick<CalEvent, "startTime" | "endTime"> | null | undefined
@@ -264,10 +264,14 @@ export function useCalEventCheckInAvailability(
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     if (!event) return;
-    const delayMs = getCalEventCheckInAvailabilityDelayMs(
-      getCalEventCheckInAvailability(event, now),
-      now
-    );
+    // `now` is the last tick, which can be hours old when a refetch brings a rescheduled event.
+    const current = new Date();
+    const availability = getCalEventCheckInAvailability(event, current);
+    if (availability.kind !== getCalEventCheckInAvailability(event, now).kind) {
+      setNow(current);
+      return;
+    }
+    const delayMs = getCalEventCheckInAvailabilityDelayMs(availability, current);
     if (delayMs === null) return;
     const timer = setTimeout(() => setNow(new Date()), delayMs);
     return () => clearTimeout(timer);
