@@ -156,6 +156,15 @@ export type CalEventCheckInResult =
   | { kind: "already_checked_in"; checkedInAt: string }
   | { kind: "not_confirmed" };
 
+/**
+ * What a scanned ticket did. Only the server knows whose ticket it was, so the result names the
+ * guest; `guest.checkedInAt` is the server's time.
+ */
+export type CalEventTicketCheckInResult =
+  | { kind: "checked_in"; guest: CalEventGuest }
+  | { kind: "already_checked_in"; guest: CalEventGuest; checkedInAt: string }
+  | { kind: "not_confirmed" };
+
 /** A team the user belongs to, from `/v2/teams`: organizations and pending memberships included. */
 export interface Team {
   id: number;

@@ -29,6 +29,7 @@ export type {
   CalEventHost,
   CalEventLocation,
   CalEventStatus,
+  CalEventTicketCheckInResult,
   ConferencingOption,
   ConfirmationPolicy,
   CreateEventTypeInput,
@@ -76,6 +77,7 @@ import {
 import {
   cancelCalEvent,
   checkInCalEventGuest,
+  checkInCalEventGuestByTicket,
   deleteCalEvent,
   getCalEvent,
   getCalEventGuests,
@@ -168,6 +170,7 @@ export const CalComAPIService = {
   deleteCalEvent,
   getCalEventGuests,
   checkInCalEventGuest,
+  checkInCalEventGuestByTicket,
   undoCalEventGuestCheckIn,
 
   // Teams

@@ -364,6 +364,70 @@ export function getCalEventCheckInProgress(page: CalEventGuestsPage): string {
   return `${checkedIn} of ${total} checked in`;
 }
 
+/** "6:05 PM" on the device's clock, which at the door is the venue's. */
+export function formatCalEventCheckInTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(
+    new Date(iso)
+  );
+}
+
+/** The server takes check-ins from 12 hours before an event starts until 12 hours after it ends. */
+const CHECK_IN_WINDOW_GRACE_MS = 12 * 60 * 60 * 1000;
+
+export type CalEventCheckInAvailability =
+  | { kind: "open"; closesAt: string }
+  | { kind: "not_yet_open"; opensAt: string }
+  | { kind: "closed"; closedAt: string };
+
+/**
+ * Whether the door takes check-ins now. Mirrors the server's window, as the web's door page does,
+ * so the scanner only shows when a scan can succeed.
+ */
+export function getCalEventCheckInAvailability(
+  event: Pick<CalEvent, "startTime" | "endTime">,
+  now: Date = new Date()
+): CalEventCheckInAvailability {
+  const opensAt = new Date(new Date(event.startTime).getTime() - CHECK_IN_WINDOW_GRACE_MS);
+  const closesAt = new Date(new Date(event.endTime).getTime() + CHECK_IN_WINDOW_GRACE_MS);
+  if (now < opensAt) return { kind: "not_yet_open", opensAt: opensAt.toISOString() };
+  if (now > closesAt) return { kind: "closed", closedAt: closesAt.toISOString() };
+  return { kind: "open", closesAt: closesAt.toISOString() };
+}
+
+/** setTimeout fires at once when asked to wait longer than this (about 24.8 days). */
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
+
+/**
+ * How long until `availability` changes: until the window opens, or until it closes; null once it
+ * has closed. For a timer that keeps a screen current, so it's capped at the longest delay
+ * setTimeout takes. A timer that fires early finds no change and waits again.
+ */
+export function getCalEventCheckInAvailabilityDelayMs(
+  availability: CalEventCheckInAvailability,
+  now: Date = new Date()
+): number | null {
+  if (availability.kind === "closed") return null;
+  const changesAt =
+    availability.kind === "not_yet_open" ? availability.opensAt : availability.closesAt;
+  // +1: the window includes both ends, so it closes just after closesAt.
+  const delay = new Date(changesAt).getTime() - now.getTime() + 1;
+  return Math.min(Math.max(delay, 0), MAX_TIMER_DELAY_MS);
+}
+
+/** "Check-in opens Sat, Oct 10, 4:45 AM", in the event's timezone; null while check-in is open. */
+export function getCalEventCheckInWindowNotice(
+  availability: CalEventCheckInAvailability,
+  timeZone: string
+): string | null {
+  if (availability.kind === "open") return null;
+  const iso = availability.kind === "not_yet_open" ? availability.opensAt : availability.closedAt;
+  const { weekday, month, day } = safeParts(new Date(iso), timeZone);
+  const when = `${weekday}, ${month} ${day}, ${formatCalEventTime(iso, timeZone)}`;
+  return availability.kind === "not_yet_open"
+    ? `Check-in opens ${when}`
+    : `Check-in closed ${when}`;
+}
+
 /**
  * Why a check-in or undo failed. The API's other 4xx reasons are written for people ("Check-in is
  * closed outside the event window", "This event has been cancelled"), so they show as they are.
@@ -380,6 +444,60 @@ export function getCalEventCheckInErrorMessage(error: unknown): string {
     return message || "Something went wrong. Try again.";
   }
   return "Something went wrong. Try again.";
+}
+
+// A QR held in frame decodes many times a second. Same hold as the web's scanner.
+const RESCAN_HOLD_MS = 3000;
+
+/**
+ * Decides which scanned codes the scanner sends. iOS reports every code in frame on every frame,
+ * so one code goes out at a time: two tickets in view can't flood the API or answer out of order.
+ * A code isn't sent again until `holdMs` after its answer showed, so a ticket held up reads
+ * "Checked in" for a while before "Already checked in".
+ */
+export function createCalEventScanGate(
+  holdMs: number = RESCAN_HOLD_MS,
+  now: () => number = Date.now
+) {
+  let sending = false;
+  const answeredAt = new Map<string, number>();
+  return {
+    /** Whether to send this code now. A code taken is on its way until `settle(code)`. */
+    take(code: string): boolean {
+      if (sending) return false;
+      const at = answeredAt.get(code);
+      if (at !== undefined && now() - at < holdMs) return false;
+      sending = true;
+      return true;
+    },
+    /** The taken code's answer is showing: the next code may go, and this one waits out its hold. */
+    settle(code: string): void {
+      sending = false;
+      answeredAt.set(code, now());
+    },
+  };
+}
+
+/** What the scanner says for a code that isn't a check-in ticket for this event. */
+export const CAL_EVENT_INVALID_TICKET_MESSAGE = "Not a valid ticket for this event";
+
+/**
+ * Whether a scanned code is worth sending. The API answers a token outside 1–256 characters with
+ * a validation 400 written for developers; no ticket is that long, so the scanner says so itself.
+ */
+export function isCalEventCheckInTokenShaped(code: string): boolean {
+  return code.length >= 1 && code.length <= 256;
+}
+
+/**
+ * Why a scanned ticket checked no one in. A forged ticket and one for another event get the same
+ * 404 on purpose; anything else reads as it does for a tap.
+ */
+export function getCalEventTicketCheckInErrorMessage(error: unknown): string {
+  if (error instanceof ApiRequestError && error.status === 404) {
+    return CAL_EVENT_INVALID_TICKET_MESSAGE;
+  }
+  return getCalEventCheckInErrorMessage(error);
 }
 
 /** The page with one guest checked in at `checkedInAt`, or unchecked when it is null. */

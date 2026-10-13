@@ -50,6 +50,12 @@ function RootLayoutContent() {
   const content = isAuthenticated ? (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {/* A sheet over the tab bar, like the app's other modals. As a fullScreenModal, iOS kept
+          it on screen after Done, swallowing every tap. */}
+      <Stack.Screen
+        name="event-check-in-scanner"
+        options={{ presentation: "modal", headerShown: false }}
+      />
       <Stack.Screen
         name="profile-sheet"
         options={{
