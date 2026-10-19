@@ -36,8 +36,12 @@ export function useCreateCalEventFlow(): { startCreate: () => void; picker: Reac
   const { isWebSession, oauthScope, logout } = useAuth();
   const needsReauth = needsSignInAgainForCalEvents({ isWebSession, oauthScope });
   const { data: userProfile } = useUserProfile();
-  const { data: teams = [] } = useTeams({ enabled: !needsReauth });
-  const profileTeams = getCalEventsProfileTeams(teams);
+  const {
+    data: teamsData,
+    isLoadingError: teamsLoadError,
+    refetch: refetchTeams,
+  } = useTeams({ enabled: !needsReauth });
+  const profileTeams = getCalEventsProfileTeams(teamsData ?? []);
   const personalName = userProfile?.name || userProfile?.username || "Personal";
 
   const openCreate = (team: Team | null) => {
@@ -59,6 +63,25 @@ export function useCreateCalEventFlow(): { startCreate: () => void; picker: Reac
   };
 
   const startCreate = () => {
+    // Teams that haven't loaded would pass for having none, landing a team event as a personal
+    // draft with no cue: say so, and let the user retry or knowingly create a personal one.
+    if (!needsReauth && teamsData === undefined) {
+      const createPersonal = { text: "Create personal event", onPress: () => openCreate(null) };
+      if (teamsLoadError) {
+        Alert.alert("Couldn't load your teams", "Retry to create the event on a team.", [
+          { text: "Cancel", style: "cancel" },
+          { text: "Retry", onPress: () => void refetchTeams() },
+          createPersonal,
+        ]);
+      } else {
+        Alert.alert(
+          "Still loading your teams",
+          "To create the event on a team, try again once they load.",
+          [{ text: "Cancel", style: "cancel" }, createPersonal]
+        );
+      }
+      return;
+    }
     if (profileTeams.length === 0) {
       openCreate(null);
       return;
