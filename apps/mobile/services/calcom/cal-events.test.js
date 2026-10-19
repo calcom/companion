@@ -210,13 +210,20 @@ describe("event media and locations", () => {
     );
   });
 
-  test("resolves a person's photo to its URL", async () => {
+  test("uploads a person's photo as multipart and resolves to its URL", async () => {
     mockMakeRequest.mockResolvedValue({
       status: "success",
       data: { avatarUrl: "https://x/a.jpg" },
     });
     await expect(uploadCalEventPersonAvatar("event-uuid", file)).resolves.toBe("https://x/a.jpg");
-    expect(mockMakeRequest.mock.calls[0][0]).toBe("/events/event-uuid/person-avatar");
+    const [endpoint, options] = mockMakeRequest.mock.calls[0];
+    expect(endpoint).toBe("/events/event-uuid/person-avatar");
+    expect(options.method).toBe("POST");
+    expect(options.headers).toBeUndefined();
+    expect(options.body).toBeInstanceOf(FormData);
+    expect(appendSpy).toHaveBeenCalledTimes(1);
+    expect(appendSpy).toHaveBeenCalledWith("file", file);
+    expect(appendSpy.mock.contexts[0]).toBe(options.body);
   });
 
   test("reorders co-hosts with every id", async () => {
