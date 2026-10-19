@@ -7,6 +7,7 @@ import { type ReactNode, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -200,6 +201,8 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       showInfoAlert("Error", "Please fix the form errors before saving.");
       return;
     }
+    // The save sends what the form holds now and closes on success, so later edits would be lost.
+    Keyboard.dismiss();
     setSaving(true);
     // A promise chain, not try/catch: the React Compiler can't compile conditionals in a try.
     persist().then(onSaved, (error) => {
@@ -690,9 +693,12 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       <ScrollView
         ref={scrollRef}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 48, gap: 24 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 48 }}
       >
-        {tabContent[tab]}
+        {/* Read-only while saving; the list itself still scrolls. */}
+        <View pointerEvents={saving ? "none" : "auto"} style={{ gap: 24 }}>
+          {tabContent[tab]}
+        </View>
       </ScrollView>
 
       <WallDateTimePicker
