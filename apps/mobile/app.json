@@ -67,6 +67,14 @@
       "expo-web-browser",
       "expo-image",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Cal.com to access your photos to add a cover or speaker photos to your events.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#ffffff",

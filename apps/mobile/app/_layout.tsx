@@ -156,6 +156,7 @@ function RootLayoutContent() {
           presentation: Platform.OS === "ios" ? "modal" : "containedModal",
         }}
       />
+      <Stack.Screen name="edit-cal-event" options={{ headerShown: false }} />
       <Stack.Screen
         name="mark-no-show"
         options={{

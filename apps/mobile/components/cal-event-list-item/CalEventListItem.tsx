@@ -12,6 +12,7 @@ import {
 import { Text as MenuText } from "@/components/ui/text";
 import { getColors } from "@/constants/colors";
 import type { CalEvent } from "@/services/calcom";
+import { canEditCalEvent } from "@/utils/cal-event-edit";
 import {
   CAL_EVENT_STATUS_LABELS,
   canDeleteCalEvent,
@@ -29,6 +30,7 @@ import { getAvatarUrl } from "@/utils/getAvatarUrl";
 export interface CalEventActions {
   onPress: (event: CalEvent) => void;
   onOpenPage: (event: CalEvent) => void;
+  onEdit: (event: CalEvent) => void;
   onEditOnWeb: (event: CalEvent) => void;
   onCopyLink: (event: CalEvent) => void;
   onShare: (event: CalEvent) => void;
@@ -54,6 +56,7 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
   const host = event.hosts[0];
   const extraHosts = event.hosts.length - 1;
   const canManage = canManageCalEventLifecycle(event, viewerId);
+  const canEdit = canEditCalEvent(event, viewerId);
   const { canViewPage, canShare } = getCalEventLinkActions(event.status);
   const menuIconColor = isDark ? "#E5E5EA" : "#374151";
 
@@ -206,15 +209,20 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
                 <MenuText>Open event page</MenuText>
               </DropdownMenuItem>
             ) : null}
-            <DropdownMenuItem onPress={() => actions.onEditOnWeb(event)}>
-              <Ionicons
-                name="pencil-outline"
-                size={18}
-                color={menuIconColor}
-                style={{ marginRight: 8 }}
-              />
-              <MenuText>Edit on web</MenuText>
-            </DropdownMenuItem>
+            {/* Co-hosts can't edit natively, but the web still lets them change some fields. */}
+            {event.status !== "cancelled" ? (
+              <DropdownMenuItem
+                onPress={() => (canEdit ? actions.onEdit(event) : actions.onEditOnWeb(event))}
+              >
+                <Ionicons
+                  name="pencil-outline"
+                  size={18}
+                  color={menuIconColor}
+                  style={{ marginRight: 8 }}
+                />
+                <MenuText>{canEdit ? "Edit" : "Edit on web"}</MenuText>
+              </DropdownMenuItem>
+            ) : null}
             {canShare ? (
               <>
                 <DropdownMenuItem onPress={() => actions.onCopyLink(event)}>
