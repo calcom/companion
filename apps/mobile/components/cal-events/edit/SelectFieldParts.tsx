@@ -47,7 +47,7 @@ export function SelectFieldFrame({
   );
 }
 
-/** A select that can't change: its value, dimmed, without a menu. */
+/** A select that can't change: its value, dimmed, without a menu or chevron. */
 export function DisabledSelectBox({ label, text }: { label: string; text: string }) {
   return (
     <View
@@ -58,13 +58,22 @@ export function DisabledSelectBox({ label, text }: { label: string; text: string
       accessibilityState={{ disabled: true }}
       style={{ opacity: 0.5 }}
     >
-      <SelectBox text={text} />
+      <SelectBox text={text} chevron={false} />
     </View>
   );
 }
 
 /** The closed select, bordered like the web's select triggers. */
-export function SelectBox({ text, swatches }: { text: string; swatches?: readonly string[] }) {
+export function SelectBox({
+  text,
+  swatches,
+  chevron = true,
+}: {
+  text: string;
+  swatches?: readonly string[];
+  /** The expand chevron, left out when the select can't open. */
+  chevron?: boolean;
+}) {
   const theme = useEditTheme();
   return (
     <View
@@ -84,7 +93,9 @@ export function SelectBox({ text, swatches }: { text: string; swatches?: readonl
       <Text style={{ flex: 1, color: theme.text, fontSize: 16 }} numberOfLines={1}>
         {text}
       </Text>
-      <Ionicons name="chevron-expand-outline" size={18} color={theme.textSecondary} />
+      {chevron ? (
+        <Ionicons name="chevron-expand-outline" size={18} color={theme.textSecondary} />
+      ) : null}
     </View>
   );
 }
