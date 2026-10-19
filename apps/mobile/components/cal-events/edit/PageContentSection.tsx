@@ -364,12 +364,18 @@ function ScheduleItemSheet({
     }));
 
   // An empty time takes the picker's first value right away, so closing it without scrolling
-  // keeps what it showed.
+  // keeps what it showed. An end needs a start, as in the API: opening End first sets the start
+  // too, and the end picker's minimum follows from it.
   const openPicker = (target: "start" | "end") => {
     if (target === "start" && !start && eventStartWallTime) changeStart(eventStartWallTime);
     if (target === "end" && !end) {
       const from = start ?? eventStartWallTime;
-      if (from) update({ endWallTime: addMillisecondsToWallTime(from, DEFAULT_ITEM_DURATION_MS) });
+      if (from) {
+        update({
+          startWallTime: from,
+          endWallTime: addMillisecondsToWallTime(from, DEFAULT_ITEM_DURATION_MS),
+        });
+      }
     }
     setPicker({ target, open: true });
   };
