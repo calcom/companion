@@ -29,6 +29,7 @@ import {
 } from "@/utils/cal-event-create";
 import {
   canManageCalEventLifecycle,
+  formatCalEventPrice,
   getCalEventPriceDecimals,
   isPaidCalEvent,
 } from "@/utils/cal-events";
@@ -131,6 +132,74 @@ export const DEFAULT_CAL_EVENT_BACKGROUND: CalEventBackground = {
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
+/** The currencies Cal Pay charges in (`packages/lib/currency-options.ts`), as the API takes them. */
+export const CAL_EVENT_CURRENCIES = [
+  "usd",
+  "eur",
+  "gbp",
+  "cad",
+  "aud",
+  "chf",
+  "nzd",
+  "jpy",
+  "brl",
+  "mxn",
+  "inr",
+  "sgd",
+  "hkd",
+  "dkk",
+  "nok",
+  "sek",
+  "pln",
+  "czk",
+  "huf",
+  "ron",
+  "bgn",
+  "krw",
+  "thb",
+  "php",
+  "myr",
+  "idr",
+  "try",
+  "zar",
+  "aed",
+  "cop",
+].map((value) => ({ value, label: value.toUpperCase() }));
+
+/** Cal Pay's minimum charge per currency, in its main unit (`cal-payments-minimum-charge.ts`). */
+const CAL_PAY_MINIMUM_CHARGES: Record<string, number> = {
+  usd: 1,
+  eur: 1,
+  gbp: 1,
+  chf: 1,
+  cad: 1.5,
+  sgd: 1.5,
+  aud: 2,
+  nzd: 2,
+  bgn: 2,
+  pln: 4,
+  ron: 5,
+  myr: 5,
+  brl: 6,
+  dkk: 7,
+  hkd: 8,
+  nok: 11,
+  sek: 11,
+  mxn: 20,
+  zar: 20,
+  czk: 24,
+  thb: 35,
+  try: 35,
+  aed: 4,
+  php: 60,
+  inr: 100,
+  jpy: 150,
+  huf: 400,
+  krw: 1400,
+  cop: 4500,
+  idr: 16000,
+};
+
 export const CAL_EVENT_CUSTOM_FIELD_TYPES: {
   value: CalEventCustomFieldType;
   label: string;
@@ -185,6 +254,17 @@ export interface CalEventEditFormValues extends Omit<CreateCalEventFormValues, "
   showOrganizerEmail: boolean;
   /** Empty = the 10-minute default. */
   paymentTimeoutMinutes: string;
+  /** The Payment tab's "Paid event" toggle. */
+  paymentEnabled: boolean;
+  /** An event without locations has one price, in the currency's main unit ("15.50"). */
+  price: string;
+  /** Lowercase, as Cal Pay takes it. */
+  currency: string;
+  /**
+   * Prices typed in the Payment tab, by location id. A location missing here shows its saved
+   * price. Locations change outside the form, so a save compares these with the saved ones.
+   */
+  locationPrices: Record<string, CalEventPriceValues>;
   registrationFields: CalEventRegistrationField[];
   lineupTitle: string;
   lineupPeople: CalEventLineupPerson[];
@@ -217,6 +297,9 @@ export function buildEditFormValues(event: CalEvent): CalEventEditFormValues {
     showOrganizerEmail: event.showOrganizerEmail ?? false,
     paymentTimeoutMinutes:
       event.paymentTimeoutMinutes == null ? "" : String(event.paymentTimeoutMinutes),
+    paymentEnabled: isPaidCalEvent(event),
+    ...calEventPriceValues(event.price, event.currency),
+    locationPrices: {},
     registrationFields: event.registrationFields ?? [],
     lineupTitle: event.lineup?.title ?? "",
     lineupPeople: event.lineup?.people ?? [],
@@ -292,7 +375,7 @@ const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringif
 export function buildCalEventUpdateInput(
   initial: CalEventEditFormValues,
   current: CalEventEditFormValues,
-  event: Pick<CalEvent, "publishedAt">
+  event: Pick<CalEvent, "publishedAt" | "price" | "currency" | "locations">
 ): UpdateCalEventInput {
   const input: UpdateCalEventInput = {};
   const published = event.publishedAt !== null;
@@ -340,9 +423,25 @@ export function buildCalEventUpdateInput(
   if (current.showPresentedBy !== initial.showPresentedBy) {
     input.showPresentedBy = current.showPresentedBy;
   }
-  const timeout = current.paymentTimeoutMinutes.trim();
-  if (timeout !== initial.paymentTimeoutMinutes.trim()) {
+  // Like the web: turning payments off clears the deadline, so a paid event starts over from
+  // the default when it's turned back on.
+  const timeoutOf = (values: CalEventEditFormValues) =>
+    values.paymentEnabled ? values.paymentTimeoutMinutes.trim() : "";
+  const timeout = timeoutOf(current);
+  if (timeout !== timeoutOf(initial)) {
     input.paymentTimeoutMinutes = timeout ? Number(timeout) : null;
+  }
+  // The event-level price is only for an event without locations (the server rejects it on one
+  // with locations, which is priced per location: buildCalEventLocationPriceUpdates).
+  if (getAdmissionLocations(event.locations).length === 0) {
+    const price = current.paymentEnabled ? toMinorUnits(current.price, current.currency) : null;
+    if (
+      price !== (event.price || null) ||
+      (price !== null && current.currency !== (event.currency ?? "").toLowerCase())
+    ) {
+      input.price = price;
+      if (price !== null) input.currency = current.currency;
+    }
   }
 
   if (!sameJson(current.hostUserIds, initial.hostUserIds)) {
@@ -371,6 +470,9 @@ export type CalEventEditErrorKey =
   | "slug"
   | "capacity"
   | "paymentTimeoutMinutes"
+  | "price"
+  | "locationPrices"
+  | "requiresApproval"
   | "liveStreams"
   | "background"
   | "lineup"
@@ -431,7 +533,7 @@ export function getRegistrationFieldsError(fields: CalEventRegistrationField[]):
 export function getEditCalEventErrors(
   values: CalEventEditFormValues,
   initial: CalEventEditFormValues,
-  event: Pick<CalEvent, "publishedAt" | "confirmedCount">,
+  event: Pick<CalEvent, "publishedAt" | "confirmedCount" | "locations" | "paymentsEnabled">,
   now: Date = new Date()
 ): CalEventEditErrors {
   const errors: CalEventEditErrors = {};
@@ -478,7 +580,10 @@ export function getEditCalEventErrors(
     }
   }
 
+  const paymentErrors = event.paymentsEnabled ? getPaymentErrors(values, event.locations) : {};
+  Object.assign(errors, paymentErrors);
   if (
+    values.paymentEnabled &&
     values.paymentTimeoutMinutes.trim() &&
     !isWholeNumberIn(
       values.paymentTimeoutMinutes,
@@ -521,6 +626,146 @@ export function getEditCalEventErrors(
   if (fieldsError) errors.registrationFields = fieldsError;
 
   return errors;
+}
+
+/** Rows of the Payment tab: the locations a guest picks at registration. */
+export function getAdmissionLocations(locations: CalEventLocation[]): CalEventLocation[] {
+  return locations.filter((location) => location.type !== "unknown");
+}
+
+/** A price as typed: the amount in the currency's main unit (empty = free), and the currency. */
+export interface CalEventPriceValues {
+  price: string;
+  currency: string;
+}
+
+/** The fields for a saved price, in the smallest unit. */
+export function calEventPriceValues(
+  price: number | null | undefined,
+  currency: string | null | undefined
+): CalEventPriceValues {
+  const code = (currency || "usd").toLowerCase();
+  return {
+    price: price ? String(price / 10 ** getCalEventPriceDecimals(code)) : "",
+    currency: code,
+  };
+}
+
+/** A typed price in the currency's smallest unit; null when empty. Validate it first. */
+function toMinorUnits(price: string, currency: string): number | null {
+  const trimmed = price.trim();
+  if (!trimmed) return null;
+  return Math.round(Number(trimmed) * 10 ** getCalEventPriceDecimals(currency));
+}
+
+/** "$1.00": Cal Pay's minimum charge in the currency, or null when it has none. */
+export function formatCalPayMinimumCharge(currency: string): string | null {
+  const minimum = CAL_PAY_MINIMUM_CHARGES[currency.toLowerCase()];
+  if (minimum === undefined) return null;
+  return formatCalEventPrice(
+    Math.round(minimum * 10 ** getCalEventPriceDecimals(currency)),
+    currency
+  );
+}
+
+/**
+ * A typed price's problem, if any: the web's checks plus Cal Pay's minimum charge, which the web
+ * shows under the field and the server enforces. An empty price is free and has none.
+ */
+export function getCalEventPriceError({ price, currency }: CalEventPriceValues): string | null {
+  const trimmed = price.trim();
+  if (!trimmed) return null;
+  if (!CAL_EVENT_CURRENCIES.some((option) => option.value === currency)) {
+    return "Pick a currency";
+  }
+  const amount = Number(trimmed);
+  if (!/^\d+(\.\d+)?$/.test(trimmed) || !Number.isFinite(amount) || amount <= 0) {
+    return "Enter a price like 15 or 15.50";
+  }
+  const digits = getCalEventPriceDecimals(currency);
+  const scaled = amount * 10 ** digits;
+  if (Math.abs(scaled - Math.round(scaled)) > 1e-6) {
+    return digits === 0
+      ? "This currency does not support decimals — enter a whole number."
+      : "Enter a price like 15 or 15.50";
+  }
+  return getCalPayMinimumChargeError({ price, currency });
+}
+
+/** The web's live error under a price below Cal Pay's minimum charge for its currency. */
+export function getCalPayMinimumChargeError({
+  price,
+  currency,
+}: CalEventPriceValues): string | null {
+  const amount = Number(price.trim());
+  const minimum = CAL_PAY_MINIMUM_CHARGES[currency];
+  if (!price.trim() || !Number.isFinite(amount) || minimum === undefined || amount >= minimum) {
+    return null;
+  }
+  return `Price is below the minimum charge amount of ${formatCalPayMinimumCharge(currency)} for this currency.`;
+}
+
+/** What a location's Payment tab row holds: what was typed, or its saved price. */
+export function calEventLocationPriceValues(
+  values: Pick<CalEventEditFormValues, "locationPrices">,
+  location: CalEventLocation
+): CalEventPriceValues {
+  return (
+    (location.id ? values.locationPrices[location.id] : undefined) ??
+    calEventPriceValues(location.price, location.currency)
+  );
+}
+
+function getPaymentErrors(
+  values: CalEventEditFormValues,
+  locations: CalEventLocation[]
+): CalEventEditErrors {
+  const errors: CalEventEditErrors = {};
+  if (values.paymentEnabled && values.waitlistEnabled && values.requiresApproval) {
+    errors.requiresApproval = "Paid waitlists cannot require approval.";
+  }
+  if (!values.paymentEnabled) return errors;
+  const admission = getAdmissionLocations(locations);
+  if (admission.length === 0) {
+    if (!values.price.trim()) errors.price = "Enter a price for your paid event.";
+    else {
+      const error = getCalEventPriceError(values);
+      if (error) errors.price = error;
+    }
+    return errors;
+  }
+  const rows = admission.map((location) => calEventLocationPriceValues(values, location));
+  const rowError = rows.map(getCalEventPriceError).find(Boolean);
+  if (rowError) errors.locationPrices = rowError;
+  else if (!rows.some((row) => row.price.trim())) {
+    errors.locationPrices = "Set a price on at least one location, or turn off payments.";
+  }
+  return errors;
+}
+
+/**
+ * The location PATCHes a save sends for the Payment tab: each location whose price or currency
+ * differs from its saved one. Turning payments off makes every location free.
+ */
+export function buildCalEventLocationPriceUpdates(
+  values: Pick<CalEventEditFormValues, "paymentEnabled" | "locationPrices">,
+  locations: CalEventLocation[]
+): { locationId: string; patch: UpdateCalEventLocationInput }[] {
+  const updates: { locationId: string; patch: UpdateCalEventLocationInput }[] = [];
+  for (const location of getAdmissionLocations(locations)) {
+    if (!location.id || location.type === "unknown") continue;
+    const row = calEventLocationPriceValues(values, location);
+    const price = values.paymentEnabled ? toMinorUnits(row.price, row.currency) : null;
+    const changed =
+      price !== (location.price || null) ||
+      (price !== null && row.currency !== (location.currency ?? "").toLowerCase());
+    if (!changed) continue;
+    updates.push({
+      locationId: location.id,
+      patch: { type: location.type, price, ...(price !== null ? { currency: row.currency } : {}) },
+    });
+  }
+  return updates;
 }
 
 function getScheduleError(values: CalEventEditFormValues): string | null {
@@ -613,31 +858,18 @@ export const CAL_EVENT_LOCATION_LABEL_MAX_LENGTH = 100;
 export type EditableCalEventLocation = Exclude<CalEventLocation, { type: "unknown" }>;
 
 /** The location sheet's fields, as typed. */
-export interface CalEventLocationFormValues {
+export interface CalEventLocationFormValues extends CalEventPriceValues {
   kind: EditableCalEventLocation["type"];
   /** The address or link; conferencing has none to type. */
   value: string;
   label: string;
   capacity: string;
-  /** In the currency's main unit ("15.50"); empty = free. */
-  price: string;
-  currency: string;
 }
 
 /** Adding takes only an address or a link. */
 export type AddCalEventLocationFormValues = CalEventLocationFormValues & {
   kind: "address" | "link";
 };
-
-/** Decimal places of the currency's smallest unit, or null for a malformed code. */
-function currencyFractionDigits(currency: string): number | null {
-  try {
-    new Intl.NumberFormat("en-US", { style: "currency", currency });
-  } catch {
-    return null;
-  }
-  return getCalEventPriceDecimals(currency);
-}
 
 /**
  * The sheet's first problem, if any. One address per event; links can repeat. `others` are the
@@ -663,16 +895,7 @@ export function getCalEventLocationError(
   if (values.capacity.trim() && !isWholeNumberIn(values.capacity, 1, CAL_EVENT_MAX_CAPACITY)) {
     return `Seats must be a number from 1 to ${CAL_EVENT_MAX_CAPACITY}`;
   }
-  if (values.price.trim()) {
-    const digits = currencyFractionDigits(values.currency.trim().toUpperCase());
-    if (digits === null) return "Enter a currency code like USD";
-    const amount = Number(values.price.trim());
-    const minor = Math.round(amount * 10 ** digits);
-    if (!Number.isFinite(amount) || minor < 1 || Math.abs(minor - amount * 10 ** digits) > 1e-6) {
-      return "Enter a price like 15 or 15.50";
-    }
-  }
-  return null;
+  return getCalEventPriceError(values);
 }
 
 /** The POST body; call only once getCalEventLocationError passes. */
@@ -681,17 +904,11 @@ export function buildAddCalEventLocationInput(
 ): AddCalEventLocationInput {
   const label = values.label.trim();
   const capacity = values.capacity.trim();
-  const price = values.price.trim();
-  const currency = values.currency.trim().toUpperCase();
+  const price = toMinorUnits(values.price, values.currency);
   const details = {
     ...(label ? { label } : {}),
     ...(capacity ? { capacity: Number(capacity) } : {}),
-    ...(price
-      ? {
-          price: Math.round(Number(price) * 10 ** (currencyFractionDigits(currency) ?? 2)),
-          currency,
-        }
-      : {}),
+    ...(price !== null ? { price, currency: values.currency } : {}),
   };
   if (values.kind === "address") {
     return { type: "address", address: values.value.trim(), ...details };
@@ -708,7 +925,6 @@ export function buildAddCalEventLocationInput(
 export function calEventLocationFormValues(
   location: EditableCalEventLocation
 ): CalEventLocationFormValues {
-  const currency = (location.currency || "usd").toUpperCase();
   return {
     kind: location.type,
     value:
@@ -719,8 +935,7 @@ export function calEventLocationFormValues(
           : "",
     label: location.label ?? "",
     capacity: location.capacity == null ? "" : String(location.capacity),
-    price: location.price ? String(location.price / 10 ** getCalEventPriceDecimals(currency)) : "",
-    currency,
+    ...calEventPriceValues(location.price, location.currency),
   };
 }
 
@@ -744,16 +959,13 @@ export function buildUpdateCalEventLocationInput(
   if (label !== (location.label ?? null)) patch.label = label;
   const capacity = values.capacity.trim() ? Number(values.capacity.trim()) : null;
   if (capacity !== (location.capacity ?? null)) patch.capacity = capacity;
-  const currency = values.currency.trim().toUpperCase();
-  const price = values.price.trim()
-    ? Math.round(Number(values.price.trim()) * 10 ** (currencyFractionDigits(currency) ?? 2))
-    : null;
+  const price = toMinorUnits(values.price, values.currency);
   const priceChanged =
     price !== (location.price || null) ||
-    (price !== null && currency !== (location.currency ?? "").toUpperCase());
+    (price !== null && values.currency !== (location.currency ?? "").toLowerCase());
   if (priceChanged) {
     patch.price = price;
-    if (price !== null) patch.currency = currency;
+    if (price !== null) patch.currency = values.currency;
   }
   return Object.keys(patch).length > 1 ? patch : null;
 }

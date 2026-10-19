@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useEditTheme } from "./EditControls";
 import {
+  DisabledSelectBox,
   SelectBox,
   SelectFieldFrame,
   type SelectFieldProps,
@@ -27,11 +28,19 @@ export function SelectField<T extends string | null>({
   placeholder = "Select",
   swatches,
   helper,
+  disabled = false,
 }: SelectFieldProps<T>) {
   const theme = useEditTheme();
   const insets = useSafeAreaInsets();
   const selected = options.find((option) => option.value === value);
   const text = selected?.label ?? placeholder;
+  if (disabled) {
+    return (
+      <SelectFieldFrame label={label} helper={helper}>
+        <DisabledSelectBox label={label} text={text} />
+      </SelectFieldFrame>
+    );
+  }
   return (
     <SelectFieldFrame label={label} helper={helper}>
       <DropdownMenu>

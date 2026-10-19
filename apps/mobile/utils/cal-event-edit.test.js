@@ -8,6 +8,7 @@ jest.mock("@/utils/region", () => ({
 
 const {
   buildAddCalEventLocationInput,
+  buildCalEventLocationPriceUpdates,
   buildCalEventUpdateInput,
   buildEditFormValues,
   buildUpdateCalEventLocationInput,
@@ -67,6 +68,7 @@ function event(overrides = {}) {
     showOrganizerEmail: false,
     showPresentedBy: false,
     paymentTimeoutMinutes: null,
+    paymentsEnabled: true,
     ...overrides,
   };
 }
@@ -258,8 +260,11 @@ describe("getEditCalEventErrors", () => {
   });
 
   test("payment timeout is 10 to 10080 minutes or empty", () => {
-    expect(errors({ paymentTimeoutMinutes: "5" }).paymentTimeoutMinutes).toBeDefined();
-    expect(errors({ paymentTimeoutMinutes: "30" }).paymentTimeoutMinutes).toBeUndefined();
+    const paid = { paymentEnabled: true, locationPrices: { l1: { price: "10", currency: "usd" } } };
+    expect(errors({ ...paid, paymentTimeoutMinutes: "5" }).paymentTimeoutMinutes).toBeDefined();
+    expect(errors({ ...paid, paymentTimeoutMinutes: "30" }).paymentTimeoutMinutes).toBeUndefined();
+    // Hidden with the toggle off, so not checked.
+    expect(errors({ paymentTimeoutMinutes: "5" }).paymentTimeoutMinutes).toBeUndefined();
   });
 
   test("live streams are links, at most five", () => {
@@ -370,7 +375,7 @@ describe("adding a location", () => {
     label: "",
     capacity: "",
     price: "",
-    currency: "USD",
+    currency: "usd",
     ...patch,
   });
   const address = [{ id: "l1", type: "address", address: "Calle Mayor 1" }];
@@ -387,6 +392,11 @@ describe("adding a location", () => {
     expect(getCalEventLocationError(form({ capacity: "0" }), [])).toMatch(/Seats/);
     expect(getCalEventLocationError(form({ price: "1.234" }), [])).toMatch(/price/);
     expect(getCalEventLocationError(form({ price: "5", currency: "??" }), [])).toMatch(/currency/);
+    // Only Cal Pay's currencies, and at least its minimum charge.
+    expect(getCalEventLocationError(form({ price: "5", currency: "isk" }), [])).toMatch(/currency/);
+    expect(getCalEventLocationError(form({ price: "0.5" }), [])).toBe(
+      "Price is below the minimum charge amount of $1.00 for this currency."
+    );
   });
 
   test("builds the body with the price in the smallest unit", () => {
@@ -398,18 +408,14 @@ describe("adding a location", () => {
       label: "Stream",
       capacity: 20,
       price: 1550,
-      currency: "USD",
+      currency: "usd",
     });
     expect(buildAddCalEventLocationInput(form({ price: "1500", currency: "jpy" })).price).toBe(
       1500
     );
-    // Intl gives ISK no decimals and KWD three; Cal.com stores both in hundredths.
-    expect(buildAddCalEventLocationInput(form({ price: "150", currency: "isk" })).price).toBe(
-      15000
+    expect(getCalEventLocationError(form({ price: "1500.5", currency: "jpy" }), [])).toMatch(
+      /whole number/
     );
-    expect(buildAddCalEventLocationInput(form({ price: "1.5", currency: "kwd" })).price).toBe(150);
-    expect(getCalEventLocationError(form({ price: "1.25", currency: "kwd" }), [])).toBeNull();
-    expect(getCalEventLocationError(form({ price: "15.5", currency: "jpy" }), [])).toMatch(/price/);
   });
 
   test("adds a price that reads back as it was typed", () => {
@@ -417,9 +423,8 @@ describe("adding a location", () => {
       const body = buildAddCalEventLocationInput(form({ price, currency }));
       return formatCalEventPrice(body.price, body.currency);
     };
-    expect(shown("1500", "JPY")).toBe("¥1,500");
-    expect(shown("15.50", "EUR")).toBe("€15.50");
-    expect(shown("150", "ISK")).toMatch(/^ISK\s150$/);
+    expect(shown("1500", "jpy")).toBe("¥1,500");
+    expect(shown("15.50", "eur")).toBe("€15.50");
   });
 
   test("describes every kind of location", () => {
@@ -456,7 +461,7 @@ describe("editing a location", () => {
       label: "Stream",
       capacity: "20",
       price: "15.5",
-      currency: "EUR",
+      currency: "eur",
     });
     expect(calEventLocationFormValues({ ...link, price: 1500, currency: "jpy" }).price).toBe(
       "1500"
@@ -482,8 +487,10 @@ describe("editing a location", () => {
       price: null,
       capacity: null,
     });
-    expect(edit(link, { price: "20" })).toEqual({ type: "link", price: 2000, currency: "EUR" });
-    expect(edit(link, { currency: "usd" })).toEqual({ type: "link", price: 1550, currency: "USD" });
+    expect(edit(link, { price: "20" })).toEqual({ type: "link", price: 2000, currency: "eur" });
+    expect(edit(link, { currency: "usd" })).toEqual({ type: "link", price: 1550, currency: "usd" });
+    // A saved uppercase code is the same currency.
+    expect(edit({ ...link, currency: "EUR" }, {})).toBeNull();
   });
 
   test("checks the edited address against the other locations only", () => {
@@ -508,5 +515,106 @@ describe("editing a location", () => {
 describe("formatWallDateTime", () => {
   test("reads like the web editor's date-time trigger", () => {
     expect(formatWallDateTime("2027-01-15T16:00")).toBe("Jan 15, 2027 · 16:00");
+  });
+});
+
+describe("paid event", () => {
+  const streamOnly = (overrides = {}) =>
+    event({ locations: [], liveStreams: [{ url: "https://youtube.com/live/1" }], ...overrides });
+  const priced = (overrides = {}) =>
+    event({
+      locations: [
+        { id: "l1", type: "address", address: "Calle Mayor 1", price: 1500, currency: "eur" },
+        { id: "l2", type: "link", link: "https://zoom.us/j/1" },
+      ],
+      ...overrides,
+    });
+  const edit = (patch, source) => {
+    const initial = buildEditFormValues(source);
+    return buildCalEventUpdateInput(initial, { ...initial, ...patch }, source);
+  };
+  const errors = (patch, source) => {
+    const initial = buildEditFormValues(source);
+    return getEditCalEventErrors({ ...initial, ...patch }, initial, source, NOW);
+  };
+
+  test("the toggle starts on for an event-level or a location price", () => {
+    expect(buildEditFormValues(event()).paymentEnabled).toBe(false);
+    expect(buildEditFormValues(priced()).paymentEnabled).toBe(true);
+    const values = buildEditFormValues(streamOnly({ price: 1550, currency: "EUR" }));
+    expect(values).toMatchObject({ paymentEnabled: true, price: "15.5", currency: "eur" });
+  });
+
+  test("an event without locations sends its own price, and null when turned off", () => {
+    expect(edit({ paymentEnabled: true, price: "15", currency: "eur" }, streamOnly())).toEqual({
+      price: 1500,
+      currency: "eur",
+    });
+    const paid = streamOnly({ price: 1500, currency: "eur", paymentTimeoutMinutes: 30 });
+    expect(edit({}, paid)).toEqual({});
+    expect(edit({ currency: "gbp" }, paid)).toEqual({ price: 1500, currency: "gbp" });
+    // Off clears the deadline too, like the web.
+    expect(edit({ paymentEnabled: false, price: "" }, paid)).toEqual({
+      price: null,
+      paymentTimeoutMinutes: null,
+    });
+  });
+
+  test("an event with locations never sends an event-level price", () => {
+    expect(edit({ paymentEnabled: true, price: "15" }, event())).toEqual({});
+    expect(edit({ paymentEnabled: false }, priced({ price: 900, currency: "usd" }))).toEqual({});
+  });
+
+  test("location prices go to each changed location", () => {
+    const source = priced();
+    const initial = buildEditFormValues(source);
+    expect(buildCalEventLocationPriceUpdates(initial, source.locations)).toEqual([]);
+    expect(
+      buildCalEventLocationPriceUpdates(
+        { ...initial, locationPrices: { l2: { price: "7.5", currency: "usd" } } },
+        source.locations
+      )
+    ).toEqual([{ locationId: "l2", patch: { type: "link", price: 750, currency: "usd" } }]);
+    expect(
+      buildCalEventLocationPriceUpdates({ ...initial, paymentEnabled: false }, source.locations)
+    ).toEqual([{ locationId: "l1", patch: { type: "address", price: null } }]);
+    // One the API can't represent, or without an id, can't be patched.
+    const odd = [
+      { type: "unknown", location: "{}", price: 100 },
+      { type: "link", link: "x" },
+    ];
+    expect(buildCalEventLocationPriceUpdates({ ...initial, paymentEnabled: false }, odd)).toEqual(
+      []
+    );
+  });
+
+  test("a paid event needs a price, at least Cal Pay's minimum", () => {
+    expect(errors({ paymentEnabled: true }, streamOnly()).price).toBe(
+      "Enter a price for your paid event."
+    );
+    expect(errors({ paymentEnabled: true, price: "0.5" }, streamOnly()).price).toMatch(
+      /minimum charge amount of \$1\.00/
+    );
+    expect(
+      errors({ paymentEnabled: true, price: "150.5", currency: "jpy" }, streamOnly()).price
+    ).toMatch(/whole number/);
+    expect(errors({ paymentEnabled: true, price: "15" }, streamOnly())).toEqual({});
+    expect(errors({ paymentEnabled: true }, event()).locationPrices).toBe(
+      "Set a price on at least one location, or turn off payments."
+    );
+    expect(errors({}, priced())).toEqual({});
+    expect(
+      errors({ locationPrices: { l2: { price: "abc", currency: "usd" } } }, priced()).locationPrices
+    ).toMatch(/price like/);
+  });
+
+  test("a paid waitlist can't require approval", () => {
+    const blocked = { waitlistEnabled: true, requiresApproval: true };
+    expect(errors(blocked, priced()).requiresApproval).toBeDefined();
+    expect(errors(blocked, event()).requiresApproval).toBeUndefined();
+  });
+
+  test("nothing about payments is checked when they aren't available", () => {
+    expect(errors({ paymentEnabled: true }, streamOnly({ paymentsEnabled: false }))).toEqual({});
   });
 });

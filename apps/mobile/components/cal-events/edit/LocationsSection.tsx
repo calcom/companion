@@ -14,6 +14,7 @@ import {
   type AddCalEventLocationFormValues,
   buildAddCalEventLocationInput,
   buildUpdateCalEventLocationInput,
+  CAL_EVENT_CURRENCIES,
   CAL_EVENT_LOCATION_LABEL_MAX_LENGTH,
   type CalEventLocationFormValues,
   calEventLocationFormValues,
@@ -33,9 +34,10 @@ import {
   TextButton,
   useEditTheme,
 } from "./EditControls";
+import { SelectField } from "./SelectField";
 import { LiveStreamsField } from "./SetupFields";
 
-const LOCATION_TYPE_LABELS: Record<CalEventLocation["type"], string> = {
+export const LOCATION_TYPE_LABELS: Record<CalEventLocation["type"], string> = {
   address: "In person",
   link: "Link",
   integration: "Conferencing",
@@ -49,7 +51,7 @@ const EMPTY_LOCATION: AddCalEventLocationFormValues = {
   label: "",
   capacity: "",
   price: "",
-  currency: "USD",
+  currency: "usd",
 };
 
 /** The sheet: a new location (null) or a saved one, and its fields as typed. */
@@ -71,7 +73,7 @@ export function LocationsSection({
   onLiveStreamsChange,
   liveStreamsError,
 }: {
-  event: Pick<CalEvent, "uuid" | "locations" | "publishedAt" | "price">;
+  event: Pick<CalEvent, "uuid" | "locations" | "publishedAt" | "price" | "paymentsEnabled">;
   liveStreams: string[];
   onLiveStreamsChange: (liveStreams: string[]) => void;
   liveStreamsError?: string;
@@ -85,6 +87,8 @@ export function LocationsSection({
   const { mutate: updateLocation, isPending: isUpdating } = useUpdateCalEventLocation();
   const { mutate: removeLocation, isPending: isRemoving } = useRemoveCalEventLocation();
   const published = !!event.publishedAt;
+  // Without payments the server rejects a price, so the sheet doesn't offer one.
+  const paymentsEnabled = event.paymentsEnabled !== false;
 
   const hasAddress = locations.some((location) => location.type === "address");
   const removalLocked = isCalEventLocationRemovalLocked(event, locations);
@@ -353,29 +357,32 @@ export function LocationsSection({
               onChangeText={(capacity) => update({ capacity })}
               keyboardType="number-pad"
             />
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <View style={{ flex: 2 }}>
-                <EditTextField
-                  label="Price"
-                  placeholder="Free"
-                  value={values.price}
-                  onChangeText={(price) => update({ price })}
-                  keyboardType="decimal-pad"
-                  editable={!priceLocked}
-                />
+            {paymentsEnabled ? (
+              <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
+                <View style={{ flex: 3 }}>
+                  <EditTextField
+                    label="Price"
+                    placeholder="Free"
+                    value={values.price}
+                    onChangeText={(price) => update({ price: price.replace(",", ".") })}
+                    keyboardType="decimal-pad"
+                    editable={!priceLocked}
+                  />
+                </View>
+                <View style={{ flex: 2 }}>
+                  <SelectField
+                    label="Currency"
+                    options={CAL_EVENT_CURRENCIES}
+                    value={values.currency}
+                    onChange={(currency) => update({ currency })}
+                    disabled={priceLocked}
+                  />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <EditTextField
-                  label="Currency"
-                  value={values.currency}
-                  onChangeText={(currency) => update({ currency: currency.toUpperCase() })}
-                  autoCapitalize="none"
-                  maxLength={3}
-                  editable={!priceLocked}
-                />
-              </View>
-            </View>
-            {priceLocked ? <HintText>A published event's prices can't change.</HintText> : null}
+            ) : null}
+            {paymentsEnabled && priceLocked ? (
+              <HintText>A published event's prices can't change.</HintText>
+            ) : null}
             <ErrorText message={error} />
           </>
         ) : null}

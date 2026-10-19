@@ -150,9 +150,17 @@ export interface CalEventApi {
   hosts: CalEventHost[];
   /** Total seats; null = unlimited. */
   capacity: number | null;
-  /** Smallest currency unit; null = free. */
+  /**
+   * Smallest currency unit; null = free. Set only on an event without locations: one with
+   * locations is priced per location.
+   */
   price: number | null;
   currency: string | null;
+  /**
+   * Whether paid events are available (the `cal-events-payments` flag). When false, a price on the
+   * event or a location is rejected. Absent from servers that predate it.
+   */
+  paymentsEnabled?: boolean;
   cancellationReason: string | null;
   userId: number | null;
   teamId: number | null;
@@ -215,6 +223,10 @@ export interface UpdateCalEventInput {
   capacity?: number | null;
   waitlistEnabled?: boolean;
   paymentTimeoutMinutes?: number | null;
+  /** Smallest currency unit; null makes the event free. Only for an event without locations. */
+  price?: number | null;
+  /** Required with a price. */
+  currency?: string;
   requiresApproval?: boolean;
   showOrganizerEmail?: boolean;
   /** Locked once published. */

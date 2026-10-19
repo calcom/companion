@@ -3,6 +3,7 @@ import { accessibilityLabel, foregroundStyle, opacity } from "@expo/ui/swift-ui/
 import { StyleSheet, View } from "react-native";
 import { useEditTheme } from "./EditControls";
 import {
+  DisabledSelectBox,
   SelectBox,
   SelectFieldFrame,
   type SelectFieldProps,
@@ -23,10 +24,18 @@ export function SelectField<T extends string | null>({
   placeholder = "Select",
   swatches,
   helper,
+  disabled = false,
 }: SelectFieldProps<T>) {
   const theme = useEditTheme();
   const selected = options.find((option) => option.value === value);
   const text = selected?.label ?? placeholder;
+  if (disabled) {
+    return (
+      <SelectFieldFrame label={label} helper={helper}>
+        <DisabledSelectBox label={label} text={text} />
+      </SelectFieldFrame>
+    );
+  }
   return (
     <SelectFieldFrame label={label} helper={helper}>
       {/* React Native lays the select out; the menu only covers it to catch the tap. Hosting the

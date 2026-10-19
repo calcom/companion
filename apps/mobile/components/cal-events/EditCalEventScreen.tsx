@@ -23,11 +23,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Text as MenuText } from "@/components/ui/text";
-import { useCalEventCoverImage, useUpdateCalEvent } from "@/hooks";
+import {
+  useCalEventCoverImage,
+  useCalEventLocations,
+  useUpdateCalEvent,
+  useUpdateCalEventLocation,
+} from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showInfoAlert, showNotAvailableAlert, showSuccessAlert } from "@/utils/alerts";
 import { CAL_EVENT_NAME_MAX_LENGTH, minEndWallTime, moveStart } from "@/utils/cal-event-create";
 import {
+  buildCalEventLocationPriceUpdates,
   buildCalEventUpdateInput,
   buildEditFormValues,
   CAL_EVENT_CATEGORIES,
@@ -54,6 +60,7 @@ import {
 import {
   EditSection,
   EditTextField,
+  ErrorText,
   FieldLabel,
   HintText,
   SwitchRow,
@@ -61,6 +68,7 @@ import {
 } from "./edit/EditControls";
 import { LocationsSection } from "./edit/LocationsSection";
 import { PageContentSection } from "./edit/PageContentSection";
+import { PaymentSection } from "./edit/PaymentSection";
 import { CoHostsField, HostsField } from "./edit/PeopleFields";
 import { RegistrationQuestionsField } from "./edit/RegistrationQuestionsField";
 import { SelectField } from "./edit/SelectField";
@@ -116,6 +124,9 @@ const ERROR_TABS: Record<CalEventEditErrorKey, TabId> = {
   capacity: "capacity",
   registrationFields: "registration-form",
   paymentTimeoutMinutes: "payment",
+  price: "payment",
+  locationPrices: "payment",
+  requiresApproval: "privacy-security",
 };
 
 type MenuItem = {
@@ -160,6 +171,14 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const [saving, setSaving] = useState(false);
   const { mutateAsync: saveEvent } = useUpdateCalEvent();
   const { mutateAsync: saveCover } = useCalEventCoverImage();
+  const { mutateAsync: saveLocation } = useUpdateCalEventLocation();
+  // Locations change outside the form (the Locations tab applies them at once), so prices and
+  // rules follow the latest list.
+  const { data: fetchedLocations } = useCalEventLocations(event.uuid);
+  const locations = fetchedLocations ?? event.locations;
+  // Like the web, which hides the Payment tab when payments aren't available. A server that
+  // predates the flag doesn't send it.
+  const paymentsEnabled = event.paymentsEnabled !== false;
 
   const update = (patch: FormUpdate) =>
     setValues((current) => ({
@@ -169,11 +188,24 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
 
   const published = event.publishedAt !== null;
   const input = useMemo(
-    () => buildCalEventUpdateInput(initial, values, event),
-    [initial, values, event]
+    () => buildCalEventUpdateInput(initial, values, { ...event, locations }),
+    [initial, values, event, locations]
   );
-  const dirty = Object.keys(input).length > 0 || cover.kind !== "keep";
-  const allErrors = getEditCalEventErrors(values, initial, event);
+  const locationPrices = useMemo(
+    () => buildCalEventLocationPriceUpdates(values, locations),
+    [values, locations]
+  );
+  // A toggle turned on without a price sends nothing yet, but Save must still offer to check it.
+  const dirty =
+    Object.keys(input).length > 0 ||
+    locationPrices.length > 0 ||
+    values.paymentEnabled !== initial.paymentEnabled ||
+    cover.kind !== "keep";
+  const allErrors = getEditCalEventErrors(values, initial, {
+    ...event,
+    locations,
+    paymentsEnabled,
+  });
   // Like the web form: no messages until the first save, then they follow every change.
   const errors = submitted ? allErrors : {};
 
@@ -226,6 +258,11 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       // Saved: a retry after the PATCH below fails must not upload it again.
       setCover({ kind: "keep" });
     }
+    // Locations first, so the event is paid before a payment deadline is set on it. Each saved
+    // price then matches the form, so a retry skips it.
+    for (const { locationId, patch } of locationPrices) {
+      await saveLocation({ uuid: event.uuid, locationId, patch });
+    }
     if (Object.keys(input).length > 0) return saveEvent({ uuid: event.uuid, input });
     return null;
   };
@@ -238,6 +275,9 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
     actions.onPublish(event);
   };
 
+  // Like the web: a paid event can't have both a waitlist and approval, so each locks the other.
+  const waitlistBlocked = values.paymentEnabled && values.requiresApproval;
+  const approvalBlocked = values.paymentEnabled && values.waitlistEnabled;
   const status = getCalEventStatusColors(event.status, isDark);
   // A live event's start may have passed: the picker then still offers its own day.
   const today = todayStartWallTime(values.timeZone);
@@ -248,7 +288,8 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const publicUrl = getCalEventPublicUrl(values.slug.trim() || event.slug);
   const urlPrefix = getCalEventPublicUrl("").replace(/^https?:\/\//, "");
   const category = CAL_EVENT_CATEGORIES.find((option) => option.value === values.category);
-  const currentTab = TABS.find((item) => item.id === tab) ?? TABS[0];
+  const tabs = paymentsEnabled ? TABS : TABS.filter((item) => item.id !== "payment");
+  const currentTab = tabs.find((item) => item.id === tab) ?? tabs[0];
   const tabsWithErrors = new Set(
     (Object.keys(errors) as CalEventEditErrorKey[]).map((key) => ERROR_TABS[key])
   );
@@ -461,12 +502,14 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
         <SwitchRow
           label="Waitlist"
           hint={
-            values.capacityEnabled
-              ? "Let guests join a waitlist once the event is full."
-              : "Waitlist requires a capacity limit"
+            waitlistBlocked
+              ? "Turn off approval before enabling a waitlist for this paid event."
+              : values.capacityEnabled
+                ? "Let guests join a waitlist once the event is full."
+                : "Waitlist requires a capacity limit"
           }
           value={values.waitlistEnabled}
-          disabled={!values.capacityEnabled}
+          disabled={!values.capacityEnabled || waitlistBlocked}
           onValueChange={(waitlistEnabled) => update({ waitlistEnabled })}
         />
       </EditSection>
@@ -481,35 +524,31 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       </EditSection>
     ),
     payment: (
-      <EditSection title="Payment">
-        <HintText>
-          Prices are set per location: add a priced location in the Locations tab. An existing
-          location's price can't be changed.
-        </HintText>
-        <EditTextField
-          label="Payment deadline (minutes)"
-          hint="How long a guest's spot is held while they complete payment. After the deadline the spot is released. Leave empty to use the default (10 minutes)."
-          value={values.paymentTimeoutMinutes}
-          onChangeText={(text) => update({ paymentTimeoutMinutes: text.replace(/\D/g, "") })}
-          placeholder="10"
-          keyboardType="number-pad"
-          maxLength={5}
-          error={errors.paymentTimeoutMinutes}
-        />
-        <HintText>
-          Payments are processed with Cal Pay. If approval is required, guests pay only after the
-          host approves them.
-        </HintText>
-      </EditSection>
+      <PaymentSection
+        event={event}
+        locations={locations}
+        values={values}
+        onChange={update}
+        errors={errors}
+        showErrors={submitted}
+      />
     ),
     "privacy-security": (
       <EditSection title="Privacy & security">
-        <SwitchRow
-          label="Requires confirmation"
-          hint="Bookings wait for your approval before they're confirmed."
-          value={values.requiresApproval}
-          onValueChange={(requiresApproval) => update({ requiresApproval })}
-        />
+        <View style={{ gap: 6 }}>
+          <SwitchRow
+            label="Requires confirmation"
+            hint={
+              approvalBlocked
+                ? "Paid waitlists cannot require approval."
+                : "Bookings wait for your approval before they're confirmed."
+            }
+            value={values.requiresApproval}
+            disabled={approvalBlocked && !values.requiresApproval}
+            onValueChange={(requiresApproval) => update({ requiresApproval })}
+          />
+          <ErrorText message={errors.requiresApproval} />
+        </View>
         <SwitchRow
           label="Hide host's email"
           hint="Hide host's email address from event detail screen, email notifications, and calendar events."
@@ -666,7 +705,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
               className="w-56"
               align="end"
             >
-              {TABS.map((item) => {
+              {tabs.map((item) => {
                 const selected = item.id === tab;
                 return (
                   <DropdownMenuItem key={item.id} onPress={() => showTab(item.id)}>

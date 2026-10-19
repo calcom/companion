@@ -25,6 +25,8 @@ export interface SelectFieldProps<T extends string | null> {
   swatches?: readonly string[];
   /** Helper text under the select, such as the chosen option's description. */
   helper?: string;
+  /** Shows the value without opening a menu, such as a locked currency. */
+  disabled?: boolean;
 }
 
 export function SelectFieldFrame({
@@ -41,6 +43,20 @@ export function SelectFieldFrame({
       <FieldLabel label={label} />
       {children}
       {helper ? <HintText>{helper}</HintText> : null}
+    </View>
+  );
+}
+
+/** A select that can't change: its value, dimmed, without a menu. */
+export function DisabledSelectBox({ label, text }: { label: string; text: string }) {
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${label}, ${text}`}
+      accessibilityState={{ disabled: true }}
+      style={{ opacity: 0.5 }}
+    >
+      <SelectBox text={text} />
     </View>
   );
 }
