@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, jest, test } from "@jest/globals";
+import { afterEach, beforeEach, describe, expect, jest, test } from "@jest/globals";
 
 jest.mock("@/utils/region", () => ({
   getCalAppUrl: () => "https://app.example.test",
@@ -156,9 +156,17 @@ describe("updateCalEvent", () => {
 
 describe("event media and locations", () => {
   const file = { uri: "file:///cover.jpg", name: "cover.jpg", type: "image/jpeg" };
+  // Node's FormData stringifies React Native's { uri, name, type } file part, so .get("file")
+  // can't show it. Watch what gets appended instead.
+  let appendSpy;
 
   beforeEach(() => {
     mockMakeRequest.mockReset();
+    appendSpy = jest.spyOn(FormData.prototype, "append");
+  });
+
+  afterEach(() => {
+    appendSpy.mockRestore();
   });
 
   test("adds a location with a POST of that one location", async () => {
@@ -187,6 +195,9 @@ describe("event media and locations", () => {
     expect(options.method).toBe("POST");
     expect(options.headers).toBeUndefined();
     expect(options.body).toBeInstanceOf(FormData);
+    expect(appendSpy).toHaveBeenCalledTimes(1);
+    expect(appendSpy).toHaveBeenCalledWith("file", file);
+    expect(appendSpy.mock.contexts[0]).toBe(options.body);
   });
 
   test("removes the cover with a DELETE", async () => {
