@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import {
   splitWallTimeParts,
   utcFaceDateToWallTime,
+  wallTimeDiffMs,
   wallTimeToUtcFaceDate,
 } from "@/utils/wall-time";
 import type { WallDateTimePickerProps } from "./WallDateTimePicker.types";
@@ -41,7 +42,13 @@ export function WallDateTimePicker({
         onChange: (timeEvent, pickedTime) => {
           if (timeEvent.type === "set" && pickedTime) {
             const { timeOfDay } = splitWallTimeParts(utcFaceDateToWallTime(pickedTime));
-            latest.current.onChange(`${day}T${timeOfDay}`);
+            const picked = `${day}T${timeOfDay}`;
+            // Only the date dialog takes a minimum: an earlier time is held at it, where iOS's
+            // picker stops.
+            const earliest = latest.current.minWallTime;
+            latest.current.onChange(
+              earliest && wallTimeDiffMs(earliest, picked) < 0 ? earliest : picked
+            );
           }
           latest.current.onClose();
         },

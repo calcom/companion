@@ -59,6 +59,8 @@ const LINEUP_LABELS: Record<CalEventCategory, string> = {
 };
 
 const DEFAULT_ITEM_DURATION_MS = 30 * 60 * 1000;
+/** Like the web, an item ends at least a minute (the pickers' step) after it starts. */
+const MIN_ITEM_DURATION_MS = 60 * 1000;
 
 /**
  * Which list item a sheet edits (null index = a new one). `initial` stays set after closing so the
@@ -445,7 +447,11 @@ function ScheduleItemSheet({
               value={pickerValue}
               mode={singleDay ? "time" : "datetime"}
               minWallTime={
-                picker.target === "end" ? (start ?? undefined) : eventStartWallTime || undefined
+                picker.target === "end"
+                  ? start
+                    ? addMillisecondsToWallTime(start, MIN_ITEM_DURATION_MS)
+                    : undefined
+                  : eventStartWallTime || undefined
               }
               onChange={
                 picker.target === "end" ? (next) => update({ endWallTime: next }) : changeStart
