@@ -316,6 +316,18 @@ describe("canEditCalEvent", () => {
     expect(canEditCalEvent(event(), 1)).toBe(true);
     expect(canEditCalEvent(event(), 2)).toBe(false);
     expect(canEditCalEvent(event({ status: "cancelled" }), 1)).toBe(false);
+
+    // A team event the viewer hosts but doesn't own.
+    const hosted = event({
+      userId: null,
+      teamId: 3,
+      hosts: [
+        { userId: 1, name: "Owner 1", avatarUrl: "" },
+        { userId: 2, name: "Host 2", avatarUrl: "" },
+      ],
+    });
+    expect(canEditCalEvent(hosted, 2)).toBe(true);
+    expect(canEditCalEvent({ ...hosted, status: "cancelled" }, 2)).toBe(false);
   });
 });
 
