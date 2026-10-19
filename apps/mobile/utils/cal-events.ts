@@ -188,7 +188,9 @@ export function isPaidCalEvent(event: Pick<CalEvent, "price" | "locations">): bo
 /**
  * The price the web listing shows (getCalEventPublicPrice): the cheapest priced location, as
  * "From €10.00" when the locations charge different amounts, or "Free – €10.00" when one is free.
- * Without priced locations, the event-level price. Null when the event is free.
+ * Unlike the web, amounts in different currencies aren't compared: each currency shows its own
+ * cheapest ("From €10.00 / ¥1,500"). Without priced locations, the event-level price. Null when
+ * the event is free.
  */
 export function formatCalEventPublicPrice(
   event: Pick<CalEvent, "price" | "currency" | "locations">
@@ -198,15 +200,19 @@ export function formatCalEventPublicPrice(
   if (priced.length === 0) {
     return event.price ? formatCalEventPrice(event.price, event.currency) : null;
   }
-  const cheapest = priced.reduce((min, location) =>
-    (location.price ?? 0) < (min.price ?? 0) ? location : min
-  );
-  const label = formatCalEventPrice(cheapest.price ?? 0, cheapest.currency ?? null);
+  const currencyOf = (location: CalEventLocation) => (location.currency ?? "usd").toLowerCase();
+  const cheapest = new Map<string, number>();
+  for (const location of priced) {
+    const price = location.price ?? 0;
+    const currency = currencyOf(location);
+    cheapest.set(currency, Math.min(price, cheapest.get(currency) ?? price));
+  }
+  const label = [...cheapest]
+    .map(([currency, price]) => formatCalEventPrice(price, currency))
+    .join(" / ");
   // A free location headlines the range: guests must never skip it believing they'd pay.
   if (priced.length < admission.length) return `Free – ${label}`;
-  const charges = new Set(
-    priced.map((location) => `${location.price}:${location.currency ?? "usd"}`)
-  );
+  const charges = new Set(priced.map((location) => `${location.price}:${currencyOf(location)}`));
   return charges.size > 1 ? `From ${label}` : label;
 }
 

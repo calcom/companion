@@ -249,6 +249,22 @@ describe("formatCalEventPublicPrice", () => {
       "¥1,500"
     );
   });
+
+  test("compares amounts only within a currency", () => {
+    // 1000 cents and 1500 yen: neither is the cheaper, so each currency starts its own range.
+    expect(
+      formatCalEventPublicPrice(createEvent({ locations: [venue(1000), stream(1500, "jpy")] }))
+    ).toBe("From €10.00 / ¥1,500");
+    expect(
+      formatCalEventPublicPrice(
+        createEvent({ locations: [venue(2500), stream(1000), stream(1500, "jpy"), stream(null)] })
+      )
+    ).toBe("Free – €10.00 / ¥1,500");
+    // A saved uppercase code is the same currency.
+    expect(
+      formatCalEventPublicPrice(createEvent({ locations: [venue(1000), stream(1000, "EUR")] }))
+    ).toBe("€10.00");
+  });
 });
 
 describe("getCalEventLocationLabel", () => {
