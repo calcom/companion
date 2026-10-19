@@ -3,7 +3,7 @@ import { ActivityIndicator, useColorScheme, View } from "react-native";
 import { EditCalEventScreen } from "@/components/cal-events/EditCalEventScreen";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { getColors } from "@/constants/colors";
-import { useCalEvent } from "@/hooks";
+import { isForbiddenError, useCalEvent } from "@/hooks";
 import { showSilentSuccessAlert } from "@/utils/alerts";
 
 /** The edit screen, pushed over the event's detail like the web editor's own page. */
@@ -31,6 +31,20 @@ export default function EditCalEvent() {
   }
 
   if (!event || event.status === "cancelled") {
+    // A 403 is a sign-in without the Events scope, which no retry can fix (as on the event's
+    // detail screen), so only other load failures get Retry.
+    const forbidden = !event && isForbiddenError(error);
+    const canRetry = !event && !!error && !forbidden;
+    const [headline, description] = event
+      ? ["This event was cancelled", "A cancelled event can't be edited."]
+      : forbidden
+        ? [
+            "Sign in again to edit this event",
+            "Events need permissions your current sign-in doesn't include. Sign out and sign back in to grant them.",
+          ]
+        : error
+          ? ["Unable to load event", "Check your connection and try again."]
+          : ["Event not found", "This event was deleted, or you no longer manage it."];
     return (
       <View
         style={{
@@ -43,18 +57,10 @@ export default function EditCalEvent() {
       >
         <EmptyScreen
           icon="ticket-outline"
-          headline={
-            event ? "This event was cancelled" : error ? "Unable to load event" : "Event not found"
-          }
-          description={
-            event
-              ? "A cancelled event can't be edited."
-              : error
-                ? "Check your connection and try again."
-                : "This event was deleted, or you no longer manage it."
-          }
-          buttonText={error ? "Retry" : "Close"}
-          onButtonPress={() => (error ? refetch() : router.back())}
+          headline={headline}
+          description={description}
+          buttonText={canRetry ? "Retry" : "Close"}
+          onButtonPress={() => (canRetry ? refetch() : router.back())}
         />
       </View>
     );
