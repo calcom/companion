@@ -8,7 +8,7 @@ jest.mock("@/utils/region", () => ({
 const {
   buildRosterCsv,
   countMessageRecipients,
-  countRosterByRsvp,
+  countRoster,
   filterRoster,
   formatMessageCounts,
   formatMessageRecipients,
@@ -16,14 +16,21 @@ const {
   formatMessageStatus,
   formatRelativeTime,
   getApproveAllMessage,
+  getApproveAllPrompt,
+  getDecisionMessage,
   getGuestAnswerEntries,
+  getGuestBadge,
   getGuestContact,
+  getGuestDecisions,
   getGuestDisplayName,
+  getGuestFilters,
   getGuestInitial,
+  getGuestIntent,
   getGuestLocationLabel,
   getGuestLocationOptions,
   getInviteResultMessage,
   getRosterPage,
+  isCalEventPaid,
   parseInviteEmails,
   rosterCsvFilename,
 } = require("./cal-event-guests");
@@ -31,6 +38,7 @@ const {
 function guest(overrides = {}) {
   return {
     registrationId: "r1",
+    status: "CONFIRMED",
     name: "Ada Lovelace",
     email: "ada@example.com",
     phoneNumber: null,
@@ -64,6 +72,54 @@ describe("how a guest reads", () => {
     expect(getGuestInitial("😀 Party")).toBe("😀");
     expect(getGuestInitial(" ")).toBe("?");
   });
+
+  test("the badge shows a status that needs something, else the RSVP", () => {
+    expect(getGuestBadge(guest({ status: "PENDING_APPROVAL" }))).toEqual({
+      label: "Needs approval",
+      tone: "warning",
+    });
+    expect(getGuestBadge(guest({ status: "WAITLISTED" }))).toEqual({
+      label: "Waitlisted",
+      tone: "neutral",
+    });
+    expect(getGuestBadge(guest({ status: "PENDING_PAYMENT" })).label).toBe("Payment needed");
+    expect(getGuestBadge(guest({ status: "DECLINED" }))).toEqual({
+      label: "Declined",
+      tone: "error",
+    });
+    expect(getGuestBadge(guest({ rsvpResponse: "MAYBE" }))).toEqual({
+      label: "Maybe",
+      tone: "warning",
+    });
+  });
+
+  test("a waiting guest shows whether they mean to come", () => {
+    expect(getGuestIntent(guest({ status: "PENDING_APPROVAL" }))).toBe("Wants to attend");
+    expect(getGuestIntent(guest({ status: "WAITLISTED", rsvpResponse: "NO" }))).toBe(
+      "Doesn't plan to attend"
+    );
+    expect(getGuestIntent(guest())).toBeNull();
+  });
+});
+
+describe("deciding one guest", () => {
+  test("a pending guest can be approved or declined, a waitlisted one only declined", () => {
+    expect(getGuestDecisions("PENDING_APPROVAL")).toEqual(["approve", "decline"]);
+    expect(getGuestDecisions("WAITLISTED")).toEqual(["decline"]);
+    expect(getGuestDecisions("CONFIRMED")).toEqual([]);
+    expect(getGuestDecisions("PENDING_PAYMENT")).toEqual([]);
+  });
+
+  test("tells the host when an approval didn't seat the guest", () => {
+    expect(getDecisionMessage("payment_pending")).toBe(
+      "Approved. The guest has been sent a payment link to confirm their spot."
+    );
+    expect(getDecisionMessage("event_full_offer_waitlist")).toBe(
+      "Event is full. The guest stays pending."
+    );
+    expect(getDecisionMessage("confirmed")).toBeNull();
+    expect(getDecisionMessage("declined")).toBeNull();
+  });
 });
 
 describe("filters, counts and pages", () => {
@@ -72,35 +128,76 @@ describe("filters, counts and pages", () => {
     guest({ registrationId: "b", name: "Bob", email: "bob@x.com", rsvpResponse: "MAYBE" }),
     guest({ registrationId: "c", name: "Cy", email: "cy@x.com", rsvpResponse: "NO" }),
     guest({ registrationId: "d", name: "Di", email: "di@x.com", rsvpResponse: "YES" }),
+    guest({ registrationId: "e", name: "Ed", status: "PENDING_APPROVAL", rsvpResponse: "YES" }),
+    guest({ registrationId: "f", name: "Flo", status: "WAITLISTED", rsvpResponse: "MAYBE" }),
+    guest({ registrationId: "g", name: "Gus", status: "DECLINED", rsvpResponse: "YES" }),
   ];
+  const ids = (rows) => rows.map((row) => row.registrationId);
 
-  test("filters by search, location and RSVP together", () => {
-    const ids = (rows) => rows.map((row) => row.registrationId);
-    expect(ids(filterRoster(roster, { search: "", locationId: null, rsvp: "YES" }))).toEqual([
+  test("filters by search, location and chip together", () => {
+    expect(ids(filterRoster(roster, { search: "", locationId: null, filter: "GOING" }))).toEqual([
       "a",
       "d",
     ]);
-    expect(ids(filterRoster(roster, { search: "X.COM", locationId: null, rsvp: "ALL" }))).toEqual([
-      "b",
-      "c",
-      "d",
+    expect(ids(filterRoster(roster, { search: "X.COM", locationId: null, filter: "ALL" }))).toEqual(
+      ["b", "c", "d"]
+    );
+    expect(ids(filterRoster(roster, { search: "", locationId: "l1", filter: "ALL" }))).toEqual([
+      "a",
     ]);
-    expect(ids(filterRoster(roster, { search: "", locationId: "l1", rsvp: "ALL" }))).toEqual(["a"]);
+  });
+
+  test("Going is confirmed guests going; Maybe and Not going are that answer in any status", () => {
+    const only = (filter) => ids(filterRoster(roster, { search: "", locationId: null, filter }));
+    expect(only("MAYBE")).toEqual(["b", "f"]);
+    expect(only("PENDING_APPROVAL")).toEqual(["e"]);
+    expect(only("WAITLISTED")).toEqual(["f"]);
+    expect(only("PENDING_PAYMENT")).toEqual([]);
+    expect(only("ALL")).toHaveLength(7);
   });
 
   test("counts follow the search and location but not the chip", () => {
-    expect(countRosterByRsvp(roster, { search: "", locationId: null })).toEqual({
-      ALL: 4,
-      YES: 2,
-      MAYBE: 1,
-      NO: 1,
+    expect(countRoster(roster, { search: "", locationId: null })).toEqual({
+      ALL: 7,
+      GOING: 2,
+      MAYBE: 2,
+      NOT_GOING: 1,
+      PENDING_APPROVAL: 1,
+      WAITLISTED: 1,
+      PENDING_PAYMENT: 0,
     });
-    expect(countRosterByRsvp(roster, { search: "bob", locationId: null })).toEqual({
+    expect(countRoster(roster, { search: "bob", locationId: null })).toMatchObject({
       ALL: 1,
-      YES: 0,
+      GOING: 0,
       MAYBE: 1,
-      NO: 0,
     });
+  });
+
+  test("shows Waitlist and Pending payment where the event has them, or guests are there", () => {
+    const confirmed = [guest()];
+    expect(getGuestFilters(confirmed, { waitlistEnabled: false, paid: false })).toEqual([
+      "ALL",
+      "GOING",
+      "MAYBE",
+      "NOT_GOING",
+      "PENDING_APPROVAL",
+    ]);
+    expect(getGuestFilters(confirmed, { waitlistEnabled: true, paid: true }).slice(5)).toEqual([
+      "WAITLISTED",
+      "PENDING_PAYMENT",
+    ]);
+    expect(
+      getGuestFilters([guest({ status: "PENDING_PAYMENT" })], {
+        waitlistEnabled: false,
+        paid: false,
+      })
+    ).toContain("PENDING_PAYMENT");
+  });
+
+  test("an event is paid when it or one of its locations has a price", () => {
+    expect(isCalEventPaid({ price: null }, [hall])).toBe(false);
+    expect(isCalEventPaid({ price: 1500 }, [])).toBe(true);
+    expect(isCalEventPaid({ price: null }, [{ ...hall, price: 500 }])).toBe(true);
   });
 
   test("pages 25 rows at a time and holds the page to the last one", () => {
@@ -251,6 +348,9 @@ describe("messages", () => {
     guest({ registrationId: "b", rsvpResponse: "YES", locationId: "l1" }),
     guest({ registrationId: "c", rsvpResponse: "YES", email: "p@sms.cal.com", phoneNumber: "+1" }),
     guest({ registrationId: "d", rsvpResponse: "MAYBE" }),
+    guest({ registrationId: "e", status: "PENDING_APPROVAL", rsvpResponse: "YES" }),
+    guest({ registrationId: "f", status: "WAITLISTED", rsvpResponse: "MAYBE" }),
+    guest({ registrationId: "g", status: "DECLINED", rsvpResponse: "YES" }),
   ];
 
   test("counts the guests with an address in the group", () => {
@@ -261,14 +361,13 @@ describe("messages", () => {
     expect(count({ segment: "GOING", checkIn: "CHECKED_IN" })).toBe(1);
     expect(count({ segment: "GOING", checkIn: "NOT_CHECKED_IN" })).toBe(1);
     expect(count({ segment: "GOING", locationId: "l1" })).toBe(1);
-    expect(count({ segment: "PENDING" })).toBeNull();
+    expect(count({ segment: "PENDING" })).toBe(2);
   });
 
   test("words the recipient line", () => {
     expect(formatMessageRecipients(1)).toBe("1 guest will get this email");
     expect(formatMessageRecipients(4)).toBe("4 guests will get this email");
     expect(formatMessageRecipients(0)).toBe("No guests in this group have an email address");
-    expect(formatMessageRecipients(null)).toBeNull();
   });
 
   test("words a sent message's status, counts and sender", () => {
@@ -295,8 +394,17 @@ describe("messages", () => {
   });
 });
 
-describe("getApproveAllMessage", () => {
-  test("uses the web's wording", () => {
+describe("approve all", () => {
+  test("asks in the web's words", () => {
+    expect(getApproveAllPrompt(1, { paid: false })).toBe(
+      "Approve 1 pending guest in registration order."
+    );
+    expect(getApproveAllPrompt(3, { paid: true })).toBe(
+      "Start payment approval for 3 pending guests in registration order."
+    );
+  });
+
+  test("reports in the web's words", () => {
     expect(getApproveAllMessage({ kind: "completed", approvedCount: 3, notSeatedCount: 0 })).toBe(
       "Approved 3 pending registrations"
     );
@@ -331,16 +439,22 @@ describe("buildRosterCsv", () => {
           locationId: "l2",
           checkedInAt: "2026-10-02T09:00:00.000Z",
         }),
-        guest({ name: "", email: "p@sms.cal.com", phoneNumber: "+1555", rsvpResponse: "MAYBE" }),
+        guest({
+          name: "",
+          email: "p@sms.cal.com",
+          phoneNumber: "+1555",
+          status: "PENDING_APPROVAL",
+          rsvpResponse: "MAYBE",
+        }),
       ],
       event,
       [hall, stream]
     );
     expect(csv.startsWith("﻿")).toBe(true);
     expect(csv.slice(1).split("\n")).toEqual([
-      "name,email,phone,rsvp_response,registered_at,checked_in_at,location,Company,location (loc)",
-      '"Ada ""The"" Lovelace",ada@example.com,,YES,2026-10-01T10:00:00.000Z,2026-10-02T09:00:00.000Z,Online link · https://zoom.us/j/1,"Acme, Inc",\'=SUM(A1)',
-      ",,'+1555,MAYBE,2026-10-01T10:00:00.000Z,,,,",
+      "name,email,phone,status,rsvp_response,registered_at,checked_in_at,location,Company,location (loc)",
+      '"Ada ""The"" Lovelace",ada@example.com,,CONFIRMED,YES,2026-10-01T10:00:00.000Z,2026-10-02T09:00:00.000Z,Online link · https://zoom.us/j/1,"Acme, Inc",\'=SUM(A1)',
+      ",,'+1555,PENDING_APPROVAL,MAYBE,2026-10-01T10:00:00.000Z,,,,",
     ]);
   });
 

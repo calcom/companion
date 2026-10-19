@@ -94,16 +94,11 @@ export const MessageGuestsScreen = forwardRef<MessageGuestsScreenHandle, Message
     const activeLocationId = locationOptions.some((option) => option.id === locationId)
       ? locationId
       : null;
-    // Pending guests aren't on the roster, so their count is the server's to tell.
     const recipients = roster.data
       ? countMessageRecipients(roster.data, { segment, locationId: activeLocationId, checkIn })
       : undefined;
     const blocked =
-      segment !== "PENDING" &&
-      (recipients === undefined ||
-        recipients === null ||
-        recipients === 0 ||
-        recipients > MESSAGE_MAX_RECIPIENTS);
+      recipients === undefined || recipients === 0 || recipients > MESSAGE_MAX_RECIPIENTS;
     const canSubmit = subject.trim() !== "" && body.trim() !== "" && !blocked;
 
     useEffect(() => {
@@ -141,14 +136,12 @@ export const MessageGuestsScreen = forwardRef<MessageGuestsScreenHandle, Message
     useImperativeHandle(ref, () => ({ submit }));
 
     const recipientLine =
-      segment === "PENDING"
-        ? "These guests aren't admitted yet, so the email won't include the venue or join link."
-        : recipients === undefined
-          ? roster.isError
-            ? "Couldn't count the guests in this group."
-            : "Counting guests…"
-          : formatMessageRecipients(recipients);
-    const recipientLineIsWarning = segment !== "PENDING" && blocked && recipients !== undefined;
+      recipients === undefined
+        ? roster.isError
+          ? "Couldn't count the guests in this group."
+          : "Counting guests…"
+        : formatMessageRecipients(recipients);
+    const recipientLineIsWarning = blocked && recipients !== undefined;
 
     return (
       <ScrollView
@@ -182,7 +175,7 @@ export const MessageGuestsScreen = forwardRef<MessageGuestsScreenHandle, Message
             />
           ) : null}
           {/* Under the filters, as on the web: it follows all of them. */}
-          {recipientLine ? (
+          <View style={{ gap: 4 }}>
             <Text
               style={{
                 color: recipientLineIsWarning ? theme.error : theme.textSecondary,
@@ -191,7 +184,12 @@ export const MessageGuestsScreen = forwardRef<MessageGuestsScreenHandle, Message
             >
               {recipientLine}
             </Text>
-          ) : null}
+            {segment === "PENDING" ? (
+              <HintText>
+                These guests aren't admitted yet, so the email won't include the venue or join link.
+              </HintText>
+            ) : null}
+          </View>
           <EditTextField
             label="Subject"
             value={subject}

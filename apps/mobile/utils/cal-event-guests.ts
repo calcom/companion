@@ -2,7 +2,8 @@
  * The Guests tab's logic, after the web's (`apps/web/modules/events/components/guest-list.tsx` and
  * its helpers): filters, counts and pages over the roster, how a guest reads, invite parsing and
  * results, the message composer's recipients, sent message statuses and the CSV download. The
- * roster is every confirmed guest (see getCalEventRoster), so all of it runs on the phone.
+ * roster is every guest in the statuses the tab lists (see getCalEventRoster), so all of it runs
+ * on the phone.
  */
 
 import type {
@@ -13,7 +14,9 @@ import type {
   CalEventLocation,
   CalEventMessage,
   CalEventMessageSegment,
+  CalEventRegistrationDecision,
   CalEventRegistrationField,
+  CalEventRegistrationStatus,
   CalEventRosterGuest,
   CalEventRsvpResponse,
 } from "@/services/types/cal-events.types";
@@ -28,15 +31,135 @@ export const CAL_EVENT_RSVP_LABELS: Record<CalEventRsvpResponse, string> = {
   NO: "Not going",
 };
 
-/** The chips over the list: every guest, or one RSVP. */
-export type GuestRsvpFilter = "ALL" | CalEventRsvpResponse;
+/** The Registration line of a guest's details, in the web's words. */
+export const CAL_EVENT_REGISTRATION_STATUS_LABELS: Record<CalEventRegistrationStatus, string> = {
+  PENDING_APPROVAL: "Pending approval",
+  WAITLISTED: "Waitlisted",
+  PENDING_CONFIRMATION: "Confirmation needed",
+  PENDING_PAYMENT: "Payment pending",
+  OFFER_EXPIRED: "Offer expired",
+  CONFIRMED: "Approved",
+  DECLINED: "Declined",
+  CANCELLED: "Cancelled",
+};
 
-export const GUEST_RSVP_FILTERS: { value: GuestRsvpFilter; label: string }[] = [
-  { value: "ALL", label: "All" },
-  { value: "YES", label: CAL_EVENT_RSVP_LABELS.YES },
-  { value: "MAYBE", label: CAL_EVENT_RSVP_LABELS.MAYBE },
-  { value: "NO", label: CAL_EVENT_RSVP_LABELS.NO },
-];
+export type GuestBadgeTone = "success" | "warning" | "error" | "neutral";
+
+/** The web's badge for a status that still needs something, or that ended the registration. */
+const REGISTRATION_STATUS_BADGES: Partial<
+  Record<CalEventRegistrationStatus, { label: string; tone: GuestBadgeTone }>
+> = {
+  PENDING_APPROVAL: { label: "Needs approval", tone: "warning" },
+  WAITLISTED: { label: "Waitlisted", tone: "neutral" },
+  PENDING_CONFIRMATION: { label: "Confirmation needed", tone: "warning" },
+  PENDING_PAYMENT: { label: "Payment needed", tone: "warning" },
+  OFFER_EXPIRED: { label: "Offer expired", tone: "error" },
+  DECLINED: { label: "Declined", tone: "error" },
+  CANCELLED: { label: "Cancelled", tone: "error" },
+};
+
+const RSVP_BADGE_TONES: Record<CalEventRsvpResponse, GuestBadgeTone> = {
+  YES: "success",
+  MAYBE: "warning",
+  NO: "error",
+};
+
+/** A guest's badge, as the web's: their status while it needs something, else their RSVP. */
+export function getGuestBadge(guest: Pick<CalEventRosterGuest, "status" | "rsvpResponse">): {
+  label: string;
+  tone: GuestBadgeTone;
+} {
+  return (
+    REGISTRATION_STATUS_BADGES[guest.status] ?? {
+      label: CAL_EVENT_RSVP_LABELS[guest.rsvpResponse],
+      tone: RSVP_BADGE_TONES[guest.rsvpResponse],
+    }
+  );
+}
+
+const ATTENDANCE_INTENT_LABELS: Record<CalEventRsvpResponse, string> = {
+  YES: "Wants to attend",
+  MAYBE: "May attend",
+  NO: "Doesn't plan to attend",
+};
+
+/**
+ * The line under a waiting guest's name: whether they mean to come, as on the web. null for the
+ * rest, who show when they registered.
+ */
+export function getGuestIntent(
+  guest: Pick<CalEventRosterGuest, "status" | "rsvpResponse">
+): string | null {
+  if (guest.status !== "PENDING_APPROVAL" && guest.status !== "WAITLISTED") return null;
+  return ATTENDANCE_INTENT_LABELS[guest.rsvpResponse];
+}
+
+/**
+ * The chips over the list, as the web's phone tabs. Going is confirmed guests going; Maybe and
+ * Not going are that answer in any status.
+ */
+export type GuestFilter =
+  | "ALL"
+  | "GOING"
+  | "MAYBE"
+  | "NOT_GOING"
+  | "PENDING_APPROVAL"
+  | "WAITLISTED"
+  | "PENDING_PAYMENT";
+
+export const GUEST_FILTER_LABELS: Record<GuestFilter, string> = {
+  ALL: "All",
+  GOING: CAL_EVENT_RSVP_LABELS.YES,
+  MAYBE: CAL_EVENT_RSVP_LABELS.MAYBE,
+  NOT_GOING: CAL_EVENT_RSVP_LABELS.NO,
+  PENDING_APPROVAL: "Pending approval",
+  WAITLISTED: "Waitlist",
+  PENDING_PAYMENT: "Pending payment",
+};
+
+function matchesFilter(guest: CalEventRosterGuest, filter: GuestFilter): boolean {
+  switch (filter) {
+    case "ALL":
+      return true;
+    case "GOING":
+      return guest.status === "CONFIRMED" && guest.rsvpResponse === "YES";
+    case "MAYBE":
+      return guest.rsvpResponse === "MAYBE";
+    case "NOT_GOING":
+      return guest.rsvpResponse === "NO";
+    default:
+      return guest.status === filter;
+  }
+}
+
+/** Whether any guest pays: the event's own price, or one of its locations'. */
+export function isCalEventPaid(
+  event: Pick<CalEvent, "price">,
+  locations: Pick<CalEventLocation, "price">[]
+): boolean {
+  return event.price != null || locations.some((location) => location.price != null);
+}
+
+/**
+ * The chips to show. Like the web, Waitlist only on an event with a waitlist and Pending payment
+ * only on a paid one, unless guests are already there from before a setting changed.
+ */
+export function getGuestFilters(
+  guests: CalEventRosterGuest[],
+  { waitlistEnabled, paid }: { waitlistEnabled: boolean; paid: boolean }
+): GuestFilter[] {
+  const has = (status: CalEventRegistrationStatus) =>
+    guests.some((guest) => guest.status === status);
+  return [
+    "ALL",
+    "GOING",
+    "MAYBE",
+    "NOT_GOING",
+    "PENDING_APPROVAL",
+    ...(waitlistEnabled || has("WAITLISTED") ? (["WAITLISTED"] as const) : []),
+    ...(paid || has("PENDING_PAYMENT") ? (["PENDING_PAYMENT"] as const) : []),
+  ];
+}
 
 /** Guests who registered by phone get a placeholder address on this domain. */
 const SMS_EMAIL_SUFFIX = "@sms.cal.com";
@@ -67,7 +190,7 @@ export interface RosterFilters {
   search: string;
   /** null = every location. */
   locationId: string | null;
-  rsvp: GuestRsvpFilter;
+  filter: GuestFilter;
 }
 
 function matchesSearch(guest: CalEventRosterGuest, search: string): boolean {
@@ -85,26 +208,29 @@ function matchesLocation(guest: CalEventRosterGuest, locationId: string | null):
 /** The guests the list shows for a search, a location and a chip. */
 export function filterRoster(
   guests: CalEventRosterGuest[],
-  { search, locationId, rsvp }: RosterFilters
+  { search, locationId, filter }: RosterFilters
 ): CalEventRosterGuest[] {
   return guests.filter(
     (guest) =>
       matchesSearch(guest, search) &&
       matchesLocation(guest, locationId) &&
-      (rsvp === "ALL" || guest.rsvpResponse === rsvp)
+      matchesFilter(guest, filter)
   );
 }
 
 /** Each chip's count. They follow the search and the location, not the chip that's picked. */
-export function countRosterByRsvp(
+export function countRoster(
   guests: CalEventRosterGuest[],
-  { search, locationId }: Omit<RosterFilters, "rsvp">
-): Record<GuestRsvpFilter, number> {
-  const counts: Record<GuestRsvpFilter, number> = { ALL: 0, YES: 0, MAYBE: 0, NO: 0 };
+  { search, locationId }: Omit<RosterFilters, "filter">
+): Record<GuestFilter, number> {
+  const counts = Object.fromEntries(
+    Object.keys(GUEST_FILTER_LABELS).map((filter) => [filter, 0])
+  ) as Record<GuestFilter, number>;
   for (const guest of guests) {
     if (!matchesSearch(guest, search) || !matchesLocation(guest, locationId)) continue;
-    counts.ALL += 1;
-    counts[guest.rsvpResponse] += 1;
+    for (const filter of Object.keys(counts) as GuestFilter[]) {
+      if (matchesFilter(guest, filter)) counts[filter] += 1;
+    }
   }
   return counts;
 }
@@ -410,10 +536,21 @@ export const MESSAGE_MAX_RECIPIENTS = 1000;
 
 export type MessageCheckInFilter = "ANY" | "CHECKED_IN" | "NOT_CHECKED_IN";
 
-/**
- * How many guests a Going or Maybe message would email: confirmed guests with that RSVP and a
- * real address. null for Pending, whose guests the roster doesn't list.
- */
+/** Who each group is, as the server reads it (the web board's Pending, Going and Maybe columns). */
+function inMessageSegment(guest: CalEventRosterGuest, segment: CalEventMessageSegment): boolean {
+  if (segment === "PENDING") {
+    return (
+      guest.status === "PENDING_APPROVAL" ||
+      guest.status === "WAITLISTED" ||
+      guest.status === "PENDING_PAYMENT"
+    );
+  }
+  return (
+    guest.status === "CONFIRMED" && guest.rsvpResponse === (segment === "GOING" ? "YES" : "MAYBE")
+  );
+}
+
+/** How many guests a message to one group would email: those in it with a real address. */
 export function countMessageRecipients(
   roster: CalEventRosterGuest[],
   {
@@ -421,12 +558,10 @@ export function countMessageRecipients(
     locationId,
     checkIn,
   }: { segment: CalEventMessageSegment; locationId: string | null; checkIn: MessageCheckInFilter }
-): number | null {
-  if (segment === "PENDING") return null;
-  const rsvp: CalEventRsvpResponse = segment === "GOING" ? "YES" : "MAYBE";
+): number {
   return roster.filter(
     (guest) =>
-      guest.rsvpResponse === rsvp &&
+      inMessageSegment(guest, segment) &&
       matchesLocation(guest, locationId) &&
       (checkIn === "ANY" || (checkIn === "CHECKED_IN") === (guest.checkedInAt !== null)) &&
       getGuestContact(guest).kind === "email"
@@ -434,8 +569,7 @@ export function countMessageRecipients(
 }
 
 /** "3 guests will get this email", or why nobody will. */
-export function formatMessageRecipients(count: number | null): string | null {
-  if (count === null) return null;
+export function formatMessageRecipients(count: number): string {
   if (count === 0) return "No guests in this group have an email address";
   if (count > MESSAGE_MAX_RECIPIENTS) {
     return `A message can go to at most ${MESSAGE_MAX_RECIPIENTS} guests at a time`;
@@ -474,6 +608,39 @@ export function formatMessageSender(sender: CalEventMessage["sender"]): string {
   return sender.name?.trim() || "Unnamed user";
 }
 
+/** Approve all's confirmation, in the web's words. A paid event only sends payment requests. */
+export function getApproveAllPrompt(count: number, { paid }: { paid: boolean }): string {
+  const guests = `${count} pending ${plural(count, "guest", "guests")}`;
+  return paid
+    ? `Start payment approval for ${guests} in registration order.`
+    : `Approve ${guests} in registration order.`;
+}
+
+export type GuestDecision = "approve" | "decline";
+
+/**
+ * What a host can decide for one guest, as the web's row buttons: approve or decline a guest
+ * waiting for approval, decline one on the waitlist. Moving a guest up from the waitlist is the
+ * web's alone.
+ */
+export function getGuestDecisions(status: CalEventRegistrationStatus): GuestDecision[] {
+  if (status === "PENDING_APPROVAL") return ["approve", "decline"];
+  if (status === "WAITLISTED") return ["decline"];
+  return [];
+}
+
+/**
+ * What to tell the host after approving one guest, in the web's words; null when the row's new
+ * badge says it all.
+ */
+export function getDecisionMessage(kind: CalEventRegistrationDecision): string | null {
+  if (kind === "payment_pending") {
+    return "Approved. The guest has been sent a payment link to confirm their spot.";
+  }
+  if (kind === "event_full_offer_waitlist") return "Event is full. The guest stays pending.";
+  return null;
+}
+
 /** What approve all did, in the web's words. */
 export function getApproveAllMessage(result: CalEventApproveAllResult): string {
   if (result.kind === "started") return "Approval started. Refresh the guest list to see updates.";
@@ -491,6 +658,7 @@ const CSV_COLUMNS = [
   "name",
   "email",
   "phone",
+  "status",
   "rsvp_response",
   "registered_at",
   "checked_in_at",
@@ -514,8 +682,8 @@ function csvAnswer(value: unknown): string {
 }
 
 /**
- * The roster as the web's "all guests" CSV, without the columns the API can't fill (status,
- * payment, decided at, waitlist position, no-show): one row per guest, then one column per
+ * The roster as the web's "all guests" CSV, without the columns the API can't fill (payment,
+ * decided at, waitlist position, no-show): one row per guest, then one column per
  * visible question. UTF-8 with a BOM so Excel reads names right.
  */
 export function buildRosterCsv(
@@ -540,6 +708,7 @@ export function buildRosterCsv(
     guest.name,
     getGuestContact(guest).kind === "phone" ? "" : guest.email,
     guest.phoneNumber ?? "",
+    guest.status,
     guest.rsvpResponse,
     new Date(guest.createdAt).toISOString(),
     guest.checkedInAt ? new Date(guest.checkedInAt).toISOString() : "",

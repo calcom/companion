@@ -14,31 +14,33 @@ import {
   View,
 } from "react-native";
 import { useApproveAllCalEventRegistrations, useCalEventRoster } from "@/hooks";
-import type {
-  CalEvent,
-  CalEventLocation,
-  CalEventRosterGuest,
-  CalEventRsvpResponse,
-} from "@/services/calcom";
+import type { CalEvent, CalEventLocation, CalEventRosterGuest } from "@/services/calcom";
 import { showInfoAlert } from "@/utils/alerts";
 import {
   buildRosterCsv,
+  CAL_EVENT_REGISTRATION_STATUS_LABELS,
   CAL_EVENT_RSVP_LABELS,
-  countRosterByRsvp,
+  countRoster,
   filterRoster,
   formatGuestDateTime,
   formatRelativeTime,
-  GUEST_RSVP_FILTERS,
+  GUEST_FILTER_LABELS,
+  type GuestBadgeTone,
+  type GuestFilter,
   type GuestLocationOption,
-  type GuestRsvpFilter,
   getApproveAllMessage,
+  getApproveAllPrompt,
   getGuestAnswerEntries,
+  getGuestBadge,
   getGuestContact,
   getGuestDisplayName,
+  getGuestFilters,
   getGuestInitial,
+  getGuestIntent,
   getGuestLocationLabel,
   getGuestLocationOptions,
   getRosterPage,
+  isCalEventPaid,
   isValidInviteEmail,
   rosterCsvFilename,
 } from "@/utils/cal-event-guests";
@@ -47,17 +49,18 @@ import { getUserFacingApiReason } from "../useCalEventActions";
 import { EditTextField, useEditTheme } from "./EditControls";
 import { SelectField } from "./SelectField";
 
-/** The web's badge variants: Going is success, Maybe warning, Not going error. */
-const RSVP_BADGE_STATUS = {
-  YES: "published",
-  MAYBE: "draft",
-  NO: "cancelled",
-} as const satisfies Record<CalEventRsvpResponse, Parameters<typeof getCalEventStatusColors>[0]>;
+/** The web's badge variants in the Events tab's status colors. */
+const BADGE_TONE_STATUS = {
+  success: "published",
+  warning: "draft",
+  error: "cancelled",
+  neutral: "past",
+} as const satisfies Record<GuestBadgeTone, Parameters<typeof getCalEventStatusColors>[0]>;
 
 /**
- * The web editor's Guests tab at phone width: search, the guest actions, a location filter, RSVP
- * chips and a paged list whose rows expand to the guest's details. The roster lists confirmed
- * guests only; invite, message and approve all apply at once and never touch Save.
+ * The web editor's Guests tab at phone width: search, the guest actions, a location filter, status
+ * chips and a paged list whose rows expand to the guest's details. Invite, message and approve
+ * all apply at once and never touch Save.
  */
 type GuestsSectionProps = {
   event: CalEvent;
@@ -99,7 +102,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
   const { mutate: approveAll, isPending: approving } = useApproveAllCalEventRegistrations();
   const [search, setSearch] = useState("");
   const [locationId, setLocationId] = useState<string | null>(null);
-  const [rsvp, setRsvp] = useState<GuestRsvpFilter>("ALL");
+  const [filter, setFilter] = useState<GuestFilter>("ALL");
   const [page, setPage] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -109,10 +112,18 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
   const activeLocationId = locationOptions.some((option) => option.id === locationId)
     ? locationId
     : null;
-  const filtered = filterRoster(guests, { search, locationId: activeLocationId, rsvp });
-  const counts = countRosterByRsvp(guests, { search, locationId: activeLocationId });
+  const paid = isCalEventPaid(event, locations);
+  const filters = getGuestFilters(guests, { waitlistEnabled: event.waitlistEnabled, paid });
+  // A chip that went away with the last guest in it would leave the list on nothing.
+  const activeFilter = filters.includes(filter) ? filter : "ALL";
+  const filtered = filterRoster(guests, {
+    search,
+    locationId: activeLocationId,
+    filter: activeFilter,
+  });
+  const counts = countRoster(guests, { search, locationId: activeLocationId });
   const current = getRosterPage(filtered, page);
-  const narrowed = search.trim() !== "" || activeLocationId !== null || rsvp !== "ALL";
+  const narrowed = search.trim() !== "" || activeLocationId !== null || activeFilter !== "ALL";
   // Like the web's search box: an address nobody registered with can be invited from there.
   const searchEmail = search.trim();
   const inviteFromSearch =
@@ -135,7 +146,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
   const confirmApproveAll = () => {
     Alert.alert(
       "Approve all pending guests?",
-      "Approve every pending guest in registration order.",
+      getApproveAllPrompt(counts.PENDING_APPROVAL, { paid }),
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -225,7 +236,10 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
             router.push({ pathname: "/cal-event-sent-messages", params: { uuid: event.uuid } })
           }
         />
-        <ToolbarButton label="Approve all" busy={approving} onPress={confirmApproveAll} />
+        {/* As on the web, only while someone in the list is waiting for approval. */}
+        {counts.PENDING_APPROVAL > 0 || approving ? (
+          <ToolbarButton label="Approve all" busy={approving} onPress={confirmApproveAll} />
+        ) : null}
         <ToolbarButton
           label="Download"
           icon="download-outline"
@@ -246,7 +260,12 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
         />
       ) : null}
 
-      <RsvpChips value={rsvp} counts={counts} onChange={(next) => narrow(() => setRsvp(next))} />
+      <FilterChips
+        filters={filters}
+        value={activeFilter}
+        counts={counts}
+        onChange={(next) => narrow(() => setFilter(next))}
+      />
 
       {roster.isPending ? (
         <GuestCard>
@@ -386,14 +405,16 @@ function ToolbarButton({
 }
 
 /** The web's phone filter tabs with their counts, in the Events tab's chip style. */
-function RsvpChips({
+function FilterChips({
+  filters,
   value,
   counts,
   onChange,
 }: {
-  value: GuestRsvpFilter;
-  counts: Record<GuestRsvpFilter, number>;
-  onChange: (value: GuestRsvpFilter) => void;
+  filters: GuestFilter[];
+  value: GuestFilter;
+  counts: Record<GuestFilter, number>;
+  onChange: (value: GuestFilter) => void;
 }) {
   const theme = useEditTheme();
   return (
@@ -405,15 +426,16 @@ function RsvpChips({
       contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
       accessibilityRole="tablist"
     >
-      {GUEST_RSVP_FILTERS.map((option) => {
-        const selected = option.value === value;
+      {filters.map((option) => {
+        const selected = option === value;
+        const label = GUEST_FILTER_LABELS[option];
         return (
           <Pressable
-            key={option.value}
-            onPress={() => onChange(option.value)}
+            key={option}
+            onPress={() => onChange(option)}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            accessibilityLabel={`${option.label}, ${counts[option.value]}`}
+            accessibilityLabel={`${label}, ${counts[option]}`}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -425,9 +447,9 @@ function RsvpChips({
             }}
           >
             <Text style={{ color: theme.text, fontSize: 16, fontWeight: selected ? "600" : "400" }}>
-              {option.label}
+              {label}
             </Text>
-            <Text style={{ color: theme.textSecondary, fontSize: 15 }}>{counts[option.value]}</Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 15 }}>{counts[option]}</Text>
           </Pressable>
         );
       })}
@@ -465,9 +487,9 @@ function GuestCard({ children, footer }: { children: ReactNode; footer?: ReactNo
   );
 }
 
-function RsvpBadge({ rsvp }: { rsvp: CalEventRsvpResponse }) {
+function GuestBadge({ label, tone }: { label: string; tone: GuestBadgeTone }) {
   const isDark = useColorScheme() === "dark";
-  const colors = getCalEventStatusColors(RSVP_BADGE_STATUS[rsvp], isDark);
+  const colors = getCalEventStatusColors(BADGE_TONE_STATUS[tone], isDark);
   return (
     <View
       style={{
@@ -477,9 +499,7 @@ function RsvpBadge({ rsvp }: { rsvp: CalEventRsvpResponse }) {
         paddingVertical: 2,
       }}
     >
-      <Text style={{ color: colors.text, fontSize: 12, fontWeight: "600" }}>
-        {CAL_EVENT_RSVP_LABELS[rsvp]}
-      </Text>
+      <Text style={{ color: colors.text, fontSize: 12, fontWeight: "600" }}>{label}</Text>
     </View>
   );
 }
@@ -503,11 +523,12 @@ function GuestRow({
   const name = getGuestDisplayName(guest);
   const contact = getGuestContact(guest);
   const location = getGuestLocationLabel(guest.locationId, locationOptions);
+  const badge = getGuestBadge(guest);
+  const intent = getGuestIntent(guest);
   const details = [
     { label: contact.kind === "phone" ? "Phone" : "Email", value: contact.value },
     { label: "Registered", value: formatGuestDateTime(guest.createdAt) },
-    // The roster lists confirmed guests only.
-    { label: "Registration", value: "Approved" },
+    { label: "Registration", value: CAL_EVENT_REGISTRATION_STATUS_LABELS[guest.status] },
     { label: "Attendance", value: CAL_EVENT_RSVP_LABELS[guest.rsvpResponse] },
     ...(location ? [{ label: "Location", value: location }] : []),
     ...(guest.checkedInAt
@@ -521,7 +542,7 @@ function GuestRow({
         onPress={onToggle}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={`${name}, ${CAL_EVENT_RSVP_LABELS[guest.rsvpResponse]}`}
+        accessibilityLabel={`${name}, ${badge.label}`}
         style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, padding: 12 }}
       >
         <View
@@ -543,12 +564,12 @@ function GuestRow({
             {name}
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <RsvpBadge rsvp={guest.rsvpResponse} />
+            <GuestBadge label={badge.label} tone={badge.tone} />
             <Text
               style={{ flexShrink: 1, color: theme.textSecondary, fontSize: 13 }}
               numberOfLines={1}
             >
-              Registered {formatRelativeTime(guest.createdAt)}
+              {intent ?? `Registered ${formatRelativeTime(guest.createdAt)}`}
             </Text>
           </View>
         </View>

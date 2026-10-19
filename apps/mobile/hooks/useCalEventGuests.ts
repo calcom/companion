@@ -1,9 +1,9 @@
 /**
  * Cal Event Guests Hooks
  *
- * React Query hooks for an event's Guests tab: the roster of confirmed guests, the messages sent
- * to them, and the host actions (invite, message, approve all). Each action applies at once and
- * never touches the editor's Save.
+ * React Query hooks for an event's Guests tab: the roster, the messages sent to its guests, and
+ * the host actions (invite, message, approve all). Each action applies at once and never touches
+ * the editor's Save.
  */
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,7 +23,7 @@ const retry = (failureCount: number, error: Error) =>
   !isNetworkError(error) && !isForbiddenError(error) && failureCount < 2;
 
 /**
- * Hook to fetch every confirmed guest of an event. Guests register outside the app, so it's never
+ * Hook to fetch every guest of an event, in each status the tab lists. Guests register outside the app, so it's never
  * fresh: it refetches each time the tab opens and when the app comes back to the foreground.
  */
 export function useCalEventRoster(uuid: string, { enabled = true } = {}) {
