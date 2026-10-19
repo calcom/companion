@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { usePreventRemove } from "@react-navigation/native";
-import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { useNavigation } from "expo-router";
 import { type ReactNode, useMemo, useRef, useState } from "react";
@@ -24,7 +23,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Text as MenuText } from "@/components/ui/text";
-import { queryKeys } from "@/config/cache.config";
 import { useCalEventCoverImage, useUpdateCalEvent } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showInfoAlert, showSuccessAlert } from "@/utils/alerts";
@@ -141,7 +139,6 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const isDark = useColorScheme() === "dark";
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const queryClient = useQueryClient();
   const actions = useCalEventActions();
   const scrollRef = useRef<ScrollView>(null);
 
@@ -222,8 +219,6 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       setCover({ kind: "keep" });
     }
     if (Object.keys(input).length > 0) return saveEvent({ uuid: event.uuid, input });
-    queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.detail(event.uuid) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.lists() });
     return null;
   };
 

@@ -13,7 +13,7 @@ jest.mock("@/services/calcom/request", () => ({
   makeRequest: () => Promise.reject(new Error("not under test")),
 }));
 
-const { restoreCalEventLists, setCalEventDetail } = require("./useCalEvents");
+const { restoreCalEventLists, setCalEventCover, setCalEventDetail } = require("./useCalEvents");
 
 function createEvent(overrides = {}) {
   return { uuid: "event-1", title: "Meetup", status: "published", ...overrides };
@@ -74,5 +74,40 @@ describe("setCalEventDetail for a new draft", () => {
     setCalEventDetail(queryClient, draft);
 
     expect(queryClient.getQueryData(queryKeys.calEvents.detail("event-1"))).toEqual(draft);
+  });
+});
+
+describe("setCalEventCover", () => {
+  test("shows a saved cover on the detail screen, even if the edit saved after it fails", () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(queryKeys.calEvents.detail("event-1"), createEvent());
+
+    setCalEventCover(queryClient, "event-1", "https://cdn.example/cover.png");
+
+    expect(queryClient.getQueryData(queryKeys.calEvents.detail("event-1"))).toEqual(
+      createEvent({ coverImageUrl: "https://cdn.example/cover.png" })
+    );
+  });
+
+  test("clears a removed cover", () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(
+      queryKeys.calEvents.detail("event-1"),
+      createEvent({ coverImageUrl: "https://cdn.example/cover.png" })
+    );
+
+    setCalEventCover(queryClient, "event-1", null);
+
+    expect(
+      queryClient.getQueryData(queryKeys.calEvents.detail("event-1")).coverImageUrl
+    ).toBeNull();
+  });
+
+  test("leaves an uncached event alone rather than caching a partial one", () => {
+    const queryClient = new QueryClient();
+
+    setCalEventCover(queryClient, "event-1", "https://cdn.example/cover.png");
+
+    expect(queryClient.getQueryData(queryKeys.calEvents.detail("event-1"))).toBeUndefined();
   });
 });

@@ -147,14 +147,36 @@ export function useUpdateCalEvent() {
   });
 }
 
+/**
+ * Puts a saved cover in the detail cache, so it shows even when the editor's PATCH after it
+ * fails. Written, not invalidated: a detail refetch racing that PATCH could land after its
+ * response and bring back the old fields.
+ */
+export function setCalEventCover(
+  queryClient: ReturnType<typeof useQueryClient>,
+  uuid: string,
+  coverImageUrl: string | null
+) {
+  queryClient.setQueryData<CalEvent | null>(queryKeys.calEvents.detail(uuid), (cached) =>
+    cached ? { ...cached, coverImageUrl } : cached
+  );
+}
+
 /** Hook to replace or remove an event's cover. The editor saves its other fields after it. */
 export function useCalEventCoverImage() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ uuid, file }: { uuid: string; file: CalEventImageFile | null }) =>
       file
         ? CalComAPIService.uploadCalEventCoverImage(uuid, file)
         : CalComAPIService.deleteCalEventCoverImage(uuid).then(() => null),
     retry: false,
+    onSuccess: (coverImageUrl, { uuid }) => {
+      setCalEventCover(queryClient, uuid, coverImageUrl);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.lists() });
+    },
   });
 }
 
