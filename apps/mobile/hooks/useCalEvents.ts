@@ -19,7 +19,8 @@ import {
 } from "@/services/calcom";
 import { ApiRequestError } from "@/services/calcom/request";
 
-const isNetworkError = (error: Error | null) =>
+/** Offline or unreachable: retrying straight away only delays the error. */
+export const isNetworkError = (error: Error | null) =>
   !!error?.message && (error.message.includes("Network") || error.message.includes("fetch"));
 
 /** A 403 won't change on retry: a pending team membership, or a role that can't read events. */
