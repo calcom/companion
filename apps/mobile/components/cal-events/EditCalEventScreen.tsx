@@ -44,7 +44,6 @@ import {
   CAL_EVENT_STATUS_LABELS,
   getCalEventPublicUrl,
   getCalEventStatusColors,
-  truncateCalEventTitle,
 } from "@/utils/cal-events";
 import {
   preserveWallTimeOnTimezoneChange,
@@ -240,6 +239,11 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const publicUrl = getCalEventPublicUrl(values.slug.trim() || event.slug);
   const urlPrefix = getCalEventPublicUrl("").replace(/^https?:\/\//, "");
   const category = CAL_EVENT_CATEGORIES.find((option) => option.value === values.category);
+  const currentTab = TABS.find((item) => item.id === tab) ?? TABS[0];
+  const tabsWithErrors = new Set(
+    (Object.keys(errors) as CalEventEditErrorKey[]).map((key) => ERROR_TABS[key])
+  );
+  const otherTabHasErrors = [...tabsWithErrors].some((id) => id !== tab);
 
   const viewPage: MenuItem = {
     label: "View event page",
@@ -529,14 +533,21 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
     >
-      <View style={{ paddingTop: insets.top, backgroundColor: theme.background }}>
+      <View
+        style={{
+          paddingTop: insets.top,
+          backgroundColor: theme.background,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.border,
+        }}
+      >
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
             paddingHorizontal: 12,
             height: 56,
-            gap: 10,
+            gap: 8,
           }}
         >
           <Pressable
@@ -548,24 +559,6 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
           >
             <Ionicons name="arrow-back" size={24} color={theme.text} />
           </Pressable>
-          <Text
-            style={{ flexShrink: 1, color: theme.text, fontSize: 18, fontWeight: "700" }}
-            numberOfLines={1}
-          >
-            {truncateCalEventTitle(values.name.trim() || "Untitled event")}
-          </Text>
-          <View
-            style={{
-              backgroundColor: status.background,
-              borderRadius: 6,
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-            }}
-          >
-            <Text style={{ color: status.text, fontSize: 13, fontWeight: "600" }}>
-              {CAL_EVENT_STATUS_LABELS[event.status]}
-            </Text>
-          </View>
           <View style={{ flex: 1 }} />
           <DropdownMenu>
             {/* Publish and Cancel mutate the event too, so they wait for the save to settle. */}
@@ -610,6 +603,66 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          {/* The tabs as one menu, like the event type editor's. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Tab, ${currentTab.label}`}
+                accessibilityHint={
+                  otherTabHasErrors ? "Other tabs have errors" : "Shows the editor's tabs"
+                }
+                hitSlop={8}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  maxWidth: 170,
+                  height: 36,
+                  paddingHorizontal: 12,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                }}
+              >
+                <Text
+                  style={{ flexShrink: 1, color: theme.text, fontSize: 15, fontWeight: "500" }}
+                  numberOfLines={1}
+                >
+                  {currentTab.label}
+                </Text>
+                {otherTabHasErrors ? <ErrorDot /> : null}
+              </Pressable>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              insets={{ top: insets.top, bottom: insets.bottom, left: 12, right: 12 }}
+              sideOffset={8}
+              className="w-56"
+              align="end"
+            >
+              {TABS.map((item) => {
+                const selected = item.id === tab;
+                return (
+                  <DropdownMenuItem key={item.id} onPress={() => showTab(item.id)}>
+                    <Ionicons
+                      name={selected ? "checkmark-circle" : item.icon}
+                      size={18}
+                      color={selected ? theme.text : theme.textSecondary}
+                      style={{ marginRight: 8 }}
+                    />
+                    <MenuText style={selected ? { fontWeight: "600" } : undefined}>
+                      {item.label}
+                    </MenuText>
+                    {tabsWithErrors.has(item.id) ? (
+                      <View style={{ marginLeft: 8 }}>
+                        <ErrorDot />
+                      </View>
+                    ) : null}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Pressable
             onPress={save}
             disabled={!dirty || saving}
@@ -632,58 +685,35 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
           </Pressable>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          accessibilityRole="tablist"
-          contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 8, gap: 4 }}
-          style={{ borderBottomWidth: 1, borderBottomColor: theme.border, flexGrow: 0 }}
+        {/* The title has its own row so the header's buttons leave it room. */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            paddingHorizontal: 16,
+            paddingBottom: 12,
+          }}
         >
-          {TABS.map((item) => {
-            const selected = item.id === tab;
-            const hasError = (Object.keys(errors) as CalEventEditErrorKey[]).some(
-              (key) => ERROR_TABS[key] === item.id
-            );
-            return (
-              <Pressable
-                key={item.id}
-                onPress={() => showTab(item.id)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                accessibilityHint={hasError ? "Has errors" : undefined}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 6,
-                  height: 38,
-                  paddingHorizontal: 12,
-                  borderRadius: 10,
-                  backgroundColor: selected ? theme.backgroundEmphasis : "transparent",
-                }}
-              >
-                <Ionicons
-                  name={item.icon}
-                  size={18}
-                  color={selected ? theme.text : theme.textSecondary}
-                />
-                <Text
-                  style={{
-                    color: selected ? theme.text : theme.textSecondary,
-                    fontSize: 15,
-                    fontWeight: selected ? "600" : "500",
-                  }}
-                >
-                  {item.label}
-                </Text>
-                {hasError ? (
-                  <View
-                    style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.error }}
-                  />
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+          <Text
+            style={{ flexShrink: 1, color: theme.text, fontSize: 20, fontWeight: "700" }}
+            numberOfLines={1}
+          >
+            {values.name.trim() || "Untitled event"}
+          </Text>
+          <View
+            style={{
+              backgroundColor: status.background,
+              borderRadius: 6,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+            }}
+          >
+            <Text style={{ color: status.text, fontSize: 13, fontWeight: "600" }}>
+              {CAL_EVENT_STATUS_LABELS[event.status]}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView
@@ -738,6 +768,11 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       />
     </KeyboardAvoidingView>
   );
+}
+
+function ErrorDot() {
+  const theme = useEditTheme();
+  return <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.error }} />;
 }
 
 function DateTimeField({
