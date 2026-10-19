@@ -95,6 +95,8 @@ export function useCreateCalEvent() {
   return useMutation({
     mutationFn: ({ input, teamId }: { input: CreateCalEventInput; teamId: number | null }) =>
       CalComAPIService.createCalEvent(input, teamId),
+    // Not idempotent: a retry after a lost response would create a second draft.
+    retry: false,
     onSuccess: (event) => {
       // The detail screen it opens on paints from the cache at once.
       setCalEventDetail(queryClient, event);
