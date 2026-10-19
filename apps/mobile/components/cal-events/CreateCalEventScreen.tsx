@@ -178,6 +178,7 @@ export function CreateCalEventScreen({
               onChangeText={(name) => update({ name })}
               placeholder="my event"
               accessibilityLabel="Event name"
+              testID="create-event-name"
               maxWidth={sentenceWidth}
               autoFocus
               maxLength={CAL_EVENT_NAME_MAX_LENGTH}
@@ -196,6 +197,7 @@ export function CreateCalEventScreen({
               onChangeText={(text) => update({ location: text })}
               placeholder="somewhere"
               accessibilityLabel="Change location"
+              testID="create-event-location"
               maxWidth={sentenceWidth === null ? null : sentenceWidth - 12}
               autoCapitalize="none"
               onFocus={() => setLocationFocused(true)}
@@ -263,6 +265,7 @@ export function CreateCalEventScreen({
           <Pressable
             onPress={submit}
             disabled={!canSubmit || pending}
+            testID="create-event-submit"
             accessibilityRole="button"
             accessibilityState={{ disabled: !canSubmit || pending, busy: pending }}
             style={{
@@ -337,13 +340,15 @@ const sentenceText = {
   fontWeight: "700" as const,
 };
 
-const underline = { borderBottomWidth: 2, borderStyle: "dashed" as const };
+// Solid: iOS draws no dashed border on a single side, so the web's dashed underline can't carry over.
+const underline = { borderBottomWidth: 2 };
 
 interface InlineFieldProps {
   value: string;
   onChangeText: (text: string) => void;
   placeholder: string;
   accessibilityLabel: string;
+  testID: string;
   /** The sentence's width: past it the field wraps to its own line and scrolls. */
   maxWidth: number | null;
   autoFocus?: boolean;
@@ -368,7 +373,7 @@ function InlineField({ value, trailing, maxWidth, onSubmitEditing, ...props }: I
 
   const onMeasure = (event: LayoutChangeEvent) => setTextWidth(event.nativeEvent.layout.width);
   const width =
-    textWidth === null ? undefined : Math.min(textWidth + 6, maxWidth ?? Number.POSITIVE_INFINITY);
+    textWidth === null ? undefined : Math.min(textWidth + 2, maxWidth ?? Number.POSITIVE_INFINITY);
 
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-end", maxWidth: "100%" }}>
