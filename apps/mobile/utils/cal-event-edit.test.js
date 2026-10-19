@@ -16,6 +16,7 @@ const {
   getAddCalEventLocationError,
   getEditCalEventErrors,
   getRegistrationFieldsError,
+  moveItem,
   slugForRegistrationField,
 } = require("./cal-event-edit");
 
@@ -308,6 +309,21 @@ describe("registration questions", () => {
     expect(slugForRegistrationField("Company", [{ field: "custom", slug: "company" }])).toBe(
       "company-2"
     );
+  });
+});
+
+describe("moveItem", () => {
+  test("swaps an item with its neighbour", () => {
+    expect(moveItem(["a", "b", "c"], 0, 1)).toEqual(["b", "a", "c"]);
+    expect(moveItem(["a", "b", "c"], 2, -1)).toEqual(["a", "c", "b"]);
+  });
+
+  test("leaves the list alone when the item or its target is out of range", () => {
+    const items = ["a", "b"];
+    expect(moveItem(items, 0, -1)).toBe(items);
+    expect(moveItem(items, 1, 1)).toBe(items);
+    expect(moveItem(items, -1, 1)).toBe(items);
+    expect(moveItem(items, 2, -1)).toBe(items);
   });
 });
 

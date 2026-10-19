@@ -566,6 +566,15 @@ export function slugForRegistrationField(
   return slug;
 }
 
+/** Move `items[index]` by `delta` places; out-of-range moves are no-ops. */
+export function moveItem<T>(items: T[], index: number, delta: -1 | 1): T[] {
+  const target = index + delta;
+  if (index < 0 || index >= items.length || target < 0 || target >= items.length) return items;
+  const next = [...items];
+  [next[index], next[target]] = [next[target], next[index]];
+  return next;
+}
+
 /** Edit is for owners and hosts, like publish / cancel / delete; a cancelled event can't change. */
 export function canEditCalEvent(
   event: Pick<CalEvent, "userId" | "hosts" | "status">,
