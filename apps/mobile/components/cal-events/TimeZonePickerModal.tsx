@@ -105,6 +105,19 @@ export function TimeZonePickerModal({
           keyboardShouldPersistTaps="handled"
           initialNumToRender={30}
           contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+          ListEmptyComponent={
+            <Text
+              style={{
+                color: theme.textSecondary,
+                fontSize: 15,
+                textAlign: "center",
+                paddingHorizontal: 16,
+                paddingTop: 32,
+              }}
+            >
+              {`No timezones match "${query.trim()}"`}
+            </Text>
+          }
           renderItem={({ item: zone }) => {
             const summary = timeZoneSummary(zone);
             const selected = zone === value;
