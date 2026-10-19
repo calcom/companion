@@ -76,10 +76,12 @@ export default function CalEventCheckInScannerScreen() {
     AccessibilityInfo.announceForAccessibility(`${result.title}${detail}`);
   }, [result]);
 
-  // Likewise when the window shuts while the scanner is open.
+  // Likewise when the window shuts while the scanner is open, with the same explanation shown.
   useEffect(() => {
     if (windowNotice && Platform.OS === "ios") {
-      AccessibilityInfo.announceForAccessibility(windowNotice);
+      AccessibilityInfo.announceForAccessibility(
+        `${windowNotice}, ${CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION}`
+      );
     }
   }, [windowNotice]);
 
