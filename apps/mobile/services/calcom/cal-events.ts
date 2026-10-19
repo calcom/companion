@@ -12,6 +12,7 @@ import type {
   CalEventLocation,
   CreateCalEventInput,
   UpdateCalEventInput,
+  UpdateCalEventLocationInput,
 } from "../types";
 
 import { ApiRequestError, makeRequest } from "./request";
@@ -149,8 +150,8 @@ export async function getCalEventLocations(uuid: string): Promise<CalEventLocati
 }
 
 /**
- * Add one location after the existing ones; there is no edit or delete. One address per event,
- * and on a published event the guests are emailed about it.
+ * Add one location after the existing ones. One address per event, and on a published event the
+ * guests are emailed about it.
  */
 export async function addCalEventLocation(
   uuid: string,
@@ -166,6 +167,45 @@ export async function addCalEventLocation(
     API_VERSION
   );
   if (!response?.data) throw new Error("Invalid response from add location API");
+  return response.data;
+}
+
+/**
+ * Change a location's fields and keep its id. Its type can't change, and on a published event
+ * neither can its price; the guests are emailed about the change.
+ */
+export async function updateCalEventLocation(
+  uuid: string,
+  locationId: string,
+  patch: UpdateCalEventLocationInput
+): Promise<CalEventLocation> {
+  const response = await makeRequest<{ status: string; data: CalEventLocation }>(
+    `/events/${uuid}/locations/${locationId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    },
+    API_VERSION
+  );
+  if (!response?.data) throw new Error("Invalid response from update location API");
+  return response.data;
+}
+
+/**
+ * Remove a location; returns the ones left. A published paid event can't remove any, and on a
+ * published event the guests are emailed.
+ */
+export async function removeCalEventLocation(
+  uuid: string,
+  locationId: string
+): Promise<CalEventLocation[]> {
+  const response = await makeRequest<{ status: string; data: CalEventLocation[] }>(
+    `/events/${uuid}/locations/${locationId}`,
+    { method: "DELETE" },
+    API_VERSION
+  );
+  if (!Array.isArray(response?.data)) throw new Error("Invalid response from remove location API");
   return response.data;
 }
 

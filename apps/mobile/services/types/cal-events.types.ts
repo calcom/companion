@@ -236,6 +236,20 @@ export type AddCalEventLocationInput = Extract<
   { type: "address" } | { type: "link" }
 >;
 
+/**
+ * The body of `PATCH /v2/events/{uuid}/locations/{locationId}`: only what changed. `type` must
+ * match the stored one; null removes a label, price (and its currency) or capacity.
+ */
+export type UpdateCalEventLocationInput = {
+  type: Exclude<CalEventLocation["type"], "unknown">;
+  label?: string | null;
+  price?: number | null;
+  currency?: string;
+  capacity?: number | null;
+  address?: string;
+  link?: string;
+};
+
 /** An external co-host, invited by email. */
 export interface CalEventCoHost {
   id: string;

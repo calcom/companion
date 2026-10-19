@@ -10,12 +10,15 @@ const {
   buildAddCalEventLocationInput,
   buildCalEventUpdateInput,
   buildEditFormValues,
+  buildUpdateCalEventLocationInput,
+  calEventLocationFormValues,
   canEditCalEvent,
   describeCalEventLocation,
   formatWallDateTime,
-  getAddCalEventLocationError,
+  getCalEventLocationError,
   getEditCalEventErrors,
   getRegistrationFieldsError,
+  isCalEventLocationRemovalLocked,
   moveItem,
   slugForRegistrationField,
 } = require("./cal-event-edit");
@@ -373,19 +376,17 @@ describe("adding a location", () => {
   const address = [{ id: "l1", type: "address", address: "Calle Mayor 1" }];
 
   test("allows one address, and links that parse", () => {
-    expect(
-      getAddCalEventLocationError(form({ kind: "address", value: "Plaza 2" }), address)
-    ).toMatch(/one address/);
-    expect(getAddCalEventLocationError(form({ value: "not a link" }), address)).toMatch(/link/);
-    expect(getAddCalEventLocationError(form(), address)).toBeNull();
+    expect(getCalEventLocationError(form({ kind: "address", value: "Plaza 2" }), address)).toMatch(
+      /one address/
+    );
+    expect(getCalEventLocationError(form({ value: "not a link" }), address)).toMatch(/link/);
+    expect(getCalEventLocationError(form(), address)).toBeNull();
   });
 
   test("checks seats and price", () => {
-    expect(getAddCalEventLocationError(form({ capacity: "0" }), [])).toMatch(/Seats/);
-    expect(getAddCalEventLocationError(form({ price: "1.234" }), [])).toMatch(/price/);
-    expect(getAddCalEventLocationError(form({ price: "5", currency: "??" }), [])).toMatch(
-      /currency/
-    );
+    expect(getCalEventLocationError(form({ capacity: "0" }), [])).toMatch(/Seats/);
+    expect(getCalEventLocationError(form({ price: "1.234" }), [])).toMatch(/price/);
+    expect(getCalEventLocationError(form({ price: "5", currency: "??" }), [])).toMatch(/currency/);
   });
 
   test("builds the body with the price in the smallest unit", () => {
@@ -407,10 +408,8 @@ describe("adding a location", () => {
       15000
     );
     expect(buildAddCalEventLocationInput(form({ price: "1.5", currency: "kwd" })).price).toBe(150);
-    expect(getAddCalEventLocationError(form({ price: "1.25", currency: "kwd" }), [])).toBeNull();
-    expect(getAddCalEventLocationError(form({ price: "15.5", currency: "jpy" }), [])).toMatch(
-      /price/
-    );
+    expect(getCalEventLocationError(form({ price: "1.25", currency: "kwd" }), [])).toBeNull();
+    expect(getCalEventLocationError(form({ price: "15.5", currency: "jpy" }), [])).toMatch(/price/);
   });
 
   test("adds a price that reads back as it was typed", () => {
@@ -431,6 +430,78 @@ describe("adding a location", () => {
       "Google Meet"
     );
     expect(describeCalEventLocation({ type: "unknown", location: "{}" })).toBe("Other location");
+  });
+});
+
+describe("editing a location", () => {
+  const link = {
+    id: "l1",
+    type: "link",
+    link: "https://zoom.us/j/1",
+    label: "Stream",
+    price: 1550,
+    currency: "eur",
+    capacity: 20,
+  };
+  const edit = (location, patch) =>
+    buildUpdateCalEventLocationInput(
+      { ...calEventLocationFormValues(location), ...patch },
+      location
+    );
+
+  test("fills the sheet with the price in the main unit", () => {
+    expect(calEventLocationFormValues(link)).toEqual({
+      kind: "link",
+      value: "https://zoom.us/j/1",
+      label: "Stream",
+      capacity: "20",
+      price: "15.5",
+      currency: "EUR",
+    });
+    expect(calEventLocationFormValues({ ...link, price: 1500, currency: "jpy" }).price).toBe(
+      "1500"
+    );
+  });
+
+  test("sends only what changed, and nothing when nothing did", () => {
+    expect(edit(link, {})).toBeNull();
+    expect(edit(link, { value: "zoom.us/j/2", label: "  " })).toEqual({
+      type: "link",
+      link: "https://zoom.us/j/2",
+      label: null,
+    });
+    expect(edit({ id: "l2", type: "address", address: "Plaza 1" }, { capacity: "5" })).toEqual({
+      type: "address",
+      capacity: 5,
+    });
+  });
+
+  test("clears a price with null and sends the currency with a new one", () => {
+    expect(edit(link, { price: "", capacity: "" })).toEqual({
+      type: "link",
+      price: null,
+      capacity: null,
+    });
+    expect(edit(link, { price: "20" })).toEqual({ type: "link", price: 2000, currency: "EUR" });
+    expect(edit(link, { currency: "usd" })).toEqual({ type: "link", price: 1550, currency: "USD" });
+  });
+
+  test("checks the edited address against the other locations only", () => {
+    const address = { id: "a1", type: "address", address: "Plaza 1" };
+    const values = { ...calEventLocationFormValues(address), value: "Plaza 2" };
+    expect(getCalEventLocationError(values, [link])).toBeNull();
+    expect(getCalEventLocationError(values, [address])).toMatch(/one address/);
+    const meet = { id: "m1", type: "integration", integration: "google-meet" };
+    expect(getCalEventLocationError(calEventLocationFormValues(meet), [])).toBeNull();
+  });
+
+  test("locks removal once a paid event is published", () => {
+    const free = { id: "f1", type: "link", link: "https://x.test" };
+    const published = { publishedAt: "2026-10-01T00:00:00Z", price: null };
+    expect(isCalEventLocationRemovalLocked(published, [free])).toBe(false);
+    expect(isCalEventLocationRemovalLocked(published, [free, link])).toBe(true);
+    expect(isCalEventLocationRemovalLocked({ ...published, price: 500 }, [free])).toBe(true);
+    expect(isCalEventLocationRemovalLocked({ publishedAt: null, price: 500 }, [link])).toBe(false);
   });
 });
 

@@ -14,8 +14,10 @@ import {
   CalComAPIService,
   type CalEvent,
   type CalEventImageFile,
+  type CalEventLocation,
   type CreateCalEventInput,
   type UpdateCalEventInput,
+  type UpdateCalEventLocationInput,
 } from "@/services/calcom";
 import { ApiRequestError } from "@/services/calcom/request";
 
@@ -210,12 +212,53 @@ export function useAddCalEventLocation() {
       CalComAPIService.addCalEventLocation(uuid, location),
     // Not idempotent: a retry after a lost response would add it twice.
     retry: false,
-    onSettled: (_location, _error, { uuid }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.locations(uuid) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.detail(uuid) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.lists() });
-    },
+    onSettled: (_location, _error, { uuid }) => invalidateCalEventLocations(queryClient, uuid),
   });
+}
+
+/** Hook to change a location. It applies at once (and emails the guests of a published event). */
+export function useUpdateCalEventLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      uuid,
+      locationId,
+      patch,
+    }: {
+      uuid: string;
+      locationId: string;
+      patch: UpdateCalEventLocationInput;
+    }) => CalComAPIService.updateCalEventLocation(uuid, locationId, patch),
+    retry: false,
+    onSuccess: (location, { uuid, locationId }) => {
+      queryClient.setQueryData<CalEventLocation[]>(queryKeys.calEvents.locations(uuid), (current) =>
+        current?.map((existing) => (existing.id === locationId ? location : existing))
+      );
+    },
+    onSettled: (_location, _error, { uuid }) => invalidateCalEventLocations(queryClient, uuid),
+  });
+}
+
+/** Hook to remove a location. It applies at once (and emails the guests of a published event). */
+export function useRemoveCalEventLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uuid, locationId }: { uuid: string; locationId: string }) =>
+      CalComAPIService.removeCalEventLocation(uuid, locationId),
+    // A retry after a lost response would 404 on the location it already removed.
+    retry: false,
+    onSuccess: (remaining, { uuid }) => {
+      queryClient.setQueryData(queryKeys.calEvents.locations(uuid), remaining);
+    },
+    onSettled: (_remaining, _error, { uuid }) => invalidateCalEventLocations(queryClient, uuid),
+  });
+}
+
+/** A location change shows on the event's detail and in the listings too. */
+function invalidateCalEventLocations(queryClient: ReturnType<typeof useQueryClient>, uuid: string) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.locations(uuid) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.detail(uuid) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.lists() });
 }
 
 /** Hook to fetch an event's external co-hosts. */

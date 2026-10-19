@@ -51,7 +51,9 @@ export {
   useDeleteCalEvent,
   useInvalidateCalEvents,
   usePublishCalEvent,
+  useRemoveCalEventLocation,
   useUpdateCalEvent,
+  useUpdateCalEventLocation,
   useUploadCalEventPersonAvatar,
 } from "./useCalEvents";
 // Event Types hooks

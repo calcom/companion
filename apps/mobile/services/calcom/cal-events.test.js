@@ -23,8 +23,10 @@ const {
   deleteCalEventCoverImage,
   getCalEvent,
   getCalEvents,
+  removeCalEventLocation,
   reorderCalEventCoHosts,
   updateCalEvent,
+  updateCalEventLocation,
   uploadCalEventCoverImage,
   uploadCalEventPersonAvatar,
 } = require("./cal-events");
@@ -180,6 +182,32 @@ describe("event media and locations", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(location),
       },
+      "2024-06-14"
+    );
+  });
+
+  test("edits a location with a PATCH of what changed", async () => {
+    mockMakeRequest.mockResolvedValue({ status: "success", data: { id: "l2", type: "link" } });
+    const patch = { type: "link", label: null };
+    await updateCalEventLocation("event-uuid", "l2", patch);
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/locations/l2",
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      },
+      "2024-06-14"
+    );
+  });
+
+  test("removes a location and returns the ones left", async () => {
+    const remaining = [{ id: "l1", type: "address", address: "Plaza 1" }];
+    mockMakeRequest.mockResolvedValue({ status: "success", data: remaining });
+    await expect(removeCalEventLocation("event-uuid", "l2")).resolves.toEqual(remaining);
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/locations/l2",
+      { method: "DELETE" },
       "2024-06-14"
     );
   });

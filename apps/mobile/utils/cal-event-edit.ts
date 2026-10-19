@@ -19,6 +19,7 @@ import type {
   CalEventShaderId,
   CalEventTheme,
   UpdateCalEventInput,
+  UpdateCalEventLocationInput,
 } from "@/services/types/cal-events.types";
 import {
   CAL_EVENT_MIN_DURATION_MS,
@@ -604,9 +605,13 @@ export function describeCalEventLocation(location: CalEventLocation): string {
 
 export const CAL_EVENT_LOCATION_LABEL_MAX_LENGTH = 100;
 
-/** The add-location sheet's fields, as typed. */
-export interface AddCalEventLocationFormValues {
-  kind: "address" | "link";
+/** A location the editor can change; the API can't edit or remove an "unknown" one. */
+export type EditableCalEventLocation = Exclude<CalEventLocation, { type: "unknown" }>;
+
+/** The location sheet's fields, as typed. */
+export interface CalEventLocationFormValues {
+  kind: EditableCalEventLocation["type"];
+  /** The address or link; conferencing has none to type. */
   value: string;
   label: string;
   capacity: string;
@@ -614,6 +619,11 @@ export interface AddCalEventLocationFormValues {
   price: string;
   currency: string;
 }
+
+/** Adding takes only an address or a link. */
+export type AddCalEventLocationFormValues = CalEventLocationFormValues & {
+  kind: "address" | "link";
+};
 
 /** Decimal places of the currency's smallest unit, or null for a malformed code. */
 function currencyFractionDigits(currency: string): number | null {
@@ -625,14 +635,19 @@ function currencyFractionDigits(currency: string): number | null {
   return getCalEventPriceDecimals(currency);
 }
 
-/** The sheet's first problem, if any. One address per event; links can repeat. */
-export function getAddCalEventLocationError(
-  values: AddCalEventLocationFormValues,
-  existing: CalEventLocation[]
+/**
+ * The sheet's first problem, if any. One address per event; links can repeat. `others` are the
+ * event's other locations (all of them when adding).
+ */
+export function getCalEventLocationError(
+  values: CalEventLocationFormValues,
+  others: CalEventLocation[]
 ): string | null {
   const value = values.value.trim();
-  if (!value) return values.kind === "address" ? "Enter the address" : "Enter the link";
-  if (values.kind === "address" && existing.some((location) => location.type === "address")) {
+  if (values.kind === "address" || values.kind === "link") {
+    if (!value) return values.kind === "address" ? "Enter the address" : "Enter the link";
+  }
+  if (values.kind === "address" && others.some((location) => location.type === "address")) {
     return "An event can have one address";
   }
   if (values.kind === "link" && parseLocationInput(value)?.type !== "link") {
@@ -656,7 +671,7 @@ export function getAddCalEventLocationError(
   return null;
 }
 
-/** The POST body; call only once getAddCalEventLocationError passes. */
+/** The POST body; call only once getCalEventLocationError passes. */
 export function buildAddCalEventLocationInput(
   values: AddCalEventLocationFormValues
 ): AddCalEventLocationInput {
@@ -683,6 +698,72 @@ export function buildAddCalEventLocationInput(
     link: link?.type === "link" ? link.link : values.value.trim(),
     ...details,
   };
+}
+
+/** The sheet's fields for a saved location, its price in the currency's main unit. */
+export function calEventLocationFormValues(
+  location: EditableCalEventLocation
+): CalEventLocationFormValues {
+  const currency = (location.currency || "usd").toUpperCase();
+  return {
+    kind: location.type,
+    value:
+      location.type === "address"
+        ? location.address
+        : location.type === "link"
+          ? location.link
+          : "",
+    label: location.label ?? "",
+    capacity: location.capacity == null ? "" : String(location.capacity),
+    price: location.price ? String(location.price / 10 ** getCalEventPriceDecimals(currency)) : "",
+    currency,
+  };
+}
+
+/**
+ * The PATCH body: only what changed, with null to remove a label, price or capacity. Null when
+ * nothing changed. Call only once getCalEventLocationError passes.
+ */
+export function buildUpdateCalEventLocationInput(
+  values: CalEventLocationFormValues,
+  location: EditableCalEventLocation
+): UpdateCalEventLocationInput | null {
+  const patch: UpdateCalEventLocationInput = { type: location.type };
+  const value = values.value.trim();
+  if (location.type === "address" && value !== location.address) patch.address = value;
+  if (location.type === "link") {
+    const parsed = parseLocationInput(value);
+    const link = parsed?.type === "link" ? parsed.link : value;
+    if (link !== location.link) patch.link = link;
+  }
+  const label = values.label.trim() || null;
+  if (label !== (location.label ?? null)) patch.label = label;
+  const capacity = values.capacity.trim() ? Number(values.capacity.trim()) : null;
+  if (capacity !== (location.capacity ?? null)) patch.capacity = capacity;
+  const currency = values.currency.trim().toUpperCase();
+  const price = values.price.trim()
+    ? Math.round(Number(values.price.trim()) * 10 ** (currencyFractionDigits(currency) ?? 2))
+    : null;
+  const priceChanged =
+    price !== (location.price || null) ||
+    (price !== null && currency !== (location.currency ?? "").toUpperCase());
+  if (priceChanged) {
+    patch.price = price;
+    if (price !== null) patch.currency = currency;
+  }
+  return Object.keys(patch).length > 1 ? patch : null;
+}
+
+/**
+ * Like the web: once a paid event is published, its saved locations can't be removed, because
+ * guests chose them when they registered.
+ */
+export function isCalEventLocationRemovalLocked(
+  event: Pick<CalEvent, "publishedAt" | "price">,
+  locations: CalEventLocation[]
+): boolean {
+  if (!event.publishedAt) return false;
+  return (event.price ?? 0) > 0 || locations.some((location) => (location.price ?? 0) > 0);
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
