@@ -141,10 +141,9 @@ export interface CalEventGuest {
   checkedInAt: string | null;
 }
 
-export interface CalEventGuestsPage {
+/** Every confirmed guest of an Event, read across all of `/bookings`' pages. */
+export interface CalEventGuestList {
   guests: CalEventGuest[];
-  /** More confirmed guests follow this page. */
-  hasMore: boolean;
 }
 
 /**

@@ -588,37 +588,32 @@ describe("getCalEventCheckInProgress", () => {
       createGuest({ id: "2" }),
       createGuest({ id: "3" }),
     ];
-    expect(getCalEventCheckInProgress({ guests, hasMore: false })).toBe("1 of 3 checked in");
-    expect(getCalEventCheckInProgress({ guests: [], hasMore: false })).toBe("0 of 0 checked in");
+    expect(getCalEventCheckInProgress({ guests })).toBe("1 of 3 checked in");
+    expect(getCalEventCheckInProgress({ guests: [] })).toBe("0 of 0 checked in");
   });
 
-  test("says the count covers only the loaded guests when more follow", () => {
+  test("reads a list cached before every page was loaded the same way", () => {
     const guests = [createGuest({ checkedInAt: "2026-10-09T18:05:00.000Z" }), createGuest()];
-    expect(getCalEventCheckInProgress({ guests, hasMore: true })).toBe(
-      "1 of the first 2 checked in"
-    );
+    expect(getCalEventCheckInProgress({ guests, hasMore: true })).toBe("1 of 2 checked in");
   });
 });
 
 describe("setCalEventGuestCheckedInAt", () => {
-  const page = {
-    guests: [createGuest({ id: "1" }), createGuest({ id: "2" })],
-    hasMore: false,
-  };
+  const list = { guests: [createGuest({ id: "1" }), createGuest({ id: "2" })] };
 
   test("checks one guest in, and the count with it", () => {
-    const next = setCalEventGuestCheckedInAt(page, "2", "2026-10-09T18:05:00.000Z");
+    const next = setCalEventGuestCheckedInAt(list, "2", "2026-10-09T18:05:00.000Z");
 
     expect(next.guests.map((guest) => guest.checkedInAt)).toEqual([
       null,
       "2026-10-09T18:05:00.000Z",
     ]);
     expect(getCalEventCheckInProgress(next)).toBe("1 of 2 checked in");
-    expect(page.guests[1].checkedInAt).toBeNull();
+    expect(list.guests[1].checkedInAt).toBeNull();
   });
 
   test("undoes a check-in", () => {
-    const checkedIn = setCalEventGuestCheckedInAt(page, "1", "2026-10-09T18:05:00.000Z");
+    const checkedIn = setCalEventGuestCheckedInAt(list, "1", "2026-10-09T18:05:00.000Z");
     expect(setCalEventGuestCheckedInAt(checkedIn, "1", null).guests[0].checkedInAt).toBeNull();
   });
 

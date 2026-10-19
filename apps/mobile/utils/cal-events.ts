@@ -8,7 +8,7 @@ import { ApiRequestError } from "@/services/calcom/request";
 import type {
   CalEvent,
   CalEventGuest,
-  CalEventGuestsPage,
+  CalEventGuestList,
   CalEventStatus,
   Team,
 } from "@/services/types/cal-events.types";
@@ -354,14 +354,10 @@ export function filterCalEventGuests(guests: CalEventGuest[], query: string): Ca
   );
 }
 
-/**
- * "1 of 3 checked in". Only the first page of guests is loaded, so when more follow, the count
- * covers just those: "4 of the first 50 checked in".
- */
-export function getCalEventCheckInProgress(page: CalEventGuestsPage): string {
-  const checkedIn = page.guests.filter((guest) => guest.checkedInAt).length;
-  const total = page.hasMore ? `the first ${page.guests.length}` : `${page.guests.length}`;
-  return `${checkedIn} of ${total} checked in`;
+/** "1 of 3 checked in". */
+export function getCalEventCheckInProgress(list: CalEventGuestList): string {
+  const checkedIn = list.guests.filter((guest) => guest.checkedInAt).length;
+  return `${checkedIn} of ${list.guests.length} checked in`;
 }
 
 /** "6:05 PM" on the device's clock, which at the door is the venue's. */
@@ -500,15 +496,15 @@ export function getCalEventTicketCheckInErrorMessage(error: unknown): string {
   return getCalEventCheckInErrorMessage(error);
 }
 
-/** The page with one guest checked in at `checkedInAt`, or unchecked when it is null. */
+/** The list with one guest checked in at `checkedInAt`, or unchecked when it is null. */
 export function setCalEventGuestCheckedInAt(
-  page: CalEventGuestsPage | undefined,
+  list: CalEventGuestList | undefined,
   guestId: string,
   checkedInAt: string | null
-): CalEventGuestsPage | undefined {
-  if (!page) return page;
+): CalEventGuestList | undefined {
+  if (!list) return list;
   return {
-    ...page,
-    guests: page.guests.map((guest) => (guest.id === guestId ? { ...guest, checkedInAt } : guest)),
+    ...list,
+    guests: list.guests.map((guest) => (guest.id === guestId ? { ...guest, checkedInAt } : guest)),
   };
 }

@@ -21,7 +21,7 @@ import {
   CalComAPIService,
   type CalEvent,
   type CalEventCheckInResult,
-  type CalEventGuestsPage,
+  type CalEventGuestList,
   type CalEventTicketCheckInResult,
 } from "@/services/calcom";
 import {
@@ -33,7 +33,7 @@ import {
 import { isForbiddenError, isNetworkError, isNotFoundError } from "./useCalEvents";
 
 /**
- * Hook to fetch an event's confirmed guests (the first page). Other hosts check guests in too, so
+ * Hook to fetch an event's confirmed guests, every page of them. Other hosts check guests in too, so
  * the list is never fresh for long: it refetches whenever the screen opens or the app comes back.
  */
 export function useCalEventGuests(uuid: string | undefined) {
@@ -128,8 +128,8 @@ function guestCheckInMutationOptions<TResult>(
 ): MutationObserverOptions<TResult, Error, string, GuestCheckInContext> {
   const queryKey = queryKeys.calEvents.guests(uuid);
   const setCheckedInAt = (guestId: string, checkedInAt: string | null) =>
-    queryClient.setQueryData<CalEventGuestsPage>(queryKey, (page) =>
-      setCalEventGuestCheckedInAt(page, guestId, checkedInAt)
+    queryClient.setQueryData<CalEventGuestList>(queryKey, (list) =>
+      setCalEventGuestCheckedInAt(list, guestId, checkedInAt)
     );
 
   return {
@@ -139,8 +139,8 @@ function guestCheckInMutationOptions<TResult>(
     retry: false,
     onMutate: async (guestId) => {
       await queryClient.cancelQueries({ queryKey });
-      const page = queryClient.getQueryData<CalEventGuestsPage>(queryKey);
-      const previous = page?.guests.find((guest) => guest.id === guestId)?.checkedInAt ?? null;
+      const list = queryClient.getQueryData<CalEventGuestList>(queryKey);
+      const previous = list?.guests.find((guest) => guest.id === guestId)?.checkedInAt ?? null;
       setCheckedInAt(guestId, optimisticCheckedInAt());
       return { previous };
     },
@@ -211,8 +211,8 @@ export function checkInCalEventGuestByTicketMutationOptions(
         result.kind === "already_checked_in"
           ? result.checkedInAt
           : (result.guest.checkedInAt ?? new Date().toISOString());
-      queryClient.setQueryData<CalEventGuestsPage>(queryKey, (page) =>
-        setCalEventGuestCheckedInAt(page, result.guest.id, checkedInAt)
+      queryClient.setQueryData<CalEventGuestList>(queryKey, (list) =>
+        setCalEventGuestCheckedInAt(list, result.guest.id, checkedInAt)
       );
     },
     onError: (error) => {

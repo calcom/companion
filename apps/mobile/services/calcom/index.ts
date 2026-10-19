@@ -25,7 +25,7 @@ export type {
   CalEvent,
   CalEventCheckInResult,
   CalEventGuest,
-  CalEventGuestsPage,
+  CalEventGuestList,
   CalEventHost,
   CalEventLocation,
   CalEventStatus,

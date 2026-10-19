@@ -50,7 +50,7 @@ export default function CalEventCheckInScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   // Not isFetching: the list also refetches after every tap, and that shouldn't spin the control.
   const [pulling, setPulling] = useState(false);
-  const { data: page, isLoading, isRefetchError, error, refetch } = useCalEventGuests(uuid);
+  const { data: list, isLoading, isRefetchError, error, refetch } = useCalEventGuests(uuid);
   // Usually cached from the event's detail; until it loads, there's no window to show a scanner in.
   const { data: event } = useCalEvent(uuid);
   const availability = useCalEventCheckInAvailability(event);
@@ -62,8 +62,8 @@ export default function CalEventCheckInScreen() {
   const pendingGuestIds = usePendingCalEventGuestIds(uuid);
 
   const guests = useMemo(
-    () => filterCalEventGuests(sortCalEventGuests(page?.guests ?? []), searchQuery),
-    [page, searchQuery]
+    () => filterCalEventGuests(sortCalEventGuests(list?.guests ?? []), searchQuery),
+    [list, searchQuery]
   );
 
   const onRefresh = async () => {
@@ -119,7 +119,7 @@ export default function CalEventCheckInScreen() {
 
   const screenOptions = <Stack.Screen options={{ title: "Check in", headerBackTitle: "Event" }} />;
 
-  if (isLoading && !page) {
+  if (isLoading && !list) {
     return (
       <>
         {screenOptions}
@@ -133,7 +133,7 @@ export default function CalEventCheckInScreen() {
     );
   }
 
-  if (!page) {
+  if (!list) {
     // A 404 is a deleted event, or one this user can't manage. A 403 is a sign-in without the
     // Events scopes, which no retry can fix. Any other failure may pass, so only it gets Retry.
     const forbidden = isForbiddenError(error);
@@ -186,7 +186,7 @@ export default function CalEventCheckInScreen() {
             accessibilityRole="header"
             accessibilityLiveRegion="polite"
           >
-            {getCalEventCheckInProgress(page)}
+            {getCalEventCheckInProgress(list)}
           </Text>
           {availability?.kind === "open" ? (
             <TouchableOpacity
@@ -214,7 +214,7 @@ export default function CalEventCheckInScreen() {
               {windowNotice}
             </Text>
           ) : null}
-          {page.guests.length > 0 || searchQuery ? (
+          {list.guests.length > 0 || searchQuery ? (
             <SearchField theme={theme} value={searchQuery} onChangeText={setSearchQuery} />
           ) : null}
           {/* Cached guests after a failed refetch: say so, with Retry. */}
@@ -279,20 +279,6 @@ export default function CalEventCheckInScreen() {
                 />
               )}
             </View>
-          }
-          ListFooterComponent={
-            page.hasMore && guests.length > 0 ? (
-              <Text
-                style={{
-                  color: theme.textSecondary,
-                  fontSize: 14,
-                  textAlign: "center",
-                  padding: 16,
-                }}
-              >
-                Showing the first {page.guests.length} guests.
-              </Text>
-            ) : null
           }
         />
       </View>

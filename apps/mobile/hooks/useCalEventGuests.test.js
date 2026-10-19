@@ -37,6 +37,7 @@ const {
   undoCalEventGuestCheckInMutationOptions,
   useCalEventCheckInAvailability,
 } = require("./useCalEventGuests");
+const { getCalEventCheckInProgress } = require("@/utils/cal-events");
 
 const UUID = "event-uuid";
 const EARLIER = "2026-10-12T10:05:00.000Z";
@@ -56,7 +57,7 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function setup(guests) {
   const queryClient = new QueryClient();
-  queryClient.setQueryData(queryKeys.calEvents.guests(UUID), { guests, hasMore: false });
+  queryClient.setQueryData(queryKeys.calEvents.guests(UUID), { guests });
   const checkedInAt = (guestId) =>
     queryClient
       .getQueryData(queryKeys.calEvents.guests(UUID))
@@ -181,6 +182,28 @@ describe("checking a guest in", () => {
     answers.b.resolve({ kind: "checked_in" });
     await expect(second).resolves.toEqual({ kind: "checked_in" });
     expect(checkedInAt("b")).toEqual(expect.any(String));
+  });
+
+  test("checks in and undoes a guest past the API's first page of 250", async () => {
+    const guests = Array.from({ length: 300 }, (_, n) => createGuest(`g${n}`));
+    const { queryClient, checkedInAt } = setup(guests);
+    mockCheckIn.mockResolvedValue({ kind: "checked_in", checkedInAt: EARLIER });
+    mockUndo.mockResolvedValue(undefined);
+    const guestList = () => queryClient.getQueryData(queryKeys.calEvents.guests(UUID));
+
+    await new MutationObserver(
+      queryClient,
+      checkInCalEventGuestMutationOptions(queryClient, UUID)
+    ).mutate("g299");
+    expect(checkedInAt("g299")).toBe(EARLIER);
+    expect(getCalEventCheckInProgress(guestList())).toBe("1 of 300 checked in");
+
+    await new MutationObserver(
+      queryClient,
+      undoCalEventGuestCheckInMutationOptions(queryClient, UUID)
+    ).mutate("g299");
+    expect(checkedInAt("g299")).toBeNull();
+    expect(getCalEventCheckInProgress(guestList())).toBe("0 of 300 checked in");
   });
 
   test("shows another host's earlier check-in time", async () => {

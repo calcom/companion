@@ -11,7 +11,7 @@ import type {
   CalEventCheckInOutcomeApi,
   CalEventCheckInResult,
   CalEventGuest,
-  CalEventGuestsPage,
+  CalEventGuestList,
   CalEventRegistrationApi,
   CalEventsCursorPaginationApi,
   CalEventTicketCheckInResult,
@@ -22,7 +22,7 @@ import { ApiRequestError, makeRequest } from "./request";
 
 const API_VERSION = "2024-06-14";
 
-/** The API's largest page. Only the first page is fetched for now; paging through the rest comes later. */
+/** The API's largest page, so a big guest list takes as few calls as it can. */
 const GUESTS_PAGE_SIZE = 250;
 
 type ListResponse = { status: string; data: CalEventApi[] };
@@ -122,19 +122,32 @@ export function toCalEventGuest(booking: CalEventBookingApi): CalEventGuest {
 }
 
 /**
- * Get the first page of an event's confirmed guests. Hosts, accepted co-hosts and team members
- * with access only; anyone else gets the same 404 as for an unknown event.
+ * Get every confirmed guest of an event, page by page: the count, search and A–Z order all need
+ * the whole list. Hosts, accepted co-hosts and team members with access only; anyone else gets the
+ * same 404 as for an unknown event.
  */
-export async function getCalEventGuests(uuid: string): Promise<CalEventGuestsPage> {
-  const response = await makeRequest<BookingsResponse>(
-    `/events/${uuid}/bookings?limit=${GUESTS_PAGE_SIZE}`,
-    {},
-    API_VERSION
-  );
-  return {
-    guests: Array.isArray(response?.data) ? response.data.map(toCalEventGuest) : [],
-    hasMore: response?.pagination?.hasMore ?? false,
-  };
+export async function getCalEventGuests(uuid: string): Promise<CalEventGuestList> {
+  // By id, so a guest a later page repeats is listed (and counted) once.
+  const guests = new Map<string, CalEventGuest>();
+  const cursors = new Set<string>();
+  let cursor: string | null = null;
+  do {
+    const query = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+    const response: BookingsResponse = await makeRequest<BookingsResponse>(
+      `/events/${uuid}/bookings?limit=${GUESTS_PAGE_SIZE}${query}`,
+      {},
+      API_VERSION
+    );
+    for (const booking of Array.isArray(response?.data) ? response.data : []) {
+      const guest = toCalEventGuest(booking);
+      if (!guests.has(guest.id)) guests.set(guest.id, guest);
+    }
+    // No cursor to follow is the end, and so is one already followed: it would loop forever.
+    const next = response?.pagination?.hasMore ? response.pagination.nextCursor : null;
+    cursor = next && !cursors.has(next) ? next : null;
+    if (cursor) cursors.add(cursor);
+  } while (cursor);
+  return { guests: [...guests.values()] };
 }
 
 /**
