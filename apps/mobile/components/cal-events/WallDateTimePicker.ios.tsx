@@ -14,6 +14,7 @@ export function WallDateTimePicker({
   title,
   value,
   minWallTime,
+  mode = "datetime",
   onChange,
   onClose,
 }: WallDateTimePickerProps) {
@@ -63,12 +64,12 @@ export function WallDateTimePicker({
             <DatePicker
               selection={selection}
               range={minWallTime ? { start: wallTimeToCalendarDate(minWallTime) } : undefined}
-              displayedComponents={["date", "hourAndMinute"]}
+              displayedComponents={mode === "time" ? ["hourAndMinute"] : ["date", "hourAndMinute"]}
               onDateChange={(date) => {
                 const picked = calendarDateToWallTime(date);
                 if (picked !== shownWallTime) onChange(picked);
               }}
-              modifiers={[datePickerStyle("graphical")]}
+              modifiers={[datePickerStyle(mode === "time" ? "wheel" : "graphical")]}
             />
           </Host>
           <View style={{ alignItems: "flex-end", paddingTop: 4 }}>

@@ -152,7 +152,7 @@ export function customFieldTypeHasOptions(type: CalEventCustomFieldType | undefi
 
 /** A schedule item as the form holds it: times are wall times in the event's timezone. */
 export interface CalEventEditScheduleItem {
-  /** Null for an item that has a time label instead. */
+  /** Null for an item that has a time label instead (the API can set one; the editors can't). */
   startWallTime: string | null;
   endWallTime: string | null;
   timeLabel: string;
@@ -536,7 +536,8 @@ function getScheduleError(values: CalEventEditFormValues): string | null {
         return "Schedule items must end by the end of the event";
       }
     } else if (!item.timeLabel.trim()) {
-      return "Every schedule item needs a time or a label";
+      // Like the web: only an item that already has a time label (from the API) may go without.
+      return "Every schedule item needs a start time";
     }
     if (item.people.length > MAX_SCHEDULE_PEOPLE_PER_ITEM) {
       return `A schedule item can have up to ${MAX_SCHEDULE_PEOPLE_PER_ITEM} people`;

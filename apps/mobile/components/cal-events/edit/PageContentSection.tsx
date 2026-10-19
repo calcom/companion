@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type {
   CalEventCategory,
@@ -24,7 +25,6 @@ import {
 } from "@/utils/wall-time";
 import { WallDateTimePicker } from "../WallDateTimePicker";
 import {
-  ChoiceChips,
   EditSection,
   EditSheet,
   EditTextField,
@@ -97,10 +97,15 @@ function rowControls<T>(items: T[], index: number, label: string, onChange: (nex
   );
 }
 
-/** "Nov 1 at 18:30 – 19:00", or the item's label. */
-function formatItemTime(item: CalEventEditScheduleItem): string {
+/** A schedule time as the web shows it: just the time within a single-day event, else the date too. */
+function formatScheduleTime(wallTime: string, singleDay: boolean): string {
+  return singleDay ? splitWallTimeParts(wallTime).timeOfDay : formatSentenceDateTime(wallTime);
+}
+
+/** "Nov 1 at 18:30 – 19:00" ("18:30 – 19:00" within a single-day event), or the item's label. */
+function formatItemTime(item: CalEventEditScheduleItem, singleDay: boolean): string {
   if (!item.startWallTime) return item.timeLabel.trim();
-  const start = formatSentenceDateTime(item.startWallTime);
+  const start = formatScheduleTime(item.startWallTime, singleDay);
   if (!item.endWallTime) return start;
   const end = isSameWallDay(item.startWallTime, item.endWallTime)
     ? splitWallTimeParts(item.endWallTime).timeOfDay
@@ -152,6 +157,11 @@ export function PageContentSection({
   const { lineupPeople: people, schedule } = values;
   const setPeople = (lineupPeople: CalEventLineupPerson[]) => onChange({ lineupPeople });
   const setSchedule = (next: CalEventEditScheduleItem[]) => onChange({ schedule: next });
+  // Like the web, a single-day event's schedule picks only times; a longer one also picks dates.
+  const singleDay =
+    !!values.startWallTime &&
+    !!values.endWallTime &&
+    isSameWallDay(values.startWallTime, values.endWallTime);
 
   return (
     <>
@@ -188,7 +198,9 @@ export function PageContentSection({
           {schedule.map((item, index) => {
             const title = item.content.trim() || "Untitled item";
             const names = item.people.map((person) => person.name.trim()).filter(Boolean);
-            const subtitle = [formatItemTime(item), names.join(", ")].filter(Boolean).join(" · ");
+            const subtitle = [formatItemTime(item, singleDay), names.join(", ")]
+              .filter(Boolean)
+              .join(" · ");
             return (
               <ListRow
                 // biome-ignore lint/suspicious/noArrayIndexKey: items have no ids; rows hold no state
@@ -207,7 +219,7 @@ export function PageContentSection({
             label="Add schedule item"
             onPress={() =>
               itemSheet.open(null, {
-                startWallTime: values.startWallTime || null,
+                startWallTime: null,
                 endWallTime: null,
                 timeLabel: "",
                 content: "",
@@ -244,6 +256,7 @@ export function PageContentSection({
           initial={itemSheet.initial}
           isNew={itemSheet.index === null}
           eventStartWallTime={values.startWallTime}
+          singleDay={singleDay}
           onCancel={itemSheet.close}
           onDone={(item) => {
             setSchedule(putAt(schedule, itemSheet.index, item));
@@ -255,12 +268,15 @@ export function PageContentSection({
   );
 }
 
+/** A schedule time field, like the web's: a clock and the time, or a placeholder until it has one. */
 function TimeToken({
   label,
+  placeholder,
   accessibilityLabel,
   onPress,
 }: {
-  label: string;
+  label: string | null;
+  placeholder: string;
   accessibilityLabel: string;
   onPress: () => void;
 }) {
@@ -272,7 +288,9 @@ function TimeToken({
       accessibilityLabel={accessibilityLabel}
       style={{
         height: 40,
-        justifyContent: "center",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
         paddingHorizontal: 12,
         borderRadius: 10,
         borderWidth: 1,
@@ -280,22 +298,20 @@ function TimeToken({
         backgroundColor: theme.background,
       }}
     >
-      <Text style={{ color: theme.text, fontSize: 16 }}>{label}</Text>
+      <Ionicons name="time-outline" size={16} color={theme.textSecondary} />
+      <Text style={{ color: label ? theme.text : theme.textSecondary, fontSize: 16 }}>
+        {label ?? placeholder}
+      </Text>
     </Pressable>
   );
 }
 
-type ItemTimeMode = "time" | "label";
-
-const TIME_MODES: { value: ItemTimeMode; label: string }[] = [
-  { value: "time", label: "At a time" },
-  { value: "label", label: "Time label" },
-];
-
 /**
  * Edits one schedule item on a local copy. Its person sheet and date picker render inside this
  * sheet: iOS presents a modal only from the topmost one, so a sibling of this sheet couldn't open.
- * Staying inside the event's window is checked at save time, with the rest of the form.
+ * Like the web, an item needs a start time; one that already has a time label (from the API) keeps
+ * editing its label instead. Staying inside the event's window is checked at save time, with the
+ * rest of the form.
  */
 function ScheduleItemSheet({
   visible,
@@ -303,6 +319,7 @@ function ScheduleItemSheet({
   initial,
   isNew,
   eventStartWallTime,
+  singleDay,
   onCancel,
   onDone,
 }: {
@@ -311,6 +328,7 @@ function ScheduleItemSheet({
   initial: CalEventEditScheduleItem;
   isNew: boolean;
   eventStartWallTime: string;
+  singleDay: boolean;
   onCancel: () => void;
   onDone: (item: CalEventEditScheduleItem) => void;
 }) {
@@ -321,28 +339,14 @@ function ScheduleItemSheet({
     target: "start",
     open: false,
   });
-  // Switching to a label and back restores the times instead of resetting them.
-  const stashedTimes = useRef<Pick<CalEventEditScheduleItem, "startWallTime" | "endWallTime">>({
-    startWallTime: initial.startWallTime ?? (eventStartWallTime || null),
-    endWallTime: initial.endWallTime,
-  });
+  // Decided on open, so clearing the label doesn't swap the field away mid-edit.
+  const [hasLabel] = useState(!initial.startWallTime && !!initial.timeLabel.trim());
   const personSheet = useListSheet<CalEventSchedulePerson>();
   const update = (patch: Partial<CalEventEditScheduleItem>) =>
     setDraft((current) => ({ ...current, ...patch }));
 
   const { startWallTime: start, endWallTime: end } = draft;
-  const mode: ItemTimeMode = start ? "time" : "label";
-  const canSave = !!draft.content.trim() && (!!start || !!draft.timeLabel.trim());
-
-  const setMode = (next: ItemTimeMode) => {
-    if (next === mode) return;
-    if (next === "label") {
-      stashedTimes.current = { startWallTime: start, endWallTime: end };
-      update({ startWallTime: null, endWallTime: null });
-    } else {
-      update(stashedTimes.current);
-    }
-  };
+  const canSave = !!draft.content.trim() && (hasLabel ? !!draft.timeLabel.trim() : !!start);
 
   // Moving the start keeps the item's length, like the event's own start does.
   const changeStart = (next: string) =>
@@ -358,7 +362,22 @@ function ScheduleItemSheet({
           : current.endWallTime,
     }));
 
-  const openPicker = (target: "start" | "end") => setPicker({ target, open: true });
+  // An empty time takes the picker's first value right away, so closing it without scrolling
+  // keeps what it showed.
+  const openPicker = (target: "start" | "end") => {
+    if (target === "start" && !start && eventStartWallTime) changeStart(eventStartWallTime);
+    if (target === "end" && !end) {
+      const from = start ?? eventStartWallTime;
+      if (from) update({ endWallTime: addMillisecondsToWallTime(from, DEFAULT_ITEM_DURATION_MS) });
+    }
+    setPicker({ target, open: true });
+  };
+  const picked = picker.target === "end" ? (end ?? start) : start;
+  // Within a single-day event the picker only picks a time, on the event's day like the web.
+  const pickerValue =
+    picked && singleDay && eventStartWallTime
+      ? `${splitWallTimeParts(eventStartWallTime).date}T${splitWallTimeParts(picked).timeOfDay}`
+      : picked;
 
   return (
     <EditSheet
@@ -369,30 +388,41 @@ function ScheduleItemSheet({
       onDone={() => onDone(draft)}
       doneDisabled={!canSave}
     >
-      <ChoiceChips label="When" options={TIME_MODES} value={mode} onChange={setMode} />
-
-      {start ? (
+      {hasLabel ? (
+        <EditTextField
+          label="Time"
+          value={draft.timeLabel}
+          onChangeText={(timeLabel) => update({ timeLabel })}
+          placeholder="Time"
+          accessibilityLabel="Time label"
+        />
+      ) : (
         <View style={{ gap: 8 }}>
+          <FieldLabel label="Time" />
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
             <TimeToken
-              label={formatSentenceDateTime(start)}
-              accessibilityLabel={`Starts ${formatSentenceDateTime(start)}. Change start`}
+              label={start ? formatScheduleTime(start, singleDay) : null}
+              placeholder="Start"
+              accessibilityLabel={
+                start ? `Starts ${formatSentenceDateTime(start)}. Change start` : "Set start"
+              }
               onPress={() => openPicker("start")}
             />
-            {end ? (
-              <>
-                <Text style={{ color: theme.textSecondary, fontSize: 16 }}>–</Text>
-                <TimeToken
-                  label={
-                    isSameWallDay(start, end)
-                      ? splitWallTimeParts(end).timeOfDay
-                      : formatSentenceDateTime(end)
-                  }
-                  accessibilityLabel={`Ends ${formatSentenceDateTime(end)}. Change end`}
-                  onPress={() => openPicker("end")}
-                />
-              </>
-            ) : null}
+            <Text style={{ color: theme.textSecondary, fontSize: 16 }}>–</Text>
+            <TimeToken
+              label={
+                end
+                  ? start && isSameWallDay(start, end)
+                    ? splitWallTimeParts(end).timeOfDay
+                    : formatScheduleTime(end, singleDay)
+                  : null
+              }
+              placeholder="End"
+              accessibilityLabel={
+                end ? `Ends ${formatSentenceDateTime(end)}. Change end` : "Set end (optional)"
+              }
+              onPress={() => openPicker("end")}
+            />
           </View>
           {end ? (
             <TextButton
@@ -400,37 +430,24 @@ function ScheduleItemSheet({
               destructive
               onPress={() => update({ endWallTime: null })}
             />
-          ) : (
-            <TextButton
-              icon="add"
-              label="Add end"
-              onPress={() => {
-                update({ endWallTime: addMillisecondsToWallTime(start, DEFAULT_ITEM_DURATION_MS) });
-                openPicker("end");
-              }}
+          ) : null}
+          {pickerValue ? (
+            <WallDateTimePicker
+              visible={picker.open}
+              title={picker.target === "end" ? "End" : "Start"}
+              value={pickerValue}
+              mode={singleDay ? "time" : "datetime"}
+              minWallTime={
+                picker.target === "end" ? (start ?? undefined) : eventStartWallTime || undefined
+              }
+              onChange={
+                picker.target === "end" ? (next) => update({ endWallTime: next }) : changeStart
+              }
+              onClose={() => setPicker((current) => ({ ...current, open: false }))}
             />
-          )}
-          <WallDateTimePicker
-            visible={picker.open}
-            title={picker.target === "end" ? "End" : "Start"}
-            value={picker.target === "end" ? (end ?? start) : start}
-            minWallTime={picker.target === "end" ? start : eventStartWallTime || undefined}
-            onChange={
-              picker.target === "end" ? (next) => update({ endWallTime: next }) : changeStart
-            }
-            onClose={() => setPicker((current) => ({ ...current, open: false }))}
-          />
+          ) : null}
         </View>
-      ) : (
-        <EditTextField
-          label="Label"
-          value={draft.timeLabel}
-          onChangeText={(timeLabel) => update({ timeLabel })}
-          placeholder="Doors open"
-          accessibilityLabel="Time label"
-        />
       )}
-
       <EditTextField
         label="What happens"
         value={draft.content}

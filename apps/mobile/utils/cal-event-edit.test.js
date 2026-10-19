@@ -283,6 +283,18 @@ describe("getEditCalEventErrors", () => {
     );
   });
 
+  test("schedule items need a start time unless they already have a label", () => {
+    const item = (timeLabel) => ({
+      startWallTime: null,
+      endWallTime: null,
+      timeLabel,
+      content: "Talk",
+      people: [],
+    });
+    expect(errors({ schedule: [item("")] }).schedule).toMatch(/start time/);
+    expect(errors({ schedule: [item("Doors open")] }).schedule).toBe(undefined);
+  });
+
   test("lineup people need a name", () => {
     expect(errors({ lineupPeople: [{ name: " " }] }).lineup).toMatch(/name/);
   });
