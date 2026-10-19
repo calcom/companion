@@ -678,8 +678,9 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          {/* The tabs as one menu, like the event type editor's. */}
-          <DropdownMenu>
+          {/* The tabs as one menu, like the event type editor's. Its root view is the row's item,
+              so it's what shrinks on a narrow screen: the label truncates and Save stays whole. */}
+          <DropdownMenu style={{ flexShrink: 1 }}>
             <DropdownMenuTrigger asChild>
               <Pressable
                 accessibilityRole="button"
