@@ -11,6 +11,7 @@
 const WALL_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
 
 /** A start can drift a little into the past between the form and the server (same slack as the API). */
 export const CAL_EVENT_START_PAST_TOLERANCE_MS = 60_000;
@@ -69,14 +70,24 @@ export function timeZoneOffsetMs(instant: Date, timeZone: string): number {
   return asUtc - wholeSeconds;
 }
 
-/** Interprets `wallTime` as a reading of `timeZone`'s clock and returns that instant. */
+/**
+ * Interprets `wallTime` as a reading of `timeZone`'s clock and returns that instant. Across a DST
+ * change it does what `Date` and Temporal's "compatible" mode do: a time the clock skips moves on
+ * by the jump (02:30 -> 03:30), and a time the clock reads twice takes the earlier instant.
+ */
 export function wallTimeToUtc(wallTime: string, timeZone: string): Date {
   const face = faceValueMs(wallTime);
   if (Number.isNaN(face)) return new Date(Number.NaN);
-  const firstGuess = face - timeZoneOffsetMs(new Date(face), timeZone);
-  // Near a DST change the offset at the guess can differ from the one at the face value.
-  const offset = timeZoneOffsetMs(new Date(firstGuess), timeZone);
-  return new Date(face - offset);
+  // The offsets a day either side; they differ only when a DST change is close by.
+  const offsetBefore = timeZoneOffsetMs(new Date(face - DAY_MS), timeZone);
+  const offsetAfter = timeZoneOffsetMs(new Date(face + DAY_MS), timeZone);
+  const readsAsWallTime = (offset: number) =>
+    timeZoneOffsetMs(new Date(face - offset), timeZone) === offset;
+  const candidates = [offsetBefore, offsetAfter]
+    .filter(readsAsWallTime)
+    .map((offset) => face - offset);
+  // None: the clock skipped this reading, so the pre-change offset carries it past the jump.
+  return new Date(candidates.length > 0 ? Math.min(...candidates) : face - offsetBefore);
 }
 
 /** The reading of `timeZone`'s clock at `instant`, as `"YYYY-MM-DDTHH:mm"`. */

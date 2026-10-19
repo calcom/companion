@@ -45,6 +45,28 @@ describe("wallTimeToUtc", () => {
     );
   });
 
+  test("moves a time the clock skips on by the jump", () => {
+    // New York jumps 02:00 EST -> 03:00 EDT on 8 Mar 2026, so 02:30 never happens there.
+    const skipped = wallTimeToUtc("2026-03-08T02:30", "America/New_York");
+    expect(skipped.toISOString()).toBe("2026-03-08T07:30:00.000Z");
+    expect(utcToWallTime(skipped, "America/New_York")).toBe("2026-03-08T03:30");
+    // Madrid jumps 02:00 CET -> 03:00 CEST on 29 Mar 2026.
+    expect(wallTimeToUtc("2026-03-29T02:30", "Europe/Madrid").toISOString()).toBe(
+      "2026-03-29T01:30:00.000Z"
+    );
+  });
+
+  test("takes the earlier instant for a time the clock reads twice", () => {
+    // New York reads 01:30 twice on 1 Nov 2026: at 05:30Z (EDT) and 06:30Z (EST).
+    expect(wallTimeToUtc("2026-11-01T01:30", "America/New_York").toISOString()).toBe(
+      "2026-11-01T05:30:00.000Z"
+    );
+    // Madrid reads 02:30 twice on 25 Oct 2026: at 00:30Z (CEST) and 01:30Z (CET).
+    expect(wallTimeToUtc("2026-10-25T02:30", "Europe/Madrid").toISOString()).toBe(
+      "2026-10-25T00:30:00.000Z"
+    );
+  });
+
   test("round-trips with utcToWallTime", () => {
     const instant = wallTimeToUtc("2026-03-29T03:30", "Europe/London");
     expect(utcToWallTime(instant, "Europe/London")).toBe("2026-03-29T03:30");
