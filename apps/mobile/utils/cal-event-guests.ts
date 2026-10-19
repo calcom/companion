@@ -633,11 +633,18 @@ export function getGuestDecisions(status: CalEventRegistrationStatus): GuestDeci
  * What to tell the host after approving one guest, in the web's words; null when the row's new
  * badge says it all.
  */
-export function getDecisionMessage(kind: CalEventRegistrationDecision): string | null {
+export function getDecisionMessage(
+  kind: CalEventRegistrationDecision
+): { title: string; message: string } | null {
   if (kind === "payment_pending") {
-    return "Approved. The guest has been sent a payment link to confirm their spot.";
+    return {
+      title: "Payment link sent",
+      message: "Approved. The guest has been sent a payment link to confirm their spot.",
+    };
   }
-  if (kind === "event_full_offer_waitlist") return "Event is full. The guest stays pending.";
+  if (kind === "event_full_offer_waitlist") {
+    return { title: "Event is full", message: "The guest wasn't seated and stays pending." };
+  }
   return null;
 }
 

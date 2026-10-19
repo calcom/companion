@@ -2,8 +2,8 @@
  * Cal Event Guests Hooks
  *
  * React Query hooks for an event's Guests tab: the roster, the messages sent to its guests, and
- * the host actions (invite, message, approve all). Each action applies at once and never touches
- * the editor's Save.
+ * the host actions (invite, message, approve or decline). Each action applies at once and never
+ * touches the editor's Save.
  */
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,6 +14,7 @@ import {
   type ApproveAllCalEventRegistrationsInput,
   CalComAPIService,
   type CalEventMessagesPage,
+  type CalEventRegistrationDecision,
   type InviteCalEventGuestsInput,
   type SendCalEventMessageInput,
 } from "@/services/calcom";
@@ -112,6 +113,30 @@ export function useApproveAllCalEventRegistrations() {
     onSettled: (_result, _error, { uuid }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.roster(uuid) });
       // The listing's registered count changes with it.
+      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.lists() });
+    },
+  });
+}
+
+/** Hook to approve or decline one guest. Either moves them to another chip. */
+export function useDecideCalEventRegistration() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      uuid,
+      registrationId,
+      decision,
+    }: {
+      uuid: string;
+      registrationId: string;
+      decision: "approve" | "decline";
+    }): Promise<CalEventRegistrationDecision> =>
+      decision === "approve"
+        ? CalComAPIService.approveCalEventRegistration(uuid, registrationId)
+        : CalComAPIService.declineCalEventRegistration(uuid, registrationId),
+    retry: false,
+    onSettled: (_result, _error, { uuid }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.roster(uuid) });
       queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.lists() });
     },
   });

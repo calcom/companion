@@ -39,6 +39,7 @@ export {
   useApproveAllCalEventRegistrations,
   useCalEventMessages,
   useCalEventRoster,
+  useDecideCalEventRegistration,
   useInviteCalEventGuests,
   useSendCalEventMessage,
 } from "./useCalEventGuests";

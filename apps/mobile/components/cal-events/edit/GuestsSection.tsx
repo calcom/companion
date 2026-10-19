@@ -13,7 +13,11 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import { useApproveAllCalEventRegistrations, useCalEventRoster } from "@/hooks";
+import {
+  useApproveAllCalEventRegistrations,
+  useCalEventRoster,
+  useDecideCalEventRegistration,
+} from "@/hooks";
 import type { CalEvent, CalEventLocation, CalEventRosterGuest } from "@/services/calcom";
 import { showInfoAlert } from "@/utils/alerts";
 import {
@@ -26,13 +30,16 @@ import {
   formatRelativeTime,
   GUEST_FILTER_LABELS,
   type GuestBadgeTone,
+  type GuestDecision,
   type GuestFilter,
   type GuestLocationOption,
   getApproveAllMessage,
   getApproveAllPrompt,
+  getDecisionMessage,
   getGuestAnswerEntries,
   getGuestBadge,
   getGuestContact,
+  getGuestDecisions,
   getGuestDisplayName,
   getGuestFilters,
   getGuestInitial,
@@ -100,6 +107,11 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
   const router = useRouter();
   const roster = useCalEventRoster(event.uuid);
   const { mutate: approveAll, isPending: approving } = useApproveAllCalEventRegistrations();
+  const {
+    mutate: decide,
+    isPending: deciding,
+    variables: decidingVariables,
+  } = useDecideCalEventRegistration();
   const [search, setSearch] = useState("");
   const [locationId, setLocationId] = useState<string | null>(null);
   const [filter, setFilter] = useState<GuestFilter>("ALL");
@@ -167,6 +179,38 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
               }
             ),
         },
+      ]
+    );
+  };
+
+  const runDecision = (guest: CalEventRosterGuest, decision: GuestDecision) =>
+    decide(
+      { uuid: event.uuid, registrationId: guest.registrationId, decision },
+      {
+        onSuccess: (kind) => {
+          const message = getDecisionMessage(kind);
+          if (message) showInfoAlert(message.title, message.message);
+        },
+        onError: (error) =>
+          showInfoAlert(
+            "Error",
+            getUserFacingApiReason(error) ?? `Failed to ${decision} the guest. Please try again.`
+          ),
+      }
+    );
+
+  // Approve goes at once, as on the web. Decline asks first: it emails the guest and can't be undone here.
+  const onDecide = (guest: CalEventRosterGuest, decision: GuestDecision) => {
+    if (decision === "approve") {
+      runDecision(guest, decision);
+      return;
+    }
+    Alert.alert(
+      `Decline ${getGuestDisplayName(guest)}?`,
+      "They'll get an email letting them know.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Decline", style: "destructive", onPress: () => runDecision(guest, decision) },
       ]
     );
   };
@@ -338,6 +382,14 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
                   open === guest.registrationId ? null : guest.registrationId
                 )
               }
+              // One decision at a time, as on the web: each has to see the seats the last one took.
+              decisionsDisabled={deciding}
+              busyDecision={
+                deciding && decidingVariables?.registrationId === guest.registrationId
+                  ? decidingVariables.decision
+                  : null
+              }
+              onDecide={(decision) => onDecide(guest, decision)}
             />
           ))}
         </GuestCard>
@@ -511,6 +563,9 @@ function GuestRow({
   locationOptions,
   expanded,
   onToggle,
+  decisionsDisabled,
+  busyDecision,
+  onDecide,
 }: {
   guest: CalEventRosterGuest;
   first: boolean;
@@ -518,6 +573,10 @@ function GuestRow({
   locationOptions: GuestLocationOption[];
   expanded: boolean;
   onToggle: () => void;
+  decisionsDisabled: boolean;
+  /** The decision on its way for this guest, if any. */
+  busyDecision: GuestDecision | null;
+  onDecide: (decision: GuestDecision) => void;
 }) {
   const theme = useEditTheme();
   const name = getGuestDisplayName(guest);
@@ -525,6 +584,7 @@ function GuestRow({
   const location = getGuestLocationLabel(guest.locationId, locationOptions);
   const badge = getGuestBadge(guest);
   const intent = getGuestIntent(guest);
+  const decisions = getGuestDecisions(guest.status);
   const details = [
     { label: contact.kind === "phone" ? "Phone" : "Email", value: contact.value },
     { label: "Registered", value: formatGuestDateTime(guest.createdAt) },
@@ -581,25 +641,40 @@ function GuestRow({
         />
       </Pressable>
       {expanded ? (
-        <View
-          style={{
-            marginHorizontal: 12,
-            marginBottom: 12,
-            padding: 12,
-            gap: 10,
-            borderRadius: 10,
-            backgroundColor: theme.backgroundMuted,
-          }}
-        >
-          {details.map((detail, index) => (
-            // A guest can answer two questions with the same label.
-            <View key={`${detail.label}-${index}`} style={{ gap: 2 }}>
-              <Text style={{ color: theme.textSecondary, fontSize: 13 }}>{detail.label}</Text>
-              <Text selectable style={{ color: theme.text, fontSize: 15, fontWeight: "500" }}>
-                {detail.value}
-              </Text>
+        <View style={{ marginHorizontal: 12, marginBottom: 12, gap: 12 }}>
+          <View
+            style={{
+              padding: 12,
+              gap: 10,
+              borderRadius: 10,
+              backgroundColor: theme.backgroundMuted,
+            }}
+          >
+            {details.map((detail, index) => (
+              // A guest can answer two questions with the same label.
+              <View key={`${detail.label}-${index}`} style={{ gap: 2 }}>
+                <Text style={{ color: theme.textSecondary, fontSize: 13 }}>{detail.label}</Text>
+                <Text selectable style={{ color: theme.text, fontSize: 15, fontWeight: "500" }}>
+                  {detail.value}
+                </Text>
+              </View>
+            ))}
+          </View>
+          {/* Under the details, as the web's row actions. */}
+          {decisions.length > 0 ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {decisions.map((decision) => (
+                <ToolbarButton
+                  key={decision}
+                  label={decision === "approve" ? "Approve" : "Decline"}
+                  primary={decision === "approve"}
+                  disabled={decisionsDisabled && busyDecision !== decision}
+                  busy={busyDecision === decision}
+                  onPress={() => onDecide(decision)}
+                />
+              ))}
             </View>
-          ))}
+          ) : null}
         </View>
       ) : null}
     </View>

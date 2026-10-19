@@ -111,12 +111,14 @@ describe("deciding one guest", () => {
   });
 
   test("tells the host when an approval didn't seat the guest", () => {
-    expect(getDecisionMessage("payment_pending")).toBe(
-      "Approved. The guest has been sent a payment link to confirm their spot."
-    );
-    expect(getDecisionMessage("event_full_offer_waitlist")).toBe(
-      "Event is full. The guest stays pending."
-    );
+    expect(getDecisionMessage("payment_pending")).toEqual({
+      title: "Payment link sent",
+      message: "Approved. The guest has been sent a payment link to confirm their spot.",
+    });
+    expect(getDecisionMessage("event_full_offer_waitlist")).toEqual({
+      title: "Event is full",
+      message: "The guest wasn't seated and stays pending.",
+    });
     expect(getDecisionMessage("confirmed")).toBeNull();
     expect(getDecisionMessage("declined")).toBeNull();
   });
