@@ -25,14 +25,17 @@ export function SelectField<T extends string | null>({
   swatches,
   helper,
   disabled = false,
+  // Renamed: the SwiftUI modifier imported above is also called accessibilityLabel.
+  accessibilityLabel: spokenLabel,
 }: SelectFieldProps<T>) {
   const theme = useEditTheme();
   const selected = options.find((option) => option.value === value);
   const text = selected?.label ?? placeholder;
+  const name = spokenLabel ?? label;
   if (disabled) {
     return (
       <SelectFieldFrame label={label} helper={helper}>
-        <DisabledSelectBox label={label} text={text} />
+        <DisabledSelectBox label={name} text={text} />
       </SelectFieldFrame>
     );
   }
@@ -72,7 +75,7 @@ export function SelectField<T extends string | null>({
                 modifiers={[
                   foregroundStyle(theme.background),
                   opacity(0.01),
-                  accessibilityLabel(`${label}, ${text}`),
+                  accessibilityLabel(`${name}, ${text}`),
                 ]}
               />
             </ContextMenu.Trigger>

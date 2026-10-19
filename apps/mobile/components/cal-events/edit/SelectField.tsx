@@ -29,15 +29,17 @@ export function SelectField<T extends string | null>({
   swatches,
   helper,
   disabled = false,
+  accessibilityLabel,
 }: SelectFieldProps<T>) {
   const theme = useEditTheme();
   const insets = useSafeAreaInsets();
   const selected = options.find((option) => option.value === value);
   const text = selected?.label ?? placeholder;
+  const name = accessibilityLabel ?? label;
   if (disabled) {
     return (
       <SelectFieldFrame label={label} helper={helper}>
-        <DisabledSelectBox label={label} text={text} />
+        <DisabledSelectBox label={name} text={text} />
       </SelectFieldFrame>
     );
   }
@@ -45,7 +47,7 @@ export function SelectField<T extends string | null>({
     <SelectFieldFrame label={label} helper={helper}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${label}, ${text}`}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${name}, ${text}`}>
             <SelectBox text={text} swatches={swatches ?? selected?.swatches} />
           </Pressable>
         </DropdownMenuTrigger>

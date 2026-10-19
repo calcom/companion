@@ -27,6 +27,8 @@ export interface SelectFieldProps<T extends string | null> {
   helper?: string;
   /** Shows the value without opening a menu, such as a locked currency. */
   disabled?: boolean;
+  /** What screen readers call the select in place of `label`, such as which location's currency. */
+  accessibilityLabel?: string;
 }
 
 export function SelectFieldFrame({

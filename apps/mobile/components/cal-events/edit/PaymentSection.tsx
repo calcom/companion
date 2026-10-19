@@ -164,6 +164,7 @@ export function PaymentSection({
                         onChange={(patch) => setLocationPrice(location, patch)}
                         locked={pricingLocked}
                         priceLabel={`${title} price`}
+                        currencyLabel={`${title} currency`}
                         placeholder="Free"
                         error={rowErrors[index]}
                       />
@@ -213,6 +214,7 @@ function PriceFields({
   onChange,
   locked,
   priceLabel,
+  currencyLabel,
   placeholder,
   error,
 }: {
@@ -220,6 +222,8 @@ function PriceFields({
   onChange: (patch: Partial<CalEventPriceValues>) => void;
   locked: boolean;
   priceLabel: string;
+  /** The currency's name for screen readers, such as which location's; "Currency" otherwise. */
+  currencyLabel?: string;
   placeholder: string;
   error?: string | null;
 }) {
@@ -240,6 +244,7 @@ function PriceFields({
         <View style={{ flex: 2 }}>
           <SelectField
             label="Currency"
+            accessibilityLabel={currencyLabel}
             options={CAL_EVENT_CURRENCIES}
             value={value.currency}
             onChange={(currency) => onChange({ currency })}
