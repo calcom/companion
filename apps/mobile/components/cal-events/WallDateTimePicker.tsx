@@ -33,6 +33,7 @@ export function WallDateTimePicker({
           <Text style={{ color: theme.text, fontSize: 17, fontWeight: "600" }}>{title}</Text>
           <input
             type="datetime-local"
+            aria-label={title}
             value={value}
             min={minWallTime}
             onChange={(event) => {
