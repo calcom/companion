@@ -1,0 +1,686 @@
+/**
+ * The edit screen's logic: the form an event prefills, what a save sends (only what changed, as
+ * `PATCH /v2/events/{uuid}` takes it), and the web editor's validation
+ * (`packages/features/cal-events/lib/cal-event-form.ts`) so both surfaces accept the same edits.
+ */
+
+import type {
+  AddCalEventLocationInput,
+  CalEvent,
+  CalEventBackground,
+  CalEventCategory,
+  CalEventCustomFieldType,
+  CalEventGuestList,
+  CalEventLineupPerson,
+  CalEventLocation,
+  CalEventRegistrationField,
+  CalEventScheduleItem,
+  CalEventSchedulePerson,
+  CalEventShaderId,
+  CalEventTheme,
+  UpdateCalEventInput,
+} from "@/services/types/cal-events.types";
+import {
+  CAL_EVENT_MIN_DURATION_MS,
+  CAL_EVENT_NAME_MAX_LENGTH,
+  type CreateCalEventFormValues,
+  parseLocationInput,
+} from "@/utils/cal-event-create";
+import { canManageCalEventLifecycle } from "@/utils/cal-events";
+import {
+  isStartTimeInPast,
+  splitWallTimeParts,
+  utcToWallTime,
+  wallTimeDiffMs,
+  wallTimeToUtc,
+} from "@/utils/wall-time";
+
+export const CAL_EVENT_DESCRIPTION_MAX_LENGTH = 5000;
+export const CAL_EVENT_SLUG_MIN_LENGTH = 10;
+export const CAL_EVENT_SLUG_MAX_LENGTH = 100;
+const CAL_EVENT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const CAL_EVENT_MAX_CAPACITY = 100_000;
+export const CAL_EVENT_PAYMENT_TIMEOUT_MIN = 10;
+export const CAL_EVENT_PAYMENT_TIMEOUT_MAX = 10_080;
+export const CAL_EVENT_LIVE_STREAM_LIMIT = 5;
+const CAL_EVENT_LIVE_STREAM_URL_MAX_LENGTH = 2048;
+export const MAX_LINEUP_PEOPLE = 30;
+export const MAX_LINEUP_LINKS_PER_PERSON = 5;
+export const MAX_LINEUP_MEDIA_PER_PERSON = 6;
+export const MAX_SCHEDULE_ITEMS = 50;
+export const MAX_SCHEDULE_PEOPLE_PER_ITEM = 10;
+export const MAX_SCHEDULE_LINKS_PER_PERSON = 5;
+
+export const CAL_EVENT_CATEGORIES: { value: CalEventCategory; label: string; hint: string }[] = [
+  {
+    value: "meetup",
+    label: "Meetup",
+    hint: "A community gathering, workshop, or casual in-person event.",
+  },
+  {
+    value: "conference",
+    label: "Conference",
+    hint: "A structured event with speakers, sessions, or an agenda.",
+  },
+  {
+    value: "music",
+    label: "Music",
+    hint: "A performance, concert, showcase, or artist-led event.",
+  },
+  { value: "sports", label: "Sports", hint: "A match, class, race, tournament, or team activity." },
+];
+
+/** The web's "Public guests" choices, in its order. */
+export const CAL_EVENT_GUEST_LISTS: { value: CalEventGuestList; label: string; hint: string }[] = [
+  {
+    value: "hidden",
+    label: "Don't show guests",
+    hint: "Hide the guest section on the public event page.",
+  },
+  {
+    value: "names",
+    label: "Show guest names",
+    hint: "A paginated public list of confirmed guests. Guests can hide their name when they register.",
+  },
+  {
+    value: "count",
+    label: "Show going count only",
+    hint: "Show how many people are going, without names.",
+  },
+];
+
+export const CAL_EVENT_SHADERS: { value: CalEventShaderId; label: string }[] = [
+  { value: "aurora", label: "Aurora" },
+  { value: "tide", label: "Tide" },
+  { value: "halftone", label: "Halftone" },
+  { value: "strata", label: "Strata" },
+  { value: "recess", label: "Recess" },
+  { value: "contour", label: "Contour" },
+  { value: "satin", label: "Satin" },
+  { value: "veil", label: "Veil" },
+  { value: "resonance", label: "Resonance" },
+  { value: "lumen", label: "Lumen" },
+  { value: "facet", label: "Facet" },
+];
+
+/** The web's palettes (`apps/web/modules/shaders/shader-palettes.ts`). */
+export const CAL_EVENT_SHADER_PALETTES: { label: string; colors: [string, string, string] }[] = [
+  { label: "Mono", colors: ["#FAFAFA", "#D4D4D8", "#09090B"] },
+  { label: "Porcelain", colors: ["#D2AB79", "#F3DCAD", "#B7DCE3"] },
+  { label: "Ember", colors: ["#FF682C", "#FFAE56", "#FFE1A3"] },
+  { label: "Terra", colors: ["#ED8061", "#FFAF83", "#F7D2AD"] },
+  { label: "Rosé", colors: ["#F06F9D", "#FFADC7", "#FFD0B4"] },
+  { label: "Dusk", colors: ["#FFB66B", "#B593EC", "#87BEF0"] },
+  { label: "Orchard", colors: ["#A0C95A", "#DAE890", "#62CBA5"] },
+  { label: "Petrol", colors: ["#35BBC4", "#F99B86", "#F4D294"] },
+  { label: "Lagoon", colors: ["#17BFDD", "#34D9BD", "#B3F0CE"] },
+  { label: "Borealis", colors: ["#43D7AC", "#78BAFF", "#C2A3F3"] },
+  { label: "Cobalt", colors: ["#669BFF", "#A0C5FF", "#7DDFE7"] },
+  { label: "Iris", colors: ["#AA7AF9", "#E8A0DD", "#FFD1CC"] },
+];
+
+export const DEFAULT_CAL_EVENT_BACKGROUND: CalEventBackground = {
+  effect: "aurora",
+  colors: CAL_EVENT_SHADER_PALETTES[0].colors,
+};
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+export const CAL_EVENT_CUSTOM_FIELD_TYPES: {
+  value: CalEventCustomFieldType;
+  label: string;
+  hasOptions: boolean;
+}[] = [
+  { value: "email", label: "Email", hasOptions: false },
+  { value: "phone", label: "Phone", hasOptions: false },
+  { value: "address", label: "Address", hasOptions: false },
+  { value: "shortText", label: "Short Text", hasOptions: false },
+  { value: "number", label: "Number", hasOptions: false },
+  { value: "longText", label: "Long Text", hasOptions: false },
+  { value: "select", label: "Select", hasOptions: true },
+  { value: "multiSelect", label: "MultiSelect", hasOptions: true },
+  { value: "multiEmail", label: "Multiple Emails", hasOptions: false },
+  { value: "checkboxGroup", label: "Checkbox Group", hasOptions: true },
+  { value: "radioGroup", label: "Radio Group", hasOptions: true },
+  { value: "checkbox", label: "Checkbox", hasOptions: false },
+  { value: "url", label: "URL", hasOptions: false },
+];
+
+export function customFieldTypeHasOptions(type: CalEventCustomFieldType | undefined): boolean {
+  return CAL_EVENT_CUSTOM_FIELD_TYPES.some((option) => option.value === type && option.hasOptions);
+}
+
+/** A schedule item as the form holds it: times are wall times in the event's timezone. */
+export interface CalEventEditScheduleItem {
+  /** Null for an item that has a time label instead. */
+  startWallTime: string | null;
+  endWallTime: string | null;
+  timeLabel: string;
+  content: string;
+  people: CalEventSchedulePerson[];
+}
+
+export interface CalEventEditFormValues extends Omit<CreateCalEventFormValues, "location"> {
+  description: string;
+  slug: string;
+  category: CalEventCategory;
+  /** null follows the visitor's system setting. */
+  theme: CalEventTheme | null;
+  background: CalEventBackground | null;
+  /** One URL per row; empty rows are dropped on save. */
+  liveStreams: string[];
+  /** Creator first. */
+  hostUserIds: number[];
+  showPresentedBy: boolean;
+  capacityEnabled: boolean;
+  /** Typed text, so a half-typed number can be shown and flagged. */
+  capacity: string;
+  waitlistEnabled: boolean;
+  guestList: CalEventGuestList;
+  showOrganizerEmail: boolean;
+  /** Empty = the 10-minute default. */
+  paymentTimeoutMinutes: string;
+  registrationFields: CalEventRegistrationField[];
+  lineupTitle: string;
+  lineupPeople: CalEventLineupPerson[];
+  schedule: CalEventEditScheduleItem[];
+}
+
+/** The form for an event, as `GET /v2/events/{uuid}` returns it. */
+export function buildEditFormValues(event: CalEvent): CalEventEditFormValues {
+  const toWall = (iso: string | null | undefined) =>
+    iso ? utcToWallTime(new Date(iso), event.timeZone) : null;
+  return {
+    name: event.title,
+    startWallTime: toWall(event.startTime) ?? "",
+    endWallTime: toWall(event.endTime) ?? "",
+    timeZone: event.timeZone,
+    isPrivate: event.visibility === "UNLISTED",
+    requiresApproval: event.requiresApproval,
+    description: event.description ?? "",
+    slug: event.slug,
+    category: event.category ?? "meetup",
+    theme: event.theme ?? null,
+    background: event.background ?? null,
+    liveStreams: (event.liveStreams ?? []).map((stream) => stream.url),
+    hostUserIds: event.hosts.map((host) => host.userId),
+    showPresentedBy: event.showPresentedBy ?? false,
+    capacityEnabled: event.capacity !== null,
+    capacity: event.capacity === null ? "" : String(event.capacity),
+    waitlistEnabled: event.waitlistEnabled,
+    guestList: event.guestList ?? "names",
+    showOrganizerEmail: event.showOrganizerEmail ?? false,
+    paymentTimeoutMinutes:
+      event.paymentTimeoutMinutes == null ? "" : String(event.paymentTimeoutMinutes),
+    registrationFields: event.registrationFields ?? [],
+    lineupTitle: event.lineup?.title ?? "",
+    lineupPeople: event.lineup?.people ?? [],
+    schedule: (event.schedule ?? []).map((item) => ({
+      startWallTime: toWall(item.startTime),
+      endWallTime: toWall(item.endTime),
+      timeLabel: item.timeLabel ?? "",
+      content: item.content,
+      people: item.people ?? [],
+    })),
+  };
+}
+
+const trimToNull = (value: string | null | undefined) => value?.trim() || null;
+
+function cleanLinks(links: { url: string }[] | undefined) {
+  return (links ?? [])
+    .map((link) => ({ url: link.url.trim() }))
+    .filter((link) => link.url.length > 0);
+}
+
+function cleanSchedulePerson(person: CalEventSchedulePerson): CalEventSchedulePerson {
+  return {
+    name: person.name.trim(),
+    role: trimToNull(person.role),
+    avatarUrl: person.avatarUrl ?? null,
+    links: cleanLinks(person.links),
+  };
+}
+
+function cleanLineupPerson(person: CalEventLineupPerson): CalEventLineupPerson {
+  return {
+    ...cleanSchedulePerson(person),
+    media: (person.media ?? [])
+      .map((item) => ({ url: item.url.trim(), label: trimToNull(item.label) }))
+      .filter((item) => item.url.length > 0),
+  };
+}
+
+function lineupInput(values: CalEventEditFormValues): UpdateCalEventInput["lineup"] {
+  const title = trimToNull(values.lineupTitle);
+  if (!title && values.lineupPeople.length === 0) return null;
+  return { title, people: values.lineupPeople.map(cleanLineupPerson) };
+}
+
+function scheduleInput(values: CalEventEditFormValues): CalEventScheduleItem[] {
+  const toIso = (wall: string | null) =>
+    wall ? wallTimeToUtc(wall, values.timeZone).toISOString() : null;
+  return values.schedule.map((item) => ({
+    ...(item.startWallTime
+      ? { startTime: toIso(item.startWallTime), endTime: toIso(item.endWallTime) }
+      : { timeLabel: item.timeLabel.trim() }),
+    content: item.content.trim(),
+    people: item.people.map(cleanSchedulePerson),
+  }));
+}
+
+function backgroundsEqual(a: CalEventBackground | null, b: CalEventBackground | null): boolean {
+  if (a === null || b === null) return a === b;
+  return (
+    a.effect === b.effect &&
+    a.colors.every((color, index) => color.toLowerCase() === b.colors[index]?.toLowerCase())
+  );
+}
+
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * What a save sends: every field that differs from the prefilled form, and nothing else, so a
+ * field the editor didn't touch is never overwritten. Lists go whole, since they replace the
+ * stored list. An empty result means there is nothing to save.
+ */
+export function buildCalEventUpdateInput(
+  initial: CalEventEditFormValues,
+  current: CalEventEditFormValues,
+  event: Pick<CalEvent, "publishedAt">
+): UpdateCalEventInput {
+  const input: UpdateCalEventInput = {};
+  const published = event.publishedAt !== null;
+
+  if (current.name.trim() !== initial.name.trim()) input.title = current.name.trim();
+  if (current.description.trim() !== initial.description.trim()) {
+    input.description = trimToNull(current.description);
+  }
+
+  const startUtc = wallTimeToUtc(current.startWallTime, current.timeZone).toISOString();
+  const endUtc = wallTimeToUtc(current.endWallTime, current.timeZone).toISOString();
+  const timesChanged =
+    startUtc !== wallTimeToUtc(initial.startWallTime, initial.timeZone).toISOString() ||
+    endUtc !== wallTimeToUtc(initial.endWallTime, initial.timeZone).toISOString();
+  // Both together: the server checks the end against the start it is given.
+  if (timesChanged) {
+    input.startTime = startUtc;
+    input.endTime = endUtc;
+  }
+  if (current.timeZone !== initial.timeZone) input.timeZone = current.timeZone;
+
+  if (!published && current.slug.trim() !== initial.slug) input.slug = current.slug.trim();
+  if (current.isPrivate !== initial.isPrivate) {
+    input.visibility = current.isPrivate ? "UNLISTED" : "PUBLIC";
+  }
+  if (current.requiresApproval !== initial.requiresApproval) {
+    input.requiresApproval = current.requiresApproval;
+  }
+  if (current.category !== initial.category) input.category = current.category;
+  if (current.theme !== initial.theme) input.theme = current.theme;
+  if (!backgroundsEqual(current.background, initial.background)) {
+    input.background = current.background;
+  }
+
+  const capacity = current.capacityEnabled ? Number(current.capacity) : null;
+  const initialCapacity = initial.capacityEnabled ? Number(initial.capacity) : null;
+  if (capacity !== initialCapacity) input.capacity = capacity;
+  if (current.waitlistEnabled !== initial.waitlistEnabled) {
+    input.waitlistEnabled = current.waitlistEnabled;
+  }
+  if (!published && current.guestList !== initial.guestList) input.guestList = current.guestList;
+  if (current.showOrganizerEmail !== initial.showOrganizerEmail) {
+    input.showOrganizerEmail = current.showOrganizerEmail;
+  }
+  if (current.showPresentedBy !== initial.showPresentedBy) {
+    input.showPresentedBy = current.showPresentedBy;
+  }
+  const timeout = current.paymentTimeoutMinutes.trim();
+  if (timeout !== initial.paymentTimeoutMinutes.trim()) {
+    input.paymentTimeoutMinutes = timeout ? Number(timeout) : null;
+  }
+
+  if (!sameJson(current.hostUserIds, initial.hostUserIds)) {
+    input.hosts = current.hostUserIds.map((userId) => ({ userId }));
+  }
+  const streams = current.liveStreams.map((url) => url.trim()).filter(Boolean);
+  if (!sameJson(streams, initial.liveStreams.map((url) => url.trim()).filter(Boolean))) {
+    input.liveStreams = streams.map((url) => ({ url }));
+  }
+  if (!sameJson(current.registrationFields, initial.registrationFields)) {
+    input.registrationFields = current.registrationFields;
+  }
+  const lineup = lineupInput(current);
+  if (!sameJson(lineup, lineupInput(initial))) input.lineup = lineup;
+  // Schedule times follow a timezone change, like the event's own, so compare in UTC.
+  const schedule = scheduleInput(current);
+  if (!sameJson(schedule, scheduleInput(initial))) input.schedule = schedule;
+
+  return input;
+}
+
+export type CalEventEditErrorKey =
+  | "name"
+  | "time"
+  | "description"
+  | "slug"
+  | "capacity"
+  | "paymentTimeoutMinutes"
+  | "liveStreams"
+  | "background"
+  | "lineup"
+  | "schedule"
+  | "registrationFields";
+
+export type CalEventEditErrors = Partial<Record<CalEventEditErrorKey, string>>;
+
+const isWholeNumberIn = (text: string, min: number, max: number) => {
+  const trimmed = text.trim();
+  if (!/^\d+$/.test(trimmed)) return false;
+  const value = Number(trimmed);
+  return value >= min && value <= max;
+};
+
+const isHttpUrl = (url: string) => /^https?:\/\/[^\s/?#]+\.[^\s]+$/i.test(url.trim());
+
+function personError(
+  person: CalEventSchedulePerson & { media?: CalEventLineupPerson["media"] },
+  maxLinks: number,
+  maxMedia: number
+): string | null {
+  if (!person.name.trim()) return "Every person needs a name";
+  const links = cleanLinks(person.links);
+  if (links.length > maxLinks) return `A person can have up to ${maxLinks} links`;
+  if (links.some((link) => !isHttpUrl(link.url)))
+    return "Links must start with http:// or https://";
+  const media = (person.media ?? []).filter((item) => item.url.trim());
+  if (media.length > maxMedia) return `A person can have up to ${maxMedia} players`;
+  if (media.some((item) => !isHttpUrl(item.url))) {
+    return "Players must start with http:// or https://";
+  }
+  return null;
+}
+
+/** The registration questions' first problem, if any. */
+export function getRegistrationFieldsError(fields: CalEventRegistrationField[]): string | null {
+  const slugs = new Set<string>();
+  for (const field of fields) {
+    if (field.field !== "custom") continue;
+    if (!field.label?.trim()) return "Every question needs a label";
+    if (!field.slug || !/^[A-Za-z0-9_-]+$/.test(field.slug)) {
+      return `"${field.label}" needs an identifier of letters, numbers, - or _`;
+    }
+    if (slugs.has(field.slug)) return `Two questions share the identifier "${field.slug}"`;
+    slugs.add(field.slug);
+    if (customFieldTypeHasOptions(field.type) && !field.options?.some((option) => option.trim())) {
+      return `"${field.label}" needs at least one option`;
+    }
+  }
+  return null;
+}
+
+/**
+ * The web editor's rules, each under the field it belongs to. A start that has passed only
+ * counts when the start was moved, so a live event can still be edited.
+ */
+export function getEditCalEventErrors(
+  values: CalEventEditFormValues,
+  initial: CalEventEditFormValues,
+  event: Pick<CalEvent, "publishedAt" | "confirmedCount">,
+  now: Date = new Date()
+): CalEventEditErrors {
+  const errors: CalEventEditErrors = {};
+
+  if (!values.name.trim()) errors.name = "Required";
+  else if (values.name.trim().length > CAL_EVENT_NAME_MAX_LENGTH) {
+    errors.name = `Use at most ${CAL_EVENT_NAME_MAX_LENGTH} characters`;
+  }
+
+  const startMoved =
+    values.startWallTime !== initial.startWallTime || values.timeZone !== initial.timeZone;
+  if (wallTimeDiffMs(values.startWallTime, values.endWallTime) < CAL_EVENT_MIN_DURATION_MS) {
+    errors.time = "End must be at least 15 minutes after the start";
+  } else if (
+    startMoved &&
+    isStartTimeInPast(wallTimeToUtc(values.startWallTime, values.timeZone), now)
+  ) {
+    errors.time = "Start date must be in the future";
+  }
+
+  if (values.description.length > CAL_EVENT_DESCRIPTION_MAX_LENGTH) {
+    errors.description = `Use at most ${CAL_EVENT_DESCRIPTION_MAX_LENGTH} characters`;
+  }
+
+  const slug = values.slug.trim();
+  if (
+    event.publishedAt === null &&
+    slug !== initial.slug &&
+    (slug.length < CAL_EVENT_SLUG_MIN_LENGTH ||
+      slug.length > CAL_EVENT_SLUG_MAX_LENGTH ||
+      !CAL_EVENT_SLUG_PATTERN.test(slug))
+  ) {
+    errors.slug = `Use ${CAL_EVENT_SLUG_MIN_LENGTH}-${CAL_EVENT_SLUG_MAX_LENGTH} lowercase letters, digits and single hyphens`;
+  }
+
+  if (values.capacityEnabled) {
+    if (!isWholeNumberIn(values.capacity, 1, CAL_EVENT_MAX_CAPACITY)) {
+      errors.capacity = `Enter a number from 1 to ${CAL_EVENT_MAX_CAPACITY}`;
+    } else if (
+      event.confirmedCount !== undefined &&
+      Number(values.capacity) < event.confirmedCount
+    ) {
+      errors.capacity = `${event.confirmedCount} guests are already confirmed`;
+    }
+  }
+
+  if (
+    values.paymentTimeoutMinutes.trim() &&
+    !isWholeNumberIn(
+      values.paymentTimeoutMinutes,
+      CAL_EVENT_PAYMENT_TIMEOUT_MIN,
+      CAL_EVENT_PAYMENT_TIMEOUT_MAX
+    )
+  ) {
+    errors.paymentTimeoutMinutes = `Enter ${CAL_EVENT_PAYMENT_TIMEOUT_MIN} to ${CAL_EVENT_PAYMENT_TIMEOUT_MAX} minutes, or leave it empty`;
+  }
+
+  const streams = values.liveStreams.map((url) => url.trim()).filter(Boolean);
+  if (streams.length > CAL_EVENT_LIVE_STREAM_LIMIT) {
+    errors.liveStreams = `Add up to ${CAL_EVENT_LIVE_STREAM_LIMIT} live streams`;
+  } else if (
+    streams.some((url) => url.length > CAL_EVENT_LIVE_STREAM_URL_MAX_LENGTH || !isHttpUrl(url))
+  ) {
+    errors.liveStreams = "Live streams must be links starting with http:// or https://";
+  }
+
+  if (values.background && !values.background.colors.every((color) => HEX_COLOR.test(color))) {
+    errors.background = "Colors must be hex codes like #FF682C";
+  }
+
+  if (values.lineupPeople.length > MAX_LINEUP_PEOPLE) {
+    errors.lineup = `Add up to ${MAX_LINEUP_PEOPLE} people`;
+  } else {
+    for (const person of values.lineupPeople) {
+      const error = personError(person, MAX_LINEUP_LINKS_PER_PERSON, MAX_LINEUP_MEDIA_PER_PERSON);
+      if (error) {
+        errors.lineup = error;
+        break;
+      }
+    }
+  }
+
+  const scheduleError = getScheduleError(values);
+  if (scheduleError) errors.schedule = scheduleError;
+
+  const fieldsError = getRegistrationFieldsError(values.registrationFields);
+  if (fieldsError) errors.registrationFields = fieldsError;
+
+  return errors;
+}
+
+function getScheduleError(values: CalEventEditFormValues): string | null {
+  if (values.schedule.length > MAX_SCHEDULE_ITEMS) {
+    return `Add up to ${MAX_SCHEDULE_ITEMS} schedule items`;
+  }
+  for (const item of values.schedule) {
+    if (!item.content.trim()) return "Every schedule item needs a description";
+    if (item.startWallTime) {
+      if (wallTimeDiffMs(values.startWallTime, item.startWallTime) < 0) {
+        return "Schedule items must start during the event";
+      }
+      const end = item.endWallTime ?? item.startWallTime;
+      if (item.endWallTime && wallTimeDiffMs(item.startWallTime, item.endWallTime) <= 0) {
+        return "A schedule item must end after it starts";
+      }
+      if (wallTimeDiffMs(end, values.endWallTime) < 0) {
+        return "Schedule items must end by the end of the event";
+      }
+    } else if (!item.timeLabel.trim()) {
+      return "Every schedule item needs a time or a label";
+    }
+    if (item.people.length > MAX_SCHEDULE_PEOPLE_PER_ITEM) {
+      return `A schedule item can have up to ${MAX_SCHEDULE_PEOPLE_PER_ITEM} people`;
+    }
+    for (const person of item.people) {
+      const error = personError(person, MAX_SCHEDULE_LINKS_PER_PERSON, 0);
+      if (error) return error;
+    }
+  }
+  return null;
+}
+
+/** An identifier for a new question, from its label, unique among the event's questions. */
+export function slugForRegistrationField(
+  label: string,
+  taken: CalEventRegistrationField[]
+): string {
+  const base =
+    label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "question";
+  const used = new Set(taken.map((field) => field.slug));
+  let slug = base;
+  for (let n = 2; used.has(slug); n++) slug = `${base}-${n}`;
+  return slug;
+}
+
+/** Edit is for owners and hosts, like publish / cancel / delete; a cancelled event can't change. */
+export function canEditCalEvent(
+  event: Pick<CalEvent, "userId" | "hosts" | "status">,
+  viewerId: number | undefined
+): boolean {
+  return event.status !== "cancelled" && canManageCalEventLifecycle(event, viewerId);
+}
+
+/** How a location reads in the editor's list. */
+export function describeCalEventLocation(location: CalEventLocation): string {
+  switch (location.type) {
+    case "address":
+      return location.address;
+    case "link":
+      return location.link.replace(/^https?:\/\//i, "");
+    case "integration":
+      return location.integration
+        .replace(/[-_]/g, " ")
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    case "organizersDefaultApp":
+      return "Organizer's default app";
+    default:
+      return "Other location";
+  }
+}
+
+export const CAL_EVENT_LOCATION_LABEL_MAX_LENGTH = 100;
+
+/** The add-location sheet's fields, as typed. */
+export interface AddCalEventLocationFormValues {
+  kind: "address" | "link";
+  value: string;
+  label: string;
+  capacity: string;
+  /** In the currency's main unit ("15.50"); empty = free. */
+  price: string;
+  currency: string;
+}
+
+function currencyFractionDigits(currency: string): number | null {
+  try {
+    return (
+      new Intl.NumberFormat("en-US", { style: "currency", currency }).resolvedOptions()
+        .maximumFractionDigits ?? 2
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** The sheet's first problem, if any. One address per event; links can repeat. */
+export function getAddCalEventLocationError(
+  values: AddCalEventLocationFormValues,
+  existing: CalEventLocation[]
+): string | null {
+  const value = values.value.trim();
+  if (!value) return values.kind === "address" ? "Enter the address" : "Enter the link";
+  if (values.kind === "address" && existing.some((location) => location.type === "address")) {
+    return "An event can have one address";
+  }
+  if (values.kind === "link" && parseLocationInput(value)?.type !== "link") {
+    return "Enter a link like https://zoom.us/j/123";
+  }
+  if (values.label.trim().length > CAL_EVENT_LOCATION_LABEL_MAX_LENGTH) {
+    return `Keep the label under ${CAL_EVENT_LOCATION_LABEL_MAX_LENGTH} characters`;
+  }
+  if (values.capacity.trim() && !isWholeNumberIn(values.capacity, 1, CAL_EVENT_MAX_CAPACITY)) {
+    return `Seats must be a number from 1 to ${CAL_EVENT_MAX_CAPACITY}`;
+  }
+  if (values.price.trim()) {
+    const digits = currencyFractionDigits(values.currency.trim().toUpperCase());
+    if (digits === null) return "Enter a currency code like USD";
+    const amount = Number(values.price.trim());
+    const minor = Math.round(amount * 10 ** digits);
+    if (!Number.isFinite(amount) || minor < 1 || Math.abs(minor - amount * 10 ** digits) > 1e-6) {
+      return "Enter a price like 15 or 15.50";
+    }
+  }
+  return null;
+}
+
+/** The POST body; call only once getAddCalEventLocationError passes. */
+export function buildAddCalEventLocationInput(
+  values: AddCalEventLocationFormValues
+): AddCalEventLocationInput {
+  const label = values.label.trim();
+  const capacity = values.capacity.trim();
+  const price = values.price.trim();
+  const currency = values.currency.trim().toUpperCase();
+  const details = {
+    ...(label ? { label } : {}),
+    ...(capacity ? { capacity: Number(capacity) } : {}),
+    ...(price
+      ? {
+          price: Math.round(Number(price) * 10 ** (currencyFractionDigits(currency) ?? 2)),
+          currency,
+        }
+      : {}),
+  };
+  if (values.kind === "address") {
+    return { type: "address", address: values.value.trim(), ...details };
+  }
+  const link = parseLocationInput(values.value);
+  return {
+    type: "link",
+    link: link?.type === "link" ? link.link : values.value.trim(),
+    ...details,
+  };
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "Jan 15, 2027 · 16:00", the web editor's date-time trigger ("PP · HH:mm"). */
+export function formatWallDateTime(wallTime: string): string {
+  const { date, timeOfDay } = splitWallTimeParts(wallTime);
+  const [year, month, day] = date.split("-").map(Number);
+  return `${MONTHS[month - 1]} ${day}, ${year} · ${timeOfDay}`;
+}
