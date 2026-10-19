@@ -320,12 +320,16 @@ export function RowControls({
   onMoveUp,
   onMoveDown,
   onRemove,
+  removeDisabled = false,
 }: {
   /** Names the row for VoiceOver: "Move Ada up". */
   itemLabel: string;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  /** Without it there's no remove button. */
   onRemove?: () => void;
+  /** Keeps the remove button in place but greyed out, e.g. while a change is saving. */
+  removeDisabled?: boolean;
 }) {
   const theme = useEditTheme();
   const button = (
@@ -355,7 +359,14 @@ export function RowControls({
           {button("chevron-down", `Move ${itemLabel} down`, onMoveDown)}
         </>
       ) : null}
-      {onRemove ? button("close-circle", `Remove ${itemLabel}`, onRemove, theme.destructive) : null}
+      {onRemove
+        ? button(
+            "close-circle",
+            `Remove ${itemLabel}`,
+            removeDisabled ? undefined : onRemove,
+            theme.destructive
+          )
+        : null}
     </View>
   );
 }

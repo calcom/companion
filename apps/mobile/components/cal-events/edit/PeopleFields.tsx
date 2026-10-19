@@ -263,6 +263,9 @@ export function CoHostsField({ uuid }: { uuid: string }) {
                         )
                     : undefined
                 }
+                // One change at a time, like the move buttons: a removal racing a reorder would
+                // make the reorder's full ID list stale.
+                removeDisabled={isPending}
                 onRemove={() =>
                   Alert.alert(
                     "Revoke co-host access?",
