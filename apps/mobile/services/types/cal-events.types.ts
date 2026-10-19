@@ -300,13 +300,26 @@ export interface Team {
 
 export type CalEventRsvpResponse = "YES" | "NO" | "MAYBE";
 
+/** Where a guest's registration stands. */
+export type CalEventRegistrationStatus =
+  | "PENDING_APPROVAL"
+  | "WAITLISTED"
+  | "PENDING_PAYMENT"
+  | "PENDING_CONFIRMATION"
+  | "OFFER_EXPIRED"
+  | "CONFIRMED"
+  | "DECLINED"
+  | "CANCELLED";
+
 /**
- * One confirmed guest as `GET /v2/events/{uuid}/bookings` returns it. Only confirmed guests are
- * listed: pending, waitlisted and declined ones aren't. Date fields are ISO 8601 strings.
+ * One guest as `GET /v2/events/{uuid}/bookings` returns it, in the statuses asked for (confirmed
+ * only by default). Date fields are ISO 8601 strings.
  */
 export interface CalEventBookingApi {
   type: "event";
   registrationId: string;
+  /** Absent from servers that predate it, which list confirmed guests only. */
+  status?: CalEventRegistrationStatus;
   /** Empty when the guest gave none. */
   name: string;
   /** A placeholder `@sms.cal.com` address for a guest who registered by phone. */
@@ -321,9 +334,10 @@ export interface CalEventBookingApi {
   checkedInByUserId?: number | null;
 }
 
-/** A confirmed guest on an Event's Guests tab. */
+/** A guest on an Event's Guests tab. */
 export interface CalEventRosterGuest {
   registrationId: string;
+  status: CalEventRegistrationStatus;
   name: string;
   email: string;
   phoneNumber: string | null;
@@ -427,6 +441,18 @@ export interface ApproveAllCalEventRegistrationsInput {
   search?: string;
   locationId?: string;
 }
+
+/**
+ * What approving or declining one guest did. `confirmed`: the guest got a seat. `payment_pending`:
+ * a paid Event sent them a payment request. `event_full_offer_waitlist`: the Event is full and
+ * they stay pending. `declined`: they were declined and emailed.
+ */
+export type CalEventRegistrationDecision =
+  | "confirmed"
+  | "payment_pending"
+  | "event_full_offer_waitlist"
+  | "declined"
+  | (string & {});
 
 /**
  * What approve all did. A free Event approves at once (`completed`); a paid one sends payment

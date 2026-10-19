@@ -17,6 +17,8 @@ import type {
   CalEventMessage,
   CalEventMessageSendResult,
   CalEventMessagesPage,
+  CalEventRegistrationDecision,
+  CalEventRegistrationStatus,
   CalEventRosterGuest,
   CalEventsListingStatus,
   CalEventsPage,
@@ -350,6 +352,16 @@ export async function removeCalEventCoHost(uuid: string, coHostId: string): Prom
 /** The API's largest page, so a big guest list takes as few calls as it can. */
 const ROSTER_PAGE_SIZE = 250;
 
+/** The statuses the tab lists: the same ones as the web's "All". */
+const ROSTER_STATUSES: CalEventRegistrationStatus[] = [
+  "PENDING_APPROVAL",
+  "WAITLISTED",
+  "PENDING_PAYMENT",
+  "CONFIRMED",
+  "DECLINED",
+  "CANCELLED",
+];
+
 type BookingsResponse = {
   status: string;
   data: CalEventBookingApi[];
@@ -361,6 +373,7 @@ export function toCalEventRosterGuest(booking: CalEventBookingApi): CalEventRost
   const responses = booking.responses;
   return {
     registrationId: booking.registrationId,
+    status: booking.status ?? "CONFIRMED",
     name: booking.name ?? "",
     email: booking.email ?? "",
     phoneNumber: booking.phoneNumber ?? null,
@@ -376,8 +389,8 @@ export function toCalEventRosterGuest(booking: CalEventBookingApi): CalEventRost
 }
 
 /**
- * Every confirmed guest of an event, read page by page: the tab's counts, filters and pages all
- * need the whole list. Pending, waitlisted and declined guests aren't listed by the API.
+ * Every guest of an event in the statuses the tab lists, read page by page: the tab's counts,
+ * filters and pages all need the whole list.
  */
 export async function getCalEventRoster(uuid: string): Promise<CalEventRosterGuest[]> {
   // By id, so a guest a later page repeats is listed (and counted) once.
@@ -385,7 +398,10 @@ export async function getCalEventRoster(uuid: string): Promise<CalEventRosterGue
   const followed = new Set<string>();
   let cursor: string | null = null;
   do {
-    const params = new URLSearchParams({ limit: String(ROSTER_PAGE_SIZE) });
+    const params = new URLSearchParams({
+      limit: String(ROSTER_PAGE_SIZE),
+      status: ROSTER_STATUSES.join(","),
+    });
     if (cursor) params.append("cursor", cursor);
     const response: BookingsResponse = await makeRequest<BookingsResponse>(
       `/events/${uuid}/bookings?${params.toString()}`,
@@ -508,4 +524,38 @@ export async function approveAllCalEventRegistrations(
   }
   if (outcome?.kind === "started") return { kind: "started", total: outcome.total ?? 0 };
   throw new Error("Invalid response from approve all API");
+}
+
+async function decideCalEventRegistration(
+  uuid: string,
+  registrationId: string,
+  decision: "approve" | "decline"
+): Promise<CalEventRegistrationDecision> {
+  const response = await makeRequest<{ status: string; data: { kind?: string } }>(
+    `/events/${uuid}/registrations/${registrationId}/${decision}`,
+    { method: "POST" },
+    API_VERSION
+  );
+  const kind = response?.data?.kind;
+  if (!kind) throw new Error(`Invalid response from ${decision} API`);
+  return kind;
+}
+
+/**
+ * Approve one guest waiting for approval. A free Event seats them unless it's full; a paid one
+ * sends them a payment request instead.
+ */
+export function approveCalEventRegistration(
+  uuid: string,
+  registrationId: string
+): Promise<CalEventRegistrationDecision> {
+  return decideCalEventRegistration(uuid, registrationId, "approve");
+}
+
+/** Decline one guest waiting for approval or on the waitlist. The API emails them. */
+export function declineCalEventRegistration(
+  uuid: string,
+  registrationId: string
+): Promise<CalEventRegistrationDecision> {
+  return decideCalEventRegistration(uuid, registrationId, "decline");
 }

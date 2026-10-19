@@ -20,7 +20,9 @@ jest.mock("./request", () => ({
 const {
   addCalEventLocation,
   approveAllCalEventRegistrations,
+  approveCalEventRegistration,
   createCalEvent,
+  declineCalEventRegistration,
   deleteCalEventCoverImage,
   getCalEvent,
   getCalEventMessages,
@@ -368,19 +370,25 @@ function createBooking(overrides = {}) {
 }
 
 describe("getCalEventRoster", () => {
+  const STATUSES =
+    "PENDING_APPROVAL%2CWAITLISTED%2CPENDING_PAYMENT%2CCONFIRMED%2CDECLINED%2CCANCELLED";
+
   beforeEach(() => {
     mockMakeRequest.mockReset();
   });
 
-  test("reads the bookings in pages of 250 and maps each guest", async () => {
+  test("reads every listed status in pages of 250 and maps each guest", async () => {
     mockMakeRequest.mockResolvedValue({
       status: "success",
-      data: [createBooking({ responses: null, phoneNumber: undefined })],
+      data: [
+        createBooking({ status: "PENDING_APPROVAL", responses: null, phoneNumber: undefined }),
+      ],
       pagination: { nextCursor: null, hasMore: false },
     });
     await expect(getCalEventRoster("event-uuid")).resolves.toEqual([
       {
         registrationId: "r1",
+        status: "PENDING_APPROVAL",
         name: "Ada",
         email: "ada@example.com",
         phoneNumber: null,
@@ -392,7 +400,7 @@ describe("getCalEventRoster", () => {
       },
     ]);
     expect(mockMakeRequest).toHaveBeenCalledWith(
-      "/events/event-uuid/bookings?limit=250",
+      `/events/event-uuid/bookings?limit=250&status=${STATUSES}`,
       {},
       "2024-06-14"
     );
@@ -413,10 +421,20 @@ describe("getCalEventRoster", () => {
     const roster = await getCalEventRoster("event-uuid");
     expect(roster.map((guest) => guest.registrationId)).toEqual(["r1", "r2", "r3"]);
     expect(mockMakeRequest).toHaveBeenLastCalledWith(
-      "/events/event-uuid/bookings?limit=250&cursor=c2",
+      `/events/event-uuid/bookings?limit=250&status=${STATUSES}&cursor=c2`,
       {},
       "2024-06-14"
     );
+  });
+
+  test("reads a guest without a status as confirmed, as older servers list only those", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: [createBooking()],
+      pagination: { nextCursor: null, hasMore: false },
+    });
+    const [guest] = await getCalEventRoster("event-uuid");
+    expect(guest.status).toBe("CONFIRMED");
   });
 
   test("stops when the API hands back a cursor it already followed", async () => {
@@ -547,5 +565,35 @@ describe("guest actions", () => {
       total: 9,
     });
     expect(mockMakeRequest.mock.calls[0][1].body).toBe("{}");
+  });
+
+  test("approves one guest and returns what happened", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: { kind: "payment_pending", registration: { id: "r1" } },
+    });
+    await expect(approveCalEventRegistration("event-uuid", "r1")).resolves.toBe("payment_pending");
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/registrations/r1/approve",
+      { method: "POST" },
+      "2024-06-14"
+    );
+  });
+
+  test("declines one guest", async () => {
+    mockMakeRequest.mockResolvedValue({ status: "success", data: { kind: "declined" } });
+    await expect(declineCalEventRegistration("event-uuid", "r1")).resolves.toBe("declined");
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/registrations/r1/decline",
+      { method: "POST" },
+      "2024-06-14"
+    );
+  });
+
+  test("rejects a decision response without a kind", async () => {
+    mockMakeRequest.mockResolvedValue({ status: "success", data: {} });
+    await expect(approveCalEventRegistration("event-uuid", "r1")).rejects.toThrow(
+      "Invalid response from approve API"
+    );
   });
 });

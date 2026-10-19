@@ -42,7 +42,9 @@ export type {
   CalEventMessageSendResult,
   CalEventMessageStatus,
   CalEventMessagesPage,
+  CalEventRegistrationDecision,
   CalEventRegistrationField,
+  CalEventRegistrationStatus,
   CalEventRosterGuest,
   CalEventRsvpResponse,
   CalEventScheduleItem,
@@ -104,8 +106,10 @@ import {
 import {
   addCalEventLocation,
   approveAllCalEventRegistrations,
+  approveCalEventRegistration,
   cancelCalEvent,
   createCalEvent,
+  declineCalEventRegistration,
   deleteCalEvent,
   deleteCalEventCoverImage,
   getCalEvent,
@@ -233,6 +237,8 @@ export const CalComAPIService = {
   sendCalEventMessage,
   getCalEventMessages,
   approveAllCalEventRegistrations,
+  approveCalEventRegistration,
+  declineCalEventRegistration,
 
   // Teams
   getTeams,
