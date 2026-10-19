@@ -297,3 +297,141 @@ export interface Team {
   parentId?: number;
   isOrganization: boolean;
 }
+
+export type CalEventRsvpResponse = "YES" | "NO" | "MAYBE";
+
+/**
+ * One confirmed guest as `GET /v2/events/{uuid}/bookings` returns it. Only confirmed guests are
+ * listed: pending, waitlisted and declined ones aren't. Date fields are ISO 8601 strings.
+ */
+export interface CalEventBookingApi {
+  type: "event";
+  registrationId: string;
+  /** Empty when the guest gave none. */
+  name: string;
+  /** A placeholder `@sms.cal.com` address for a guest who registered by phone. */
+  email: string;
+  phoneNumber?: string | null;
+  rsvpResponse: CalEventRsvpResponse;
+  /** Registration-form answers, keyed by the field's name. */
+  responses?: unknown;
+  locationId?: string | null;
+  createdAt: string;
+  checkedInAt?: string | null;
+  checkedInByUserId?: number | null;
+}
+
+/** A confirmed guest on an Event's Guests tab. */
+export interface CalEventRosterGuest {
+  registrationId: string;
+  name: string;
+  email: string;
+  phoneNumber: string | null;
+  rsvpResponse: CalEventRsvpResponse;
+  responses: Record<string, unknown>;
+  locationId: string | null;
+  createdAt: string;
+  checkedInAt: string | null;
+}
+
+/** The body of `POST /v2/events/{uuid}/invitations`. */
+export interface InviteCalEventGuestsInput {
+  /** 1 to 200. */
+  emails: string[];
+  /** Up to 500 characters, shown in the invitation email. */
+  hostNote?: string;
+}
+
+export type CalEventInvitationReason =
+  | "invited"
+  | "already-invited"
+  | "already-registered"
+  | "cooldown"
+  | "invalid-format"
+  | "undeliverable"
+  | "duplicate"
+  | "failed"
+  | (string & {});
+
+/** What `POST /v2/events/{uuid}/invitations` did, with one outcome per submitted address. */
+export interface CalEventInvitationResult {
+  invitedCount: number;
+  skippedAlreadyInvited: number;
+  skippedAlreadyRegistered: number;
+  skippedOnCooldown: number;
+  skippedInvalid: number;
+  /** Failed to send; inviting them again retries. */
+  failedCount: number;
+  outcomes: { email: string; reason: CalEventInvitationReason }[];
+}
+
+/** Who a message goes to: confirmed guests going or maybe, or guests awaiting approval. */
+export type CalEventMessageSegment = "GOING" | "MAYBE" | "PENDING";
+
+/** The body of `POST /v2/events/{uuid}/messages`. Plain text only. */
+export interface SendCalEventMessageInput {
+  segment: CalEventMessageSegment;
+  /** Up to 200 characters. */
+  subject: string;
+  /** Up to 5000 characters. */
+  body: string;
+  locationId?: string;
+  /** true = only checked-in guests, false = only those not checked in; omit for both. */
+  checkedIn?: boolean;
+}
+
+export interface CalEventMessageSendResult {
+  id: string;
+  status: "QUEUED" | "FAILED_TO_QUEUE" | (string & {});
+  /** Guests to be emailed. */
+  recipientCount: number;
+  /** Phone-only guests to be texted instead. */
+  textRecipientCount: number;
+  /** Phone-only guests who won't get it. */
+  skippedPhoneCount: number;
+}
+
+export type CalEventMessageStatus =
+  | "SENDING"
+  | "SENT"
+  | "PARTIALLY_SENT"
+  | "NOT_SENT"
+  | "NOT_SENT_EVENT_UNSENDABLE"
+  | (string & {});
+
+/** A message sent to an Event's guests, as `GET /v2/events/{uuid}/messages` lists it. */
+export interface CalEventMessage {
+  id: string;
+  segment: CalEventMessageSegment;
+  createdAt: string;
+  /** null once the sender's account is deleted. */
+  sender: { id: number; name: string | null } | null;
+  status: CalEventMessageStatus;
+  /** null while sending, or when nothing was delivered. */
+  counts: {
+    sentCount: number;
+    failedCount: number;
+    skippedPhoneCount: number;
+    skippedUnsubscribedCount: number;
+  } | null;
+}
+
+/** One page of sent messages, newest first. Pass `nextCursor` back for the next. */
+export interface CalEventMessagesPage {
+  messages: CalEventMessage[];
+  nextCursor: string | null;
+}
+
+/** The body of `POST /v2/events/{uuid}/registrations/approve-all`: narrows who is approved. */
+export interface ApproveAllCalEventRegistrationsInput {
+  search?: string;
+  locationId?: string;
+}
+
+/**
+ * What approve all did. A free Event approves at once (`completed`); a paid one sends payment
+ * requests in the background (`started`).
+ */
+export type CalEventApproveAllResult =
+  | { kind: "completed"; approvedCount: number; notSeatedCount: number }
+  | { kind: "started"; total: number };

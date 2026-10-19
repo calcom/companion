@@ -19,12 +19,17 @@ jest.mock("./request", () => ({
 
 const {
   addCalEventLocation,
+  approveAllCalEventRegistrations,
   createCalEvent,
   deleteCalEventCoverImage,
   getCalEvent,
+  getCalEventMessages,
+  getCalEventRoster,
   getCalEvents,
+  inviteCalEventGuests,
   removeCalEventLocation,
   reorderCalEventCoHosts,
+  sendCalEventMessage,
   updateCalEvent,
   updateCalEventLocation,
   uploadCalEventCoverImage,
@@ -342,5 +347,205 @@ describe("event media and locations", () => {
       },
       "2024-06-14"
     );
+  });
+});
+
+function createBooking(overrides = {}) {
+  return {
+    type: "event",
+    registrationId: "r1",
+    name: "Ada",
+    email: "ada@example.com",
+    phoneNumber: null,
+    rsvpResponse: "YES",
+    responses: { name: "Ada", email: "ada@example.com", company: "Acme" },
+    locationId: null,
+    createdAt: "2029-12-02T10:00:00.000Z",
+    checkedInAt: null,
+    checkedInByUserId: null,
+    ...overrides,
+  };
+}
+
+describe("getCalEventRoster", () => {
+  beforeEach(() => {
+    mockMakeRequest.mockReset();
+  });
+
+  test("reads the bookings in pages of 250 and maps each guest", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: [createBooking({ responses: null, phoneNumber: undefined })],
+      pagination: { nextCursor: null, hasMore: false },
+    });
+    await expect(getCalEventRoster("event-uuid")).resolves.toEqual([
+      {
+        registrationId: "r1",
+        name: "Ada",
+        email: "ada@example.com",
+        phoneNumber: null,
+        rsvpResponse: "YES",
+        responses: {},
+        locationId: null,
+        createdAt: "2029-12-02T10:00:00.000Z",
+        checkedInAt: null,
+      },
+    ]);
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/bookings?limit=250",
+      {},
+      "2024-06-14"
+    );
+  });
+
+  test("follows the cursor to the end and lists a repeated guest once", async () => {
+    mockMakeRequest
+      .mockResolvedValueOnce({
+        status: "success",
+        data: [createBooking({ registrationId: "r1" }), createBooking({ registrationId: "r2" })],
+        pagination: { nextCursor: "c2", hasMore: true },
+      })
+      .mockResolvedValueOnce({
+        status: "success",
+        data: [createBooking({ registrationId: "r2" }), createBooking({ registrationId: "r3" })],
+        pagination: { nextCursor: null, hasMore: false },
+      });
+    const roster = await getCalEventRoster("event-uuid");
+    expect(roster.map((guest) => guest.registrationId)).toEqual(["r1", "r2", "r3"]);
+    expect(mockMakeRequest).toHaveBeenLastCalledWith(
+      "/events/event-uuid/bookings?limit=250&cursor=c2",
+      {},
+      "2024-06-14"
+    );
+  });
+
+  test("stops when the API hands back a cursor it already followed", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: [createBooking()],
+      pagination: { nextCursor: "same", hasMore: true },
+    });
+    await expect(getCalEventRoster("event-uuid")).resolves.toHaveLength(1);
+    expect(mockMakeRequest).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("guest actions", () => {
+  beforeEach(() => {
+    mockMakeRequest.mockReset();
+  });
+
+  test("invites with the trimmed note, and leaves a blank note out", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: {
+        invitedCount: 1,
+        skippedAlreadyInvited: 0,
+        skippedAlreadyRegistered: 0,
+        skippedOnCooldown: 0,
+        skippedInvalid: 0,
+        failedCount: 0,
+      },
+    });
+    const result = await inviteCalEventGuests("event-uuid", {
+      emails: ["a@example.com"],
+      hostNote: "  See you  ",
+    });
+    expect(result.outcomes).toEqual([]);
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/invitations",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails: ["a@example.com"], hostNote: "See you" }),
+      },
+      "2024-06-14"
+    );
+    await inviteCalEventGuests("event-uuid", { emails: ["a@example.com"], hostNote: "  " });
+    expect(mockMakeRequest.mock.calls[1][1].body).toBe(
+      JSON.stringify({ emails: ["a@example.com"] })
+    );
+  });
+
+  test("sends a message to one group", async () => {
+    const sent = {
+      id: "m1",
+      status: "QUEUED",
+      recipientCount: 3,
+      textRecipientCount: 0,
+      skippedPhoneCount: 0,
+    };
+    mockMakeRequest.mockResolvedValue({ status: "success", data: sent });
+    const input = { segment: "GOING", subject: "Hi", body: "Doors at 6", checkedIn: false };
+    await expect(sendCalEventMessage("event-uuid", input)).resolves.toEqual(sent);
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/messages",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      },
+      "2024-06-14"
+    );
+  });
+
+  test("lists sent messages a page at a time, with the next cursor only while there are more", async () => {
+    const message = { id: "m1", segment: "GOING", status: "SENT" };
+    mockMakeRequest.mockResolvedValueOnce({
+      status: "success",
+      data: [message],
+      pagination: { nextCursor: "c2", hasMore: true },
+    });
+    await expect(getCalEventMessages("event-uuid")).resolves.toEqual({
+      messages: [message],
+      nextCursor: "c2",
+    });
+    expect(mockMakeRequest).toHaveBeenCalledWith("/events/event-uuid/messages", {}, "2024-06-14");
+
+    mockMakeRequest.mockResolvedValueOnce({
+      status: "success",
+      data: [],
+      pagination: { nextCursor: "stale", hasMore: false },
+    });
+    await expect(getCalEventMessages("event-uuid", "c2")).resolves.toEqual({
+      messages: [],
+      nextCursor: null,
+    });
+    expect(mockMakeRequest).toHaveBeenLastCalledWith(
+      "/events/event-uuid/messages?cursor=c2",
+      {},
+      "2024-06-14"
+    );
+  });
+
+  test("approves all with the list's search and location", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: { kind: "completed", approvedCount: 4 },
+    });
+    await expect(
+      approveAllCalEventRegistrations("event-uuid", { search: " ada ", locationId: "l1" })
+    ).resolves.toEqual({ kind: "completed", approvedCount: 4, notSeatedCount: 0 });
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/registrations/approve-all",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ search: "ada", locationId: "l1" }),
+      },
+      "2024-06-14"
+    );
+  });
+
+  test("reports a paid event's approval as started", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: { kind: "started", operationId: "op", total: 9 },
+    });
+    await expect(approveAllCalEventRegistrations("event-uuid")).resolves.toEqual({
+      kind: "started",
+      total: 9,
+    });
+    expect(mockMakeRequest.mock.calls[0][1].body).toBe("{}");
   });
 });

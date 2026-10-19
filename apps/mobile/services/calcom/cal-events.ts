@@ -6,13 +6,23 @@ import { deriveCalEventStatus, getCalEventPublicUrl } from "@/utils/cal-events";
 
 import type {
   AddCalEventLocationInput,
+  ApproveAllCalEventRegistrationsInput,
   CalEvent,
   CalEventApi,
+  CalEventApproveAllResult,
+  CalEventBookingApi,
   CalEventCoHost,
+  CalEventInvitationResult,
   CalEventLocation,
+  CalEventMessage,
+  CalEventMessageSendResult,
+  CalEventMessagesPage,
+  CalEventRosterGuest,
   CalEventsListingStatus,
   CalEventsPage,
   CreateCalEventInput,
+  InviteCalEventGuestsInput,
+  SendCalEventMessageInput,
   UpdateCalEventInput,
   UpdateCalEventLocationInput,
 } from "../types";
@@ -335,4 +345,167 @@ export async function removeCalEventCoHost(uuid: string, coHostId: string): Prom
     { method: "DELETE" },
     API_VERSION
   );
+}
+
+/** The API's largest page, so a big guest list takes as few calls as it can. */
+const ROSTER_PAGE_SIZE = 250;
+
+type BookingsResponse = {
+  status: string;
+  data: CalEventBookingApi[];
+  pagination?: { nextCursor: string | null; hasMore: boolean };
+};
+
+/** The app's view of a guest: the one place the roster's API shape is read. */
+export function toCalEventRosterGuest(booking: CalEventBookingApi): CalEventRosterGuest {
+  const responses = booking.responses;
+  return {
+    registrationId: booking.registrationId,
+    name: booking.name ?? "",
+    email: booking.email ?? "",
+    phoneNumber: booking.phoneNumber ?? null,
+    rsvpResponse: booking.rsvpResponse,
+    responses:
+      responses && typeof responses === "object" && !Array.isArray(responses)
+        ? (responses as Record<string, unknown>)
+        : {},
+    locationId: booking.locationId ?? null,
+    createdAt: booking.createdAt,
+    checkedInAt: booking.checkedInAt ?? null,
+  };
+}
+
+/**
+ * Every confirmed guest of an event, read page by page: the tab's counts, filters and pages all
+ * need the whole list. Pending, waitlisted and declined guests aren't listed by the API.
+ */
+export async function getCalEventRoster(uuid: string): Promise<CalEventRosterGuest[]> {
+  // By id, so a guest a later page repeats is listed (and counted) once.
+  const guests = new Map<string, CalEventRosterGuest>();
+  const followed = new Set<string>();
+  let cursor: string | null = null;
+  do {
+    const params = new URLSearchParams({ limit: String(ROSTER_PAGE_SIZE) });
+    if (cursor) params.append("cursor", cursor);
+    const response: BookingsResponse = await makeRequest<BookingsResponse>(
+      `/events/${uuid}/bookings?${params.toString()}`,
+      {},
+      API_VERSION
+    );
+    for (const booking of Array.isArray(response?.data) ? response.data : []) {
+      if (!guests.has(booking.registrationId)) {
+        guests.set(booking.registrationId, toCalEventRosterGuest(booking));
+      }
+    }
+    // No cursor to follow is the end, and so is one already followed: it would loop forever.
+    const next = response?.pagination?.hasMore ? response.pagination.nextCursor : null;
+    cursor = next && !followed.has(next) ? next : null;
+    if (cursor) followed.add(cursor);
+  } while (cursor);
+  return [...guests.values()];
+}
+
+/**
+ * Email invitations to register. Published events that haven't started only, up to 200 active
+ * invitations per event; the inviter needs a verified email (else 403).
+ */
+export async function inviteCalEventGuests(
+  uuid: string,
+  input: InviteCalEventGuestsInput
+): Promise<CalEventInvitationResult> {
+  const hostNote = input.hostNote?.trim();
+  const response = await makeRequest<{ status: string; data: CalEventInvitationResult }>(
+    `/events/${uuid}/invitations`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        hostNote ? { emails: input.emails, hostNote } : { emails: input.emails }
+      ),
+    },
+    API_VERSION
+  );
+  if (!response?.data) throw new Error("Invalid response from invite guests API");
+  return { ...response.data, outcomes: response.data.outcomes ?? [] };
+}
+
+/**
+ * Email one group of the event's guests (phone-only guests get a text). Hosts only: co-hosts get
+ * the same 404 as an unknown event. 400 when the group has nobody to email.
+ */
+export async function sendCalEventMessage(
+  uuid: string,
+  input: SendCalEventMessageInput
+): Promise<CalEventMessageSendResult> {
+  const response = await makeRequest<{ status: string; data: CalEventMessageSendResult }>(
+    `/events/${uuid}/messages`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    API_VERSION
+  );
+  if (!response?.data) throw new Error("Invalid response from message guests API");
+  return response.data;
+}
+
+/** One page (20) of the messages sent to the event's guests, newest first. Hosts only. */
+export async function getCalEventMessages(
+  uuid: string,
+  cursor?: string | null
+): Promise<CalEventMessagesPage> {
+  const query = cursor ? `?${new URLSearchParams({ cursor }).toString()}` : "";
+  const response = await makeRequest<{
+    status: string;
+    data: CalEventMessage[];
+    pagination?: { nextCursor: string | null; hasMore: boolean };
+  }>(`/events/${uuid}/messages${query}`, {}, API_VERSION);
+  const nextCursor = response?.pagination?.nextCursor ?? null;
+  return {
+    messages: Array.isArray(response?.data) ? response.data : [],
+    nextCursor: response?.pagination?.hasMore ? nextCursor : null,
+  };
+}
+
+/**
+ * Approve every guest waiting for approval, in registration order, narrowed by `search` and
+ * `locationId` like the list. A full event leaves the rest pending; a paid one runs in the
+ * background, sending each guest a payment link.
+ */
+export async function approveAllCalEventRegistrations(
+  uuid: string,
+  input: ApproveAllCalEventRegistrationsInput = {}
+): Promise<CalEventApproveAllResult> {
+  const body: ApproveAllCalEventRegistrationsInput = {};
+  const search = input.search?.trim();
+  if (search) body.search = search;
+  if (input.locationId) body.locationId = input.locationId;
+  const response = await makeRequest<{
+    status: string;
+    data: {
+      kind: "completed" | "started";
+      approvedCount?: number;
+      notSeatedCount?: number;
+      total?: number;
+    };
+  }>(
+    `/events/${uuid}/registrations/approve-all`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    API_VERSION
+  );
+  const outcome = response?.data;
+  if (outcome?.kind === "completed") {
+    return {
+      kind: "completed",
+      approvedCount: outcome.approvedCount ?? 0,
+      notSeatedCount: outcome.notSeatedCount ?? 0,
+    };
+  }
+  if (outcome?.kind === "started") return { kind: "started", total: outcome.total ?? 0 };
+  throw new Error("Invalid response from approve all API");
 }
