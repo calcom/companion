@@ -1,5 +1,7 @@
-import { Button, ContextMenu, Host } from "@expo/ui/swift-ui";
-import { View } from "react-native";
+import { Button, ContextMenu, Host, Rectangle } from "@expo/ui/swift-ui";
+import { accessibilityLabel, foregroundStyle, opacity } from "@expo/ui/swift-ui/modifiers";
+import { StyleSheet, View } from "react-native";
+import { useEditTheme } from "./EditControls";
 import {
   SelectBox,
   SelectFieldFrame,
@@ -22,29 +24,43 @@ export function SelectField<T extends string | null>({
   swatches,
   helper,
 }: SelectFieldProps<T>) {
+  const theme = useEditTheme();
   const selected = options.find((option) => option.value === value);
   const text = selected?.label ?? placeholder;
   return (
     <SelectFieldFrame label={label} helper={helper}>
-      <Host matchContents>
-        <ContextMenu activationMethod="singlePress">
-          <ContextMenu.Items>
-            {options.map((option) => (
-              <Button
-                key={String(option.value)}
-                systemImage={option.value === value ? "checkmark" : undefined}
-                onPress={() => onChange(option.value)}
-                label={option.label}
+      {/* React Native lays the select out; the menu only covers it to catch the tap. Hosting the
+          select inside the menu instead mismeasured its height once it had swatches. */}
+      <View>
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <SelectBox text={text} swatches={swatches ?? selected?.swatches} />
+        </View>
+        <Host style={StyleSheet.absoluteFill}>
+          <ContextMenu activationMethod="singlePress">
+            <ContextMenu.Items>
+              {options.map((option) => (
+                <Button
+                  key={String(option.value)}
+                  systemImage={option.value === value ? "checkmark" : undefined}
+                  onPress={() => onChange(option.value)}
+                  label={option.label}
+                />
+              ))}
+            </ContextMenu.Items>
+            <ContextMenu.Trigger>
+              {/* A shape fills the host. Nearly transparent, as SwiftUI doesn't hit-test a fully
+                  transparent view. */}
+              <Rectangle
+                modifiers={[
+                  foregroundStyle(theme.background),
+                  opacity(0.01),
+                  accessibilityLabel(`${label}, ${text}`),
+                ]}
               />
-            ))}
-          </ContextMenu.Items>
-          <ContextMenu.Trigger>
-            <View accessible accessibilityRole="button" accessibilityLabel={`${label}, ${text}`}>
-              <SelectBox text={text} swatches={swatches ?? selected?.swatches} />
-            </View>
-          </ContextMenu.Trigger>
-        </ContextMenu>
-      </Host>
+            </ContextMenu.Trigger>
+          </ContextMenu>
+        </Host>
+      </View>
     </SelectFieldFrame>
   );
 }
