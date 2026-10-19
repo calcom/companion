@@ -232,9 +232,10 @@ export function PageContentSection({
         </View>
       </EditSection>
 
+      {/* The two sheets are siblings, so their keys are prefixed: each sheet's count starts at 1. */}
       {personSheet.initial ? (
         <PersonSheet
-          key={personSheet.key}
+          key={`person-${personSheet.key}`}
           visible={personSheet.visible}
           uuid={uuid}
           initial={personSheet.initial}
@@ -250,7 +251,7 @@ export function PageContentSection({
       ) : null}
       {itemSheet.initial ? (
         <ScheduleItemSheet
-          key={itemSheet.key}
+          key={`item-${itemSheet.key}`}
           visible={itemSheet.visible}
           uuid={uuid}
           initial={itemSheet.initial}
