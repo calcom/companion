@@ -47,13 +47,25 @@ export function useCalEventRoster(uuid: string, { enabled = true } = {}) {
   return query;
 }
 
-/** Hook to fetch the messages sent to an event's guests, 20 at a time, newest first. */
+/** How often the Sent list checks on a message that's still going out, as the web does. */
+const SENDING_POLL_MS = 3000;
+
+/**
+ * Hook to fetch the messages sent to an event's guests, 20 at a time, newest first. While one is
+ * still sending it refetches every few seconds, so its status and counts land on their own.
+ */
 export function useCalEventMessages(uuid: string) {
   return useInfiniteQuery({
     queryKey: queryKeys.calEvents.messages(uuid),
     queryFn: ({ pageParam }) => CalComAPIService.getCalEventMessages(uuid, pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (page: CalEventMessagesPage) => page.nextCursor,
+    refetchInterval: (query) =>
+      query.state.data?.pages.some((page) =>
+        page.messages.some((message) => message.status === "SENDING")
+      )
+        ? SENDING_POLL_MS
+        : false,
     select: (data) => data.pages.flatMap((page) => page.messages),
     enabled: !!uuid,
     staleTime: 0,
