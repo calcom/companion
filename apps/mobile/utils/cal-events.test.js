@@ -14,6 +14,7 @@ const {
   filterCalEventsByTitle,
   formatCalEventDate,
   formatCalEventPrice,
+  formatCalEventPublicPrice,
   formatCalEventTime,
   formatCalEventTimeRange,
   getCalEventEditorUrl,
@@ -23,6 +24,7 @@ const {
   getCalEventPublicUrl,
   getCalEventsProfileTeams,
   groupCalEvents,
+  isPaidCalEvent,
   canCreateTeamCalEvents,
   needsSignInAgainForCalEvents,
   refreshCalEventStatuses,
@@ -153,6 +155,18 @@ describe("getCalEventFacts", () => {
     expect(formatCalEventPrice(999, "usd")).toBe("$9.99");
   });
 
+  test("shows the price of priced locations", () => {
+    expect(
+      getCalEventFacts(
+        createEvent({
+          confirmedCount: 0,
+          visibility: "PUBLIC",
+          locations: [venue(2500), stream(null)],
+        })
+      )
+    ).toEqual(["Free – €25.00"]);
+  });
+
   test("keeps zero-decimal currencies whole, as Cal.com stores them", () => {
     expect(formatCalEventPrice(1500, "jpy")).toBe("¥1,500");
     expect(formatCalEventPrice(15000, "KRW")).toBe("₩15,000");
@@ -163,6 +177,77 @@ describe("getCalEventFacts", () => {
   test("falls back to the amount and code for a malformed currency code", () => {
     // Intl throws only for a malformed code; a well-formed unknown one like "XYZ" still formats.
     expect(formatCalEventPrice(1500, "euro")).toBe("15.00 EURO");
+  });
+});
+
+const venue = (price, currency = "eur") => ({
+  type: "address",
+  address: "Main St 1",
+  price,
+  currency,
+});
+const stream = (price, currency = "eur") => ({
+  type: "link",
+  link: "https://example.test/live",
+  price,
+  currency,
+});
+
+describe("isPaidCalEvent", () => {
+  test("counts the event-level price or any location's own price", () => {
+    expect(isPaidCalEvent(createEvent())).toBe(false);
+    expect(isPaidCalEvent(createEvent({ price: 1500, currency: "usd" }))).toBe(true);
+    expect(isPaidCalEvent(createEvent({ locations: [venue(null), stream(1000)] }))).toBe(true);
+    expect(isPaidCalEvent(createEvent({ locations: [venue(null), stream(0)] }))).toBe(false);
+  });
+
+  test("ignores a location this API version can't represent, like the server", () => {
+    const unknown = { type: "unknown", location: "{}", price: 1000, currency: "eur" };
+    expect(isPaidCalEvent(createEvent({ locations: [unknown] }))).toBe(false);
+  });
+});
+
+describe("formatCalEventPublicPrice", () => {
+  test("is null for a free event", () => {
+    expect(formatCalEventPublicPrice(createEvent({ locations: [venue(null)] }))).toBeNull();
+  });
+
+  test("falls back to the event-level price while no location is priced", () => {
+    expect(
+      formatCalEventPublicPrice(
+        createEvent({ price: 1500, currency: "usd", locations: [venue(null)] })
+      )
+    ).toBe("$15.00");
+  });
+
+  test("shows one price when every location charges the same", () => {
+    expect(formatCalEventPublicPrice(createEvent({ locations: [venue(1000), stream(1000)] }))).toBe(
+      "€10.00"
+    );
+  });
+
+  test("shows the cheapest as a from price when the locations charge differently", () => {
+    expect(formatCalEventPublicPrice(createEvent({ locations: [venue(2500), stream(1000)] }))).toBe(
+      "From €10.00"
+    );
+    // Location prices win over a leftover event-level one.
+    expect(
+      formatCalEventPublicPrice(
+        createEvent({ price: 500, currency: "usd", locations: [venue(2500), stream(1000)] })
+      )
+    ).toBe("From €10.00");
+  });
+
+  test("headlines a free location as a range", () => {
+    expect(formatCalEventPublicPrice(createEvent({ locations: [venue(2500), stream(null)] }))).toBe(
+      "Free – €25.00"
+    );
+  });
+
+  test("keeps a zero-decimal currency whole", () => {
+    expect(formatCalEventPublicPrice(createEvent({ locations: [venue(1500, "jpy")] }))).toBe(
+      "¥1,500"
+    );
   });
 });
 
@@ -384,6 +469,14 @@ describe("canDeleteCalEvent", () => {
     for (const status of ["published", "past", "cancelled"]) {
       expect(canDeleteCalEvent(createEvent({ ...PAID, status, confirmedCount: 0 }))).toBe(false);
     }
+  });
+
+  test("blocks deleting a published event priced only per location, upcoming, past or cancelled", () => {
+    const locations = [venue(2500), stream(null)];
+    for (const status of ["published", "past", "cancelled"]) {
+      expect(canDeleteCalEvent(createEvent({ locations, status, confirmedCount: 0 }))).toBe(false);
+    }
+    expect(canDeleteCalEvent(createEvent({ ...draft, locations }))).toBe(true);
   });
 
   test("blocks deleting a past event with confirmed guests", () => {

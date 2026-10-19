@@ -16,7 +16,7 @@ import {
   canDeleteCalEvent,
   canManageCalEventLifecycle,
   formatCalEventDate,
-  formatCalEventPrice,
+  formatCalEventPublicPrice,
   formatCalEventTimeRange,
   getCalEventLinkActions,
   getCalEventLocationLabel,
@@ -104,6 +104,7 @@ export default function CalEventDetailScreen() {
   const canEdit = canEditCalEvent(event, me?.id);
   const { canViewPage, canShare } = getCalEventLinkActions(event.status);
   const inPerson = isCalEventInPerson(event);
+  const price = formatCalEventPublicPrice(event);
   const link =
     event.locations.find(
       (location): location is Extract<CalEvent["locations"][number], { type: "link" }> =>
@@ -198,13 +199,8 @@ export default function CalEventDetailScreen() {
                   .join(" · ")}
               />
             ) : null}
-            {event.price ? (
-              <Row
-                theme={theme}
-                icon="pricetag-outline"
-                title={formatCalEventPrice(event.price, event.currency)}
-                subtitle="per ticket"
-              />
+            {price ? (
+              <Row theme={theme} icon="pricetag-outline" title={price} subtitle="per ticket" />
             ) : null}
           </Card>
 

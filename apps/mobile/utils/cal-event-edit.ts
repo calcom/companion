@@ -27,7 +27,11 @@ import {
   type CreateCalEventFormValues,
   parseLocationInput,
 } from "@/utils/cal-event-create";
-import { canManageCalEventLifecycle, getCalEventPriceDecimals } from "@/utils/cal-events";
+import {
+  canManageCalEventLifecycle,
+  getCalEventPriceDecimals,
+  isPaidCalEvent,
+} from "@/utils/cal-events";
 import {
   isStartTimeInPast,
   splitWallTimeParts,
@@ -762,8 +766,7 @@ export function isCalEventLocationRemovalLocked(
   event: Pick<CalEvent, "publishedAt" | "price">,
   locations: CalEventLocation[]
 ): boolean {
-  if (!event.publishedAt) return false;
-  return (event.price ?? 0) > 0 || locations.some((location) => (location.price ?? 0) > 0);
+  return !!event.publishedAt && isPaidCalEvent({ price: event.price, locations });
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
