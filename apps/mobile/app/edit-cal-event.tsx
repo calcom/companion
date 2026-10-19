@@ -16,7 +16,12 @@ export default function EditCalEvent() {
   const { uuid } = useLocalSearchParams<{ uuid: string }>();
   const { data: event, isLoading, isPlaceholderData, error, refetch } = useCalEvent(uuid);
 
-  const { data: me, isLoading: isProfileLoading } = useUserProfile();
+  const {
+    data: me,
+    isLoading: isProfileLoading,
+    error: profileError,
+    refetch: refetchProfile,
+  } = useUserProfile();
   const openEditor = useOpenCalEventEditor();
 
   // The form prefills once, so wait for the full single-event response: a listing placeholder
@@ -68,6 +73,30 @@ export default function EditCalEvent() {
           description={description}
           buttonText={canRetry ? "Retry" : "Close"}
           onButtonPress={() => (canRetry ? refetch() : router.back())}
+        />
+      </View>
+    );
+  }
+
+  // Without the profile we can't tell an owner or host from a co-host, so don't send them to the
+  // web editor over a failed request.
+  if (!me && profileError) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 20,
+          backgroundColor: theme.backgroundSecondary,
+        }}
+      >
+        <EmptyScreen
+          icon="ticket-outline"
+          headline="Unable to load your profile"
+          description="Check your connection and try again."
+          buttonText="Retry"
+          onButtonPress={() => refetchProfile()}
         />
       </View>
     );
