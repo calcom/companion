@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -44,6 +44,33 @@ export function TimeZonePickerModal({
     return needle ? zones.filter((zone) => zone.toLowerCase().includes(needle)) : zones;
   }, [zones, query]);
 
+  // Open with the selected zone in view. Rows aren't fixed height (Dynamic Type), so no
+  // getItemLayout: scroll once the list has laid out, and if the row isn't measured yet,
+  // jump to an estimated offset first and retry. Typing a search cancels any pending jump.
+  const listRef = useRef<FlatList<string>>(null);
+  const hasScrolledToSelected = useRef(false);
+  const scrollRetries = useRef(0);
+  const scrollRetry = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelScrollRetry = useCallback(() => {
+    if (scrollRetry.current) clearTimeout(scrollRetry.current);
+    scrollRetry.current = null;
+  }, []);
+  useEffect(() => {
+    if (!visible) {
+      hasScrolledToSelected.current = false;
+      cancelScrollRetry();
+    }
+    return cancelScrollRetry;
+  }, [visible, cancelScrollRetry]);
+
+  const scrollToSelected = () => {
+    if (hasScrolledToSelected.current || query) return;
+    hasScrolledToSelected.current = true;
+    scrollRetries.current = 0;
+    const index = filtered.indexOf(value);
+    if (index > 0) listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: false });
+  };
+
   const close = () => {
     setQuery("");
     onClose();
@@ -86,7 +113,10 @@ export function TimeZonePickerModal({
             <Ionicons name="search-outline" size={18} color={theme.textMuted} />
             <TextInput
               value={query}
-              onChangeText={setQuery}
+              onChangeText={(text) => {
+                cancelScrollRetry();
+                setQuery(text);
+              }}
               placeholder="Search timezones"
               placeholderTextColor={theme.textMuted}
               autoCapitalize="none"
@@ -100,7 +130,21 @@ export function TimeZonePickerModal({
           </Pressable>
         </View>
         <FlatList
+          ref={listRef}
           data={filtered}
+          onLayout={scrollToSelected}
+          onScrollToIndexFailed={({ index, averageItemLength }) => {
+            listRef.current?.scrollToOffset({ offset: averageItemLength * index, animated: false });
+            cancelScrollRetry();
+            if (scrollRetries.current >= 3) return;
+            scrollRetries.current += 1;
+            scrollRetry.current = setTimeout(() => {
+              scrollRetry.current = null;
+              if (index < filtered.length) {
+                listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: false });
+              }
+            }, 50);
+          }}
           keyExtractor={(zone) => zone}
           keyboardShouldPersistTaps="handled"
           initialNumToRender={30}
