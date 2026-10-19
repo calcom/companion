@@ -118,9 +118,10 @@ export function todayStartWallTime(timeZone: string, now: Date = new Date()): st
 }
 
 /**
- * A device-local `Date` showing the wall time's face values, for the native pickers. It is not the
- * event's instant: the pickers work in the device's zone, and `wallTimeToUtc` resolves the instant
- * once the event's zone is known.
+ * A device-local `Date` showing the wall time's face values, for the iOS picker, which can only
+ * show the device's zone. It is not the event's instant: `wallTimeToUtc` resolves that once the
+ * event's zone is known. A face value in the device's own spring-forward gap comes back an hour
+ * later, so prefer `wallTimeToUtcFaceDate` for a picker that takes a timezone.
  */
 export function wallTimeToCalendarDate(wallTime: string): Date {
   const match = WALL_TIME.exec(wallTime);
@@ -134,6 +135,19 @@ export function calendarDateToWallTime(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
     date.getHours()
   )}:${pad(date.getMinutes())}`;
+}
+
+/**
+ * The wall time's face values as a UTC `Date`, for a picker told to show UTC. UTC has no DST, so
+ * every wall time, including one the device's own clock skips, shows exactly as written.
+ */
+export function wallTimeToUtcFaceDate(wallTime: string): Date {
+  return new Date(faceValueMs(wallTime));
+}
+
+/** The UTC face values of a picker's `Date`, back as a wall time. */
+export function utcFaceDateToWallTime(date: Date): string {
+  return faceValueToWallTime(date.getTime());
 }
 
 /**

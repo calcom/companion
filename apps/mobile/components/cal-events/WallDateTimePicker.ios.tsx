@@ -19,6 +19,11 @@ export function WallDateTimePicker({
 }: WallDateTimePickerProps) {
   const isDark = useColorScheme() === "dark";
   const theme = getColors(isDark);
+  // SwiftUI's picker only shows the device's zone, so a wall time the device's clock skips (its
+  // spring-forward hour) shows an hour later. The picker echoes its selection when it opens: drop
+  // that echo so opening alone doesn't move the time.
+  const selection = wallTimeToCalendarDate(value);
+  const shownWallTime = calendarDateToWallTime(selection);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -56,10 +61,13 @@ export function WallDateTimePicker({
           </Text>
           <Host matchContents>
             <DatePicker
-              selection={wallTimeToCalendarDate(value)}
+              selection={selection}
               range={minWallTime ? { start: wallTimeToCalendarDate(minWallTime) } : undefined}
               displayedComponents={["date", "hourAndMinute"]}
-              onDateChange={(date) => onChange(calendarDateToWallTime(date))}
+              onDateChange={(date) => {
+                const picked = calendarDateToWallTime(date);
+                if (picked !== shownWallTime) onChange(picked);
+              }}
               modifiers={[datePickerStyle("graphical")]}
             />
           </Host>

@@ -8,9 +8,11 @@ const {
   timeZoneOffsetMs,
   timeZoneSummary,
   todayStartWallTime,
+  utcFaceDateToWallTime,
   utcToWallTime,
   wallTimeDiffMs,
   wallTimeToUtc,
+  wallTimeToUtcFaceDate,
 } = require("./wall-time");
 
 describe("wallTimeToUtc", () => {
@@ -114,6 +116,25 @@ describe("preserveWallTimeOnTimezoneChange", () => {
     expect(
       preserveWallTimeOnTimezoneChange("2026-10-19T09:00", "2026-10-19T11:00", "Asia/Tokyo", now)
     ).toEqual({ startWallTime: "2026-10-19T14:00", endWallTime: "2026-10-19T16:00" });
+  });
+});
+
+describe("wallTimeToUtcFaceDate", () => {
+  test("carries the face values on the UTC clock, whatever the device's zone", () => {
+    expect(wallTimeToUtcFaceDate("2026-08-01T18:00").toISOString()).toBe(
+      "2026-08-01T18:00:00.000Z"
+    );
+  });
+
+  test("round-trips a wall time that a DST zone skips", () => {
+    // 02:30 does not exist in America/New_York or Europe/Madrid on these dates.
+    for (const wallTime of ["2026-03-08T02:30", "2026-03-29T02:30"]) {
+      expect(utcFaceDateToWallTime(wallTimeToUtcFaceDate(wallTime))).toBe(wallTime);
+    }
+  });
+
+  test("reads back only the minutes a picker shows", () => {
+    expect(utcFaceDateToWallTime(new Date("2026-08-01T18:05:42.123Z"))).toBe("2026-08-01T18:05");
   });
 });
 

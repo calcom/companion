@@ -1,7 +1,14 @@
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useEffect, useRef } from "react";
-import { calendarDateToWallTime, wallTimeToCalendarDate } from "@/utils/wall-time";
+import {
+  splitWallTimeParts,
+  utcFaceDateToWallTime,
+  wallTimeToUtcFaceDate,
+} from "@/utils/wall-time";
 import type { WallDateTimePickerProps } from "./WallDateTimePicker.types";
+
+/** The dialogs show UTC, which has no DST, so they show any wall time as written. */
+const PICKER_TIME_ZONE = "UTC";
 
 /**
  * Android has no combined date-and-time dialog: opening shows the date dialog, then the time
@@ -20,30 +27,29 @@ export function WallDateTimePicker({
 
   useEffect(() => {
     if (!visible) return;
-    const current = wallTimeToCalendarDate(latest.current.value);
-    const minimum = latest.current.minWallTime
-      ? wallTimeToCalendarDate(latest.current.minWallTime)
-      : undefined;
+    const current = latest.current.value;
+    const minimum = latest.current.minWallTime;
     DateTimePickerAndroid.open({
-      value: current,
+      value: wallTimeToUtcFaceDate(current),
       mode: "date",
-      minimumDate: minimum,
+      timeZoneName: PICKER_TIME_ZONE,
+      minimumDate: minimum ? wallTimeToUtcFaceDate(minimum) : undefined,
       onChange: (dateEvent, pickedDate) => {
         if (dateEvent.type !== "set" || !pickedDate) {
           latest.current.onClose();
           return;
         }
-        const withDate = new Date(current);
-        withDate.setFullYear(pickedDate.getFullYear(), pickedDate.getMonth(), pickedDate.getDate());
+        const day = splitWallTimeParts(utcFaceDateToWallTime(pickedDate)).date;
+        const withDate = `${day}T${splitWallTimeParts(current).timeOfDay}`;
         DateTimePickerAndroid.open({
-          value: withDate,
+          value: wallTimeToUtcFaceDate(withDate),
           mode: "time",
           is24Hour: true,
+          timeZoneName: PICKER_TIME_ZONE,
           onChange: (timeEvent, pickedTime) => {
             if (timeEvent.type === "set" && pickedTime) {
-              const next = new Date(withDate);
-              next.setHours(pickedTime.getHours(), pickedTime.getMinutes(), 0, 0);
-              latest.current.onChange(calendarDateToWallTime(next));
+              const { timeOfDay } = splitWallTimeParts(utcFaceDateToWallTime(pickedTime));
+              latest.current.onChange(`${day}T${timeOfDay}`);
             }
             latest.current.onClose();
           },
