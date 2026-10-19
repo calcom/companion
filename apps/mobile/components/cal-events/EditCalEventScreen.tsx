@@ -910,7 +910,7 @@ function WebSettingRow({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={`${hint}. Configured on the web.`}
-      style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+      style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 44 }}
     >
       <View
         style={{
