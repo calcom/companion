@@ -195,8 +195,8 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
     [initial, values, event, locations]
   );
   const locationPrices = useMemo(
-    () => buildCalEventLocationPriceUpdates(values, locations),
-    [values, locations]
+    () => buildCalEventLocationPriceUpdates(initial, values, locations),
+    [initial, values, locations]
   );
   // A toggle turned on without a price sends nothing yet, but Save must still offer to check it.
   const dirty =

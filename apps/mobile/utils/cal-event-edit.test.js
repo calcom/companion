@@ -568,24 +568,43 @@ describe("paid event", () => {
   test("location prices go to each changed location", () => {
     const source = priced();
     const initial = buildEditFormValues(source);
-    expect(buildCalEventLocationPriceUpdates(initial, source.locations)).toEqual([]);
+    expect(buildCalEventLocationPriceUpdates(initial, initial, source.locations)).toEqual([]);
     expect(
       buildCalEventLocationPriceUpdates(
+        initial,
         { ...initial, locationPrices: { l2: { price: "7.5", currency: "usd" } } },
         source.locations
       )
     ).toEqual([{ locationId: "l2", patch: { type: "link", price: 750, currency: "usd" } }]);
     expect(
-      buildCalEventLocationPriceUpdates({ ...initial, paymentEnabled: false }, source.locations)
+      buildCalEventLocationPriceUpdates(
+        initial,
+        { ...initial, paymentEnabled: false },
+        source.locations
+      )
     ).toEqual([{ locationId: "l1", patch: { type: "address", price: null } }]);
     // One the API can't represent, or without an id, can't be patched.
     const odd = [
       { type: "unknown", location: "{}", price: 100 },
       { type: "link", link: "x" },
     ];
-    expect(buildCalEventLocationPriceUpdates({ ...initial, paymentEnabled: false }, odd)).toEqual(
-      []
-    );
+    expect(
+      buildCalEventLocationPriceUpdates(initial, { ...initial, paymentEnabled: false }, odd)
+    ).toEqual([]);
+  });
+
+  test("a form that opened free leaves a price set since outside it", () => {
+    // Priced on the Locations tab, which applies at once (or on the web), then refetched.
+    const free = buildEditFormValues(event());
+    expect(buildCalEventLocationPriceUpdates(free, free, priced().locations)).toEqual([]);
+    const stream = buildEditFormValues(streamOnly());
+    expect(
+      buildCalEventUpdateInput(
+        stream,
+        { ...stream, name: "Renamed" },
+        streamOnly({ price: 1500, currency: "eur" })
+      )
+    ).toEqual({ title: "Renamed" });
   });
 
   test("a paid event needs a price, at least Cal Pay's minimum", () => {

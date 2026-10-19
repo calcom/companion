@@ -433,7 +433,7 @@ export function buildCalEventUpdateInput(
   }
   // The event-level price is only for an event without locations (the server rejects it on one
   // with locations, which is priced per location: buildCalEventLocationPriceUpdates).
-  if (getAdmissionLocations(event.locations).length === 0) {
+  if (getAdmissionLocations(event.locations).length === 0 && sendsPrices(initial, current)) {
     const price = current.paymentEnabled ? toMinorUnits(current.price, current.currency) : null;
     if (
       price !== (event.price || null) ||
@@ -744,14 +744,28 @@ function getPaymentErrors(
 }
 
 /**
+ * Whether a save sends prices: payments are on, or were on when the form opened and were turned
+ * off here, which makes the event free. A form that opened free and stayed free sends none, so a
+ * price set since outside it (the Locations tab applies at once, as does the web) stays.
+ */
+function sendsPrices(
+  initial: Pick<CalEventEditFormValues, "paymentEnabled">,
+  current: Pick<CalEventEditFormValues, "paymentEnabled">
+): boolean {
+  return initial.paymentEnabled || current.paymentEnabled;
+}
+
+/**
  * The location PATCHes a save sends for the Payment tab: each location whose price or currency
- * differs from its saved one. Turning payments off makes every location free.
+ * differs from its saved one. Turning payments off here makes every location free.
  */
 export function buildCalEventLocationPriceUpdates(
+  initial: Pick<CalEventEditFormValues, "paymentEnabled">,
   values: Pick<CalEventEditFormValues, "paymentEnabled" | "locationPrices">,
   locations: CalEventLocation[]
 ): { locationId: string; patch: UpdateCalEventLocationInput }[] {
   const updates: { locationId: string; patch: UpdateCalEventLocationInput }[] = [];
+  if (!sendsPrices(initial, values)) return updates;
   for (const location of getAdmissionLocations(locations)) {
     if (!location.id || location.type === "unknown") continue;
     const row = calEventLocationPriceValues(values, location);
