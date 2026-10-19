@@ -52,6 +52,8 @@ export function DisabledSelectBox({ label, text }: { label: string; text: string
   return (
     <View
       accessible
+      // A button like the enabled select, announced as disabled.
+      accessibilityRole="button"
       accessibilityLabel={`${label}, ${text}`}
       accessibilityState={{ disabled: true }}
       style={{ opacity: 0.5 }}
