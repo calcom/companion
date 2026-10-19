@@ -57,12 +57,10 @@ export function getGuestDisplayName(guest: CalEventRosterGuest): string {
   return guest.name.trim() || getGuestContact(guest).value;
 }
 
-/** Up to two letters for the avatar: "Ada Lovelace" → "AL", "ada@x.com" → "A". */
-export function getGuestInitials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return "?";
-  const letters = words.length === 1 ? [words[0][0]] : [words[0][0], words[words.length - 1][0]];
-  return letters.join("").toUpperCase();
+/** The avatar's letter, as the web's: "Ada Lovelace" → "A"; "+371…" → "+". */
+export function getGuestInitial(name: string): string {
+  const first = Array.from(name.trim())[0];
+  return first ? first.toUpperCase() : "?";
 }
 
 export interface RosterFilters {

@@ -19,7 +19,7 @@ const {
   getGuestAnswerEntries,
   getGuestContact,
   getGuestDisplayName,
-  getGuestInitials,
+  getGuestInitial,
   getGuestLocationLabel,
   getGuestLocationOptions,
   getInviteResultMessage,
@@ -58,10 +58,11 @@ describe("how a guest reads", () => {
     expect(getGuestDisplayName(guest({ name: "  " }))).toBe("ada@example.com");
   });
 
-  test("initials take the first and last word", () => {
-    expect(getGuestInitials("Ada King Lovelace")).toBe("AL");
-    expect(getGuestInitials("ada@example.com")).toBe("A");
-    expect(getGuestInitials(" ")).toBe("?");
+  test("the avatar shows the first letter, like the web's", () => {
+    expect(getGuestInitial("Ada King Lovelace")).toBe("A");
+    expect(getGuestInitial("ada@example.com")).toBe("A");
+    expect(getGuestInitial("😀 Party")).toBe("😀");
+    expect(getGuestInitial(" ")).toBe("?");
   });
 });
 

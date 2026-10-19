@@ -66,6 +66,7 @@ import {
   SwitchRow,
   useEditTheme,
 } from "./edit/EditControls";
+import { GuestsSection } from "./edit/GuestsSection";
 import { LocationsSection } from "./edit/LocationsSection";
 import { PageContentSection } from "./edit/PageContentSection";
 import { PaymentSection } from "./edit/PaymentSection";
@@ -88,15 +89,16 @@ type TabId =
   | "page-content"
   | "hosts"
   | "capacity"
+  | "guests"
   | "registration-form"
   | "payment"
   | "privacy-security"
   | "other";
 
 /**
- * The web editor's tabs, in its order. Guests (the roster) isn't here: it's a separate feature,
- * not fields of the event. Workflows and Webhooks are only on the web, so "Other" links to them
- * like the event type editor's tab of the same name.
+ * The web editor's tabs, in its order. Guests is the roster, not fields of the event: its actions
+ * apply at once, outside Save. Workflows and Webhooks are only on the web, so "Other" links to
+ * them like the event type editor's tab of the same name.
  */
 const TABS: { id: TabId; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { id: "basics", label: "Basics", icon: "document-text-outline" },
@@ -105,6 +107,7 @@ const TABS: { id: TabId; label: string; icon: keyof typeof Ionicons.glyphMap }[]
   { id: "page-content", label: "Page content", icon: "grid-outline" },
   { id: "hosts", label: "Hosts", icon: "people-outline" },
   { id: "capacity", label: "Settings", icon: "settings-outline" },
+  { id: "guests", label: "Guests", icon: "people-circle-outline" },
   { id: "registration-form", label: "Registration form", icon: "clipboard-outline" },
   { id: "payment", label: "Payment", icon: "card-outline" },
   { id: "privacy-security", label: "Privacy & security", icon: "lock-closed-outline" },
@@ -513,6 +516,13 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
           onValueChange={(waitlistEnabled) => update({ waitlistEnabled })}
         />
       </EditSection>
+    ),
+    guests: (
+      <GuestsSection
+        event={event}
+        locations={locations}
+        onPageChange={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+      />
     ),
     "registration-form": (
       <EditSection title="Registration form">

@@ -108,6 +108,8 @@ interface EditTextFieldProps {
   accessibilityLabel?: string;
   /** Text before the field, such as a URL's host. */
   prefix?: string;
+  /** An icon before the field, such as a search glass. */
+  leading?: ReactNode;
   /** A control after the field, such as a copy button. */
   trailing?: ReactNode;
 }
@@ -127,6 +129,7 @@ export function EditTextField({
   testID,
   accessibilityLabel,
   prefix,
+  leading,
   trailing,
 }: EditTextFieldProps) {
   const theme = useEditTheme();
@@ -142,8 +145,10 @@ export function EditTextField({
           borderRadius: 10,
           paddingHorizontal: 12,
           backgroundColor: editable ? theme.background : theme.backgroundMuted,
+          gap: leading ? 8 : 0,
         }}
       >
+        {leading}
         {prefix ? (
           <Text style={{ color: theme.textSecondary, fontSize: 16 }} numberOfLines={1}>
             {prefix}
