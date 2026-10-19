@@ -269,9 +269,10 @@ export function getCalEventPublicUrl(slug: string): string {
   return `${getCalWebUrl()}/${slug}`;
 }
 
-/** The web editor for an event: the app creates events but edits them on the web. */
-export function getCalEventEditorUrl(uuid: string): string {
-  return `${getCalAppUrl()}/events/${uuid}`;
+/** The web editor for an event, optionally opened on one of its tabs (such as `workflows`). */
+export function getCalEventEditorUrl(uuid: string, tabName?: string): string {
+  const url = `${getCalAppUrl()}/events/${uuid}`;
+  return tabName ? `${url}?tabName=${tabName}` : url;
 }
 
 /**

@@ -253,6 +253,9 @@ describe("urls", () => {
     expect(getCalEventEditorUrl("019f8549-65f0-7915-a8a5-0f8ce3b6f80a")).toBe(
       "https://app.example.test/events/019f8549-65f0-7915-a8a5-0f8ce3b6f80a"
     );
+    expect(getCalEventEditorUrl("019f8549-65f0-7915-a8a5-0f8ce3b6f80a", "workflows")).toBe(
+      "https://app.example.test/events/019f8549-65f0-7915-a8a5-0f8ce3b6f80a?tabName=workflows"
+    );
   });
 });
 

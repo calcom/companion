@@ -25,7 +25,7 @@ import {
 import { Text as MenuText } from "@/components/ui/text";
 import { useCalEventCoverImage, useUpdateCalEvent } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
-import { showInfoAlert, showSuccessAlert } from "@/utils/alerts";
+import { showInfoAlert, showNotAvailableAlert, showSuccessAlert } from "@/utils/alerts";
 import { CAL_EVENT_NAME_MAX_LENGTH, minEndWallTime, moveStart } from "@/utils/cal-event-create";
 import {
   buildCalEventUpdateInput,
@@ -42,6 +42,7 @@ import {
 } from "@/utils/cal-event-edit";
 import {
   CAL_EVENT_STATUS_LABELS,
+  getCalEventEditorUrl,
   getCalEventPublicUrl,
   getCalEventStatusColors,
 } from "@/utils/cal-events";
@@ -65,7 +66,11 @@ import { CoHostsField, HostsField } from "./edit/PeopleFields";
 import { RegistrationQuestionsField } from "./edit/RegistrationQuestionsField";
 import { BackgroundField, type CoverChange, CoverField } from "./edit/SetupFields";
 import { TimeZonePickerModal } from "./TimeZonePickerModal";
-import { getUserFacingApiReason, useCalEventActions } from "./useCalEventActions";
+import {
+  getUserFacingApiReason,
+  useCalEventActions,
+  useOpenCalEventEditor,
+} from "./useCalEventActions";
 import { WallDateTimePicker } from "./WallDateTimePicker";
 
 type TabId =
@@ -77,11 +82,13 @@ type TabId =
   | "capacity"
   | "registration-form"
   | "payment"
-  | "privacy-security";
+  | "privacy-security"
+  | "other";
 
 /**
- * The web editor's tabs, in its order. Guests (the roster), Workflows and Webhooks aren't here:
- * they're separate features, not fields of the event.
+ * The web editor's tabs, in its order. Guests (the roster) isn't here: it's a separate feature,
+ * not fields of the event. Workflows and Webhooks are only on the web, so "Other" links to them
+ * like the event type editor's tab of the same name.
  */
 const TABS: { id: TabId; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { id: "basics", label: "Basics", icon: "document-text-outline" },
@@ -93,6 +100,7 @@ const TABS: { id: TabId; label: string; icon: keyof typeof Ionicons.glyphMap }[]
   { id: "registration-form", label: "Registration form", icon: "clipboard-outline" },
   { id: "payment", label: "Payment", icon: "card-outline" },
   { id: "privacy-security", label: "Privacy & security", icon: "lock-closed-outline" },
+  { id: "other", label: "Other", icon: "ellipsis-horizontal" },
 ];
 
 /** Which tab shows each error, so a failed save can jump to it like the web does. */
@@ -139,6 +147,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const actions = useCalEventActions();
+  const openEditor = useOpenCalEventEditor();
   const scrollRef = useRef<ScrollView>(null);
 
   // Prefilled once: a refetch while editing must not reset what the user typed.
@@ -244,6 +253,16 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
     (Object.keys(errors) as CalEventEditErrorKey[]).map((key) => ERROR_TABS[key])
   );
   const otherTabHasErrors = [...tabsWithErrors].some((id) => id !== tab);
+
+  // As in the event type editor: iOS only says it's on the web; elsewhere the web editor opens on
+  // that tab.
+  const openOnWeb = (tabName: "workflows" | "webhooks", label: string) => {
+    if (Platform.OS === "ios") {
+      showNotAvailableAlert();
+      return;
+    }
+    openEditor(getCalEventEditorUrl(event.uuid, tabName), label);
+  };
 
   const viewPage: MenuItem = {
     label: "View event page",
@@ -526,6 +545,22 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
         </View>
       </EditSection>
     ),
+    other: (
+      <EditSection title="Configure on web">
+        <WebSettingRow
+          label="Workflows"
+          hint="Automated actions"
+          icon="flash"
+          onPress={() => openOnWeb("workflows", "Workflows settings")}
+        />
+        <WebSettingRow
+          label="Webhooks"
+          hint="Event notifications"
+          icon="code"
+          onPress={() => openOnWeb("webhooks", "Webhooks settings")}
+        />
+      </EditSection>
+    ),
   };
 
   return (
@@ -804,6 +839,48 @@ function DateTimeField({
         </Text>
       ) : null}
     </View>
+  );
+}
+
+/** A row that leads to a setting only the web editor has. */
+function WebSettingRow({
+  label,
+  hint,
+  icon,
+  onPress,
+}: {
+  label: string;
+  hint: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+}) {
+  const theme = useEditTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={`${hint}. Configured on the web.`}
+      style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+    >
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 8,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: theme.backgroundEmphasis,
+        }}
+      >
+        <Ionicons name={icon} size={18} color={theme.textSecondary} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>{label}</Text>
+        <Text style={{ color: theme.textSecondary, fontSize: 13 }}>{hint}</Text>
+      </View>
+      <Ionicons name="open-outline" size={18} color={theme.textMuted} />
+    </Pressable>
   );
 }
 
