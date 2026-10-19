@@ -717,8 +717,16 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
             >
               {tabs.map((item) => {
                 const selected = item.id === currentTab.id;
+                const hasErrors = tabsWithErrors.has(item.id);
                 return (
-                  <DropdownMenuItem key={item.id} onPress={() => showTab(item.id)}>
+                  <DropdownMenuItem
+                    key={item.id}
+                    onPress={() => showTab(item.id)}
+                    // The checkmark and the error dot are only drawn, so the label says them: the
+                    // web drops accessibilityState and hints, and iOS reads the open menu as one
+                    // element made of these labels.
+                    accessibilityLabel={`${item.label}${selected ? ", selected" : ""}${hasErrors ? ", has errors" : ""}`}
+                  >
                     <Ionicons
                       name={selected ? "checkmark-circle" : item.icon}
                       size={18}
@@ -728,7 +736,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
                     <MenuText style={selected ? { fontWeight: "600" } : undefined}>
                       {item.label}
                     </MenuText>
-                    {tabsWithErrors.has(item.id) ? (
+                    {hasErrors ? (
                       <View style={{ marginLeft: 8 }}>
                         <ErrorDot />
                       </View>
