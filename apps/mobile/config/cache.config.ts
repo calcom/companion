@@ -169,7 +169,9 @@ export const queryKeys = {
   // Cal Events (one-off RSVP events)
   calEvents: {
     all: ["calEvents"] as const,
-    lists: () => [...queryKeys.calEvents.all, "list"] as const,
+    // Not "list": builds before the paged listing cached a plain CalEvent[] there, and the
+    // persisted cache restores whatever a build left. Neither shape may be read as the other.
+    lists: () => [...queryKeys.calEvents.all, "pagedList"] as const,
     list: (teamId: number | null) => [...queryKeys.calEvents.lists(), { teamId }] as const,
     details: () => [...queryKeys.calEvents.all, "detail"] as const,
     detail: (eventTypeUuid: string) => [...queryKeys.calEvents.details(), eventTypeUuid] as const,

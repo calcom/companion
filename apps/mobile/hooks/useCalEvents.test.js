@@ -138,6 +138,27 @@ describe("flattenCalEventsPages", () => {
   });
 });
 
+describe("listing keys", () => {
+  // Where builds before the paged listing cached a plain CalEvent[], which the persisted cache
+  // restores along with everything else.
+  const olderListings = ["calEvents", "list"];
+
+  test("keep an older build's CalEvent[] away from everything that reads pages", () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData([...olderListings, { teamId: null }], [createEvent()]);
+
+    expect(queryClient.getQueryData(queryKeys.calEvents.list(null))).toBeUndefined();
+    expect(queryClient.getQueriesData({ queryKey: queryKeys.calEvents.lists() })).toEqual([]);
+  });
+
+  test("keep the pages away from an older build, which reads every listing as a CalEvent[]", () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(queryKeys.calEvents.list(null), createListing([createEvent()]));
+
+    expect(queryClient.getQueriesData({ queryKey: olderListings })).toEqual([]);
+  });
+});
+
 describe("removeCalEventFromPages", () => {
   test("takes the event off whichever page held it and keeps the cursors", () => {
     const listing = createListing(
