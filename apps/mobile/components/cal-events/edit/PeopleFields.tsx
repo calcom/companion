@@ -36,7 +36,11 @@ export function HostsField({
 }) {
   const theme = useEditTheme();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const { data: members, error: membersError } = useTeamMembers(event.teamId);
+  const {
+    data: members,
+    error: membersError,
+    refetch: refetchMembers,
+  } = useTeamMembers(event.teamId);
   const creatorId = event.hosts[0]?.userId;
 
   const describe = (userId: number) => {
@@ -114,6 +118,19 @@ export function HostsField({
           <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
             Adding hosts needs a team admin, and a sign-in that can read team members.
           </Text>
+        ) : membersError && members === undefined ? (
+          // Without this, a failed load reads as a team with nobody left to add.
+          <View style={{ gap: 4 }}>
+            <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
+              Couldn't load team members.
+            </Text>
+            <TextButton
+              icon="refresh-outline"
+              label="Try again"
+              accessibilityLabel="Try loading team members again"
+              onPress={() => void refetchMembers()}
+            />
+          </View>
         ) : (
           <TextButton
             icon="person-add-outline"
