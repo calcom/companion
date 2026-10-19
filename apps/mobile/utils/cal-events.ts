@@ -128,14 +128,41 @@ export function isCalEventInPerson(event: Pick<CalEvent, "locationAddress">): bo
   return !!event.locationAddress?.trim();
 }
 
+// Stored in whole units (¥1,500 is 1500); every other currency is stored in hundredths.
+// Mirrors Cal.com's convertToSmallestCurrencyUnit, which follows Stripe's zero-decimal list.
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "BIF",
+  "CLP",
+  "DJF",
+  "GNF",
+  "JPY",
+  "KMF",
+  "KRW",
+  "MGA",
+  "PYG",
+  "RWF",
+  "UGX",
+  "VND",
+  "VUV",
+  "XAF",
+  "XOF",
+  "XPF",
+]);
+
+/** Decimal places a price's smallest unit holds: 0 for JPY and the like, 2 otherwise. */
+export function getCalEventPriceDecimals(currency: string): 0 | 2 {
+  return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase()) ? 0 : 2;
+}
+
 /** "€15.00", from the smallest currency unit. Falls back to "15.00 EURO" for a malformed code. */
 export function formatCalEventPrice(price: number, currency: string | null): string {
-  const amount = price / 100;
   const code = (currency || "usd").toUpperCase();
+  const decimals = getCalEventPriceDecimals(code);
+  const amount = price / 10 ** decimals;
   try {
     return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(amount);
   } catch {
-    return `${amount.toFixed(2)} ${code}`;
+    return `${amount.toFixed(decimals)} ${code}`;
   }
 }
 

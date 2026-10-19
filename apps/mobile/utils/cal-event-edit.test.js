@@ -19,6 +19,7 @@ const {
   moveItem,
   slugForRegistrationField,
 } = require("./cal-event-edit");
+const { formatCalEventPrice } = require("./cal-events");
 
 const NOW = new Date("2026-10-19T12:00:00Z");
 
@@ -389,6 +390,25 @@ describe("adding a location", () => {
     expect(buildAddCalEventLocationInput(form({ price: "1500", currency: "jpy" })).price).toBe(
       1500
     );
+    // Intl gives ISK no decimals and KWD three; Cal.com stores both in hundredths.
+    expect(buildAddCalEventLocationInput(form({ price: "150", currency: "isk" })).price).toBe(
+      15000
+    );
+    expect(buildAddCalEventLocationInput(form({ price: "1.5", currency: "kwd" })).price).toBe(150);
+    expect(getAddCalEventLocationError(form({ price: "1.25", currency: "kwd" }), [])).toBeNull();
+    expect(getAddCalEventLocationError(form({ price: "15.5", currency: "jpy" }), [])).toMatch(
+      /price/
+    );
+  });
+
+  test("adds a price that reads back as it was typed", () => {
+    const shown = (price, currency) => {
+      const body = buildAddCalEventLocationInput(form({ price, currency }));
+      return formatCalEventPrice(body.price, body.currency);
+    };
+    expect(shown("1500", "JPY")).toBe("¥1,500");
+    expect(shown("15.50", "EUR")).toBe("€15.50");
+    expect(shown("150", "ISK")).toMatch(/^ISK\s150$/);
   });
 
   test("describes every kind of location", () => {

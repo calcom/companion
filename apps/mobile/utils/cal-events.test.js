@@ -153,6 +153,13 @@ describe("getCalEventFacts", () => {
     expect(formatCalEventPrice(999, "usd")).toBe("$9.99");
   });
 
+  test("keeps zero-decimal currencies whole, as Cal.com stores them", () => {
+    expect(formatCalEventPrice(1500, "jpy")).toBe("¥1,500");
+    expect(formatCalEventPrice(15000, "KRW")).toBe("₩15,000");
+    // Intl shows ISK without decimals, but Cal.com still stores it in hundredths.
+    expect(formatCalEventPrice(15000, "isk")).toMatch(/^ISK\s150$/);
+  });
+
   test("falls back to the amount and code for a malformed currency code", () => {
     // Intl throws only for a malformed code; a well-formed unknown one like "XYZ" still formats.
     expect(formatCalEventPrice(1500, "euro")).toBe("15.00 EURO");

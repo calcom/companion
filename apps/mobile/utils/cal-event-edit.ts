@@ -26,7 +26,7 @@ import {
   type CreateCalEventFormValues,
   parseLocationInput,
 } from "@/utils/cal-event-create";
-import { canManageCalEventLifecycle } from "@/utils/cal-events";
+import { canManageCalEventLifecycle, getCalEventPriceDecimals } from "@/utils/cal-events";
 import {
   isStartTimeInPast,
   splitWallTimeParts,
@@ -614,15 +614,14 @@ export interface AddCalEventLocationFormValues {
   currency: string;
 }
 
+/** Decimal places of the currency's smallest unit, or null for a malformed code. */
 function currencyFractionDigits(currency: string): number | null {
   try {
-    return (
-      new Intl.NumberFormat("en-US", { style: "currency", currency }).resolvedOptions()
-        .maximumFractionDigits ?? 2
-    );
+    new Intl.NumberFormat("en-US", { style: "currency", currency });
   } catch {
     return null;
   }
+  return getCalEventPriceDecimals(currency);
 }
 
 /** The sheet's first problem, if any. One address per event; links can repeat. */
