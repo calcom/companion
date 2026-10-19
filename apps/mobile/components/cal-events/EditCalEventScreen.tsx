@@ -251,12 +251,10 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
     icon: "open-outline",
     onPress: () => actions.onOpenPage(event),
   };
+  // No "Preview" for a draft: its public page 404s until published (see getCalEventLinkActions).
   const menuItems: MenuItem[] =
     event.status === "draft"
-      ? [
-          { label: "Preview", icon: "eye-outline", onPress: () => actions.onOpenPage(event) },
-          { label: "Publish", icon: "rocket-outline", onPress: publish },
-        ]
+      ? [{ label: "Publish", icon: "rocket-outline", onPress: publish }]
       : event.status === "published"
         ? [
             viewPage,
