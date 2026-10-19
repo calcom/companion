@@ -292,11 +292,12 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const urlPrefix = getCalEventPublicUrl("").replace(/^https?:\/\//, "");
   const category = CAL_EVENT_CATEGORIES.find((option) => option.value === values.category);
   const tabs = paymentsEnabled ? TABS : TABS.filter((item) => item.id !== "payment");
+  // The tab on screen: a refetch can turn payments off while the Payment tab is open.
   const currentTab = tabs.find((item) => item.id === tab) ?? tabs[0];
   const tabsWithErrors = new Set(
     (Object.keys(errors) as CalEventEditErrorKey[]).map((key) => ERROR_TABS[key])
   );
-  const otherTabHasErrors = [...tabsWithErrors].some((id) => id !== tab);
+  const otherTabHasErrors = [...tabsWithErrors].some((id) => id !== currentTab.id);
 
   // As in the event type editor: iOS only says it's on the web; elsewhere the web editor opens on
   // that tab.
@@ -715,7 +716,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
               align="end"
             >
               {tabs.map((item) => {
-                const selected = item.id === tab;
+                const selected = item.id === currentTab.id;
                 return (
                   <DropdownMenuItem key={item.id} onPress={() => showTab(item.id)}>
                     <Ionicons
@@ -797,7 +798,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       >
         {/* Read-only while saving; the list itself still scrolls. */}
         <View pointerEvents={saving ? "none" : "auto"} style={{ gap: 24 }}>
-          {tabContent[tab]}
+          {tabContent[currentTab.id]}
         </View>
       </ScrollView>
 
