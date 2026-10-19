@@ -22,9 +22,14 @@ export function WallDateTimePicker({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      {/*
+        Neither Pressable is an accessibility element, so VoiceOver reaches the picker and Done
+        inside instead of one grouped "Close"; Done and the escape gesture dismiss it there.
+      */}
       <Pressable
         onPress={onClose}
-        accessibilityLabel="Close"
+        accessible={false}
+        onAccessibilityEscape={onClose}
         style={{
           flex: 1,
           justifyContent: "center",
@@ -35,6 +40,7 @@ export function WallDateTimePicker({
         {/* A Pressable that swallows taps, so only the backdrop closes the panel. */}
         <Pressable
           onPress={() => {}}
+          accessible={false}
           style={{ borderRadius: 20, padding: 12, backgroundColor: theme.background }}
         >
           <Text
