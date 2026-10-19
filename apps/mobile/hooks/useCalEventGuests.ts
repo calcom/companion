@@ -23,6 +23,17 @@ import { isForbiddenError, isNetworkError } from "./useCalEvents";
 const retry = (failureCount: number, error: Error) =>
   !isNetworkError(error) && !isForbiddenError(error) && failureCount < 2;
 
+// The query client has no focus manager here, so a return to the app doesn't refetch by itself.
+function useRefetchOnForeground(enabled: boolean, refetch: () => unknown) {
+  useEffect(() => {
+    if (!enabled) return;
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") refetch();
+    });
+    return () => subscription.remove();
+  }, [enabled, refetch]);
+}
+
 /**
  * Hook to fetch every guest of an event, in each status the tab lists. Guests register outside the app, so it's never
  * fresh: it refetches each time the tab opens and when the app comes back to the foreground.
@@ -36,15 +47,25 @@ export function useCalEventRoster(uuid: string, { enabled = true } = {}) {
     refetchOnMount: "always",
     retry,
   });
-  const { refetch } = query;
-  // The query client has no focus manager here, so a return to the app doesn't refetch by itself.
-  useEffect(() => {
-    if (!enabled) return;
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") refetch();
-    });
-    return () => subscription.remove();
-  }, [enabled, refetch]);
+  useRefetchOnForeground(enabled, query.refetch);
+  return query;
+}
+
+/**
+ * Hook to fetch how many of an event's guests are in each status, from the server. Fresh as the
+ * roster is, and refetched with it: its key sits under the roster's, so each guest action that
+ * refetches the roster refetches these too.
+ */
+export function useCalEventRegistrationCounts(uuid: string, { enabled = true } = {}) {
+  const query = useQuery({
+    queryKey: queryKeys.calEvents.registrationCounts(uuid),
+    queryFn: () => CalComAPIService.getCalEventRegistrationCounts(uuid),
+    enabled: enabled && !!uuid,
+    staleTime: 0,
+    refetchOnMount: "always",
+    retry,
+  });
+  useRefetchOnForeground(enabled, query.refetch);
   return query;
 }
 

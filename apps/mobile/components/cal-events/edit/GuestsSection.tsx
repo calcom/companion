@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import {
   useApproveAllCalEventRegistrations,
+  useCalEventRegistrationCounts,
   useCalEventRoster,
   useDecideCalEventRegistration,
 } from "@/hooks";
@@ -29,6 +30,7 @@ import {
   filterRoster,
   formatGuestDateTime,
   formatGuestPayment,
+  formatLocationSeats,
   GUEST_FILTER_LABELS,
   type GuestBadgeTone,
   type GuestDecision,
@@ -44,6 +46,7 @@ import {
   getGuestDecidedLabel,
   getGuestDecisions,
   getGuestDisplayName,
+  getGuestFilterCounts,
   getGuestFilters,
   getGuestInitial,
   getGuestLocationLabel,
@@ -110,6 +113,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
   const theme = useEditTheme();
   const router = useRouter();
   const roster = useCalEventRoster(event.uuid);
+  const { data: serverCounts } = useCalEventRegistrationCounts(event.uuid);
   const { mutate: approveAll, isPending: approving } = useApproveAllCalEventRegistrations();
   const {
     mutate: decide,
@@ -137,9 +141,15 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
     locationId: activeLocationId,
     filter: activeFilter,
   });
-  const counts = countRoster(guests, { search, locationId: activeLocationId });
+  const searching = search.trim() !== "";
+  // The server's counts are event-wide, so they stand while nothing narrows the list. A search or
+  // location counts the loaded guests instead, which are all of them; so does a server without counts.
+  const counts =
+    serverCounts && !searching && activeLocationId === null
+      ? getGuestFilterCounts(serverCounts)
+      : countRoster(guests, { search, locationId: activeLocationId });
   const current = getRosterPage(filtered, page);
-  const narrowed = search.trim() !== "" || activeLocationId !== null || activeFilter !== "ALL";
+  const narrowed = searching || activeLocationId !== null || activeFilter !== "ALL";
   // Like the web's search box: an address nobody registered with can be invited from there.
   const searchEmail = search.trim();
   const inviteFromSearch =
@@ -301,11 +311,24 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
           label="Filter by location"
           options={[
             { value: null, label: "All locations" },
-            ...locationOptions.map((option) => ({ value: option.id, label: option.label })),
+            ...locationOptions.map((option) => ({
+              value: option.id,
+              label: option.label,
+              hint: formatLocationSeats(option, serverCounts?.byLocation) ?? undefined,
+            })),
           ]}
           value={activeLocationId}
           onChange={(next) => narrow(() => setLocationId(next))}
         />
+      ) : null}
+
+      {serverCounts && (serverCounts.going > 0 || serverCounts.checkedIn > 0) ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Ionicons name="checkmark-circle-outline" size={18} color={theme.textSecondary} />
+          <Text style={{ color: theme.textSecondary, fontSize: 15 }}>
+            {serverCounts.checkedIn} / {serverCounts.going} checked in
+          </Text>
+        </View>
       ) : null}
 
       <FilterChips

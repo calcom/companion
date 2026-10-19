@@ -11,6 +11,7 @@ const {
   countRoster,
   filterRoster,
   formatGuestPayment,
+  formatLocationSeats,
   formatMessageCounts,
   formatMessageRecipients,
   formatMessageSender,
@@ -26,6 +27,7 @@ const {
   getGuestDecidedLabel,
   getGuestDecisions,
   getGuestDisplayName,
+  getGuestFilterCounts,
   getGuestFilters,
   getGuestInitial,
   getGuestIntent,
@@ -219,6 +221,32 @@ describe("filters, counts and pages", () => {
     });
   });
 
+  test("reads each chip's count from the server's, as the web's tabs do", () => {
+    expect(
+      getGuestFilterCounts({
+        pendingApproval: 2,
+        waitlisted: 3,
+        pendingPayment: 1,
+        offerExpired: 9,
+        declined: 4,
+        cancelled: 5,
+        confirmed: 20,
+        going: 15,
+        checkedIn: 6,
+        rsvpResponses: { yes: 18, no: 4, maybe: 7 },
+        byLocation: [],
+      })
+    ).toEqual({
+      ALL: 35,
+      GOING: 15,
+      MAYBE: 7,
+      NOT_GOING: 4,
+      PENDING_APPROVAL: 2,
+      WAITLISTED: 3,
+      PENDING_PAYMENT: 1,
+    });
+  });
+
   test("shows Waitlist and Pending payment where the event has them, or guests are there", () => {
     const confirmed = [guest()];
     expect(getGuestFilters(confirmed, { waitlistEnabled: false, paid: false })).toEqual([
@@ -277,10 +305,22 @@ describe("locations", () => {
   test("offers locations only when there are two or more", () => {
     expect(getGuestLocationOptions([hall])).toEqual([]);
     expect(getGuestLocationOptions([hall, stream, meet])).toEqual([
-      { id: "l1", label: "In person · Main hall" },
-      { id: "l2", label: "Online link · https://zoom.us/j/1" },
-      { id: "l3", label: "Online meeting" },
+      { id: "l1", label: "In person · Main hall", capacity: null },
+      { id: "l2", label: "Online link · https://zoom.us/j/1", capacity: null },
+      { id: "l3", label: "Online meeting", capacity: null },
     ]);
+  });
+
+  test("says how full each location is, against its cap when it has one", () => {
+    const [capped, open] = getGuestLocationOptions([{ ...hall, capacity: 10 }, stream]);
+    const byLocation = [
+      { locationId: "l1", count: 3 },
+      { locationId: null, count: 2 },
+    ];
+    expect(formatLocationSeats(capped, byLocation)).toBe("3 / 10 seats taken");
+    expect(formatLocationSeats(open, byLocation)).toBe("0 seats taken");
+    expect(formatLocationSeats(open, [{ locationId: "l2", count: 1 }])).toBe("1 seat taken");
+    expect(formatLocationSeats(capped, undefined)).toBeNull();
   });
 
   test("a removed location still reads as one", () => {

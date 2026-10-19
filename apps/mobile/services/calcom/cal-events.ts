@@ -17,6 +17,7 @@ import type {
   CalEventMessage,
   CalEventMessageSendResult,
   CalEventMessagesPage,
+  CalEventRegistrationCounts,
   CalEventRegistrationDecision,
   CalEventRegistrationStatus,
   CalEventRosterGuest,
@@ -423,6 +424,22 @@ export async function getCalEventRoster(uuid: string): Promise<CalEventRosterGue
     if (cursor) followed.add(cursor);
   } while (cursor);
   return [...guests.values()];
+}
+
+/**
+ * How many of an event's guests are in each status, answered each RSVP, are checked in and hold a
+ * seat at each location. Counts the whole event, not just the pages loaded.
+ */
+export async function getCalEventRegistrationCounts(
+  uuid: string
+): Promise<CalEventRegistrationCounts> {
+  const response = await makeRequest<{ status: string; data: CalEventRegistrationCounts }>(
+    `/events/${uuid}/registrations/counts`,
+    {},
+    API_VERSION
+  );
+  if (!response?.data) throw new Error("Invalid response from registration counts API");
+  return response.data;
 }
 
 /**

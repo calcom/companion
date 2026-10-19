@@ -369,6 +369,29 @@ export interface CalEventRosterGuest {
   decidedAt: string | null;
 }
 
+/**
+ * How many of an Event's guests are in each status, as `GET /v2/events/{uuid}/registrations/counts`
+ * returns it. Event-wide: a search or location doesn't narrow it.
+ */
+export interface CalEventRegistrationCounts {
+  pendingApproval: number;
+  waitlisted: number;
+  pendingPayment: number;
+  offerExpired: number;
+  declined: number;
+  cancelled: number;
+  /** Whatever their RSVP. */
+  confirmed: number;
+  /** Confirmed guests who answered Yes. */
+  going: number;
+  /** Confirmed guests with a door check-in. */
+  checkedIn: number;
+  /** Each answer in every status, as the web's Maybe and Not going tabs count it. */
+  rsvpResponses: { yes: number; no: number; maybe: number };
+  /** Seats held at each location; locationId is null for guests with none. */
+  byLocation: { locationId: string | null; count: number }[];
+}
+
 /** The body of `POST /v2/events/{uuid}/invitations`. */
 export interface InviteCalEventGuestsInput {
   /** 1 to 200. */

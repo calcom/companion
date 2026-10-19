@@ -176,6 +176,8 @@ export const queryKeys = {
     locations: (uuid: string) => [...queryKeys.calEvents.all, "locations", uuid] as const,
     coHosts: (uuid: string) => [...queryKeys.calEvents.all, "coHosts", uuid] as const,
     roster: (uuid: string) => [...queryKeys.calEvents.all, "roster", uuid] as const,
+    // Under the roster's key, so whatever refetches the roster refetches the counts with it.
+    registrationCounts: (uuid: string) => [...queryKeys.calEvents.roster(uuid), "counts"] as const,
     messages: (uuid: string) => [...queryKeys.calEvents.all, "messages", uuid] as const,
   },
 

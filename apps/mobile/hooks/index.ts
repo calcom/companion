@@ -38,6 +38,7 @@ export {
 export {
   useApproveAllCalEventRegistrations,
   useCalEventMessages,
+  useCalEventRegistrationCounts,
   useCalEventRoster,
   useDecideCalEventRegistration,
   useInviteCalEventGuests,

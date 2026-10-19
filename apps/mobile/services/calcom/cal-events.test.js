@@ -26,6 +26,7 @@ const {
   deleteCalEventCoverImage,
   getCalEvent,
   getCalEventMessages,
+  getCalEventRegistrationCounts,
   getCalEventRoster,
   getCalEvents,
   inviteCalEventGuests,
@@ -368,6 +369,42 @@ function createBooking(overrides = {}) {
     ...overrides,
   };
 }
+
+describe("getCalEventRegistrationCounts", () => {
+  beforeEach(() => {
+    mockMakeRequest.mockReset();
+  });
+
+  test("reads the event's counts", async () => {
+    const counts = {
+      pendingApproval: 1,
+      waitlisted: 0,
+      pendingPayment: 0,
+      offerExpired: 0,
+      declined: 0,
+      cancelled: 0,
+      confirmed: 4,
+      going: 3,
+      checkedIn: 2,
+      rsvpResponses: { yes: 4, no: 0, maybe: 1 },
+      byLocation: [{ locationId: null, count: 4 }],
+    };
+    mockMakeRequest.mockResolvedValue({ status: "success", data: counts });
+    await expect(getCalEventRegistrationCounts("event-uuid")).resolves.toEqual(counts);
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/registrations/counts",
+      {},
+      "2024-06-14"
+    );
+  });
+
+  test("rejects a response without counts", async () => {
+    mockMakeRequest.mockResolvedValue({ status: "success" });
+    await expect(getCalEventRegistrationCounts("event-uuid")).rejects.toThrow(
+      "Invalid response from registration counts API"
+    );
+  });
+});
 
 describe("getCalEventRoster", () => {
   const STATUSES =

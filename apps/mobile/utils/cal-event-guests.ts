@@ -14,6 +14,7 @@ import type {
   CalEventLocation,
   CalEventMessage,
   CalEventMessageSegment,
+  CalEventRegistrationCounts,
   CalEventRegistrationDecision,
   CalEventRegistrationField,
   CalEventRegistrationStatus,
@@ -298,6 +299,30 @@ export function countRoster(
   return counts;
 }
 
+/**
+ * Each chip's count from the server's, as the web's tabs read them: All is every status the list
+ * holds. Event-wide, so only for a list no search or location narrows.
+ */
+export function getGuestFilterCounts(
+  counts: CalEventRegistrationCounts
+): Record<GuestFilter, number> {
+  return {
+    ALL:
+      counts.confirmed +
+      counts.pendingApproval +
+      counts.waitlisted +
+      counts.pendingPayment +
+      counts.declined +
+      counts.cancelled,
+    GOING: counts.going,
+    MAYBE: counts.rsvpResponses.maybe,
+    NOT_GOING: counts.rsvpResponses.no,
+    PENDING_APPROVAL: counts.pendingApproval,
+    WAITLISTED: counts.waitlisted,
+    PENDING_PAYMENT: counts.pendingPayment,
+  };
+}
+
 /** One page of the filtered list (0-based, held to the last page), and its "1-25 of 60" line. */
 export function getRosterPage<T>(
   rows: T[],
@@ -373,7 +398,12 @@ export function formatGuestDateTime(date: string | Date): string {
   });
 }
 
-export type GuestLocationOption = { id: string; label: string };
+export type GuestLocationOption = {
+  id: string;
+  label: string;
+  /** The location's seat cap; null when it has none. */
+  capacity: number | null;
+};
 
 function locationTitle(location: CalEventLocation): string {
   if (location.type === "address") return "In person";
@@ -400,7 +430,13 @@ export function getGuestLocationOptions(locations: CalEventLocation[]): GuestLoc
     if (!location.id) return [];
     const detail = locationDetail(location);
     const title = locationTitle(location);
-    return [{ id: location.id, label: detail ? `${title} · ${detail}` : title }];
+    return [
+      {
+        id: location.id,
+        label: detail ? `${title} · ${detail}` : title,
+        capacity: location.capacity ?? null,
+      },
+    ];
   });
 }
 
@@ -412,6 +448,20 @@ export function getGuestLocationLabel(
   if (!locationId || options.length === 0) return null;
   // A free event's host can remove a location guests already chose.
   return options.find((option) => option.id === locationId)?.label ?? "Removed location";
+}
+
+/**
+ * How full a location is, as the web's: "3 / 10 seats taken" when it has a cap, "3 seats taken"
+ * when it doesn't. null while the counts load.
+ */
+export function formatLocationSeats(
+  option: GuestLocationOption,
+  byLocation: CalEventRegistrationCounts["byLocation"] | undefined
+): string | null {
+  if (!byLocation) return null;
+  const taken = byLocation.find((row) => row.locationId === option.id)?.count ?? 0;
+  if (option.capacity === null) return `${taken} ${taken === 1 ? "seat" : "seats"} taken`;
+  return `${taken} / ${option.capacity} seats taken`;
 }
 
 /** The key a question's answer has in `responses`: a custom question's identifier, else its field. */
