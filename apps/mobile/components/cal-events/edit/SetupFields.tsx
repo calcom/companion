@@ -1,7 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Pressable, Text, View } from "react-native";
-import type { CalEventBackground, CalEventCategory, CalEventImageFile } from "@/services/calcom";
+import type {
+  CalEventBackground,
+  CalEventCategory,
+  CalEventImageFile,
+  CalEventTheme,
+} from "@/services/calcom";
 import {
   CAL_EVENT_LIVE_STREAM_LIMIT,
   CAL_EVENT_SHADER_PALETTES,
@@ -9,7 +14,6 @@ import {
   DEFAULT_CAL_EVENT_BACKGROUND,
 } from "@/utils/cal-event-edit";
 import {
-  ChoiceChips,
   EditTextField,
   ErrorText,
   FieldLabel,
@@ -19,6 +23,7 @@ import {
   useEditTheme,
 } from "./EditControls";
 import { CAL_EVENT_COVER_MAX_BYTES, pickCalEventImage } from "./pickImage";
+import { SelectField } from "./SelectField";
 
 /** What a save does to the cover: it uploads or deletes before the rest of the edit is sent. */
 export type CoverChange =
@@ -106,6 +111,83 @@ export function CoverField({
   );
 }
 
+const THEMES: { value: CalEventTheme | null; label: string }[] = [
+  { value: null, label: "System default" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
+
+/** The web's theme radio cards, each with a sketch of the page in that theme. */
+export function ThemeField({
+  value,
+  onChange,
+}: {
+  value: CalEventTheme | null;
+  onChange: (value: CalEventTheme | null) => void;
+}) {
+  const theme = useEditTheme();
+  return (
+    <View style={{ gap: 8 }}>
+      <FieldLabel label="Theme" />
+      <View accessibilityRole="radiogroup" style={{ flexDirection: "row", gap: 10 }}>
+        {THEMES.map((option) => {
+          const selected = option.value === value;
+          return (
+            <Pressable
+              key={option.label}
+              onPress={() => onChange(option.value)}
+              accessibilityRole="radio"
+              accessibilityLabel={option.label}
+              accessibilityState={{ checked: selected }}
+              style={{ flex: 1, gap: 8 }}
+            >
+              <View
+                style={{
+                  aspectRatio: 1.3,
+                  flexDirection: "row",
+                  overflow: "hidden",
+                  borderRadius: 10,
+                  borderWidth: selected ? 2 : 1,
+                  borderColor: selected ? theme.text : theme.border,
+                }}
+              >
+                {option.value !== "dark" ? <ThemeSketch dark={false} /> : null}
+                {option.value !== "light" ? <ThemeSketch dark /> : null}
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons
+                  name={selected ? "radio-button-on" : "radio-button-off"}
+                  size={18}
+                  color={selected ? theme.text : theme.textMuted}
+                />
+                <Text
+                  style={{ flexShrink: 1, color: theme.text, fontSize: 14 }}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {option.label}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/** A page in miniature: a title bar and two lines of text. "System default" shows both halves. */
+function ThemeSketch({ dark }: { dark: boolean }) {
+  const line = dark ? "#404040" : "#E5E5EA";
+  return (
+    <View style={{ flex: 1, padding: 8, gap: 5, backgroundColor: dark ? "#171717" : "#FFFFFF" }}>
+      <View style={{ height: 6, width: "70%", borderRadius: 3, backgroundColor: line }} />
+      <View style={{ height: 4, width: "90%", borderRadius: 2, backgroundColor: line }} />
+      <View style={{ height: 4, width: "55%", borderRadius: 2, backgroundColor: line }} />
+    </View>
+  );
+}
+
 export function BackgroundField({
   value,
   onChange,
@@ -116,6 +198,14 @@ export function BackgroundField({
   error?: string;
 }) {
   const theme = useEditTheme();
+  // Hand-typed colors that match no palette read as "Custom", as on the web.
+  const palette = value
+    ? CAL_EVENT_SHADER_PALETTES.find((item) =>
+        item.colors.every(
+          (color, index) => color.toLowerCase() === value.colors[index]?.toLowerCase()
+        )
+      )
+    : undefined;
   return (
     <View style={{ gap: 14 }}>
       <SwitchRow
@@ -126,45 +216,27 @@ export function BackgroundField({
       />
       {value ? (
         <>
-          <ChoiceChips
+          <SelectField
             label="Effect"
             options={CAL_EVENT_SHADERS}
             value={value.effect}
             onChange={(effect) => onChange({ ...value, effect })}
           />
-          <View style={{ gap: 8 }}>
-            <FieldLabel label="Color palette" />
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {CAL_EVENT_SHADER_PALETTES.map((palette) => {
-                const selected = palette.colors.every(
-                  (color, index) => color.toLowerCase() === value.colors[index]?.toLowerCase()
-                );
-                return (
-                  <Pressable
-                    key={palette.label}
-                    onPress={() => onChange({ ...value, colors: palette.colors })}
-                    accessibilityRole="radio"
-                    accessibilityLabel={`${palette.label} palette`}
-                    accessibilityState={{ checked: selected }}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 6,
-                      height: 36,
-                      paddingHorizontal: 10,
-                      borderRadius: 10,
-                      borderWidth: 1,
-                      borderColor: selected ? theme.text : theme.border,
-                      backgroundColor: selected ? theme.backgroundEmphasis : "transparent",
-                    }}
-                  >
-                    <Swatches colors={palette.colors} />
-                    <Text style={{ color: theme.text, fontSize: 14 }}>{palette.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+          <SelectField
+            label="Color palette"
+            options={CAL_EVENT_SHADER_PALETTES.map((palette) => ({
+              value: palette.label,
+              label: palette.label,
+              swatches: palette.colors,
+            }))}
+            value={palette?.label ?? null}
+            placeholder="Custom"
+            swatches={value.colors}
+            onChange={(label) => {
+              const next = CAL_EVENT_SHADER_PALETTES.find((item) => item.label === label);
+              if (next) onChange({ ...value, colors: next.colors });
+            }}
+          />
           <View style={{ gap: 8 }}>
             <FieldLabel label="Colors" hint="Primary, secondary and tertiary, as hex codes." />
             {value.colors.map((color, index) => (
@@ -203,28 +275,6 @@ export function BackgroundField({
           </View>
         </>
       ) : null}
-    </View>
-  );
-}
-
-function Swatches({ colors }: { colors: readonly string[] }) {
-  const theme = useEditTheme();
-  return (
-    <View style={{ flexDirection: "row" }}>
-      {colors.map((color, index) => (
-        <View
-          key={color}
-          style={{
-            width: 14,
-            height: 14,
-            borderRadius: 7,
-            marginLeft: index === 0 ? 0 : -4,
-            borderWidth: 1,
-            borderColor: theme.background,
-            backgroundColor: color,
-          }}
-        />
-      ))}
     </View>
   );
 }

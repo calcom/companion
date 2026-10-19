@@ -52,7 +52,6 @@ import {
   wallTimeDiffMs,
 } from "@/utils/wall-time";
 import {
-  ChoiceChips,
   EditSection,
   EditTextField,
   FieldLabel,
@@ -64,7 +63,8 @@ import { LocationsSection } from "./edit/LocationsSection";
 import { PageContentSection } from "./edit/PageContentSection";
 import { CoHostsField, HostsField } from "./edit/PeopleFields";
 import { RegistrationQuestionsField } from "./edit/RegistrationQuestionsField";
-import { BackgroundField, type CoverChange, CoverField } from "./edit/SetupFields";
+import { SelectField } from "./edit/SelectField";
+import { BackgroundField, type CoverChange, CoverField, ThemeField } from "./edit/SetupFields";
 import { TimeZonePickerModal } from "./TimeZonePickerModal";
 import {
   getUserFacingApiReason,
@@ -378,23 +378,14 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
     ),
     appearance: (
       <EditSection title="Appearance">
-        <ChoiceChips
+        <SelectField
           label="Category"
-          hint={category?.hint}
           options={CAL_EVENT_CATEGORIES}
           value={values.category}
           onChange={(next) => update({ category: next })}
+          helper={category?.hint}
         />
-        <ChoiceChips
-          label="Theme"
-          options={[
-            { value: null, label: "System default" },
-            { value: "light" as const, label: "Light" },
-            { value: "dark" as const, label: "Dark" },
-          ]}
-          value={values.theme}
-          onChange={(next) => update({ theme: next })}
-        />
+        <ThemeField value={values.theme} onChange={(next) => update({ theme: next })} />
         <CoverField
           currentUrl={event.coverImageUrl}
           change={cover}
