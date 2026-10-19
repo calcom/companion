@@ -24,6 +24,19 @@ export default function EditCalEvent() {
   } = useUserProfile();
   const openEditor = useOpenCalEventEditor();
 
+  // Back to the screen that opened the editor. With nothing under it (a deep link, or a reload that
+  // restored the editor alone) there's nothing to pop, so go to the event's detail, or the list
+  // when the event can't be shown.
+  const close = () => {
+    if (router.canGoBack()) router.back();
+    else if (event && event.status !== "cancelled") {
+      router.replace({
+        pathname: "/event-detail",
+        params: { uuid: event.uuid, title: event.title },
+      });
+    } else router.replace("/(tabs)/(events)");
+  };
+
   // The form prefills once, so wait for the full single-event response: a listing placeholder
   // lacks the lineup, schedule and registration questions. Wait for the profile too, since it
   // decides who may edit natively.
@@ -72,7 +85,7 @@ export default function EditCalEvent() {
           headline={headline}
           description={description}
           buttonText={canRetry ? "Retry" : "Close"}
-          onButtonPress={() => (canRetry ? refetch() : router.back())}
+          onButtonPress={() => (canRetry ? refetch() : close())}
         />
       </View>
     );
@@ -122,7 +135,7 @@ export default function EditCalEvent() {
           buttonText="Edit on web"
           onButtonPress={() => openEditor(getCalEventEditorUrl(event.uuid), "event editor")}
         />
-        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" hitSlop={12}>
+        <TouchableOpacity onPress={close} accessibilityRole="button" hitSlop={12}>
           <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>Close</Text>
         </TouchableOpacity>
       </View>
@@ -132,10 +145,10 @@ export default function EditCalEvent() {
   return (
     <EditCalEventScreen
       event={event}
-      onClose={() => router.back()}
+      onClose={close}
       onSaved={() => {
         showSilentSuccessAlert("Event updated", "Your changes were saved");
-        router.back();
+        close();
       }}
     />
   );
