@@ -336,10 +336,10 @@ describe("checking a guest in from a ticket", () => {
 describe("useCalEventCheckInAvailability", () => {
   const T0 = new Date("2026-10-13T10:00:00.000Z").getTime();
   const HOUR = 60 * 60 * 1000;
-  // The door takes check-ins from 12 h before the start until 12 h after the end.
+  // The door takes check-ins from 12 h before the start until 12 h after the end, as the API says.
   const eventAt = (startOffset, endOffset) => ({
-    startTime: new Date(T0 + startOffset).toISOString(),
-    endTime: new Date(T0 + endOffset).toISOString(),
+    checkInOpensAt: new Date(T0 + startOffset - 12 * HOUR).toISOString(),
+    checkInClosesAt: new Date(T0 + endOffset + 12 * HOUR).toISOString(),
   });
   // The hook's own timers wait for a window boundary; React's and the test renderer's are short.
   const windowTimers = (setTimeoutSpy) =>
@@ -369,6 +369,24 @@ describe("useCalEventCheckInAvailability", () => {
     const setTimeoutSpy = jest.spyOn(global, "setTimeout");
     await act(() => jest.advanceTimersByTime(48 * HOUR));
     expect(result.current.kind).toBe("closed");
+    expect(windowTimers(setTimeoutSpy)).toHaveLength(0);
+  });
+
+  test("opens when the window does, while the screen stays open", async () => {
+    // Starts in 13 h, so check-in opens an hour from now.
+    const { result } = await render(eventAt(13 * HOUR, 15 * HOUR));
+    expect(result.current.kind).toBe("not_yet_open");
+
+    await act(() => jest.advanceTimersByTime(HOUR - 1000));
+    expect(result.current.kind).toBe("not_yet_open");
+    await act(() => jest.advanceTimersByTime(1001));
+    expect(result.current.kind).toBe("open");
+  });
+
+  test("stays open without ticking for an event cached before the API sent the window", async () => {
+    const setTimeoutSpy = jest.spyOn(global, "setTimeout");
+    const { result } = await render({});
+    expect(result.current).toEqual({ kind: "open", closesAt: null });
     expect(windowTimers(setTimeoutSpy)).toHaveLength(0);
   });
 

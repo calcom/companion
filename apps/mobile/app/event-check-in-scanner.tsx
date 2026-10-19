@@ -15,11 +15,17 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useCheckInCalEventGuestByTicket } from "@/hooks";
 import {
+  useCalEvent,
+  useCalEventCheckInAvailability,
+  useCheckInCalEventGuestByTicket,
+} from "@/hooks";
+import {
+  CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION,
   CAL_EVENT_INVALID_TICKET_MESSAGE,
   createCalEventScanGate,
   formatCalEventCheckInTime,
+  getCalEventCheckInWindowNotice,
   getCalEventGuestName,
   getCalEventTicketCheckInErrorMessage,
   isCalEventCheckInTokenShaped,
@@ -49,6 +55,11 @@ export default function CalEventCheckInScannerScreen() {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [scanGate] = useState(() => createCalEventScanGate());
   const { mutateAsync: checkInByTicket } = useCheckInCalEventGuestByTicket(uuid);
+  // The check-in screen only opens this inside the window, but it can close while scanning.
+  const { data: event } = useCalEvent(uuid);
+  const availability = useCalEventCheckInAvailability(event);
+  const windowNotice =
+    event && availability ? getCalEventCheckInWindowNotice(availability, event.timeZone) : null;
 
   // Ask once per opening. Once refused, iOS won't ask again, so the screen points to Settings.
   useEffect(() => {
@@ -64,6 +75,13 @@ export default function CalEventCheckInScannerScreen() {
     const detail = result.tone === "error" ? "" : `, ${result.detail}`;
     AccessibilityInfo.announceForAccessibility(`${result.title}${detail}`);
   }, [result]);
+
+  // Likewise when the window shuts while the scanner is open.
+  useEffect(() => {
+    if (windowNotice && Platform.OS === "ios") {
+      AccessibilityInfo.announceForAccessibility(windowNotice);
+    }
+  }, [windowNotice]);
 
   const cameraReady = !!permission?.granted && !cameraFailed;
   const cameraUnavailable =
@@ -98,11 +116,14 @@ export default function CalEventCheckInScannerScreen() {
   };
 
   const onCode = (token: string) => {
-    if (!scanGate.take(token)) return;
+    if (windowNotice || !scanGate.take(token)) return;
     redeem(token).finally(() => scanGate.settle(token));
   };
 
-  const resultStyle = RESULT_STYLES[result?.tone ?? "waiting"];
+  const shown: ScanResult | null = windowNotice
+    ? { tone: "info", title: windowNotice, detail: CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION }
+    : result;
+  const resultStyle = RESULT_STYLES[shown?.tone ?? "waiting"];
 
   return (
     <View style={{ flex: 1, backgroundColor: "#000000" }}>
@@ -201,17 +222,17 @@ export default function CalEventCheckInScannerScreen() {
                 style={{ marginRight: 12 }}
               />
             ) : null}
-            {result ? (
+            {shown ? (
               <View style={{ flex: 1 }}>
                 <Text
                   style={{ color: "#FFFFFF", fontSize: 17, fontWeight: "600" }}
                   numberOfLines={1}
                 >
-                  {result.title}
+                  {shown.title}
                 </Text>
-                {result.tone !== "error" ? (
+                {shown.tone !== "error" ? (
                   <Text style={{ color: "rgba(255, 255, 255, 0.85)", fontSize: 15, marginTop: 2 }}>
-                    {result.detail}
+                    {shown.detail}
                   </Text>
                 ) : null}
               </View>

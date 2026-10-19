@@ -31,6 +31,12 @@ export interface CalEventApi {
   description: string | null;
   startTime: string;
   endTime: string;
+  /**
+   * The span the door takes check-ins in: 12 hours before `startTime` to 12 hours after `endTime`.
+   * Missing on an event cached before the API sent it.
+   */
+  checkInOpensAt?: string;
+  checkInClosesAt?: string;
   /** The event's own timezone — in-person events display venue time, not the viewer's. */
   timeZone: string;
   visibility: CalEventVisibility;

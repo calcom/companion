@@ -367,27 +367,29 @@ export function formatCalEventCheckInTime(iso: string): string {
   );
 }
 
-/** The server takes check-ins from 12 hours before an event starts until 12 hours after it ends. */
-const CHECK_IN_WINDOW_GRACE_MS = 12 * 60 * 60 * 1000;
-
 export type CalEventCheckInAvailability =
-  | { kind: "open"; closesAt: string }
+  | { kind: "open"; closesAt: string | null }
   | { kind: "not_yet_open"; opensAt: string }
   | { kind: "closed"; closedAt: string };
 
 /**
- * Whether the door takes check-ins now. Mirrors the server's window, as the web's door page does,
- * so the scanner only shows when a scan can succeed.
+ * Whether the door takes check-ins now, by the window the API sends with the event, as the web's
+ * door page reads it (both ends included). A side the event doesn't carry, as on one cached before
+ * the API sent it, counts as open, and the server's 400 has the last word.
  */
 export function getCalEventCheckInAvailability(
-  event: Pick<CalEvent, "startTime" | "endTime">,
+  event: Pick<CalEvent, "checkInOpensAt" | "checkInClosesAt">,
   now: Date = new Date()
 ): CalEventCheckInAvailability {
-  const opensAt = new Date(new Date(event.startTime).getTime() - CHECK_IN_WINDOW_GRACE_MS);
-  const closesAt = new Date(new Date(event.endTime).getTime() + CHECK_IN_WINDOW_GRACE_MS);
-  if (now < opensAt) return { kind: "not_yet_open", opensAt: opensAt.toISOString() };
-  if (now > closesAt) return { kind: "closed", closedAt: closesAt.toISOString() };
-  return { kind: "open", closesAt: closesAt.toISOString() };
+  const opensAt = validIso(event.checkInOpensAt);
+  const closesAt = validIso(event.checkInClosesAt);
+  if (opensAt && now < new Date(opensAt)) return { kind: "not_yet_open", opensAt };
+  if (closesAt && now > new Date(closesAt)) return { kind: "closed", closedAt: closesAt };
+  return { kind: "open", closesAt };
+}
+
+function validIso(iso: string | undefined): string | null {
+  return iso && !Number.isNaN(new Date(iso).getTime()) ? iso : null;
 }
 
 /** setTimeout fires at once when asked to wait longer than this (about 24.8 days). */
@@ -395,8 +397,8 @@ const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 
 /**
  * How long until `availability` changes: until the window opens, or until it closes; null once it
- * has closed. For a timer that keeps a screen current, so it's capped at the longest delay
- * setTimeout takes. A timer that fires early finds no change and waits again.
+ * has closed, or when it has no end. For a timer that keeps a screen current, so it's capped at the
+ * longest delay setTimeout takes. A timer that fires early finds no change and waits again.
  */
 export function getCalEventCheckInAvailabilityDelayMs(
   availability: CalEventCheckInAvailability,
@@ -405,6 +407,7 @@ export function getCalEventCheckInAvailabilityDelayMs(
   if (availability.kind === "closed") return null;
   const changesAt =
     availability.kind === "not_yet_open" ? availability.opensAt : availability.closesAt;
+  if (!changesAt) return null;
   // +1: the window includes both ends, so it closes just after closesAt.
   const delay = new Date(changesAt).getTime() - now.getTime() + 1;
   return Math.min(Math.max(delay, 0), MAX_TIMER_DELAY_MS);
@@ -423,6 +426,21 @@ export function getCalEventCheckInWindowNotice(
     ? `Check-in opens ${when}`
     : `Check-in closed ${when}`;
 }
+
+/**
+ * Whether tapping a guest's row does anything. Checking in needs the window open, or no window
+ * yet (the event still loading), when the server decides; undo is never gated, as on the server.
+ */
+export function canTapCalEventGuest(
+  guest: Pick<CalEventGuest, "checkedInAt">,
+  availability: CalEventCheckInAvailability | null
+): boolean {
+  return !!guest.checkedInAt || !availability || availability.kind === "open";
+}
+
+/** Under the window notice, as on the web: why the door is shut. */
+export const CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION =
+  "Guests can be checked in from 12 hours before the event starts until 12 hours after it ends.";
 
 /**
  * Why a check-in or undo failed. The API's other 4xx reasons are written for people ("Check-in is

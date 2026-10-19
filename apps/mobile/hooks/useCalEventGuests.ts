@@ -259,7 +259,7 @@ export function useCheckInCalEventGuestByTicket(uuid: string) {
  * for as long as the event object stays the same.
  */
 export function useCalEventCheckInAvailability(
-  event: Pick<CalEvent, "startTime" | "endTime"> | null | undefined
+  event: Pick<CalEvent, "checkInOpensAt" | "checkInClosesAt"> | null | undefined
 ): CalEventCheckInAvailability | null {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {

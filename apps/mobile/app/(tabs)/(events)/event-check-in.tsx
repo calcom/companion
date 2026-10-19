@@ -30,6 +30,8 @@ import {
 import type { CalEventGuest } from "@/services/calcom";
 import { showInfoAlert } from "@/utils/alerts";
 import {
+  CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION,
+  canTapCalEventGuest,
   filterCalEventGuests,
   formatCalEventCheckInTime,
   getCalEventCheckInErrorMessage,
@@ -103,6 +105,8 @@ export default function CalEventCheckInScreen() {
     // A guest takes one call at a time: an undo sent while the check-in is still on its way could
     // reach the server first, and the check-in would then win.
     if (isCalEventGuestPending(queryClient, uuid, guest.id)) return;
+    // Outside the window only undo goes through.
+    if (!canTapCalEventGuest(guest, availability)) return;
     if (!guest.checkedInAt) {
       onCheckIn(guest);
       return;
@@ -210,9 +214,14 @@ export default function CalEventCheckInScreen() {
               </Text>
             </TouchableOpacity>
           ) : windowNotice ? (
-            <Text style={{ color: theme.textSecondary, fontSize: 15, marginTop: 8 }}>
-              {windowNotice}
-            </Text>
+            <View style={{ marginTop: 8 }}>
+              <Text style={{ color: theme.text, fontSize: 15, fontWeight: "600" }}>
+                {windowNotice}
+              </Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 14, marginTop: 2 }}>
+                {CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION}
+              </Text>
+            </View>
           ) : null}
           {list.guests.length > 0 || searchQuery ? (
             <SearchField theme={theme} value={searchQuery} onChangeText={setSearchQuery} />
@@ -249,6 +258,7 @@ export default function CalEventCheckInScreen() {
             <GuestRow
               guest={item}
               pending={pendingGuestIds.has(item.id)}
+              canTap={canTapCalEventGuest(item, availability)}
               theme={theme}
               onPress={onPressGuest}
             />
@@ -337,12 +347,15 @@ function SearchField({
 function GuestRow({
   guest,
   pending,
+  canTap,
   theme,
   onPress,
 }: {
   guest: CalEventGuest;
   /** A check-in or undo for this guest is on its way: the row waits for it. */
   pending: boolean;
+  /** False for a guest not yet in while the door is shut. */
+  canTap: boolean;
   theme: Theme;
   onPress: (guest: CalEventGuest) => void;
 }) {
@@ -351,11 +364,12 @@ function GuestRow({
   const detail = [guest.name.trim() ? guest.email : null, guest.phoneNumber]
     .filter(Boolean)
     .join(" · ");
+  const disabled = pending || !canTap;
   return (
     <TouchableOpacity
       onPress={() => onPress(guest)}
-      disabled={pending}
-      accessibilityState={{ busy: pending, disabled: pending }}
+      disabled={disabled}
+      accessibilityState={{ busy: pending, disabled }}
       accessibilityRole="button"
       accessibilityLabel={
         guest.checkedInAt ? `${name}, checked in. Undo check-in` : `Check in ${name}`
@@ -400,6 +414,7 @@ function GuestRow({
             borderColor: theme.border,
             paddingHorizontal: 12,
             paddingVertical: 6,
+            opacity: canTap ? 1 : 0.4,
           }}
         >
           <Text style={{ color: theme.text, fontSize: 15, fontWeight: "600" }}>Check in</Text>

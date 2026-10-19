@@ -19,6 +19,7 @@ jest.mock("@/services/calcom/request", () => ({
 const {
   CAL_EVENT_INVALID_TICKET_MESSAGE,
   canCheckInCalEventGuests,
+  canTapCalEventGuest,
   createCalEventScanGate,
   canDeleteCalEvent,
   canManageCalEventLifecycle,
@@ -65,6 +66,8 @@ function createEvent(overrides = {}) {
     status: "published",
     startTime: "2026-10-10T14:00:00.000Z",
     endTime: "2026-10-10T19:00:00.000Z",
+    checkInOpensAt: "2026-10-10T02:00:00.000Z",
+    checkInClosesAt: "2026-10-11T07:00:00.000Z",
     timeZone: "Europe/Berlin",
     coverImageUrl: null,
     locationAddress: null,
@@ -668,7 +671,7 @@ describe("formatCalEventCheckInTime", () => {
 });
 
 describe("getCalEventCheckInAvailability", () => {
-  // Starts 14:00 and ends 19:00 UTC, so the door is open from 02:00 that day to 07:00 the next.
+  // Starts 14:00 and ends 19:00 UTC, so the API's window runs from 02:00 that day to 07:00 the next.
   const event = createEvent();
 
   test("opens 12 hours before the event starts", () => {
@@ -691,6 +694,79 @@ describe("getCalEventCheckInAvailability", () => {
       kind: "closed",
       closedAt: "2026-10-11T07:00:00.000Z",
     });
+  });
+
+  test("is open between the two", () => {
+    expect(getCalEventCheckInAvailability(event, new Date("2026-10-10T16:00:00.000Z"))).toEqual({
+      kind: "open",
+      closesAt: "2026-10-11T07:00:00.000Z",
+    });
+  });
+
+  test("reads the window the API sends, not the event's start and end", () => {
+    const longer = createEvent({ checkInClosesAt: "2026-10-12T07:00:00.000Z" });
+    expect(getCalEventCheckInAvailability(longer, new Date("2026-10-11T08:00:00.000Z")).kind).toBe(
+      "open"
+    );
+  });
+
+  test("doesn't block an event cached before the API sent the window", () => {
+    const cached = createEvent({ checkInOpensAt: undefined, checkInClosesAt: undefined });
+    for (const iso of ["2026-01-01T00:00:00.000Z", "2027-01-01T00:00:00.000Z"]) {
+      expect(getCalEventCheckInAvailability(cached, new Date(iso))).toEqual({
+        kind: "open",
+        closesAt: null,
+      });
+    }
+  });
+
+  test("still gates the side the event does carry", () => {
+    const noEnd = createEvent({ checkInClosesAt: undefined });
+    expect(getCalEventCheckInAvailability(noEnd, new Date("2026-10-10T01:00:00.000Z")).kind).toBe(
+      "not_yet_open"
+    );
+    expect(getCalEventCheckInAvailability(noEnd, new Date("2027-01-01T00:00:00.000Z"))).toEqual({
+      kind: "open",
+      closesAt: null,
+    });
+    const noStart = createEvent({ checkInOpensAt: undefined });
+    expect(getCalEventCheckInAvailability(noStart, new Date("2026-01-01T00:00:00.000Z")).kind).toBe(
+      "open"
+    );
+    expect(getCalEventCheckInAvailability(noStart, new Date("2026-10-12T00:00:00.000Z")).kind).toBe(
+      "closed"
+    );
+  });
+
+  test("ignores a time it can't read", () => {
+    const garbled = createEvent({ checkInOpensAt: "soon", checkInClosesAt: "" });
+    expect(getCalEventCheckInAvailability(garbled, new Date("2026-01-01T00:00:00.000Z"))).toEqual({
+      kind: "open",
+      closesAt: null,
+    });
+  });
+});
+
+describe("canTapCalEventGuest", () => {
+  const notIn = createGuest();
+  const checkedIn = createGuest({ checkedInAt: "2026-10-09T18:05:00.000Z" });
+  const notYetOpen = { kind: "not_yet_open", opensAt: "2026-10-10T02:00:00.000Z" };
+  const closed = { kind: "closed", closedAt: "2026-10-11T07:00:00.000Z" };
+
+  test("checks a guest in only while the window is open", () => {
+    expect(canTapCalEventGuest(notIn, { kind: "open", closesAt: null })).toBe(true);
+    expect(canTapCalEventGuest(notIn, notYetOpen)).toBe(false);
+    expect(canTapCalEventGuest(notIn, closed)).toBe(false);
+  });
+
+  test("always lets a check-in be undone", () => {
+    expect(canTapCalEventGuest(checkedIn, { kind: "open", closesAt: null })).toBe(true);
+    expect(canTapCalEventGuest(checkedIn, notYetOpen)).toBe(true);
+    expect(canTapCalEventGuest(checkedIn, closed)).toBe(true);
+  });
+
+  test("leaves it to the server until the event has loaded", () => {
+    expect(canTapCalEventGuest(notIn, null)).toBe(true);
   });
 });
 
@@ -719,6 +795,10 @@ describe("getCalEventCheckInAvailabilityDelayMs", () => {
 
   test("stops once the window has closed", () => {
     expect(delayAt("2026-10-11T07:00:01.000Z")).toBeNull();
+  });
+
+  test("doesn't wait for a window with no end", () => {
+    expect(getCalEventCheckInAvailabilityDelayMs({ kind: "open", closesAt: null })).toBeNull();
   });
 
   test("caps the wait at the longest delay setTimeout takes", () => {
