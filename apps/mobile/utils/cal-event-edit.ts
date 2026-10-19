@@ -226,7 +226,10 @@ export function customFieldTypeHasOptions(type: CalEventCustomFieldType | undefi
 
 /** A schedule item as the form holds it: times are wall times in the event's timezone. */
 export interface CalEventEditScheduleItem {
-  /** Null for an item that has a time label instead (the API can set one; the editors can't). */
+  /**
+   * Null for an item that has a time label instead. Only the API adds labels; the editors can
+   * still edit an existing one.
+   */
   startWallTime: string | null;
   endWallTime: string | null;
   timeLabel: string;
