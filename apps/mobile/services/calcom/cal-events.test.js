@@ -17,7 +17,17 @@ jest.mock("./request", () => ({
   makeRequest: (...args) => mockMakeRequest(...args),
 }));
 
-const { createCalEvent, getCalEvent, getCalEvents } = require("./cal-events");
+const {
+  addCalEventLocation,
+  createCalEvent,
+  deleteCalEventCoverImage,
+  getCalEvent,
+  getCalEvents,
+  reorderCalEventCoHosts,
+  updateCalEvent,
+  uploadCalEventCoverImage,
+  uploadCalEventPersonAvatar,
+} = require("./cal-events");
 const { ApiRequestError } = require("./request");
 
 describe("getCalEvents", () => {
@@ -109,5 +119,106 @@ describe("createCalEvent", () => {
   test("fails on a response without the event", async () => {
     mockMakeRequest.mockResolvedValue({ status: "success" });
     await expect(createCalEvent(input, null)).rejects.toThrow("Invalid response");
+  });
+});
+
+describe("updateCalEvent", () => {
+  beforeEach(() => {
+    mockMakeRequest.mockReset();
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: {
+        uuid: "event-uuid",
+        slug: "rooftop-meetup",
+        title: "Renamed",
+        endTime: "2026-10-20T19:00:00.000Z",
+        publishedAt: null,
+        cancelledAt: null,
+        locations: [],
+      },
+    });
+  });
+
+  test("patches only the given fields", async () => {
+    const event = await updateCalEvent("event-uuid", { title: "Renamed", capacity: null });
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid",
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Renamed", capacity: null }),
+      },
+      "2024-06-14"
+    );
+    expect(event).toMatchObject({ title: "Renamed", status: "draft" });
+  });
+});
+
+describe("event media and locations", () => {
+  const file = { uri: "file:///cover.jpg", name: "cover.jpg", type: "image/jpeg" };
+
+  beforeEach(() => {
+    mockMakeRequest.mockReset();
+  });
+
+  test("adds a location with a POST of that one location", async () => {
+    mockMakeRequest.mockResolvedValue({ status: "success", data: { id: "l2", type: "link" } });
+    const location = { type: "link", link: "https://zoom.us/j/1", label: "Stream" };
+    await addCalEventLocation("event-uuid", location);
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/locations",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(location),
+      },
+      "2024-06-14"
+    );
+  });
+
+  test("uploads the cover as multipart, without a JSON content type", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: { coverImageUrl: "https://x/c.jpg" },
+    });
+    await expect(uploadCalEventCoverImage("event-uuid", file)).resolves.toBe("https://x/c.jpg");
+    const [endpoint, options] = mockMakeRequest.mock.calls[0];
+    expect(endpoint).toBe("/events/event-uuid/cover-image");
+    expect(options.method).toBe("POST");
+    expect(options.headers).toBeUndefined();
+    expect(options.body).toBeInstanceOf(FormData);
+  });
+
+  test("removes the cover with a DELETE", async () => {
+    mockMakeRequest.mockResolvedValue({ status: "success" });
+    await deleteCalEventCoverImage("event-uuid");
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/cover-image",
+      { method: "DELETE" },
+      "2024-06-14"
+    );
+  });
+
+  test("resolves a person's photo to its URL", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: { avatarUrl: "https://x/a.jpg" },
+    });
+    await expect(uploadCalEventPersonAvatar("event-uuid", file)).resolves.toBe("https://x/a.jpg");
+    expect(mockMakeRequest.mock.calls[0][0]).toBe("/events/event-uuid/person-avatar");
+  });
+
+  test("reorders co-hosts with every id", async () => {
+    mockMakeRequest.mockResolvedValue({ status: "success" });
+    await reorderCalEventCoHosts("event-uuid", ["b", "a"]);
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/co-hosts/order",
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coHostIds: ["b", "a"] }),
+      },
+      "2024-06-14"
+    );
   });
 });

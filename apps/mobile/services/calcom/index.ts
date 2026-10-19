@@ -18,14 +18,27 @@
 
 // Re-export types for backward compatibility
 export type {
+  AddCalEventLocationInput,
   Booking,
   BookingLimitsCount,
   BookingLimitsDuration,
   BookingParticipationResult,
   CalEvent,
+  CalEventBackground,
+  CalEventCategory,
+  CalEventCoHost,
+  CalEventCustomFieldType,
+  CalEventGuestList,
   CalEventHost,
+  CalEventLineup,
+  CalEventLineupPerson,
   CalEventLocation,
+  CalEventRegistrationField,
+  CalEventScheduleItem,
+  CalEventSchedulePerson,
+  CalEventShaderId,
   CalEventStatus,
+  CalEventTheme,
   ConferencingOption,
   ConfirmationPolicy,
   CreateCalEventInput,
@@ -36,6 +49,7 @@ export type {
   PrivateLink,
   Schedule,
   Team,
+  UpdateCalEventInput,
   UpdatePrivateLinkInput,
   UpdateWebhookInput,
   UserProfile,
@@ -72,13 +86,26 @@ import {
   updateLocationV2,
 } from "./bookings";
 import {
+  addCalEventLocation,
   cancelCalEvent,
   createCalEvent,
   deleteCalEvent,
+  deleteCalEventCoverImage,
   getCalEvent,
+  getCalEventCoHosts,
+  getCalEventLocations,
   getCalEvents,
+  inviteCalEventCoHost,
   publishCalEvent,
+  removeCalEventCoHost,
+  reorderCalEventCoHosts,
+  updateCalEvent,
+  uploadCalEventCoverImage,
+  uploadCalEventPersonAvatar,
 } from "./cal-events";
+
+export type { CalEventImageFile } from "./cal-events";
+
 import { getConferencingOptions } from "./conferencing";
 import {
   createEventType,
@@ -103,7 +130,10 @@ import {
   getSchedules,
   updateSchedule,
 } from "./schedules";
-import { getTeams } from "./teams";
+import { getTeamMembers, getTeams } from "./teams";
+
+export type { TeamMember } from "./teams";
+
 import {
   clearUserProfile,
   getCurrentUser,
@@ -163,9 +193,20 @@ export const CalComAPIService = {
   publishCalEvent,
   cancelCalEvent,
   deleteCalEvent,
+  updateCalEvent,
+  getCalEventLocations,
+  addCalEventLocation,
+  uploadCalEventCoverImage,
+  deleteCalEventCoverImage,
+  uploadCalEventPersonAvatar,
+  getCalEventCoHosts,
+  inviteCalEventCoHost,
+  reorderCalEventCoHosts,
+  removeCalEventCoHost,
 
   // Teams
   getTeams,
+  getTeamMembers,
 
   // Bookings
   cancelBooking,

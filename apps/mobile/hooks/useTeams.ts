@@ -9,7 +9,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
 import { isForbiddenError } from "@/hooks/useCalEvents";
-import { CalComAPIService, type Team } from "@/services/calcom";
+import { CalComAPIService, type Team, type TeamMember } from "@/services/calcom";
 
 export function useTeams({ enabled = true } = {}) {
   return useQuery({
@@ -28,4 +28,18 @@ export function useTeams({ enabled = true } = {}) {
   });
 }
 
-export type { Team };
+/**
+ * A team's accepted members, for picking an event's hosts. Only team admins may list them: a
+ * 403 means the picker can't add hosts, which the editor says.
+ */
+export function useTeamMembers(teamId: number | null) {
+  return useQuery({
+    queryKey: queryKeys.teams.members(teamId ?? 0),
+    queryFn: () => CalComAPIService.getTeamMembers(teamId ?? 0),
+    enabled: teamId !== null,
+    staleTime: CACHE_CONFIG.userProfile.staleTime,
+    retry: (failureCount, error) => !isForbiddenError(error) && failureCount < 2,
+  });
+}
+
+export type { Team, TeamMember };

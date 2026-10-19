@@ -2,14 +2,21 @@
  * Cal Events Query Hooks
  *
  * React Query hooks over `/v2/events`: the listing per profile (personal, or a team's
- * via `/v2/teams/{teamId}/events`), a single event, creating a draft, and the host-only
- * lifecycle mutations (publish, cancel, delete). Editing still happens on the web, so
- * there is no update mutation here.
+ * via `/v2/teams/{teamId}/events`), a single event, creating a draft, editing one (with its
+ * locations, cover, co-hosts and lineup photos), and the host-only lifecycle mutations
+ * (publish, cancel, delete).
  */
 
 import { type QueryKey, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
-import { CalComAPIService, type CalEvent, type CreateCalEventInput } from "@/services/calcom";
+import {
+  type AddCalEventLocationInput,
+  CalComAPIService,
+  type CalEvent,
+  type CalEventImageFile,
+  type CreateCalEventInput,
+  type UpdateCalEventInput,
+} from "@/services/calcom";
 import { ApiRequestError } from "@/services/calcom/request";
 
 const isNetworkError = (error: Error | null) =>
@@ -110,6 +117,118 @@ export function useCreateCalEvent() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.lists() });
+    },
+  });
+}
+
+/**
+ * Hook to save an edit (hosts only). The response refreshes the detail screen; the listings
+ * refetch so the card changes under its own profile only.
+ */
+export function useUpdateCalEvent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uuid, input }: { uuid: string; input: UpdateCalEventInput }) =>
+      CalComAPIService.updateCalEvent(uuid, input),
+    retry: false,
+    onSuccess: (event) => {
+      setCalEventDetail(queryClient, event);
+    },
+    onError: (error) => {
+      console.error("Failed to update cal event");
+      if (__DEV__) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.debug("[useCalEvents] update failed", { message });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.lists() });
+    },
+  });
+}
+
+/** Hook to replace or remove an event's cover. The editor saves its other fields after it. */
+export function useCalEventCoverImage() {
+  return useMutation({
+    mutationFn: ({ uuid, file }: { uuid: string; file: CalEventImageFile | null }) =>
+      file
+        ? CalComAPIService.uploadCalEventCoverImage(uuid, file)
+        : CalComAPIService.deleteCalEventCoverImage(uuid).then(() => null),
+    retry: false,
+  });
+}
+
+/** Hook to upload a lineup or schedule person's photo; resolves to the URL to save. */
+export function useUploadCalEventPersonAvatar() {
+  return useMutation({
+    mutationFn: ({ uuid, file }: { uuid: string; file: CalEventImageFile }) =>
+      CalComAPIService.uploadCalEventPersonAvatar(uuid, file),
+    retry: false,
+  });
+}
+
+/** Hook to fetch an event's locations with their ids. */
+export function useCalEventLocations(uuid: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.calEvents.locations(uuid ?? ""),
+    queryFn: () => CalComAPIService.getCalEventLocations(uuid ?? ""),
+    enabled: !!uuid,
+    staleTime: CACHE_CONFIG.calEvents.staleTime,
+    retry: (failureCount, error) =>
+      !isNetworkError(error) && !isForbiddenError(error) && failureCount < 2,
+  });
+}
+
+/** Hook to add a location. It applies at once (and emails the guests of a published event). */
+export function useAddCalEventLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uuid, location }: { uuid: string; location: AddCalEventLocationInput }) =>
+      CalComAPIService.addCalEventLocation(uuid, location),
+    // Not idempotent: a retry after a lost response would add it twice.
+    retry: false,
+    onSettled: (_location, _error, { uuid }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.locations(uuid) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.detail(uuid) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.lists() });
+    },
+  });
+}
+
+/** Hook to fetch an event's external co-hosts. */
+export function useCalEventCoHosts(uuid: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.calEvents.coHosts(uuid ?? ""),
+    queryFn: () => CalComAPIService.getCalEventCoHosts(uuid ?? ""),
+    enabled: !!uuid,
+    staleTime: CACHE_CONFIG.calEvents.staleTime,
+    retry: (failureCount, error) =>
+      !isNetworkError(error) && !isForbiddenError(error) && failureCount < 2,
+  });
+}
+
+type CoHostChange =
+  | { kind: "invite"; email: string }
+  | { kind: "remove"; coHostId: string }
+  | { kind: "reorder"; coHostIds: string[] };
+
+/** Hook to invite, remove or reorder co-hosts. Each change applies at once. */
+export function useChangeCalEventCoHosts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uuid, change }: { uuid: string; change: CoHostChange }) => {
+      switch (change.kind) {
+        case "invite":
+          return CalComAPIService.inviteCalEventCoHost(uuid, change.email);
+        case "remove":
+          return CalComAPIService.removeCalEventCoHost(uuid, change.coHostId);
+        case "reorder":
+          return CalComAPIService.reorderCalEventCoHosts(uuid, change.coHostIds);
+      }
+    },
+    retry: false,
+    onSettled: (_result, _error, { uuid }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.coHosts(uuid) });
     },
   });
 }
