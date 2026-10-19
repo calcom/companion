@@ -10,7 +10,7 @@ import { getDeviceTimeZone } from "@/utils/wall-time";
 export default function CreateCalEvent() {
   const router = useRouter();
   const { teamId, teamName } = useLocalSearchParams<{ teamId?: string; teamName?: string }>();
-  const { data: userProfile } = useUserProfile();
+  const { data: userProfile, isLoading: isProfileLoading } = useUserProfile();
   const team = teamId ? { id: Number(teamId), name: teamName ?? "" } : null;
 
   const handleCreated = useCallback(
@@ -22,6 +22,10 @@ export default function CreateCalEvent() {
     },
     [router]
   );
+
+  // The form takes its timezone once, on mount: wait for the profile's (a fresh login can still be
+  // fetching it). A failed fetch stops loading, and the device's timezone stands in.
+  if (isProfileLoading) return null;
 
   return (
     <CreateCalEventScreen
