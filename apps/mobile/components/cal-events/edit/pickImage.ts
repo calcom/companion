@@ -35,12 +35,10 @@ export async function pickCalEventImage({
   if (result.canceled || !result.assets?.[0]) return null;
   const asset = result.assets[0];
 
+  // Trust the picker's MIME type; the file extension only fills in when it reports none.
   const extension = (asset.fileName ?? asset.uri).split(".").pop()?.toLowerCase() ?? "";
-  const type =
-    asset.mimeType && ACCEPTED_TYPES.has(asset.mimeType)
-      ? asset.mimeType
-      : (TYPES_BY_EXTENSION[extension] ?? null);
-  if (!type) {
+  const type = asset.mimeType || TYPES_BY_EXTENSION[extension];
+  if (!type || !ACCEPTED_TYPES.has(type)) {
     showInfoAlert("Unsupported photo", "Pick a JPEG, PNG or WebP photo.");
     return null;
   }
