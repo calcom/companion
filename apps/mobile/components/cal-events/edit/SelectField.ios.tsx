@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host, Rectangle } from "@expo/ui/swift-ui";
+import { Button, ContextMenu, Host, Image, Rectangle, Text } from "@expo/ui/swift-ui";
 import { accessibilityLabel, foregroundStyle, opacity } from "@expo/ui/swift-ui/modifiers";
 import { StyleSheet, View } from "react-native";
 import { useEditTheme } from "./EditControls";
@@ -13,8 +13,8 @@ import {
 export type { SelectFieldProps, SelectOption };
 
 /**
- * A native menu over the select, like the event type editor's pickers. Its items show labels only,
- * so a description goes in `helper` under the select.
+ * A native menu over the select, like the event type editor's pickers. An option's hint shows as
+ * its item's subtitle; a description of the choice goes in `helper` under the select.
  */
 export function SelectField<T extends string | null>({
   label,
@@ -47,14 +47,23 @@ export function SelectField<T extends string | null>({
         <Host style={StyleSheet.absoluteFill}>
           <ContextMenu activationMethod="singlePress">
             <ContextMenu.Items>
-              {options.map((option) => (
-                <Button
-                  key={String(option.value)}
-                  systemImage={option.value === value ? "checkmark" : undefined}
-                  onPress={() => onChange(option.value)}
-                  label={option.label}
-                />
-              ))}
+              {options.map((option) =>
+                option.hint ? (
+                  // A menu item reads a second text as its subtitle.
+                  <Button key={String(option.value)} onPress={() => onChange(option.value)}>
+                    {option.value === value ? <Image systemName="checkmark" /> : null}
+                    <Text>{option.label}</Text>
+                    <Text>{option.hint}</Text>
+                  </Button>
+                ) : (
+                  <Button
+                    key={String(option.value)}
+                    systemImage={option.value === value ? "checkmark" : undefined}
+                    onPress={() => onChange(option.value)}
+                    label={option.label}
+                  />
+                )
+              )}
             </ContextMenu.Items>
             <ContextMenu.Trigger>
               {/* A shape fills the host. Nearly transparent, as SwiftUI doesn't hit-test a fully
