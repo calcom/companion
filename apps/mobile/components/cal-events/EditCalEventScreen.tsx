@@ -350,7 +350,6 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
           />
           <EditTextField
             label="About the event"
-            hint="Markdown works: **bold**, _italic_, [links](https://cal.com)."
             value={values.description}
             onChangeText={(description) => update({ description })}
             placeholder="Tell guests what your event is about"
