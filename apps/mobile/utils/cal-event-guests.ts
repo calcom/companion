@@ -1,0 +1,558 @@
+/**
+ * The Guests tab's logic, after the web's (`apps/web/modules/events/components/guest-list.tsx` and
+ * its helpers): filters, counts and pages over the roster, how a guest reads, invite parsing and
+ * results, the message composer's recipients, sent message statuses and the CSV download. The
+ * roster is every confirmed guest (see getCalEventRoster), so all of it runs on the phone.
+ */
+
+import type {
+  CalEvent,
+  CalEventApproveAllResult,
+  CalEventInvitationReason,
+  CalEventInvitationResult,
+  CalEventLocation,
+  CalEventMessage,
+  CalEventMessageSegment,
+  CalEventRegistrationField,
+  CalEventRosterGuest,
+  CalEventRsvpResponse,
+} from "@/services/types/cal-events.types";
+import { CAL_EVENT_SYSTEM_FIELD_LABELS, getAdmissionLocations } from "@/utils/cal-event-edit";
+
+/** Rows per page, as on the web. */
+export const GUESTS_PAGE_SIZE = 25;
+
+export const CAL_EVENT_RSVP_LABELS: Record<CalEventRsvpResponse, string> = {
+  YES: "Going",
+  MAYBE: "Maybe",
+  NO: "Not going",
+};
+
+/** The chips over the list: every guest, or one RSVP. */
+export type GuestRsvpFilter = "ALL" | CalEventRsvpResponse;
+
+export const GUEST_RSVP_FILTERS: { value: GuestRsvpFilter; label: string }[] = [
+  { value: "ALL", label: "All" },
+  { value: "YES", label: CAL_EVENT_RSVP_LABELS.YES },
+  { value: "MAYBE", label: CAL_EVENT_RSVP_LABELS.MAYBE },
+  { value: "NO", label: CAL_EVENT_RSVP_LABELS.NO },
+];
+
+/** Guests who registered by phone get a placeholder address on this domain. */
+const SMS_EMAIL_SUFFIX = "@sms.cal.com";
+
+/** How to reach a guest: their email, or the number a phone guest registered with. */
+export function getGuestContact(guest: Pick<CalEventRosterGuest, "email" | "phoneNumber">): {
+  kind: "email" | "phone";
+  value: string;
+} {
+  if (guest.phoneNumber && guest.email.endsWith(SMS_EMAIL_SUFFIX)) {
+    return { kind: "phone", value: guest.phoneNumber };
+  }
+  return { kind: "email", value: guest.email };
+}
+
+/** The guest's name, else how to reach them. */
+export function getGuestDisplayName(guest: CalEventRosterGuest): string {
+  return guest.name.trim() || getGuestContact(guest).value;
+}
+
+/** Up to two letters for the avatar: "Ada Lovelace" → "AL", "ada@x.com" → "A". */
+export function getGuestInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  const letters = words.length === 1 ? [words[0][0]] : [words[0][0], words[words.length - 1][0]];
+  return letters.join("").toUpperCase();
+}
+
+export interface RosterFilters {
+  search: string;
+  /** null = every location. */
+  locationId: string | null;
+  rsvp: GuestRsvpFilter;
+}
+
+function matchesSearch(guest: CalEventRosterGuest, search: string): boolean {
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  return [guest.name, guest.email, guest.phoneNumber ?? ""].some((value) =>
+    value.toLowerCase().includes(query)
+  );
+}
+
+function matchesLocation(guest: CalEventRosterGuest, locationId: string | null): boolean {
+  return locationId === null || guest.locationId === locationId;
+}
+
+/** The guests the list shows for a search, a location and a chip. */
+export function filterRoster(
+  guests: CalEventRosterGuest[],
+  { search, locationId, rsvp }: RosterFilters
+): CalEventRosterGuest[] {
+  return guests.filter(
+    (guest) =>
+      matchesSearch(guest, search) &&
+      matchesLocation(guest, locationId) &&
+      (rsvp === "ALL" || guest.rsvpResponse === rsvp)
+  );
+}
+
+/** Each chip's count. They follow the search and the location, not the chip that's picked. */
+export function countRosterByRsvp(
+  guests: CalEventRosterGuest[],
+  { search, locationId }: Omit<RosterFilters, "rsvp">
+): Record<GuestRsvpFilter, number> {
+  const counts: Record<GuestRsvpFilter, number> = { ALL: 0, YES: 0, MAYBE: 0, NO: 0 };
+  for (const guest of guests) {
+    if (!matchesSearch(guest, search) || !matchesLocation(guest, locationId)) continue;
+    counts.ALL += 1;
+    counts[guest.rsvpResponse] += 1;
+  }
+  return counts;
+}
+
+/** One page of the filtered list (0-based, held to the last page), and its "1-25 of 60" line. */
+export function getRosterPage<T>(
+  rows: T[],
+  page: number
+): { rows: T[]; page: number; pageCount: number; range: string } {
+  const pageCount = Math.max(1, Math.ceil(rows.length / GUESTS_PAGE_SIZE));
+  const current = Math.min(Math.max(page, 0), pageCount - 1);
+  const start = current * GUESTS_PAGE_SIZE;
+  const pageRows = rows.slice(start, start + GUESTS_PAGE_SIZE);
+  return {
+    rows: pageRows,
+    page: current,
+    pageCount,
+    range:
+      rows.length === 0 ? "0 of 0" : `${start + 1}-${start + pageRows.length} of ${rows.length}`,
+  };
+}
+
+const RELATIVE_TIME_DIVISIONS: { amount: number; unit: string }[] = [
+  { amount: 60, unit: "second" },
+  { amount: 60, unit: "minute" },
+  { amount: 24, unit: "hour" },
+  { amount: 7, unit: "day" },
+  { amount: 4.34524, unit: "week" },
+  { amount: 12, unit: "month" },
+  { amount: Number.POSITIVE_INFINITY, unit: "year" },
+];
+
+/** What `Intl.RelativeTimeFormat("en", { numeric: "auto" })` says for -1, 0 and 1 of a unit. */
+const RELATIVE_TIME_WORDS: Record<string, Record<number, string>> = {
+  second: { 0: "now" },
+  minute: { 0: "this minute" },
+  hour: { 0: "this hour" },
+  day: { [-1]: "yesterday", 0: "today", 1: "tomorrow" },
+  week: { [-1]: "last week", 0: "this week", 1: "next week" },
+  month: { [-1]: "last month", 0: "this month", 1: "next month" },
+  year: { [-1]: "last year", 0: "this year", 1: "next year" },
+};
+
+/**
+ * "2 months ago", in the web's steps. Written out because Hermes has no Intl.RelativeTimeFormat;
+ * the words are its English with `numeric: "auto"`.
+ */
+export function formatRelativeTime(date: string | Date, now: number = Date.now()): string {
+  const time = new Date(date).getTime();
+  if (Number.isNaN(time)) return "";
+  let duration = (time - now) / 1000;
+  for (const division of RELATIVE_TIME_DIVISIONS) {
+    if (Math.abs(duration) < division.amount) {
+      // `|| 0` turns Math.round's -0 into 0.
+      const value = Math.round(duration) || 0;
+      const word = RELATIVE_TIME_WORDS[division.unit][value];
+      if (word) return word;
+      const amount = Math.abs(value);
+      const unit = amount === 1 ? division.unit : `${division.unit}s`;
+      return value < 0 ? `${amount} ${unit} ago` : `in ${amount} ${unit}`;
+    }
+    duration /= division.amount;
+  }
+  return "";
+}
+
+/** "Dec 2, 2029, 10:00 AM": the web's medium date and short time. */
+export function formatGuestDateTime(date: string | Date): string {
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export type GuestLocationOption = { id: string; label: string };
+
+function locationTitle(location: CalEventLocation): string {
+  if (location.type === "address") return "In person";
+  if (location.type === "link") return "Online link";
+  return "Online meeting";
+}
+
+function locationDetail(location: CalEventLocation): string | null {
+  const detail =
+    location.label?.trim() ||
+    (location.type === "address" ? location.address.trim() : "") ||
+    (location.type === "link" ? location.link.trim() : "");
+  return detail || null;
+}
+
+/**
+ * The locations guests can be told apart by: "In person · Main hall". Empty with fewer than two,
+ * since every guest then chose the same place (the web hides the filter and the row's location).
+ */
+export function getGuestLocationOptions(locations: CalEventLocation[]): GuestLocationOption[] {
+  const admission = getAdmissionLocations(locations);
+  if (admission.length < 2) return [];
+  return admission.flatMap((location) => {
+    if (!location.id) return [];
+    const detail = locationDetail(location);
+    const title = locationTitle(location);
+    return [{ id: location.id, label: detail ? `${title} · ${detail}` : title }];
+  });
+}
+
+/** A guest's location as the host reads it; null when there's nothing to tell apart. */
+export function getGuestLocationLabel(
+  locationId: string | null,
+  options: GuestLocationOption[]
+): string | null {
+  if (!locationId || options.length === 0) return null;
+  // A free event's host can remove a location guests already chose.
+  return options.find((option) => option.id === locationId)?.label ?? "Removed location";
+}
+
+/** The key a question's answer has in `responses`: a custom question's identifier, else its field. */
+function registrationFieldKey(field: CalEventRegistrationField): string | null {
+  if (field.field === "custom") return field.slug || null;
+  return field.field;
+}
+
+function registrationFieldLabel(field: CalEventRegistrationField, key: string): string {
+  return field.label?.trim() || CAL_EVENT_SYSTEM_FIELD_LABELS[key] || key;
+}
+
+function answerText(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") return value.trim() ? value : null;
+  if (Array.isArray(value)) {
+    const items = value.map(answerText).filter((item): item is string => item !== null);
+    return items.length > 0 ? items.join(", ") : null;
+  }
+  if (typeof value !== "object") return String(value);
+  return JSON.stringify(value) ?? null;
+}
+
+/** A guest's answers to the registration form, labelled; name and email have their own rows. */
+export function getGuestAnswerEntries(
+  responses: Record<string, unknown>,
+  fields: CalEventRegistrationField[] = []
+): { key: string; label: string; value: string }[] {
+  const labels = new Map<string, string>();
+  for (const field of fields) {
+    const key = registrationFieldKey(field);
+    if (key) labels.set(key, registrationFieldLabel(field, key));
+  }
+  const entries: { key: string; label: string; value: string }[] = [];
+  for (const [key, raw] of Object.entries(responses)) {
+    if (key === "name" || key === "email") continue;
+    const value = answerText(raw);
+    if (value === null) continue;
+    entries.push({ key, label: labels.get(key) ?? key, value });
+  }
+  return entries;
+}
+
+/** The API's limits on one invite. */
+export const INVITE_MAX_EMAILS = 200;
+export const INVITE_NOTE_MAX_LENGTH = 500;
+
+const EMAIL_PATTERN = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
+
+export function isValidInviteEmail(email: string): boolean {
+  return EMAIL_PATTERN.test(email);
+}
+
+/**
+ * What was typed or pasted into the invite field: addresses split on commas, semicolons, spaces
+ * and new lines, with `Name <email>` read as its address. New, valid addresses come back in
+ * order; the rest are reported so the field can say why.
+ */
+export function parseInviteEmails(
+  text: string,
+  alreadyAdded: string[] = []
+): { emails: string[]; invalid: string[]; duplicates: string[] } {
+  const seen = new Set(alreadyAdded.map((email) => email.toLowerCase()));
+  const emails: string[] = [];
+  const invalid: string[] = [];
+  const duplicates: string[] = [];
+  // Angle-bracketed addresses first, so the display name before one isn't split into tokens.
+  const tokens: string[] = [];
+  const rest = text.replace(/[^,;\n<>]*<([^<>]*)>/g, (_match, address: string) => {
+    tokens.push(address);
+    return " ";
+  });
+  tokens.push(...rest.split(/[\s,;]+/));
+  for (const token of tokens) {
+    const email = token.trim();
+    if (!email) continue;
+    if (!isValidInviteEmail(email)) {
+      invalid.push(email);
+      continue;
+    }
+    const key = email.toLowerCase();
+    if (seen.has(key)) {
+      duplicates.push(email);
+      continue;
+    }
+    seen.add(key);
+    emails.push(email);
+  }
+  return { emails, invalid, duplicates };
+}
+
+const plural = (count: number, one: string, other: string) => (count === 1 ? one : other);
+
+/** The skipped reasons in the web's order, with its "{count} …" wording. */
+const INVITE_SKIP_REASONS: {
+  reason: CalEventInvitationReason;
+  label: (count: number) => string;
+}[] = [
+  {
+    reason: "invalid-format",
+    label: (n) => `${n} ${plural(n, "address isn't valid", "addresses aren't valid")}`,
+  },
+  {
+    reason: "undeliverable",
+    label: (n) => `${n} ${plural(n, "address can't receive mail", "addresses can't receive mail")}`,
+  },
+  {
+    reason: "failed",
+    label: (n) =>
+      `${n} ${plural(n, "invite couldn't be created", "invites couldn't be created")} — try again`,
+  },
+  {
+    reason: "already-registered",
+    label: (n) =>
+      `${n} ${plural(n, "guest has already registered", "guests have already registered")}`,
+  },
+  {
+    reason: "already-invited",
+    label: (n) => `${n} ${plural(n, "guest was already invited", "guests were already invited")}`,
+  },
+  {
+    reason: "cooldown",
+    label: (n) =>
+      `${n} ${plural(n, "guest was re-invited too recently", "guests were re-invited too recently")}`,
+  },
+  {
+    reason: "duplicate",
+    label: (n) =>
+      `${n} ${plural(n, "address was repeated in this batch", "addresses were repeated in this batch")}`,
+  },
+];
+
+export type InviteSkippedGroup = { reason: string; label: string; emails: string[] };
+
+/** The invite's outcome as the web words it, and the skipped addresses grouped by why. */
+export function getInviteResultMessage(result: CalEventInvitationResult): {
+  title: string;
+  skippedGroups: InviteSkippedGroup[];
+} {
+  const skipped =
+    result.skippedAlreadyInvited +
+    result.skippedAlreadyRegistered +
+    result.skippedOnCooldown +
+    result.skippedInvalid;
+  const failed = result.failedCount;
+  const invited = result.invitedCount;
+  const addresses = plural(skipped, "address was", "addresses were");
+  let title: string;
+  if (invited === 0) {
+    if (failed > 0 && skipped > 0) {
+      title = `No new invitations were sent. ${failed} failed to send. ${skipped} ${addresses} skipped.`;
+    } else if (failed > 0) {
+      title = `No new invitations were sent. ${failed} failed to send.`;
+    } else {
+      title = `No new invitations were sent. ${skipped} ${addresses} skipped.`;
+    }
+  } else if (failed > 0 && skipped > 0) {
+    title = `Invited ${invited}. Skipped ${skipped} (already invited, registered, or invalid). ${failed} failed to send.`;
+  } else if (failed > 0) {
+    title = `Invited ${invited}. ${failed} failed to send.`;
+  } else if (skipped > 0) {
+    title = `Invited ${invited}. Skipped ${skipped} (already invited, registered, or invalid).`;
+  } else {
+    title = `Invited ${invited} guests`;
+  }
+  const skippedGroups = INVITE_SKIP_REASONS.flatMap(({ reason, label }) => {
+    const emails = result.outcomes
+      .filter((outcome) => outcome.reason === reason)
+      .map((outcome) => outcome.email);
+    return emails.length > 0 ? [{ reason, label: label(emails.length), emails }] : [];
+  });
+  return { title, skippedGroups };
+}
+
+export const MESSAGE_SEGMENT_LABELS: Record<CalEventMessageSegment, string> = {
+  GOING: "Going",
+  MAYBE: "Maybe",
+  PENDING: "Pending",
+};
+
+/** The API's limits on one message. */
+export const MESSAGE_SUBJECT_MAX_LENGTH = 200;
+export const MESSAGE_BODY_MAX_LENGTH = 5000;
+export const MESSAGE_MAX_RECIPIENTS = 1000;
+
+export type MessageCheckInFilter = "ANY" | "CHECKED_IN" | "NOT_CHECKED_IN";
+
+/**
+ * How many guests a Going or Maybe message would email: confirmed guests with that RSVP and a
+ * real address. null for Pending, whose guests the roster doesn't list.
+ */
+export function countMessageRecipients(
+  roster: CalEventRosterGuest[],
+  {
+    segment,
+    locationId,
+    checkIn,
+  }: { segment: CalEventMessageSegment; locationId: string | null; checkIn: MessageCheckInFilter }
+): number | null {
+  if (segment === "PENDING") return null;
+  const rsvp: CalEventRsvpResponse = segment === "GOING" ? "YES" : "MAYBE";
+  return roster.filter(
+    (guest) =>
+      guest.rsvpResponse === rsvp &&
+      matchesLocation(guest, locationId) &&
+      (checkIn === "ANY" || (checkIn === "CHECKED_IN") === (guest.checkedInAt !== null)) &&
+      getGuestContact(guest).kind === "email"
+  ).length;
+}
+
+/** "3 guests will get this email", or why nobody will. */
+export function formatMessageRecipients(count: number | null): string | null {
+  if (count === null) return null;
+  if (count === 0) return "No guests in this group have an email address";
+  if (count > MESSAGE_MAX_RECIPIENTS) {
+    return `A message can go to at most ${MESSAGE_MAX_RECIPIENTS} guests at a time`;
+  }
+  return `${count} ${plural(count, "guest", "guests")} will get this email`;
+}
+
+/** A sent message's status in the web's words, the same in the Sent list and after Send. */
+export function formatMessageStatus(message: Pick<CalEventMessage, "status" | "counts">): string {
+  const sentCount = message.counts?.sentCount ?? 0;
+  switch (message.status) {
+    case "SENDING":
+      return "Sending…";
+    case "SENT":
+      return `Sent to ${sentCount} ${plural(sentCount, "guest", "guests")}`;
+    case "PARTIALLY_SENT": {
+      const total = sentCount + (message.counts?.failedCount ?? 0);
+      return `Sent to ${sentCount} of ${total} ${plural(total, "guest", "guests")}`;
+    }
+    case "NOT_SENT_EVENT_UNSENDABLE":
+      return "Not sent. This event can no longer be messaged.";
+    default:
+      return "Not sent";
+  }
+}
+
+/** "3 sent · 0 failed · 1 skipped by phone · 0 unsubscribed"; null while there are no counts. */
+export function formatMessageCounts(counts: CalEventMessage["counts"]): string | null {
+  if (!counts) return null;
+  return `${counts.sentCount} sent · ${counts.failedCount} failed · ${counts.skippedPhoneCount} skipped by phone · ${counts.skippedUnsubscribedCount} unsubscribed`;
+}
+
+/** Who sent a message: their name, or why there's none. */
+export function formatMessageSender(sender: CalEventMessage["sender"]): string {
+  if (!sender) return "Deleted user";
+  return sender.name?.trim() || "Unnamed user";
+}
+
+/** What approve all did, in the web's words. */
+export function getApproveAllMessage(result: CalEventApproveAllResult): string {
+  if (result.kind === "started") return "Approval started. Refresh the guest list to see updates.";
+  if (result.approvedCount === 0 && result.notSeatedCount === 0) {
+    return "No pending registrations to approve";
+  }
+  if (result.notSeatedCount > 0) {
+    return `Approved ${result.approvedCount}, but ${result.notSeatedCount} could not be seated because the event is full`;
+  }
+  return `Approved ${result.approvedCount} pending registrations`;
+}
+
+const CSV_BOM = "﻿";
+const CSV_COLUMNS = [
+  "name",
+  "email",
+  "phone",
+  "rsvp_response",
+  "registered_at",
+  "checked_in_at",
+  "location",
+] as const;
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+
+/** One CSV cell, quoted like the web's, and defused so a spreadsheet won't run it as a formula. */
+function csvCell(value: string): string {
+  const safe = FORMULA_TRIGGER.test(value) ? `'${value}` : value;
+  if (safe.includes('"')) return `"${safe.replace(/"/g, '""')}"`;
+  if (/[,\n\r]/.test(safe)) return `"${safe}"`;
+  return safe;
+}
+
+function csvAnswer(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return value.map(csvAnswer).join(",");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+/**
+ * The roster as the web's "all guests" CSV, without the columns the API can't fill (status,
+ * payment, decided at, waitlist position, no-show): one row per guest, then one column per
+ * visible question. UTF-8 with a BOM so Excel reads names right.
+ */
+export function buildRosterCsv(
+  guests: CalEventRosterGuest[],
+  event: Pick<CalEvent, "registrationFields">,
+  locations: CalEventLocation[]
+): string {
+  const used = new Set<string>(CSV_COLUMNS);
+  const questions = (event.registrationFields ?? []).flatMap((field) => {
+    const key = registrationFieldKey(field);
+    if (!key || field.hidden || key === "name" || key === "email") return [];
+    const base = registrationFieldLabel(field, key);
+    // Labels can clash with each other or a fixed column; every answer keeps its own column.
+    const label = used.has(base) ? `${base} (${key})` : base;
+    used.add(base);
+    used.add(label);
+    return [{ key, label }];
+  });
+  const locationOptions = getGuestLocationOptions(locations);
+  const header = [...CSV_COLUMNS, ...questions.map((question) => question.label)];
+  const rows = guests.map((guest) => [
+    guest.name,
+    getGuestContact(guest).kind === "phone" ? "" : guest.email,
+    guest.phoneNumber ?? "",
+    guest.rsvpResponse,
+    new Date(guest.createdAt).toISOString(),
+    guest.checkedInAt ? new Date(guest.checkedInAt).toISOString() : "",
+    getGuestLocationLabel(guest.locationId, locationOptions) ?? "",
+    ...questions.map((question) => csvAnswer(guest.responses[question.key])),
+  ]);
+  return CSV_BOM + [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
+/** "summer-party-all-2026-10-19.csv", as the web names it. */
+export function rosterCsvFilename(slug: string, date: Date = new Date()): string {
+  const safeSlug = slug.replace(/[^a-zA-Z0-9._-]/g, "-") || "event";
+  return `${safeSlug}-all-${date.toISOString().slice(0, 10)}.csv`;
+}

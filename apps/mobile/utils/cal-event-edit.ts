@@ -835,6 +835,20 @@ export function canEditCalEvent(
 }
 
 /** How a location reads in the editor's list. */
+/** The web's labels for the registration form's built-in questions, by their `field`. */
+export const CAL_EVENT_SYSTEM_FIELD_LABELS: Record<string, string> = {
+  name: "Name",
+  email: "Email",
+  location: "Location",
+  title: "What is this event about?",
+  notes: "Additional notes",
+  guests: "Additional guests",
+  rescheduleReason: "Reason for rescheduling",
+  attendeePhoneNumber: "Phone number",
+  smsReminderNumber: "Number for SMS reminders",
+  aiAgentCallPhoneNumber: "Number for AI agent calls",
+};
+
 export function describeCalEventLocation(location: CalEventLocation): string {
   switch (location.type) {
     case "address":

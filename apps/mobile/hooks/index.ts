@@ -35,6 +35,13 @@ export {
   usePrefetchBookings,
   useRescheduleBooking,
 } from "./useBookings";
+export {
+  useApproveAllCalEventRegistrations,
+  useCalEventMessages,
+  useCalEventRoster,
+  useInviteCalEventGuests,
+  useSendCalEventMessage,
+} from "./useCalEventGuests";
 // Cal Events hooks
 export {
   type CalEvent,

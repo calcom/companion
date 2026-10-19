@@ -6,6 +6,7 @@ import type {
 } from "@/services/types/cal-events.types";
 import {
   CAL_EVENT_CUSTOM_FIELD_TYPES,
+  CAL_EVENT_SYSTEM_FIELD_LABELS,
   customFieldTypeHasOptions,
   slugForRegistrationField,
 } from "@/utils/cal-event-edit";
@@ -24,19 +25,6 @@ import {
 } from "./EditControls";
 
 const SLUG_PATTERN = /^[A-Za-z0-9_-]+$/;
-
-const SYSTEM_FIELD_NAMES: Record<string, string> = {
-  name: "Name",
-  email: "Email",
-  location: "Location",
-  title: "What is this event about?",
-  notes: "Additional notes",
-  guests: "Additional guests",
-  rescheduleReason: "Reason for rescheduling",
-  attendeePhoneNumber: "Phone number",
-  smsReminderNumber: "Number for SMS reminders",
-  aiAgentCallPhoneNumber: "Number for AI agent calls",
-};
 
 // Text-like system fields that take a placeholder even when the event hasn't set one yet.
 const SYSTEM_FIELDS_WITH_PLACEHOLDER = new Set([
@@ -62,7 +50,7 @@ function fieldTitle(field: CalEventRegistrationField): string {
   const label = field.label?.trim();
   if (label) return label;
   if (isCustom(field)) return field.slug || "Untitled question";
-  return SYSTEM_FIELD_NAMES[field.field] ?? field.field;
+  return CAL_EVENT_SYSTEM_FIELD_LABELS[field.field] ?? field.field;
 }
 
 function fieldSubtitle(field: CalEventRegistrationField): string {
@@ -390,7 +378,7 @@ function QuestionSheet({
               label="Label"
               value={draft.label}
               onChangeText={(label) => update({ label })}
-              placeholder={SYSTEM_FIELD_NAMES[original.field]}
+              placeholder={CAL_EVENT_SYSTEM_FIELD_LABELS[original.field]}
               autoCapitalize="sentences"
             />
           )}
