@@ -568,12 +568,15 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
           </View>
           <View style={{ flex: 1 }} />
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            {/* Publish and Cancel mutate the event too, so they wait for the save to settle. */}
+            <DropdownMenuTrigger asChild disabled={saving}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="More actions"
+                accessibilityState={{ disabled: saving }}
                 hitSlop={8}
                 style={{
+                  opacity: saving ? 0.4 : 1,
                   width: 36,
                   height: 36,
                   borderRadius: 10,
