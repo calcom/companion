@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { File, Paths } from "expo-file-system";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { type ReactNode, useState } from "react";
 import {
@@ -27,7 +28,7 @@ import {
   countRoster,
   filterRoster,
   formatGuestDateTime,
-  formatRelativeTime,
+  formatGuestPayment,
   GUEST_FILTER_LABELS,
   type GuestBadgeTone,
   type GuestDecision,
@@ -39,19 +40,22 @@ import {
   getGuestAnswerEntries,
   getGuestBadge,
   getGuestContact,
+  getGuestContext,
+  getGuestDecidedLabel,
   getGuestDecisions,
   getGuestDisplayName,
   getGuestFilters,
   getGuestInitial,
-  getGuestIntent,
   getGuestLocationLabel,
   getGuestLocationOptions,
   getRosterPage,
   isCalEventPaid,
+  isGuestNoShow,
   isValidInviteEmail,
   rosterCsvFilename,
 } from "@/utils/cal-event-guests";
 import { getCalEventStatusColors } from "@/utils/cal-events";
+import { getAvatarUrl } from "@/utils/getAvatarUrl";
 import { getUserFacingApiReason } from "../useCalEventActions";
 import { EditTextField, useEditTheme } from "./EditControls";
 import { SelectField } from "./SelectField";
@@ -556,6 +560,40 @@ function GuestBadge({ label, tone }: { label: string; tone: GuestBadgeTone }) {
   );
 }
 
+const AVATAR_SIZE = 36;
+
+/** The guest's Cal.com photo, else their initial, as the web's avatar. */
+function GuestAvatar({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
+  const theme = useEditTheme();
+  const [failed, setFailed] = useState(false);
+  return (
+    <View
+      style={{
+        width: AVATAR_SIZE,
+        height: AVATAR_SIZE,
+        borderRadius: AVATAR_SIZE / 2,
+        overflow: "hidden",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: theme.backgroundEmphasis,
+      }}
+    >
+      {avatarUrl && !failed ? (
+        <Image
+          source={{ uri: getAvatarUrl(avatarUrl) }}
+          style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
+          onError={() => setFailed(true)}
+          accessibilityIgnoresInvertColors
+        />
+      ) : (
+        <Text style={{ color: theme.text, fontSize: 14, fontWeight: "600" }}>
+          {getGuestInitial(name)}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 function GuestRow({
   guest,
   first,
@@ -583,7 +621,8 @@ function GuestRow({
   const contact = getGuestContact(guest);
   const location = getGuestLocationLabel(guest.locationId, locationOptions);
   const badge = getGuestBadge(guest);
-  const intent = getGuestIntent(guest);
+  const noShow = isGuestNoShow(guest);
+  const payment = formatGuestPayment(guest);
   const decisions = getGuestDecisions(guest.status);
   const details = [
     { label: contact.kind === "phone" ? "Phone" : "Email", value: contact.value },
@@ -591,6 +630,10 @@ function GuestRow({
     { label: "Registration", value: CAL_EVENT_REGISTRATION_STATUS_LABELS[guest.status] },
     { label: "Attendance", value: CAL_EVENT_RSVP_LABELS[guest.rsvpResponse] },
     ...(location ? [{ label: "Location", value: location }] : []),
+    ...(payment ? [{ label: "Payment", value: payment }] : []),
+    ...(guest.decidedAt
+      ? [{ label: getGuestDecidedLabel(guest.status), value: formatGuestDateTime(guest.decidedAt) }]
+      : []),
     ...(guest.checkedInAt
       ? [{ label: "Checked in", value: formatGuestDateTime(guest.checkedInAt) }]
       : []),
@@ -602,34 +645,22 @@ function GuestRow({
         onPress={onToggle}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={`${name}, ${badge.label}`}
+        accessibilityLabel={`${name}, ${badge.label}${noShow ? ", No-show" : ""}`}
         style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, padding: 12 }}
       >
-        <View
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: theme.backgroundEmphasis,
-          }}
-        >
-          <Text style={{ color: theme.text, fontSize: 14, fontWeight: "600" }}>
-            {getGuestInitial(name)}
-          </Text>
-        </View>
+        <GuestAvatar name={name} avatarUrl={guest.avatarUrl} />
         <View style={{ flex: 1, gap: 6 }}>
           <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }} numberOfLines={1}>
             {name}
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <GuestBadge label={badge.label} tone={badge.tone} />
+            {noShow ? <GuestBadge label="No-show" tone="warning" /> : null}
             <Text
               style={{ flexShrink: 1, color: theme.textSecondary, fontSize: 13 }}
               numberOfLines={1}
             >
-              {intent ?? `Registered ${formatRelativeTime(guest.createdAt)}`}
+              {getGuestContext(guest)}
             </Text>
           </View>
         </View>

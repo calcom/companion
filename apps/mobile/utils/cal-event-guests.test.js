@@ -10,6 +10,7 @@ const {
   countMessageRecipients,
   countRoster,
   filterRoster,
+  formatGuestPayment,
   formatMessageCounts,
   formatMessageRecipients,
   formatMessageSender,
@@ -21,6 +22,8 @@ const {
   getGuestAnswerEntries,
   getGuestBadge,
   getGuestContact,
+  getGuestContext,
+  getGuestDecidedLabel,
   getGuestDecisions,
   getGuestDisplayName,
   getGuestFilters,
@@ -31,6 +34,7 @@ const {
   getInviteResultMessage,
   getRosterPage,
   isCalEventPaid,
+  isGuestNoShow,
   parseInviteEmails,
   rosterCsvFilename,
 } = require("./cal-event-guests");
@@ -47,6 +51,10 @@ function guest(overrides = {}) {
     locationId: null,
     createdAt: "2026-10-01T10:00:00.000Z",
     checkedInAt: null,
+    avatarUrl: null,
+    payment: null,
+    noShow: false,
+    decidedAt: null,
     ...overrides,
   };
 }
@@ -99,6 +107,42 @@ describe("how a guest reads", () => {
       "Doesn't plan to attend"
     );
     expect(getGuestIntent(guest())).toBeNull();
+  });
+
+  test("a paying guest shows what they paid, as the web's", () => {
+    const payment = { success: true, refunded: false, amount: 2000, currency: "eur" };
+    expect(formatGuestPayment(guest({ payment }))).toBe("Paid · €20.00");
+    expect(formatGuestPayment(guest({ payment: { ...payment, refunded: true } }))).toBe(
+      "Refunded · €20.00"
+    );
+    expect(
+      formatGuestPayment(
+        guest({ status: "PENDING_PAYMENT", payment: { ...payment, success: false } })
+      )
+    ).toBe("Awaiting payment · €20.00");
+    expect(formatGuestPayment(guest())).toBeNull();
+  });
+
+  test("the line under the name: intent while waiting, else payment, else when they registered", () => {
+    const payment = { success: true, refunded: false, amount: 1500, currency: "usd" };
+    expect(getGuestContext(guest({ status: "PENDING_APPROVAL", payment }))).toBe("Wants to attend");
+    expect(getGuestContext(guest({ payment }))).toBe("Paid · $15.00");
+    expect(
+      getGuestContext(guest({ status: "PENDING_PAYMENT", payment: { ...payment, success: false } }))
+    ).toBe("Payment · $15.00");
+    expect(getGuestContext(guest({ createdAt: new Date().toISOString() }))).toMatch(/^Registered /);
+  });
+
+  test("a no-show shows only on a confirmed guest", () => {
+    expect(isGuestNoShow(guest({ noShow: true }))).toBe(true);
+    expect(isGuestNoShow(guest({ noShow: true, status: "CANCELLED" }))).toBe(false);
+    expect(isGuestNoShow(guest())).toBe(false);
+  });
+
+  test("the decision time reads as what the host decided", () => {
+    expect(getGuestDecidedLabel("DECLINED")).toBe("Declined");
+    expect(getGuestDecidedLabel("CONFIRMED")).toBe("Approved");
+    expect(getGuestDecidedLabel("PENDING_PAYMENT")).toBe("Approved");
   });
 });
 
@@ -440,6 +484,9 @@ describe("buildRosterCsv", () => {
           responses: { company: "Acme, Inc", loc: "=SUM(A1)" },
           locationId: "l2",
           checkedInAt: "2026-10-02T09:00:00.000Z",
+          payment: { success: true, refunded: false, amount: 2000, currency: "eur" },
+          decidedAt: "2026-10-01T12:00:00.000Z",
+          noShow: true,
         }),
         guest({
           name: "",
@@ -454,9 +501,9 @@ describe("buildRosterCsv", () => {
     );
     expect(csv.startsWith("﻿")).toBe(true);
     expect(csv.slice(1).split("\n")).toEqual([
-      "name,email,phone,status,rsvp_response,registered_at,checked_in_at,location,Company,location (loc)",
-      '"Ada ""The"" Lovelace",ada@example.com,,CONFIRMED,YES,2026-10-01T10:00:00.000Z,2026-10-02T09:00:00.000Z,Online link · https://zoom.us/j/1,"Acme, Inc",\'=SUM(A1)',
-      ",,'+1555,PENDING_APPROVAL,MAYBE,2026-10-01T10:00:00.000Z,,,,",
+      "name,email,phone,status,rsvp_response,payment_status,registered_at,decided_at,checked_in_at,location,no_show,Company,location (loc)",
+      '"Ada ""The"" Lovelace",ada@example.com,,CONFIRMED,YES,paid,2026-10-01T10:00:00.000Z,2026-10-01T12:00:00.000Z,2026-10-02T09:00:00.000Z,Online link · https://zoom.us/j/1,yes,"Acme, Inc",\'=SUM(A1)',
+      ",,'+1555,PENDING_APPROVAL,MAYBE,,2026-10-01T10:00:00.000Z,,,,,,",
     ]);
   });
 

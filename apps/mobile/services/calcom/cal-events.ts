@@ -385,6 +385,10 @@ export function toCalEventRosterGuest(booking: CalEventBookingApi): CalEventRost
     locationId: booking.locationId ?? null,
     createdAt: booking.createdAt,
     checkedInAt: booking.checkedInAt ?? null,
+    avatarUrl: booking.avatarUrl ?? null,
+    payment: booking.payment ?? null,
+    noShow: booking.noShow ?? false,
+    decidedAt: booking.decidedAt ?? null,
   };
 }
 

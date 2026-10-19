@@ -397,6 +397,10 @@ describe("getCalEventRoster", () => {
         locationId: null,
         createdAt: "2029-12-02T10:00:00.000Z",
         checkedInAt: null,
+        avatarUrl: null,
+        payment: null,
+        noShow: false,
+        decidedAt: null,
       },
     ]);
     expect(mockMakeRequest).toHaveBeenCalledWith(
@@ -404,6 +408,30 @@ describe("getCalEventRoster", () => {
       {},
       "2024-06-14"
     );
+  });
+
+  test("maps a guest's photo, payment, no-show and decision time", async () => {
+    const payment = { success: true, refunded: false, amount: 2000, currency: "eur" };
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: [
+        createBooking({
+          avatarUrl: "https://cal.example/avatar.png",
+          payment,
+          noShow: true,
+          decidedAt: "2029-12-03T10:00:00.000Z",
+        }),
+      ],
+      pagination: { nextCursor: null, hasMore: false },
+    });
+    await expect(getCalEventRoster("event-uuid")).resolves.toEqual([
+      expect.objectContaining({
+        avatarUrl: "https://cal.example/avatar.png",
+        payment,
+        noShow: true,
+        decidedAt: "2029-12-03T10:00:00.000Z",
+      }),
+    ]);
   });
 
   test("follows the cursor to the end and lists a repeated guest once", async () => {

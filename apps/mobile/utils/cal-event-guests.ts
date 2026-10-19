@@ -21,6 +21,7 @@ import type {
   CalEventRsvpResponse,
 } from "@/services/types/cal-events.types";
 import { CAL_EVENT_SYSTEM_FIELD_LABELS, getAdmissionLocations } from "@/utils/cal-event-edit";
+import { formatCalEventPrice } from "@/utils/cal-events";
 
 /** Rows per page, as on the web. */
 export const GUESTS_PAGE_SIZE = 25;
@@ -92,6 +93,68 @@ export function getGuestIntent(
 ): string | null {
   if (guest.status !== "PENDING_APPROVAL" && guest.status !== "WAITLISTED") return null;
   return ATTENDANCE_INTENT_LABELS[guest.rsvpResponse];
+}
+
+type GuestPaymentState = "paid" | "refunded" | "awaiting";
+
+const GUEST_PAYMENT_LABELS: Record<GuestPaymentState, string> = {
+  paid: "Paid",
+  refunded: "Refunded",
+  awaiting: "Awaiting payment",
+};
+
+/** What happened to a guest's money, as the web's: refunded or paid, else awaiting while they owe it. */
+function getGuestPaymentState(
+  guest: Pick<CalEventRosterGuest, "status" | "payment">
+): GuestPaymentState | null {
+  if (guest.payment?.refunded) return "refunded";
+  if (guest.payment?.success) return "paid";
+  if (guest.status === "PENDING_PAYMENT") return "awaiting";
+  return null;
+}
+
+/**
+ * The guest's payment as the web words it, with the amount: "Paid · €20.00", "Refunded · €20.00".
+ * null for a guest who pays nothing.
+ */
+export function formatGuestPayment(
+  guest: Pick<CalEventRosterGuest, "status" | "payment">
+): string | null {
+  const state = getGuestPaymentState(guest);
+  if (!state) return null;
+  const label = GUEST_PAYMENT_LABELS[state];
+  return guest.payment
+    ? `${label} · ${formatCalEventPrice(guest.payment.amount, guest.payment.currency)}`
+    : label;
+}
+
+/**
+ * The line under a guest's name, as the web's: whether a waiting guest means to come, what a paying
+ * guest paid, else when they registered.
+ */
+export function getGuestContext(
+  guest: Pick<CalEventRosterGuest, "status" | "rsvpResponse" | "payment" | "createdAt">
+): string {
+  const intent = getGuestIntent(guest);
+  if (intent) return intent;
+  const registered = `Registered ${formatRelativeTime(guest.createdAt)}`;
+  if (guest.status === "PENDING_PAYMENT") {
+    // The badge already says a payment is needed; this says how much.
+    return guest.payment
+      ? `Payment · ${formatCalEventPrice(guest.payment.amount, guest.payment.currency)}`
+      : registered;
+  }
+  return formatGuestPayment(guest) ?? registered;
+}
+
+/** Like the web, a no-show shows only on a guest who still holds their place. */
+export function isGuestNoShow(guest: Pick<CalEventRosterGuest, "status" | "noShow">): boolean {
+  return guest.status === "CONFIRMED" && guest.noShow;
+}
+
+/** The label for when a host decided on the guest: what they decided. */
+export function getGuestDecidedLabel(status: CalEventRegistrationStatus): string {
+  return status === "DECLINED" ? "Declined" : "Approved";
 }
 
 /**
@@ -667,9 +730,12 @@ const CSV_COLUMNS = [
   "phone",
   "status",
   "rsvp_response",
+  "payment_status",
   "registered_at",
+  "decided_at",
   "checked_in_at",
   "location",
+  "no_show",
 ] as const;
 const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
 
@@ -689,9 +755,8 @@ function csvAnswer(value: unknown): string {
 }
 
 /**
- * The roster as the web's "all guests" CSV, without the columns the API can't fill (payment,
- * decided at, waitlist position, no-show): one row per guest, then one column per
- * visible question. UTF-8 with a BOM so Excel reads names right.
+ * The roster as the web's "all guests" CSV, without the waitlist position the API can't fill: one
+ * row per guest, then one column per visible question. UTF-8 with a BOM so Excel reads names right.
  */
 export function buildRosterCsv(
   guests: CalEventRosterGuest[],
@@ -717,9 +782,12 @@ export function buildRosterCsv(
     guest.phoneNumber ?? "",
     guest.status,
     guest.rsvpResponse,
+    getGuestPaymentState(guest) ?? "",
     new Date(guest.createdAt).toISOString(),
+    guest.decidedAt ? new Date(guest.decidedAt).toISOString() : "",
     guest.checkedInAt ? new Date(guest.checkedInAt).toISOString() : "",
     getGuestLocationLabel(guest.locationId, locationOptions) ?? "",
+    guest.noShow ? "yes" : "",
     ...questions.map((question) => csvAnswer(guest.responses[question.key])),
   ]);
   return CSV_BOM + [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");

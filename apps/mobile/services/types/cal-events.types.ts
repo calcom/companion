@@ -332,6 +332,23 @@ export interface CalEventBookingApi {
   createdAt: string;
   checkedInAt?: string | null;
   checkedInByUserId?: number | null;
+  /** The guest's Cal.com profile photo when their email belongs to an account. */
+  avatarUrl?: string | null;
+  /** null for a guest who pays nothing. */
+  payment?: CalEventGuestPayment | null;
+  /** Whether a host marked the guest as a no-show. */
+  noShow?: boolean;
+  /** When a host approved or declined the guest. */
+  decidedAt?: string | null;
+}
+
+/** What a guest paid. */
+export interface CalEventGuestPayment {
+  success: boolean;
+  refunded: boolean;
+  /** In the currency's smallest unit: 2000 with "eur" is €20.00. */
+  amount: number;
+  currency: string;
 }
 
 /** A guest on an Event's Guests tab. */
@@ -346,6 +363,10 @@ export interface CalEventRosterGuest {
   locationId: string | null;
   createdAt: string;
   checkedInAt: string | null;
+  avatarUrl: string | null;
+  payment: CalEventGuestPayment | null;
+  noShow: boolean;
+  decidedAt: string | null;
 }
 
 /** The body of `POST /v2/events/{uuid}/invitations`. */
