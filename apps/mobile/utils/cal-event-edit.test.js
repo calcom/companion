@@ -634,6 +634,9 @@ describe("paid event", () => {
   });
 
   test("nothing about payments is checked when they aren't available", () => {
-    expect(errors({ paymentEnabled: true }, streamOnly({ paymentsEnabled: false }))).toEqual({});
+    const unavailable = streamOnly({ paymentsEnabled: false });
+    expect(errors({ paymentEnabled: true }, unavailable)).toEqual({});
+    // Not even the deadline: the Payment tab is hidden, so it couldn't be fixed there.
+    expect(errors({ paymentEnabled: true, paymentTimeoutMinutes: "5" }, unavailable)).toEqual({});
   });
 });

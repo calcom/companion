@@ -583,6 +583,7 @@ export function getEditCalEventErrors(
   const paymentErrors = event.paymentsEnabled ? getPaymentErrors(values, event.locations) : {};
   Object.assign(errors, paymentErrors);
   if (
+    event.paymentsEnabled &&
     values.paymentEnabled &&
     values.paymentTimeoutMinutes.trim() &&
     !isWholeNumberIn(
