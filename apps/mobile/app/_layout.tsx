@@ -191,6 +191,39 @@ function RootLayoutContent() {
         }}
       />
       <Stack.Screen
+        name="cal-event-message-guests"
+        options={{
+          headerShown: true,
+          headerTransparent: Platform.OS === "ios",
+          headerLargeTitle: false,
+          title: "Message guests",
+          presentation:
+            Platform.OS === "ios"
+              ? isLiquidGlassAvailable()
+                ? "formSheet"
+                : "modal"
+              : "containedModal",
+          sheetGrabberVisible: Platform.OS === "ios",
+          sheetAllowedDetents: Platform.OS === "ios" ? [1] : undefined,
+          sheetInitialDetentIndex: Platform.OS === "ios" ? 0 : undefined,
+          contentStyle: {
+            backgroundColor:
+              Platform.OS === "ios" && isLiquidGlassAvailable()
+                ? "transparent"
+                : colors.backgroundSecondary,
+          },
+          headerStyle: {
+            backgroundColor: Platform.OS === "ios" ? "transparent" : colors.backgroundSecondary,
+          },
+          headerBlurEffect:
+            Platform.OS === "ios" && isLiquidGlassAvailable()
+              ? undefined
+              : isDark
+                ? "dark"
+                : "light",
+        }}
+      />
+      <Stack.Screen
         name="mark-no-show"
         options={{
           headerShown: true,
