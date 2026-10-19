@@ -150,6 +150,13 @@ function RootLayoutContent() {
         }}
       />
       <Stack.Screen
+        name="create-cal-event"
+        options={{
+          headerShown: false,
+          presentation: Platform.OS === "ios" ? "modal" : "containedModal",
+        }}
+      />
+      <Stack.Screen
         name="mark-no-show"
         options={{
           headerShown: true,

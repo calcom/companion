@@ -75,6 +75,20 @@ export function needsSignInAgainForCalEvents(session: {
   return !session.isWebSession && !canReadCalEvents(session.oauthScope);
 }
 
+/**
+ * Whether a session can create team events: `POST /v2/teams/{teamId}/events` needs
+ * `TEAM_EVENT_WRITE`, which tokens from before native creation don't carry. Web sessions
+ * (the extension) have no scopes to check.
+ */
+export function canCreateTeamCalEvents(session: {
+  isWebSession: boolean;
+  oauthScope: string | null;
+}): boolean {
+  return (
+    session.isWebSession || (session.oauthScope?.split(" ") ?? []).includes("TEAM_EVENT_WRITE")
+  );
+}
+
 /** Same rule as the web listing: cancelled wins, then draft, then past once the end has passed. */
 export function deriveCalEventStatus(
   event: Pick<CalEvent, "publishedAt" | "cancelledAt" | "endTime">,
@@ -228,7 +242,7 @@ export function getCalEventPublicUrl(slug: string): string {
   return `${getCalWebUrl()}/${slug}`;
 }
 
-/** The web editor for an event (the app has no editor of its own). */
+/** The web editor for an event: the app creates events but edits them on the web. */
 export function getCalEventEditorUrl(uuid: string): string {
   return `${getCalAppUrl()}/events/${uuid}`;
 }

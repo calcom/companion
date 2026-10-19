@@ -2,14 +2,14 @@
  * Cal Events Query Hooks
  *
  * React Query hooks over `/v2/events`: the listing per profile (personal, or a team's
- * via `/v2/teams/{teamId}/events`), a single event, and the host-only lifecycle
- * mutations (publish, cancel, delete). The app has no event editor — editing happens
- * on the web — so there is no update mutation here.
+ * via `/v2/teams/{teamId}/events`), a single event, creating a draft, and the host-only
+ * lifecycle mutations (publish, cancel, delete). Editing still happens on the web, so
+ * there is no update mutation here.
  */
 
 import { type QueryKey, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
-import { CalComAPIService, type CalEvent } from "@/services/calcom";
+import { CalComAPIService, type CalEvent, type CreateCalEventInput } from "@/services/calcom";
 import { ApiRequestError } from "@/services/calcom/request";
 
 const isNetworkError = (error: Error | null) =>
@@ -87,6 +87,29 @@ export function setCalEventDetail(queryClient: ReturnType<typeof useQueryClient>
     queryKeys.calEvents.detail(event.uuid),
     listed ? { ...event, confirmedCount: listed.confirmedCount } : event
   );
+}
+
+/** Hook to create a draft, the user's own or a team's (`teamId`). */
+export function useCreateCalEvent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ input, teamId }: { input: CreateCalEventInput; teamId: number | null }) =>
+      CalComAPIService.createCalEvent(input, teamId),
+    onSuccess: (event) => {
+      // The detail screen it opens on paints from the cache at once.
+      setCalEventDetail(queryClient, event);
+    },
+    onError: (error) => {
+      console.error("Failed to create cal event");
+      if (__DEV__) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.debug("[useCalEvents] create failed", { message });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.lists() });
+    },
+  });
 }
 
 /** Hook to publish a draft (hosts only). */

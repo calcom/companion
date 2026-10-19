@@ -23,6 +23,7 @@ const {
   getCalEventPublicUrl,
   getCalEventsProfileTeams,
   groupCalEvents,
+  canCreateTeamCalEvents,
   needsSignInAgainForCalEvents,
   refreshCalEventStatuses,
 } = require("./cal-events");
@@ -472,5 +473,24 @@ describe("getCalEventLinkActions", () => {
 
   test("offers no page actions on a draft, whose page 404s until it is published", () => {
     expect(getCalEventLinkActions("draft")).toEqual({ canViewPage: false, canShare: false });
+  });
+});
+
+describe("canCreateTeamCalEvents", () => {
+  const EVENTS_SCOPE = "EVENT_READ EVENT_WRITE TEAM_EVENT_READ TEAM_PROFILE_READ";
+
+  test("needs TEAM_EVENT_WRITE on an OAuth token", () => {
+    expect(canCreateTeamCalEvents({ isWebSession: false, oauthScope: EVENTS_SCOPE })).toBe(false);
+    expect(canCreateTeamCalEvents({ isWebSession: false, oauthScope: null })).toBe(false);
+    expect(
+      canCreateTeamCalEvents({
+        isWebSession: false,
+        oauthScope: `${EVENTS_SCOPE} TEAM_EVENT_WRITE`,
+      })
+    ).toBe(true);
+  });
+
+  test("never stops a web session, which has no OAuth scope", () => {
+    expect(canCreateTeamCalEvents({ isWebSession: true, oauthScope: null })).toBe(true);
   });
 });

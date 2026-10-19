@@ -4,7 +4,7 @@
 
 import { deriveCalEventStatus, getCalEventPublicUrl } from "@/utils/cal-events";
 
-import type { CalEvent, CalEventApi } from "../types";
+import type { CalEvent, CalEventApi, CreateCalEventInput } from "../types";
 
 import { ApiRequestError, makeRequest } from "./request";
 
@@ -51,6 +51,28 @@ export async function getCalEvent(uuid: string): Promise<CalEvent | null> {
     }
     throw error;
   }
+}
+
+/**
+ * Create an event as a draft: the user's own, or the team's when `teamId` is given (needs the
+ * team's `calEvent.create` permission, else 403).
+ */
+export async function createCalEvent(
+  input: CreateCalEventInput,
+  teamId?: number | null
+): Promise<CalEvent> {
+  const endpoint = teamId ? `/teams/${teamId}/events` : "/events";
+  const response = await makeRequest<SingleResponse>(
+    endpoint,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    API_VERSION
+  );
+  if (!response?.data) throw new Error("Invalid response from create event API");
+  return toCalEvent(response.data);
 }
 
 /**

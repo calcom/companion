@@ -64,6 +64,23 @@ export interface CalEvent extends CalEventApi {
   publicUrl: string;
 }
 
+/**
+ * The body of `POST /v2/events` (or `/v2/teams/{teamId}/events`) as the create screen sends it:
+ * the web's create step, nothing more. The event is created as a draft.
+ */
+export interface CreateCalEventInput {
+  title: string;
+  /** ISO 8601 in UTC. */
+  startTime: string;
+  /** ISO 8601 in UTC, after startTime. */
+  endTime: string;
+  timeZone: string;
+  visibility: CalEventVisibility;
+  requiresApproval: boolean;
+  /** Omitted when empty: the server then adds Cal Video. */
+  locations?: Extract<CalEventLocation, { type: "address" } | { type: "link" }>[];
+}
+
 /** A team the user belongs to, from `/v2/teams`: organizations and pending memberships included. */
 export interface Team {
   id: number;

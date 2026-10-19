@@ -3,17 +3,13 @@ import { Stack } from "expo-router";
 import { useState } from "react";
 import { useColorScheme } from "react-native";
 import { CalEventsList } from "@/components/cal-events/CalEventsList";
-import { useOpenCalEventEditor } from "@/components/cal-events/useCalEventActions";
-import { getCalAppUrl } from "@/utils/region";
+import { useCreateCalEventFlow } from "@/components/cal-events/useCreateCalEventFlow";
 
 export default function EventsIOS() {
   const [searchQuery, setSearchQuery] = useState("");
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
-  const openEditor = useOpenCalEventEditor();
-
-  // Events are created in the web editor; the app lists and manages them.
-  const handleCreate = () => openEditor(`${getCalAppUrl()}/events/new`, "new event");
+  const { startCreate: handleCreate, picker } = useCreateCalEventFlow();
 
   return (
     <>
@@ -43,6 +39,7 @@ export default function EventsIOS() {
         onCreate={handleCreate}
         contentInsetAdjustmentBehavior="automatic"
       />
+      {picker}
     </>
   );
 }

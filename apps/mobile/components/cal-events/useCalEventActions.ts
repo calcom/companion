@@ -23,7 +23,7 @@ import { getCalEventEditorUrl } from "@/utils/cal-events";
 const describeError = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** A 4xx reason from the Events API is written for users ("Cancel the event … before deleting"). */
-const getUserFacingApiReason = (error: unknown) =>
+export const getUserFacingApiReason = (error: unknown) =>
   error instanceof ApiRequestError && error.status < 500
     ? error.message.replace(/^API Error: \d+ /, "")
     : null;

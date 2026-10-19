@@ -2,20 +2,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 import { CalEventsList } from "@/components/cal-events/CalEventsList";
-import { useOpenCalEventEditor } from "@/components/cal-events/useCalEventActions";
+import { useCreateCalEventFlow } from "@/components/cal-events/useCreateCalEventFlow";
 import { Header } from "@/components/Header";
 import { getColors } from "@/constants/colors";
-import { getCalAppUrl } from "@/utils/region";
 
 export default function Events() {
   const [searchQuery, setSearchQuery] = useState("");
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
-  const openEditor = useOpenCalEventEditor();
-
-  // Events are created in the web editor; the app lists and manages them.
-  const handleCreate = () => openEditor(`${getCalAppUrl()}/events/new`, "new event");
+  const { startCreate: handleCreate, picker } = useCreateCalEventFlow();
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}>
@@ -80,6 +76,7 @@ export default function Events() {
         </TouchableOpacity>
       </View>
       <CalEventsList searchQuery={searchQuery} onCreate={handleCreate} />
+      {picker}
     </View>
   );
 }

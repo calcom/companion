@@ -42,6 +42,7 @@ export {
   useCalEvent,
   useCalEvents,
   useCancelCalEvent,
+  useCreateCalEvent,
   useDeleteCalEvent,
   useInvalidateCalEvents,
   usePublishCalEvent,

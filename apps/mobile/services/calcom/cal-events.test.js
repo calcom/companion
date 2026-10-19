@@ -17,7 +17,7 @@ jest.mock("./request", () => ({
   makeRequest: (...args) => mockMakeRequest(...args),
 }));
 
-const { getCalEvent, getCalEvents } = require("./cal-events");
+const { createCalEvent, getCalEvent, getCalEvents } = require("./cal-events");
 const { ApiRequestError } = require("./request");
 
 describe("getCalEvents", () => {
@@ -51,5 +51,63 @@ describe("getCalEvent", () => {
     const error = new ApiRequestError(500, "API Error: 500 Internal server error");
     mockMakeRequest.mockRejectedValue(error);
     await expect(getCalEvent("event-uuid")).rejects.toBe(error);
+  });
+});
+
+describe("createCalEvent", () => {
+  const input = {
+    title: "Rooftop meetup",
+    startTime: "2026-10-20T17:00:00.000Z",
+    endTime: "2026-10-20T19:00:00.000Z",
+    timeZone: "Europe/Madrid",
+    visibility: "PUBLIC",
+    requiresApproval: false,
+  };
+  const created = {
+    uuid: "event-uuid",
+    slug: "rooftop-meetup",
+    title: "Rooftop meetup",
+    endTime: "2026-10-20T19:00:00.000Z",
+    publishedAt: null,
+    cancelledAt: null,
+    locations: [{ type: "address", address: "Calle Mayor 1" }],
+  };
+
+  beforeEach(() => {
+    mockMakeRequest.mockReset();
+    mockMakeRequest.mockResolvedValue({ status: "success", data: created });
+  });
+
+  test("creates a personal event on /events", async () => {
+    await createCalEvent(input, null);
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      },
+      "2024-06-14"
+    );
+  });
+
+  test("creates a team's event on the team route", async () => {
+    await createCalEvent(input, 7);
+    expect(mockMakeRequest.mock.calls[0][0]).toBe("/teams/7/events");
+  });
+
+  test("returns the draft with what the app derives from it", async () => {
+    const event = await createCalEvent(input, null);
+    expect(event).toMatchObject({
+      uuid: "event-uuid",
+      status: "draft",
+      locationAddress: "Calle Mayor 1",
+      publicUrl: "https://example.test/rooftop-meetup",
+    });
+  });
+
+  test("fails on a response without the event", async () => {
+    mockMakeRequest.mockResolvedValue({ status: "success" });
+    await expect(createCalEvent(input, null)).rejects.toThrow("Invalid response");
   });
 });

@@ -65,3 +65,14 @@ describe("restoreCalEventLists", () => {
     expect(queryClient.getQueryData(queryKeys.calEvents.list(null))).toBeUndefined();
   });
 });
+
+describe("setCalEventDetail for a new draft", () => {
+  test("seeds the detail the create screen opens on, though no listing holds it yet", () => {
+    const queryClient = new QueryClient();
+    const draft = createEvent({ status: "draft" });
+
+    setCalEventDetail(queryClient, draft);
+
+    expect(queryClient.getQueryData(queryKeys.calEvents.detail("event-1"))).toEqual(draft);
+  });
+});

@@ -28,6 +28,7 @@ export type {
   CalEventStatus,
   ConferencingOption,
   ConfirmationPolicy,
+  CreateCalEventInput,
   CreateEventTypeInput,
   CreatePrivateLinkInput,
   CreateWebhookInput,
@@ -72,6 +73,7 @@ import {
 } from "./bookings";
 import {
   cancelCalEvent,
+  createCalEvent,
   deleteCalEvent,
   getCalEvent,
   getCalEvents,
@@ -157,6 +159,7 @@ export const CalComAPIService = {
   // Cal Events
   getCalEvents,
   getCalEvent,
+  createCalEvent,
   publishCalEvent,
   cancelCalEvent,
   deleteCalEvent,
