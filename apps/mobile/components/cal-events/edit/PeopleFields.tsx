@@ -186,7 +186,7 @@ const CO_HOST_STATUS: Record<string, string> = {
 export function CoHostsField({ uuid }: { uuid: string }) {
   const theme = useEditTheme();
   const [email, setEmail] = useState("");
-  const { data: coHosts, isLoading, error } = useCalEventCoHosts(uuid);
+  const { data: coHosts, isLoading, error, refetch } = useCalEventCoHosts(uuid);
   const { mutate: change, isPending } = useChangeCalEventCoHosts();
 
   const run = (
@@ -224,7 +224,15 @@ export function CoHostsField({ uuid }: { uuid: string }) {
       />
       {isLoading ? <ActivityIndicator /> : null}
       {error && !isLoading ? (
-        <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Couldn't load co-hosts.</Text>
+        <View style={{ gap: 4 }}>
+          <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Couldn't load co-hosts.</Text>
+          <TextButton
+            icon="refresh-outline"
+            label="Try again"
+            accessibilityLabel="Try loading co-hosts again"
+            onPress={() => void refetch()}
+          />
+        </View>
       ) : null}
       {(coHosts ?? []).map((coHost, index) => {
         const label = coHost.name || coHost.email;
