@@ -196,14 +196,6 @@ function matchesFilter(guest: CalEventRosterGuest, filter: GuestFilter): boolean
   }
 }
 
-/** Whether any guest pays: the event's own price, or one of its locations'. */
-export function isCalEventPaid(
-  event: Pick<CalEvent, "price">,
-  locations: Pick<CalEventLocation, "price">[]
-): boolean {
-  return event.price != null || locations.some((location) => location.price != null);
-}
-
 /**
  * The chips to show. Like the web, Waitlist only on an event with a waitlist and Pending payment
  * only on a paid one, unless guests are already there from before a setting changed.

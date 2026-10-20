@@ -197,6 +197,7 @@ describe("isPaidCalEvent", () => {
   test("counts the event-level price or any location's own price", () => {
     expect(isPaidCalEvent(createEvent())).toBe(false);
     expect(isPaidCalEvent(createEvent({ price: 1500, currency: "usd" }))).toBe(true);
+    expect(isPaidCalEvent(createEvent({ price: 0, currency: "usd" }))).toBe(false);
     expect(isPaidCalEvent(createEvent({ locations: [venue(null), stream(1000)] }))).toBe(true);
     expect(isPaidCalEvent(createEvent({ locations: [venue(null), stream(0)] }))).toBe(false);
   });

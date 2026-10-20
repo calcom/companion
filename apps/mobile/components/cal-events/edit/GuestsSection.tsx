@@ -52,12 +52,11 @@ import {
   getGuestLocationLabel,
   getGuestLocationOptions,
   getRosterPage,
-  isCalEventPaid,
   isGuestNoShow,
   isValidInviteEmail,
   rosterCsvFilename,
 } from "@/utils/cal-event-guests";
-import { getCalEventStatusColors } from "@/utils/cal-events";
+import { getCalEventStatusColors, isPaidCalEvent } from "@/utils/cal-events";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 import { getUserFacingApiReason } from "../useCalEventActions";
 import { EditTextField, useEditTheme } from "./EditControls";
@@ -132,7 +131,8 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
   const activeLocationId = locationOptions.some((option) => option.id === locationId)
     ? locationId
     : null;
-  const paid = isCalEventPaid(event, locations);
+  // Like the web's Guests tab, by the server's rule: a price of 0 charges nothing.
+  const paid = isPaidCalEvent({ price: event.price, locations });
   const filters = getGuestFilters(guests, { waitlistEnabled: event.waitlistEnabled, paid });
   // A chip that went away with the last guest in it would leave the list on nothing.
   const activeFilter = filters.includes(filter) ? filter : "ALL";

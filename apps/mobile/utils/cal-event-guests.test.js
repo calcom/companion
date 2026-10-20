@@ -35,7 +35,6 @@ const {
   getGuestLocationOptions,
   getInviteResultMessage,
   getRosterPage,
-  isCalEventPaid,
   isGuestNoShow,
   parseInviteEmails,
   rosterCsvFilename,
@@ -266,12 +265,6 @@ describe("filters, counts and pages", () => {
         paid: false,
       })
     ).toContain("PENDING_PAYMENT");
-  });
-
-  test("an event is paid when it or one of its locations has a price", () => {
-    expect(isCalEventPaid({ price: null }, [hall])).toBe(false);
-    expect(isCalEventPaid({ price: 1500 }, [])).toBe(true);
-    expect(isCalEventPaid({ price: null }, [{ ...hall, price: 500 }])).toBe(true);
   });
 
   test("pages 25 rows at a time and holds the page to the last one", () => {
