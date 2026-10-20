@@ -63,9 +63,22 @@ export function useCreateCalEventFlow(): { startCreate: () => void; picker: Reac
   };
 
   const startCreate = () => {
+    // A sign-in from before Events gets the list's sign-in-again prompt, not a form whose save
+    // 403s. Its teams query is off, so it would also pass for having no teams.
+    if (needsReauth) {
+      Alert.alert(
+        "Sign in again to create events",
+        "Events need permissions your current sign-in doesn't include. Sign out and sign back in to grant them.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign in again", onPress: logout },
+        ]
+      );
+      return;
+    }
     // Teams that haven't loaded would pass for having none, landing a team event as a personal
     // draft with no cue: say so, and let the user retry or knowingly create a personal one.
-    if (!needsReauth && teamsData === undefined) {
+    if (teamsData === undefined) {
       const createPersonal = { text: "Create personal event", onPress: () => openCreate(null) };
       if (teamsLoadError) {
         Alert.alert("Couldn't load your teams", "Retry to create the event on a team.", [
