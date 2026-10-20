@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from "expo-camera";
+import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -129,8 +130,11 @@ export default function CalEventCheckInScannerScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#000000" }}>
-      {/* iOS styles the status bar over its sheet; Android opens this full screen, on black. */}
-      {Platform.OS === "android" ? <StatusBar style="light" /> : null}
+      {/* Android opens this full screen, on black. Before iOS 26 the sheet leaves a black gap under
+          the status bar; from iOS 26 the dimmed screen behind it shows there, so the root style holds. */}
+      {Platform.OS === "android" || (Platform.OS === "ios" && !isLiquidGlassAvailable()) ? (
+        <StatusBar style="light" />
+      ) : null}
       {cameraReady ? (
         <CameraView
           style={StyleSheet.absoluteFill}
