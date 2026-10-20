@@ -227,7 +227,16 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   // Like the web form: no messages until the first save, then they follow every change.
   const errors = submitted ? allErrors : {};
 
-  usePreventRemove(dirty && !saving, ({ data }) => {
+  // Set once a save succeeds, so the close that follows gets past the guard below.
+  const saved = useRef(false);
+  // Held while saving too: leaving mid-save would make the close after it pop the screen under
+  // the editor instead. That attempt is ignored without the discard prompt.
+  usePreventRemove(dirty || saving, ({ data }) => {
+    if (saved.current) {
+      navigation.dispatch(data.action);
+      return;
+    }
+    if (saving) return;
     Alert.alert(
       "Unsaved changes",
       "You have unsaved changes to this event. If you leave now, they will be lost.",
@@ -260,13 +269,19 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
     Keyboard.dismiss();
     setSaving(true);
     // A promise chain, not try/catch: the React Compiler can't compile conditionals in a try.
-    persist().then(onSaved, (error) => {
-      setSaving(false);
-      showInfoAlert(
-        "Error",
-        getUserFacingApiReason(error) ?? "Failed to save the event. Please try again."
-      );
-    });
+    persist().then(
+      (updated) => {
+        saved.current = true;
+        onSaved(updated);
+      },
+      (error) => {
+        setSaving(false);
+        showInfoAlert(
+          "Error",
+          getUserFacingApiReason(error) ?? "Failed to save the event. Please try again."
+        );
+      }
+    );
   };
 
   const persist = async (): Promise<CalEvent | null> => {
@@ -640,12 +655,15 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
             gap: 8,
           }}
         >
+          {/* Disabled while saving, which closes the editor itself when it's done. */}
           <Pressable
             onPress={onClose}
+            disabled={saving}
             accessibilityRole="button"
             accessibilityLabel="Back"
+            accessibilityState={{ disabled: saving }}
             hitSlop={10}
-            style={{ padding: 4 }}
+            style={{ padding: 4, opacity: saving ? 0.4 : 1 }}
           >
             <Ionicons name="arrow-back" size={24} color={theme.text} />
           </Pressable>
