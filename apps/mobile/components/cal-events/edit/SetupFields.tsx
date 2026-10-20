@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type {
   CalEventBackground,
@@ -31,6 +32,13 @@ export type CoverChange =
   | { kind: "remove" }
   | { kind: "replace"; file: CalEventImageFile };
 
+/** From this width-to-height ratio up, the event page crops a cover to fill its square frame. */
+const LANDSCAPE_COVER_RATIO = 1.2;
+
+/**
+ * The cover, previewed as guests see it: a conference page shows a 2:1 banner, the others a square
+ * that a landscape cover fills and a square or portrait one sits in uncropped.
+ */
 export function CoverField({
   currentUrl,
   change,
@@ -43,12 +51,14 @@ export function CoverField({
   category: CalEventCategory;
 }) {
   const theme = useEditTheme();
+  // Until the image reports its size it fills the frame, as on the page.
+  const [landscape, setLandscape] = useState(true);
   const previewUri =
     change.kind === "replace" ? change.file.uri : change.kind === "remove" ? null : currentUrl;
-  const sizeHint =
-    category === "conference"
-      ? "Ideal size is 1600x800 px. Conference events use a wide horizontal cover."
-      : "Ideal size is 800x800 px.";
+  const wide = category === "conference";
+  const sizeHint = wide
+    ? "Ideal size is 1600x800 px. Conference events use a wide horizontal cover."
+    : "Ideal size is 800x800 px.";
 
   const choose = async () => {
     const file = await pickCalEventImage({ maxBytes: CAL_EVENT_COVER_MAX_BYTES });
@@ -61,8 +71,16 @@ export function CoverField({
       {previewUri ? (
         <Image
           source={{ uri: previewUri }}
-          style={{ width: "100%", aspectRatio: 2, borderRadius: 12 }}
-          contentFit="cover"
+          style={{
+            width: "100%",
+            aspectRatio: wide ? 2 : 1,
+            borderRadius: 12,
+            backgroundColor: theme.backgroundMuted,
+          }}
+          contentFit={wide || landscape ? "cover" : "contain"}
+          onLoad={({ source }) =>
+            setLandscape(source.width / source.height >= LANDSCAPE_COVER_RATIO)
+          }
           accessibilityLabel="Cover image"
           accessibilityIgnoresInvertColors
         />
