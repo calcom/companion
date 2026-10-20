@@ -11,6 +11,7 @@ export default function EventsLayout() {
     <Stack>
       <Stack.Screen name="index" options={{ headerShown: Platform.OS === "ios" }} />
       <Stack.Screen name="event-detail" />
+      <Stack.Screen name="event-check-in" />
     </Stack>
   );
 }

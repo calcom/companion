@@ -39,6 +39,10 @@ export const isNetworkError = (error: Error | null) =>
 export const isForbiddenError = (error: Error | null) =>
   error instanceof ApiRequestError && error.status === 403;
 
+/** A 404 won't change on retry: the event was deleted, or the user no longer manages it. */
+export const isNotFoundError = (error: Error | null) =>
+  error instanceof ApiRequestError && error.status === 404;
+
 /** Where a listing page starts: a group, and the cursor into it (null for its first page). */
 export type CalEventsPageParam = { status: CalEventsListingStatus; cursor: string | null };
 

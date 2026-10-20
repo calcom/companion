@@ -70,8 +70,16 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow Cal.com to access your photos to add a cover or speaker photos to your events.",
-          "cameraPermission": false,
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use your camera to scan guests' QR tickets at check-in.",
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use your camera to scan guests' QR tickets at check-in.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       [

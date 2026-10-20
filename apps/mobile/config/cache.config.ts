@@ -181,6 +181,8 @@ export const queryKeys = {
     // Under the roster's key, so whatever refetches the roster refetches the counts with it.
     registrationCounts: (uuid: string) => [...queryKeys.calEvents.roster(uuid), "counts"] as const,
     messages: (uuid: string) => [...queryKeys.calEvents.all, "messages", uuid] as const,
+    guests: (eventTypeUuid: string) =>
+      [...queryKeys.calEvents.all, "guests", eventTypeUuid] as const,
   },
 
   // Teams

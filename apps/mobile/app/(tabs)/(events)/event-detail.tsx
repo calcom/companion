@@ -13,6 +13,7 @@ import { showErrorAlert } from "@/utils/alerts";
 import { canEditCalEvent } from "@/utils/cal-event-edit";
 import {
   CAL_EVENT_STATUS_LABELS,
+  canCheckInCalEventGuests,
   canDeleteCalEvent,
   canManageCalEventLifecycle,
   formatCalEventDate,
@@ -102,6 +103,7 @@ export default function CalEventDetailScreen() {
   const status = getCalEventStatusColors(event.status, isDark);
   const canManage = canManageCalEventLifecycle(event, me?.id);
   const canEdit = canEditCalEvent(event, me?.id);
+  const canCheckIn = canCheckInCalEventGuests(event, me?.id);
   const { canViewPage, canShare } = getCalEventLinkActions(event.status);
   const inPerson = isCalEventInPerson(event);
   const price = formatCalEventPublicPrice(event);
@@ -250,6 +252,20 @@ export default function CalEventDetailScreen() {
                 icon="open-outline"
                 label="Open event page"
                 onPress={() => actions.onOpenPage(event)}
+              />
+            ) : null}
+            {canCheckIn ? (
+              <ActionButton
+                theme={theme}
+                isDark={isDark}
+                icon="checkmark-done-outline"
+                label="Check in guests"
+                onPress={() =>
+                  router.push({
+                    pathname: "/event-check-in",
+                    params: { uuid: event.uuid, title: event.title },
+                  })
+                }
               />
             ) : null}
             {/* Co-hosts can't edit natively, but the web still lets them change some fields. */}

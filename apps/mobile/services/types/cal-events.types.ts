@@ -134,6 +134,12 @@ export interface CalEventApi {
   description: string | null;
   startTime: string;
   endTime: string;
+  /**
+   * The span the door takes check-ins in: 12 hours before `startTime` to 12 hours after `endTime`.
+   * Missing on an event cached before the API sent it.
+   */
+  checkInOpensAt?: string;
+  checkInClosesAt?: string;
   /** The event's own timezone — in-person events display venue time, not the viewer's. */
   timeZone: string;
   visibility: CalEventVisibility;
@@ -350,6 +356,67 @@ export interface CalEventGuestPayment {
   amount: number;
   currency: string;
 }
+
+/** A registration as the check-in endpoints return it. */
+export interface CalEventRegistrationApi {
+  id: string;
+  name: string;
+  email: string;
+  phoneNumber?: string | null;
+  status: CalEventRegistrationStatus;
+  rsvpResponse: CalEventRsvpResponse;
+  responses?: unknown;
+  locationId?: string | null;
+  createdAt: string;
+  checkedInAt?: string | null;
+  checkedInByUserId?: number | null;
+}
+
+/** `POST /v2/events/{uuid}/registrations/{registrationId}/check-in` */
+export type CalEventCheckInOutcomeApi =
+  | { kind: "checked_in"; registration: CalEventRegistrationApi }
+  | { kind: "already_checked_in"; registration: CalEventRegistrationApi; checkedInAt: string }
+  | { kind: "not_confirmed"; status: CalEventRegistrationStatus };
+
+/** `DELETE /v2/events/{uuid}/registrations/{registrationId}/check-in`: idempotent. */
+export type CalEventUndoCheckInOutcomeApi =
+  | { kind: "undone"; registration: CalEventRegistrationApi }
+  | { kind: "not_checked_in" };
+
+/** A confirmed guest on an Event's check-in list. */
+export interface CalEventGuest {
+  /** What the check-in and undo calls take. */
+  id: string;
+  /** Empty when the guest gave none. */
+  name: string;
+  email: string;
+  phoneNumber: string | null;
+  /** ISO 8601; null until the guest is checked in. */
+  checkedInAt: string | null;
+}
+
+/** Every confirmed guest of an Event, read across all of `/bookings`' pages. */
+export interface CalEventCheckInList {
+  guests: CalEventGuest[];
+}
+
+/**
+ * What a check-in did. `already_checked_in` means another host (or a scan) got there first;
+ * `not_confirmed` means the guest's registration is no longer confirmed, so nothing was recorded.
+ */
+export type CalEventCheckInResult =
+  | { kind: "checked_in"; checkedInAt?: string }
+  | { kind: "already_checked_in"; checkedInAt: string }
+  | { kind: "not_confirmed" };
+
+/**
+ * What a scanned ticket did. Only the server knows whose ticket it was, so the result names the
+ * guest; `guest.checkedInAt` is the server's time.
+ */
+export type CalEventTicketCheckInResult =
+  | { kind: "checked_in"; guest: CalEventGuest }
+  | { kind: "already_checked_in"; guest: CalEventGuest; checkedInAt: string }
+  | { kind: "not_confirmed" };
 
 /** A guest on an Event's Guests tab. */
 export interface CalEventRosterGuest {
