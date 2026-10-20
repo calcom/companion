@@ -462,17 +462,25 @@ export function EditSheet({
   onDone: () => void;
   doneLabel?: string;
   doneDisabled?: boolean;
+  /**
+   * An add, a save or a photo upload is in flight. It can't be called off, so Cancel would only
+   * hide it: the sheet stays open until it settles.
+   */
   busy?: boolean;
   children: ReactNode;
 }) {
   const theme = useEditTheme();
   const insets = useSafeAreaInsets();
+  // Android's back button and an iOS swipe down both ask through onRequestClose.
+  const requestClose = () => {
+    if (!busy) onCancel();
+  };
   return (
     <Modal
       visible={visible}
       animationType="slide"
       presentationStyle={Platform.OS === "ios" ? "pageSheet" : undefined}
-      onRequestClose={onCancel}
+      onRequestClose={requestClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -491,8 +499,16 @@ export function EditSheet({
             height: 52,
           }}
         >
-          <Pressable onPress={onCancel} accessibilityRole="button" hitSlop={10}>
-            <Text style={{ color: theme.accent, fontSize: 17 }}>Cancel</Text>
+          <Pressable
+            onPress={onCancel}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
+            hitSlop={10}
+          >
+            <Text style={{ color: theme.accent, fontSize: 17, opacity: busy ? 0.4 : 1 }}>
+              Cancel
+            </Text>
           </Pressable>
           <Text
             accessibilityRole="header"
