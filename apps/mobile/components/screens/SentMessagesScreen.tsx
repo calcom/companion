@@ -6,6 +6,7 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HintText, useEditTheme } from "@/components/cal-events/edit/EditControls";
@@ -18,6 +19,7 @@ import {
   formatMessageStatus,
   MESSAGE_SEGMENT_LABELS,
 } from "@/utils/cal-event-guests";
+import { offlineAwareRefresh } from "@/utils/network";
 
 export function SentMessagesScreen({ uuid }: { uuid: string }) {
   const theme = useEditTheme();
@@ -26,7 +28,6 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
     data: messages,
     isPending,
     isError,
-    isRefetching,
     isRefetchError,
     refetch,
     fetchNextPage,
@@ -34,13 +35,18 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
     isFetchingNextPage,
     isFetchNextPageError,
   } = useCalEventMessages(uuid);
+  // Only a pull shows the spinner. isRefetching is also true for the 3 s poll while a message
+  // sends, and each poll would pull the list down to show it.
+  const [pulling, setPulling] = useState(false);
+  const onRefresh = () => {
+    setPulling(true);
+    offlineAwareRefresh(refetch).finally(() => setPulling(false));
+  };
 
   return (
     <ScrollView
       contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 16 }}
-      refreshControl={
-        <RefreshControl refreshing={isRefetching && !isFetchingNextPage} onRefresh={refetch} />
-      }
+      refreshControl={<RefreshControl refreshing={pulling} onRefresh={onRefresh} />}
     >
       <HintText>Messages sent to this event's guests, newest first.</HintText>
       {/* Like the Events listing: the loaded messages stay, marked out of date. */}
