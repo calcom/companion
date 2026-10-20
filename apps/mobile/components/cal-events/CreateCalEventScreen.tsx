@@ -217,7 +217,10 @@ export function CreateCalEventScreen({
         </View>
 
         <View style={{ alignItems: "flex-start", gap: 16 }}>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+          <View
+            accessibilityRole="radiogroup"
+            style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}
+          >
             <OptionChip
               icon="globe-outline"
               label="Public"
