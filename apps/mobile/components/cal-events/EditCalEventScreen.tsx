@@ -192,7 +192,9 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
 
   // A price set in the Locations tab makes the event paid. The Payment tab then shows it as if
   // the form had opened paid, rather than hiding the price behind a "Paid event" that's off.
-  const locationsPaid = isPaidCalEvent({ price: event.price, locations });
+  // Follows location prices only (the API folds an old event-level price into them): a price set
+  // on the web for an event without locations would turn this on with an empty price field.
+  const locationsPaid = isPaidCalEvent({ price: null, locations });
   const [wasLocationsPaid, setWasLocationsPaid] = useState(locationsPaid);
   if (locationsPaid !== wasLocationsPaid) {
     setWasLocationsPaid(locationsPaid);
