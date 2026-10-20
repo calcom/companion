@@ -7,10 +7,10 @@ import {
   type CalEventPriceValues,
   calEventLocationPriceValues,
   describeCalEventLocation,
-  getAdmissionLocations,
   getCalEventPriceError,
   getCalPayMinimumChargeError,
 } from "@/utils/cal-event-edit";
+import { getAdmissionLocations } from "@/utils/cal-events";
 import {
   EditSection,
   EditTextField,

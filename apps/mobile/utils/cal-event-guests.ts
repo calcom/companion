@@ -21,8 +21,8 @@ import type {
   CalEventRosterGuest,
   CalEventRsvpResponse,
 } from "@/services/types/cal-events.types";
-import { CAL_EVENT_SYSTEM_FIELD_LABELS, getAdmissionLocations } from "@/utils/cal-event-edit";
-import { formatCalEventPrice } from "@/utils/cal-events";
+import { CAL_EVENT_SYSTEM_FIELD_LABELS } from "@/utils/cal-event-edit";
+import { formatCalEventPrice, getAdmissionLocations } from "@/utils/cal-events";
 
 /** Rows per page, as on the web. */
 export const GUESTS_PAGE_SIZE = 25;

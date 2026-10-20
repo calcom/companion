@@ -30,6 +30,7 @@ import {
 import {
   canManageCalEventLifecycle,
   formatCalEventPrice,
+  getAdmissionLocations,
   getCalEventPriceDecimals,
   isPaidCalEvent,
 } from "@/utils/cal-events";
@@ -630,11 +631,6 @@ export function getEditCalEventErrors(
   if (fieldsError) errors.registrationFields = fieldsError;
 
   return errors;
-}
-
-/** Rows of the Payment tab: the locations a guest picks at registration. */
-export function getAdmissionLocations(locations: CalEventLocation[]): CalEventLocation[] {
-  return locations.filter((location) => location.type !== "unknown");
 }
 
 /** A price as typed: the amount in the currency's main unit (empty = free), and the currency. */

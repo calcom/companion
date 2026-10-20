@@ -171,8 +171,11 @@ export function formatCalEventPrice(price: number, currency: string | null): str
   }
 }
 
-// The locations a guest registers for. One this API version can't represent is never one.
-function getAdmissionLocations(locations: CalEventLocation[]): CalEventLocation[] {
+/**
+ * The locations a guest picks at registration, and the Payment tab's rows. One this API version
+ * can't represent is never one.
+ */
+export function getAdmissionLocations(locations: CalEventLocation[]): CalEventLocation[] {
   return locations.filter((location) => location.type !== "unknown");
 }
 
