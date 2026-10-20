@@ -28,6 +28,7 @@ const {
   deleteCalEventCoverImage,
   getCalEvent,
   getCalEventGuests,
+  getCalEventHostCandidates,
   getCalEventMessages,
   getCalEventRegistrationCounts,
   getCalEventRoster,
@@ -688,6 +689,102 @@ function createRegistration(overrides = {}) {
   const { registrationId, type: _type, ...rest } = createGuestBooking();
   return { id: registrationId, status: "CONFIRMED", ...rest, ...overrides };
 }
+
+describe("getCalEventHostCandidates", () => {
+  const candidate = (userId, overrides = {}) => ({
+    userId,
+    name: `Member ${userId}`,
+    username: null,
+    email: `member${userId}@example.test`,
+    avatarUrl: null,
+    ...overrides,
+  });
+  const candidatesPage = (data, pagination = { nextCursor: null, hasMore: false }) => ({
+    status: "success",
+    data,
+    pagination,
+  });
+  const requestedUrls = () => mockMakeRequest.mock.calls.map(([url]) => url);
+
+  beforeEach(() => {
+    mockMakeRequest.mockReset();
+  });
+
+  test("reads the event's host candidates in pages as large as the API allows", async () => {
+    mockMakeRequest.mockResolvedValueOnce(candidatesPage([candidate(1)]));
+
+    const candidates = await getCalEventHostCandidates("event-uuid");
+
+    expect(mockMakeRequest).toHaveBeenCalledTimes(1);
+    expect(mockMakeRequest).toHaveBeenCalledWith(
+      "/events/event-uuid/host-candidates?limit=250",
+      {},
+      "2024-06-14"
+    );
+    expect(candidates).toEqual([candidate(1)]);
+  });
+
+  test("reads every page before sorting, so the whole team is A–Z", async () => {
+    mockMakeRequest
+      .mockResolvedValueOnce(
+        candidatesPage([candidate(1, { name: "Zoe" }), candidate(2, { name: "bob" })], {
+          nextCursor: "cursor/2+",
+          hasMore: true,
+        })
+      )
+      .mockResolvedValueOnce(candidatesPage([candidate(3, { name: "Ada" })]));
+
+    const candidates = await getCalEventHostCandidates("event-uuid");
+
+    expect(requestedUrls()).toEqual([
+      "/events/event-uuid/host-candidates?limit=250",
+      "/events/event-uuid/host-candidates?limit=250&cursor=cursor%2F2%2B",
+    ]);
+    expect(candidates.map((member) => member.name)).toEqual(["Ada", "bob", "Zoe"]);
+  });
+
+  test("sorts a member without a name by username, then email", async () => {
+    mockMakeRequest.mockResolvedValueOnce(
+      candidatesPage([
+        candidate(1, { name: "Carl" }),
+        candidate(2, { name: null, username: "dora" }),
+        candidate(3, { name: null, email: "anna@example.test" }),
+      ])
+    );
+
+    const candidates = await getCalEventHostCandidates("event-uuid");
+
+    expect(candidates.map((member) => member.userId)).toEqual([3, 1, 2]);
+  });
+
+  test("lists a member a later page repeats once", async () => {
+    mockMakeRequest
+      .mockResolvedValueOnce(
+        candidatesPage([candidate(1)], { nextCursor: "cursor-2", hasMore: true })
+      )
+      .mockResolvedValueOnce(candidatesPage([candidate(1), candidate(2)]));
+
+    const candidates = await getCalEventHostCandidates("event-uuid");
+
+    expect(candidates.map((member) => member.userId)).toEqual([1, 2]);
+  });
+
+  test("stops instead of looping when a cursor comes back again", async () => {
+    mockMakeRequest.mockResolvedValue(
+      candidatesPage([candidate(1)], { nextCursor: "cursor-2", hasMore: true })
+    );
+
+    await getCalEventHostCandidates("event-uuid");
+
+    expect(mockMakeRequest).toHaveBeenCalledTimes(2);
+  });
+
+  test("lets the 404 through for a viewer who can't change hosts", async () => {
+    mockMakeRequest.mockRejectedValueOnce(new ApiRequestError(404, "Event not found"));
+
+    await expect(getCalEventHostCandidates("event-uuid")).rejects.toMatchObject({ status: 404 });
+  });
+});
 
 describe("getCalEventGuests", () => {
   beforeEach(() => {

@@ -268,6 +268,15 @@ export type UpdateCalEventLocationInput = {
   link?: string;
 };
 
+/** An accepted member of the event's team, who can be added as a host. */
+export interface CalEventHostCandidate {
+  userId: number;
+  name: string | null;
+  username: string | null;
+  email: string;
+  avatarUrl: string | null;
+}
+
 /** An external co-host, invited by email. */
 export interface CalEventCoHost {
   id: string;

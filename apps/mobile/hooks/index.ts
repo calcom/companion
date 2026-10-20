@@ -63,6 +63,7 @@ export {
   useCalEvent,
   useCalEventCoHosts,
   useCalEventCoverImage,
+  useCalEventHostCandidates,
   useCalEventLocations,
   useCalEvents,
   useCancelCalEvent,
@@ -106,7 +107,7 @@ export {
   useUpdateSchedule,
 } from "./useSchedules";
 // Teams hooks
-export { type Team, type TeamMember, useTeamMembers, useTeams } from "./useTeams";
+export { type Team, useTeams } from "./useTeams";
 // Toast hook
 export { type ToastState, type ToastType, useToast } from "./useToast";
 // User Preferences hooks

@@ -177,6 +177,7 @@ export const queryKeys = {
     detail: (eventTypeUuid: string) => [...queryKeys.calEvents.details(), eventTypeUuid] as const,
     locations: (uuid: string) => [...queryKeys.calEvents.all, "locations", uuid] as const,
     coHosts: (uuid: string) => [...queryKeys.calEvents.all, "coHosts", uuid] as const,
+    hostCandidates: (uuid: string) => [...queryKeys.calEvents.all, "hostCandidates", uuid] as const,
     roster: (uuid: string) => [...queryKeys.calEvents.all, "roster", uuid] as const,
     // Under the roster's key, so whatever refetches the roster refetches the counts with it.
     registrationCounts: (uuid: string) => [...queryKeys.calEvents.roster(uuid), "counts"] as const,
@@ -189,7 +190,6 @@ export const queryKeys = {
   teams: {
     all: ["teams"] as const,
     lists: () => [...queryKeys.teams.all, "list"] as const,
-    members: (teamId: number) => [...queryKeys.teams.all, "members", teamId] as const,
   },
 
   // Schedules (Availability)

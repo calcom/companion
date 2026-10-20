@@ -16,6 +16,7 @@ import type {
   CalEventCheckInResult,
   CalEventCoHost,
   CalEventGuest,
+  CalEventHostCandidate,
   CalEventInvitationResult,
   CalEventLocation,
   CalEventMessage,
@@ -320,6 +321,56 @@ export async function getCalEventCoHosts(uuid: string): Promise<CalEventCoHost[]
     API_VERSION
   );
   return Array.isArray(response?.data) ? response.data : [];
+}
+
+/** Host candidates per page, the most the API allows: most teams fit in one. */
+const HOST_CANDIDATES_PAGE_SIZE = 250;
+
+type HostCandidatesResponse = {
+  status: string;
+  data: CalEventHostCandidate[];
+  pagination?: { nextCursor: string | null; hasMore: boolean };
+};
+
+/** How a host candidate reads in the picker, and what it sorts by. */
+export function getHostCandidateLabel(
+  candidate: Pick<CalEventHostCandidate, "name" | "username" | "email">
+): string {
+  return candidate.name || candidate.username || candidate.email;
+}
+
+/**
+ * Every accepted member of a team event's team, A–Z, for the hosts picker. The API pages in user
+ * id order, so the app reads every page before sorting: sorting page by page would put later
+ * names above ones already on screen. Only those who may save hosts may list them (owner, hosts,
+ * `calEvent.update`); anyone else, external co-hosts included, gets 404. A personal event 400s.
+ */
+export async function getCalEventHostCandidates(uuid: string): Promise<CalEventHostCandidate[]> {
+  // By user id, so a member a later page repeats is listed once.
+  const candidates = new Map<number, CalEventHostCandidate>();
+  const followed = new Set<string>();
+  let cursor: string | null = null;
+  do {
+    const params = new URLSearchParams({ limit: String(HOST_CANDIDATES_PAGE_SIZE) });
+    if (cursor) params.append("cursor", cursor);
+    const response: HostCandidatesResponse = await makeRequest<HostCandidatesResponse>(
+      `/events/${uuid}/host-candidates?${params.toString()}`,
+      {},
+      API_VERSION
+    );
+    for (const candidate of Array.isArray(response?.data) ? response.data : []) {
+      if (!candidates.has(candidate.userId)) candidates.set(candidate.userId, candidate);
+    }
+    // No cursor to follow is the end, and so is one already followed: it would loop forever.
+    const next = response?.pagination?.hasMore ? response.pagination.nextCursor : null;
+    cursor = next && !followed.has(next) ? next : null;
+    if (cursor) followed.add(cursor);
+  } while (cursor);
+  return [...candidates.values()].sort((a, b) =>
+    getHostCandidateLabel(a).localeCompare(getHostCandidateLabel(b), undefined, {
+      sensitivity: "base",
+    })
+  );
 }
 
 /** Invite a co-host by email. The invite link is valid for 7 days. */

@@ -417,6 +417,24 @@ export function useCalEventCoHosts(uuid: string | undefined) {
   });
 }
 
+/**
+ * Hook to fetch who a team event can add as a host: the team's accepted members, A–Z. A 404 means
+ * the viewer can't change hosts, which won't change on retry.
+ */
+export function useCalEventHostCandidates(uuid: string, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: queryKeys.calEvents.hostCandidates(uuid),
+    queryFn: () => CalComAPIService.getCalEventHostCandidates(uuid),
+    enabled,
+    staleTime: CACHE_CONFIG.calEvents.staleTime,
+    retry: (failureCount, error) =>
+      !isNetworkError(error) &&
+      !isForbiddenError(error) &&
+      !isNotFoundError(error) &&
+      failureCount < 2,
+  });
+}
+
 type CoHostChange =
   | { kind: "invite"; email: string }
   | { kind: "remove"; coHostId: string }

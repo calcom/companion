@@ -35,6 +35,7 @@ export type {
   CalEventGuest,
   CalEventGuestList,
   CalEventHost,
+  CalEventHostCandidate,
   CalEventInvitationReason,
   CalEventInvitationResult,
   CalEventLineup,
@@ -122,6 +123,7 @@ import {
   getCalEvent,
   getCalEventCoHosts,
   getCalEventGuests,
+  getCalEventHostCandidates,
   getCalEventLocations,
   getCalEventMessages,
   getCalEventRegistrationCounts,
@@ -142,6 +144,7 @@ import {
 } from "./cal-events";
 
 export type { CalEventImageFile } from "./cal-events";
+export { getHostCandidateLabel } from "./cal-events";
 
 import { getConferencingOptions } from "./conferencing";
 import {
@@ -167,9 +170,7 @@ import {
   getSchedules,
   updateSchedule,
 } from "./schedules";
-import { getTeamMembers, getTeams } from "./teams";
-
-export type { TeamMember } from "./teams";
+import { getTeams } from "./teams";
 
 import {
   clearUserProfile,
@@ -239,6 +240,7 @@ export const CalComAPIService = {
   deleteCalEventCoverImage,
   uploadCalEventPersonAvatar,
   getCalEventCoHosts,
+  getCalEventHostCandidates,
   inviteCalEventCoHost,
   reorderCalEventCoHosts,
   removeCalEventCoHost,
@@ -257,7 +259,6 @@ export const CalComAPIService = {
 
   // Teams
   getTeams,
-  getTeamMembers,
 
   // Bookings
   cancelBooking,

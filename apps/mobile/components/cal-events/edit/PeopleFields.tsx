@@ -3,11 +3,12 @@ import { ActivityIndicator, Alert, Text, View } from "react-native";
 import { getUserFacingApiReason } from "@/components/cal-events/useCalEventActions";
 import {
   isForbiddenError,
+  isNotFoundError,
   useCalEventCoHosts,
+  useCalEventHostCandidates,
   useChangeCalEventCoHosts,
-  useTeamMembers,
 } from "@/hooks";
-import type { CalEvent } from "@/services/calcom";
+import { type CalEvent, getHostCandidateLabel } from "@/services/calcom";
 import { showInfoAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import {
   EditSheet,
@@ -22,15 +23,16 @@ import {
 
 /**
  * The event's hosts. The creator is always first and stays; a team event can add accepted team
- * members. Listing them needs the team admin role and the TEAM_MEMBERSHIP_READ scope, which the
- * app's OAuth sign-in doesn't ask for yet: without either, the list 403s and adding is off.
+ * members. Whoever may save hosts may list them: the owner, the hosts and members with
+ * `calEvent.update`. Anyone else gets a 404 (a 403 without the EVENT_WRITE scope), and adding is
+ * off.
  */
 export function HostsField({
   event,
   hostUserIds,
   onChange,
 }: {
-  event: Pick<CalEvent, "hosts" | "teamId">;
+  event: Pick<CalEvent, "uuid" | "hosts" | "teamId">;
   hostUserIds: number[];
   onChange: (hostUserIds: number[]) => void;
 }) {
@@ -40,17 +42,16 @@ export function HostsField({
     data: members,
     error: membersError,
     refetch: refetchMembers,
-  } = useTeamMembers(event.teamId);
+  } = useCalEventHostCandidates(event.uuid, { enabled: event.teamId !== null });
   const creatorId = event.hosts[0]?.userId;
+  const canAddHosts =
+    event.teamId !== null && !isForbiddenError(membersError) && !isNotFoundError(membersError);
 
   const describe = (userId: number) => {
     const host = event.hosts.find((candidate) => candidate.userId === userId);
     if (host) return { name: host.name || host.username || "Host", avatarUrl: host.avatarUrl };
     const member = members?.find((candidate) => candidate.userId === userId);
-    return {
-      name: member?.name || member?.username || member?.email || "Host",
-      avatarUrl: member?.avatarUrl,
-    };
+    return { name: member ? getHostCandidateLabel(member) : "Host", avatarUrl: member?.avatarUrl };
   };
   const addable = (members ?? []).filter((member) => !hostUserIds.includes(member.userId));
   const [search, setSearch] = useState("");
@@ -113,12 +114,8 @@ export function HostsField({
           />
         );
       })}
-      {event.teamId !== null ? (
-        isForbiddenError(membersError) ? (
-          <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
-            Adding hosts needs a team admin, and a sign-in that can read team members.
-          </Text>
-        ) : membersError && members === undefined ? (
+      {canAddHosts ? (
+        membersError && members === undefined ? (
           // Without this, a failed load reads as a team with nobody left to add.
           <View style={{ gap: 4 }}>
             <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
@@ -153,7 +150,7 @@ export function HostsField({
         {matching.map((member) => (
           <ListRow
             key={member.userId}
-            title={member.name || member.username || member.email}
+            title={getHostCandidateLabel(member)}
             subtitle={member.email}
             avatarUrl={member.avatarUrl}
             showAvatar
