@@ -35,6 +35,15 @@ describe("pickCalEventImage", () => {
     });
   });
 
+  test("says so and resolves to null when the picker fails", async () => {
+    mockLaunchImageLibraryAsync.mockRejectedValue(new Error("Failed to read picked image"));
+    await expect(pickCalEventImage({ maxBytes: 10 * 1024 * 1024 })).resolves.toBeNull();
+    expect(mockShowInfoAlert).toHaveBeenCalledWith(
+      "Error",
+      "Couldn't load the photo. Please try again."
+    );
+  });
+
   test("rejects an unsupported MIME type even when the extension looks supported", async () => {
     await expect(pick({ fileName: "animated.jpg", mimeType: "image/gif" })).resolves.toBeNull();
     expect(mockShowInfoAlert).toHaveBeenCalledWith(

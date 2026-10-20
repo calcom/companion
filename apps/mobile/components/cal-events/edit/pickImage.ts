@@ -12,8 +12,8 @@ const ACCEPTED_TYPES = new Set(Object.values(TYPES_BY_EXTENSION));
 
 /**
  * Lets the user pick a photo from their library for an event's cover or a person's avatar.
- * Resolves to null when they cancel, or when the photo is too big or not a JPEG, PNG or WebP
- * (after saying so). HEIC photos come back as JPEG, which the picker converts.
+ * Resolves to null when they cancel, or (after saying so) when the picker fails or the photo is
+ * too big or not a JPEG, PNG or WebP. HEIC photos come back as JPEG, which the picker converts.
  */
 export async function pickCalEventImage({
   maxBytes,
@@ -26,12 +26,18 @@ export async function pickCalEventImage({
   /** Crop to this aspect ratio; free when unset. */
   aspect?: [number, number];
 }): Promise<CalEventImageFile | null> {
+  // The picker rejects when it can't hand the photo over, e.g. an iCloud original that won't
+  // download. Say so: the callers fire this from a tap and drop the promise.
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
     allowsEditing: aspect !== undefined,
     aspect,
     quality: 0.85,
-  });
+  }).catch(() => null);
+  if (!result) {
+    showInfoAlert("Error", "Couldn't load the photo. Please try again.");
+    return null;
+  }
   if (result.canceled || !result.assets?.[0]) return null;
   const asset = result.assets[0];
 
