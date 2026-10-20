@@ -239,6 +239,7 @@ export function CreateCalEventScreen({
           <Pressable
             onPress={() => update({ requiresApproval: !values.requiresApproval })}
             accessibilityRole="switch"
+            accessibilityLabel="Require approval"
             accessibilityState={{ checked: values.requiresApproval }}
             accessibilityHint="Approve guests before they join"
             style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 4 }}
@@ -246,7 +247,9 @@ export function CreateCalEventScreen({
             <Switch
               value={values.requiresApproval}
               onValueChange={(requiresApproval) => update({ requiresApproval })}
-              accessibilityLabel="Require approval"
+              // The row is the one switch screen readers see, as in SwitchRow.
+              accessibilityElementsHidden
+              importantForAccessibility="no"
             />
             <Text style={{ color: theme.text, fontSize: 17, fontWeight: "500" }}>
               Require approval
