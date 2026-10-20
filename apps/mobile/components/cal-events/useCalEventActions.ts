@@ -18,7 +18,7 @@ import {
   showSuccessAlert,
 } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
-import { getCalEventEditorUrl } from "@/utils/cal-events";
+import { getCalEventEditorUrl, getCalEventPreviewUrl } from "@/utils/cal-events";
 
 const describeError = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -98,6 +98,11 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
   // No catch needed: openInAppBrowser (which openEditor wraps) alerts on failure and never rejects.
   const onOpenPage = useCallback(
     (event: CalEvent) => openInAppBrowser(event.publicUrl, "event page"),
+    []
+  );
+
+  const onPreview = useCallback(
+    (event: CalEvent) => openInAppBrowser(getCalEventPreviewUrl(event.slug), "event preview"),
     []
   );
 
@@ -222,6 +227,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
   return {
     onPress,
     onOpenPage,
+    onPreview,
     onEdit,
     onEditOnWeb,
     onCopyLink,

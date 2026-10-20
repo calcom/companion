@@ -345,6 +345,16 @@ export function getCalEventPublicUrl(slug: string): string {
   return `${getCalWebUrl()}/${slug}`;
 }
 
+/**
+ * A draft's public page through the web login: the page renders a draft only for its owner and
+ * hosts signed in on the web, and the app's ephemeral OAuth sign-in leaves the in-app browser
+ * without that session. The login page sends a signed-in user straight on to `callbackUrl`, and
+ * a fresh sign-in there too, so only the first preview asks the host to sign in.
+ */
+export function getCalEventPreviewUrl(slug: string): string {
+  return `${getCalAppUrl()}/auth/login?callbackUrl=${encodeURIComponent(getCalEventPublicUrl(slug))}`;
+}
+
 /** The web editor for an event, optionally opened on one of its tabs (such as `workflows`). */
 export function getCalEventEditorUrl(uuid: string, tabName?: string): string {
   const url = `${getCalAppUrl()}/events/${uuid}`;
@@ -398,7 +408,7 @@ export function canDeleteCalEvent(
 
 /**
  * Which public-page actions an event offers, by the web listing's rule. A draft's page 404s until
- * it is published (only a host signed in on the web sees it, and the in-app browser may not be),
+ * it is published (only a host signed in on the web sees it, which getCalEventPreviewUrl handles),
  * so it offers none; a cancelled event's page shows the cancellation notice: opened, not shared.
  */
 export function getCalEventLinkActions(status: CalEventStatus): {

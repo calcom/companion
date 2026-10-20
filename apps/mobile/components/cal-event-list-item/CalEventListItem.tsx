@@ -30,6 +30,7 @@ import { getAvatarUrl } from "@/utils/getAvatarUrl";
 export interface CalEventActions {
   onPress: (event: CalEvent) => void;
   onOpenPage: (event: CalEvent) => void;
+  onPreview: (event: CalEvent) => void;
   onEdit: (event: CalEvent) => void;
   onEditOnWeb: (event: CalEvent) => void;
   onCopyLink: (event: CalEvent) => void;

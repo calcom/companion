@@ -45,6 +45,7 @@ const {
   getCalEventGuestName,
   getCalEventLinkActions,
   getCalEventLocationLabel,
+  getCalEventPreviewUrl,
   getCalEventPublicUrl,
   getCalEventsProfileTeams,
   getCalEventTicketCheckInErrorMessage,
@@ -412,6 +413,12 @@ describe("urls", () => {
     );
     expect(getCalEventEditorUrl("019f8549-65f0-7915-a8a5-0f8ce3b6f80a", "workflows")).toBe(
       "https://app.example.test/events/019f8549-65f0-7915-a8a5-0f8ce3b6f80a?tabName=workflows"
+    );
+  });
+
+  test("previews a draft through the web login, which then opens its public page", () => {
+    expect(getCalEventPreviewUrl("rio-turns-one")).toBe(
+      "https://app.example.test/auth/login?callbackUrl=https%3A%2F%2Fexample.test%2Frio-turns-one"
     );
   });
 });

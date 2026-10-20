@@ -250,6 +250,17 @@ export default function CalEventDetailScreen() {
                 onPress={() => actions.onOpenPage(event)}
               />
             ) : null}
+            {/* A draft's page renders only for its owner and hosts, so only they get a preview. */}
+            {canManage && event.status === "draft" ? (
+              <ActionButton
+                theme={theme}
+                isDark={isDark}
+                primary
+                icon="eye-outline"
+                label="Preview"
+                onPress={() => actions.onPreview(event)}
+              />
+            ) : null}
             {canCheckIn ? (
               <ActionButton
                 theme={theme}

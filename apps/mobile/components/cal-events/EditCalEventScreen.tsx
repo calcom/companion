@@ -330,6 +330,15 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
     actions.onPublish(event);
   };
 
+  // The page shows what is saved, so unsaved edits would be missing from the preview.
+  const preview = () => {
+    if (dirty) {
+      showInfoAlert("Save your changes first", "Save your edits before previewing the event.");
+      return;
+    }
+    actions.onPreview(event);
+  };
+
   // Like the web: a paid event can't have both a waitlist and approval, so each locks the other.
   const waitlistBlocked = values.paymentEnabled && values.requiresApproval;
   const approvalBlocked = values.paymentEnabled && values.waitlistEnabled;
@@ -366,10 +375,12 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
     icon: "open-outline",
     onPress: () => actions.onOpenPage(event),
   };
-  // No "Preview" for a draft: its public page 404s until published (see getCalEventLinkActions).
   const menuItems: MenuItem[] =
     event.status === "draft"
-      ? [{ label: "Publish", icon: "rocket-outline", onPress: publish }]
+      ? [
+          { label: "Preview", icon: "eye-outline", onPress: preview },
+          { label: "Publish", icon: "rocket-outline", onPress: publish },
+        ]
       : event.status === "published"
         ? [
             viewPage,
