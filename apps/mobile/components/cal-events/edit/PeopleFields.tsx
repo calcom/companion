@@ -96,7 +96,7 @@ export function HostsField({
                   }
                   onRemove={() =>
                     Alert.alert(
-                      "Remove co-host?",
+                      "Remove host?",
                       "They will no longer be listed as a host on this event.",
                       [
                         { text: "Cancel", style: "cancel" },
