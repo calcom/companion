@@ -42,6 +42,13 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
     setPulling(true);
     offlineAwareRefresh(refetch).finally(() => setPulling(false));
   };
+  // Retry shows its own progress, and a second tap waits for the first.
+  const [retrying, setRetrying] = useState(false);
+  const retry = () => {
+    if (retrying) return;
+    setRetrying(true);
+    refetch().finally(() => setRetrying(false));
+  };
 
   return (
     <ScrollView
@@ -53,7 +60,8 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
       {isRefetchError ? (
         <ErrorNotice
           message="Couldn't refresh. These messages may be out of date."
-          onRetry={() => refetch()}
+          onRetry={retry}
+          busy={retrying}
         />
       ) : null}
       {isPending ? (
@@ -63,7 +71,7 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
           <Text style={{ color: theme.textSecondary, fontSize: 15 }}>
             Couldn't load sent messages.
           </Text>
-          <OutlineButton label="Retry" onPress={() => refetch()} />
+          <OutlineButton label="Retry" busy={retrying} onPress={retry} />
         </View>
       ) : messages.length === 0 ? (
         <View
@@ -167,7 +175,15 @@ function MessageRow({ message, first }: { message: CalEventMessage; first: boole
 }
 
 /** A problem loading messages, and Retry. */
-function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
+function ErrorNotice({
+  message,
+  onRetry,
+  busy = false,
+}: {
+  message: string;
+  onRetry: () => void;
+  busy?: boolean;
+}) {
   const theme = useEditTheme();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -175,7 +191,7 @@ function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => voi
       <Text accessibilityRole="alert" style={{ flex: 1, color: theme.textSecondary, fontSize: 14 }}>
         {message}
       </Text>
-      <OutlineButton label="Retry" onPress={onRetry} />
+      <OutlineButton label="Retry" busy={busy} onPress={onRetry} />
     </View>
   );
 }
