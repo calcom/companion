@@ -93,12 +93,29 @@ describe("refetchCalEventGuestsIfIdle", () => {
     await flush();
     invalidateQueries.mockClear();
 
-    refetchCalEventGuestsIfIdle(queryClient, UUID);
+    await refetchCalEventGuestsIfIdle(queryClient, UUID);
 
     expect(invalidateQueries).not.toHaveBeenCalled();
 
     answer.resolve({ kind: "checked_in" });
     await tap;
+  });
+
+  test("resolves once the guest list's refetch is done, so a pull can stop its spinner", async () => {
+    const { queryClient } = setup([]);
+    const refetched = deferred();
+    jest.spyOn(queryClient, "invalidateQueries").mockReturnValue(refetched.promise);
+    let done = false;
+
+    const refresh = refetchCalEventGuestsIfIdle(queryClient, UUID).then(() => {
+      done = true;
+    });
+    await flush();
+    expect(done).toBe(false);
+
+    refetched.resolve();
+    await refresh;
+    expect(done).toBe(true);
   });
 });
 

@@ -63,12 +63,14 @@ export function useCalEventGuests(uuid: string | undefined) {
   });
 }
 
-/** Skipped while a tap is in flight: its onSettled refetches, and a refetch now could flip its guest back. */
-export function refetchCalEventGuestsIfIdle(queryClient: QueryClient, uuid: string) {
+/**
+ * Skipped while a tap is in flight: its onSettled refetches, and a refetch now could flip its guest
+ * back. Resolves once the refetch is done, or at once when skipped, so a pull can stop its spinner.
+ */
+export function refetchCalEventGuestsIfIdle(queryClient: QueryClient, uuid: string): Promise<void> {
   const queryKey = queryKeys.calEvents.guests(uuid);
-  if (queryClient.isMutating({ mutationKey: queryKey }) === 0) {
-    queryClient.invalidateQueries({ queryKey });
-  }
+  if (queryClient.isMutating({ mutationKey: queryKey }) > 0) return Promise.resolve();
+  return queryClient.invalidateQueries({ queryKey });
 }
 
 /** What the guest showed before the tap, put back if the call fails. */

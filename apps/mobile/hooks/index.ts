@@ -38,6 +38,7 @@ export {
 // Cal Event guests (check-in) hooks
 export {
   isCalEventGuestPending,
+  refetchCalEventGuestsIfIdle,
   useCalEventCheckInAvailability,
   useCalEventGuests,
   useCheckInCalEventGuest,

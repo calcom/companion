@@ -20,6 +20,7 @@ import {
   isCalEventGuestPending,
   isForbiddenError,
   isNotFoundError,
+  refetchCalEventGuestsIfIdle,
   useCalEvent,
   useCalEventCheckInAvailability,
   useCalEventGuests,
@@ -70,7 +71,8 @@ export default function CalEventCheckInScreen() {
 
   const onRefresh = async () => {
     setPulling(true);
-    await offlineAwareRefresh(refetch);
+    // Not refetch: it would run during a tap in flight too, and could bring its guest back unflipped.
+    await offlineAwareRefresh(() => refetchCalEventGuestsIfIdle(queryClient, uuid));
     setPulling(false);
   };
 
