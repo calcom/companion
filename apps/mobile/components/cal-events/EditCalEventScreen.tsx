@@ -51,6 +51,7 @@ import {
   getCalEventEditorUrl,
   getCalEventPublicUrl,
   getCalEventStatusColors,
+  isPaidCalEvent,
 } from "@/utils/cal-events";
 import {
   preserveWallTimeOnTimezoneChange,
@@ -165,7 +166,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const scrollRef = useRef<ScrollView>(null);
 
   // Prefilled once: a refetch while editing must not reset what the user typed.
-  const [initial] = useState(() => buildEditFormValues(event));
+  const [initial, setInitial] = useState(() => buildEditFormValues(event));
   const [values, setValues] = useState(initial);
   const [cover, setCover] = useState<CoverChange>({ kind: "keep" });
   const [tab, setTab] = useState<TabId>("basics");
@@ -188,6 +189,18 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       ...current,
       ...(typeof patch === "function" ? patch(current) : patch),
     }));
+
+  // A price set in the Locations tab makes the event paid. The Payment tab then shows it as if
+  // the form had opened paid, rather than hiding the price behind a "Paid event" that's off.
+  const locationsPaid = isPaidCalEvent({ price: event.price, locations });
+  const [wasLocationsPaid, setWasLocationsPaid] = useState(locationsPaid);
+  if (locationsPaid !== wasLocationsPaid) {
+    setWasLocationsPaid(locationsPaid);
+    if (locationsPaid) {
+      setInitial((current) => ({ ...current, paymentEnabled: true }));
+      update({ paymentEnabled: true });
+    }
+  }
 
   const published = event.publishedAt !== null;
   const input = useMemo(
