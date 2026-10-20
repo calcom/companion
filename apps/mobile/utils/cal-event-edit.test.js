@@ -19,6 +19,7 @@ const {
   getCalEventLocationError,
   getEditCalEventErrors,
   getRegistrationFieldsError,
+  hasCalEventPrice,
   isCalEventLocationRemovalLocked,
   moveItem,
   slugForRegistrationField,
@@ -634,6 +635,24 @@ describe("paid event", () => {
     expect(
       errors({ locationPrices: { l2: { price: "abc", currency: "usd" } } }, priced()).locationPrices
     ).toMatch(/price like/);
+  });
+
+  test("a price is held by a location, typed or saved, or by an event without locations", () => {
+    const opened = buildEditFormValues(priced());
+    expect(hasCalEventPrice(opened, priced().locations)).toBe(true);
+    // The priced location removed on the Locations tab, which applies at once.
+    const free = priced().locations.slice(1);
+    expect(hasCalEventPrice(opened, free)).toBe(false);
+    const typed = (price) => ({ ...opened, locationPrices: { l2: { price, currency: "usd" } } });
+    expect(hasCalEventPrice(typed("5"), free)).toBe(true);
+    expect(hasCalEventPrice(typed(" "), free)).toBe(false);
+    // Every location removed: only the event's own price is left.
+    expect(hasCalEventPrice(opened, [])).toBe(false);
+    const stream = buildEditFormValues(streamOnly({ price: 1500, currency: "eur" }));
+    expect(hasCalEventPrice(stream, [])).toBe(true);
+    // One the API can't represent has no Payment tab row, so its price doesn't count.
+    const unknown = { id: "l3", type: "unknown", location: "{}", price: 100 };
+    expect(hasCalEventPrice(opened, [unknown])).toBe(false);
   });
 
   test("a paid waitlist can't require approval", () => {

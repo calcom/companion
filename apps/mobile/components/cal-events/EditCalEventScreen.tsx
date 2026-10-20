@@ -45,6 +45,7 @@ import {
   type CalEventEditFormValues,
   formatWallDateTime,
   getEditCalEventErrors,
+  hasCalEventPrice,
 } from "@/utils/cal-event-edit";
 import {
   CAL_EVENT_STATUS_LABELS,
@@ -192,6 +193,9 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
 
   // A price set in the Locations tab makes the event paid. The Payment tab then shows it as if
   // the form had opened paid, rather than hiding the price behind a "Paid event" that's off.
+  // Removing the last one there makes it free again, so the toggle goes off too: left on, every
+  // save would ask for a price, which a published event's locked Payment tab can't give. Unless
+  // the form still holds one: typed in the Payment tab, or a stream-only event's own.
   // Follows location prices only (the API folds an old event-level price into them): a price set
   // on the web for an event without locations would turn this on with an empty price field.
   const locationsPaid = isPaidCalEvent({ price: null, locations });
@@ -201,6 +205,9 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
     if (locationsPaid) {
       setInitial((current) => ({ ...current, paymentEnabled: true }));
       update({ paymentEnabled: true });
+    } else if (values.paymentEnabled && !hasCalEventPrice(values, locations)) {
+      setInitial((current) => ({ ...current, paymentEnabled: false }));
+      update({ paymentEnabled: false });
     }
   }
 

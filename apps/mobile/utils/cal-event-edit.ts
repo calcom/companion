@@ -726,6 +726,21 @@ export function calEventLocationPriceValues(
   );
 }
 
+/**
+ * Whether the Payment tab holds a price to charge: a location's, typed or saved, or an event
+ * without locations' own. A paid event can't be saved without one.
+ */
+export function hasCalEventPrice(
+  values: Pick<CalEventEditFormValues, "price" | "locationPrices">,
+  locations: CalEventLocation[]
+): boolean {
+  const admission = getAdmissionLocations(locations);
+  if (admission.length === 0) return values.price.trim() !== "";
+  return admission.some(
+    (location) => calEventLocationPriceValues(values, location).price.trim() !== ""
+  );
+}
+
 function getPaymentErrors(
   values: CalEventEditFormValues,
   locations: CalEventLocation[]
