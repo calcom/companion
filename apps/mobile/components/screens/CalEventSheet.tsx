@@ -24,20 +24,21 @@ export function CalEventSheet({
   children,
 }: CalEventSheetProps) {
   const theme = useEditTheme();
+  // Dimmed on a wrapper: AppPressable's press animation sets its own opacity over the style's.
+  // Pressable reports `disabled` to screen readers itself.
   const headerButton = (icon: "close" | "checkmark", onPress: () => void, disabled: boolean) => (
-    <AppPressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityLabel={icon === "close" ? "Close" : "Send"}
-      className="h-10 w-10 items-center justify-center rounded-full border"
-      style={{
-        borderColor: theme.border,
-        backgroundColor: theme.background,
-        opacity: disabled ? 0.5 : 1,
-      }}
-    >
-      <Ionicons name={icon} size={20} color={theme.text} />
-    </AppPressable>
+    <View style={{ opacity: disabled ? 0.5 : 1 }}>
+      <AppPressable
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={icon === "close" ? "Close" : "Send"}
+        className="h-10 w-10 items-center justify-center rounded-full border"
+        style={{ borderColor: theme.border, backgroundColor: theme.background }}
+      >
+        <Ionicons name={icon} size={20} color={theme.text} />
+      </AppPressable>
+    </View>
   );
   return (
     <>
