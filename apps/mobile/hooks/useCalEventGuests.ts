@@ -378,7 +378,8 @@ export function checkInCalEventGuestByTicketMutationOptions(
       );
     },
     onError: (error) => {
-      console.error("Failed to check a guest in from a ticket");
+      // A 404 is a ticket that isn't for this event, which the scanner says itself: not an error.
+      if (!isNotFoundError(error)) console.error("Failed to check a guest in from a ticket");
       if (__DEV__) {
         const message = error instanceof Error ? error.message : String(error);
         console.debug("[useCalEventGuests] ticket check-in failed", { message });
