@@ -60,7 +60,12 @@ export function SelectField<T extends string | null>({
           {options.map((option) => {
             const checked = option.value === value;
             return (
-              <DropdownMenuItem key={String(option.value)} onPress={() => onChange(option.value)}>
+              <DropdownMenuItem
+                key={String(option.value)}
+                onPress={() => onChange(option.value)}
+                // The checkmark is only drawn; TalkBack announces the current option as selected.
+                accessibilityState={{ selected: checked }}
+              >
                 <View style={{ flex: 1, gap: 2 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                     {option.swatches ? <Swatches colors={option.swatches} /> : null}
