@@ -617,7 +617,7 @@ export function getInviteResultMessage(result: CalEventInvitationResult): {
   } else if (skipped > 0) {
     title = `Invited ${invited}. Skipped ${skipped} (already invited, registered, or invalid).`;
   } else {
-    title = `Invited ${invited} guests`;
+    title = `Invited ${invited} ${plural(invited, "guest", "guests")}`;
   }
   const skippedGroups = INVITE_SKIP_REASONS.flatMap(({ reason, label }) => {
     const emails = result.outcomes
