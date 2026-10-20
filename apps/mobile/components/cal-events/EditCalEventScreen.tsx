@@ -630,8 +630,8 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
           />
           {published ? (
             <HintText>
-              This choice is locked because guests have already registered under it. They were told
-              what would be public when they signed up, so it can’t change on a published event.
+              This choice is locked once the event is published, so guests always see what they were
+              told when they signed up.
             </HintText>
           ) : null}
         </View>
