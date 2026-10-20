@@ -560,6 +560,15 @@ describe("paid event", () => {
     });
   });
 
+  test("a price changed on the web since the form opened is only replaced from here", () => {
+    const opened = buildEditFormValues(streamOnly({ price: 1500, currency: "eur" }));
+    const refetched = streamOnly({ price: 2000, currency: "eur" });
+    const save = (patch) => buildCalEventUpdateInput(opened, { ...opened, ...patch }, refetched);
+    expect(save({ name: "Renamed" })).toEqual({ title: "Renamed" });
+    expect(save({ paymentEnabled: false, price: "" })).toMatchObject({ price: null });
+    expect(save({ price: "25" })).toEqual({ price: 2500, currency: "eur" });
+  });
+
   test("an event with locations never sends an event-level price", () => {
     expect(edit({ paymentEnabled: true, price: "15" }, event())).toEqual({});
     expect(edit({ paymentEnabled: false }, priced({ price: 900, currency: "usd" }))).toEqual({});

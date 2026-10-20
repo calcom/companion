@@ -436,8 +436,18 @@ export function buildCalEventUpdateInput(
     input.paymentTimeoutMinutes = timeout ? Number(timeout) : null;
   }
   // The event-level price is only for an event without locations (the server rejects it on one
-  // with locations, which is priced per location: buildCalEventLocationPriceUpdates).
-  if (getAdmissionLocations(event.locations).length === 0 && sendsPrices(initial, current)) {
+  // with locations, which is priced per location: buildCalEventLocationPriceUpdates). Only when
+  // it was changed here: the form's price is from when it opened, so a price changed on the web
+  // since would otherwise be put back by any later save.
+  const priceChanged =
+    current.paymentEnabled !== initial.paymentEnabled ||
+    current.price !== initial.price ||
+    current.currency !== initial.currency;
+  if (
+    getAdmissionLocations(event.locations).length === 0 &&
+    sendsPrices(initial, current) &&
+    priceChanged
+  ) {
     const price = current.paymentEnabled ? toMinorUnits(current.price, current.currency) : null;
     if (
       price !== (event.price || null) ||
