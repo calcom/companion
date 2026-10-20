@@ -178,7 +178,7 @@ export default function CalEventCheckInScannerScreen() {
         {cameraUnavailable ? (
           <>
             <Text style={{ color: "rgba(255, 255, 255, 0.85)", fontSize: 16, textAlign: "center" }}>
-              Camera unavailable. Allow camera access, or use the list below to check guests in.
+              Camera unavailable. Allow camera access, or tap Done to check guests in from the list.
             </Text>
             {cameraFailed ? null : (
               <TouchableOpacity
