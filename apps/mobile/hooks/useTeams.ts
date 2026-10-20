@@ -8,8 +8,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
-import { isForbiddenError } from "@/hooks/useCalEvents";
-import { CalComAPIService, type Team } from "@/services/calcom";
+import { isForbiddenError, isNetworkError } from "@/hooks/useCalEvents";
+import { CalComAPIService, type Team, type TeamMember } from "@/services/calcom";
 
 export function useTeams({ enabled = true } = {}) {
   return useQuery({
@@ -18,14 +18,25 @@ export function useTeams({ enabled = true } = {}) {
     enabled,
     staleTime: CACHE_CONFIG.userProfile.staleTime,
     placeholderData: (previousData) => previousData,
-    retry: (failureCount, error) => {
-      if (error?.message?.includes("Network") || error?.message?.includes("fetch")) {
-        return false;
-      }
-      // A 403 is a token without TEAM_PROFILE_READ: retrying can't grant it.
-      return !isForbiddenError(error) && failureCount < 2;
-    },
+    // A 403 is a token without TEAM_PROFILE_READ: retrying can't grant it.
+    retry: (failureCount, error) =>
+      !isNetworkError(error) && !isForbiddenError(error) && failureCount < 2,
   });
 }
 
-export type { Team };
+/**
+ * A team's accepted members, for picking an event's hosts. Only team admins may list them: a
+ * 403 means the picker can't add hosts, which the editor says.
+ */
+export function useTeamMembers(teamId: number | null) {
+  return useQuery({
+    queryKey: queryKeys.teams.members(teamId ?? 0),
+    queryFn: () => CalComAPIService.getTeamMembers(teamId ?? 0),
+    enabled: teamId !== null,
+    staleTime: CACHE_CONFIG.userProfile.staleTime,
+    retry: (failureCount, error) =>
+      !isNetworkError(error) && !isForbiddenError(error) && failureCount < 2,
+  });
+}
+
+export type { Team, TeamMember };

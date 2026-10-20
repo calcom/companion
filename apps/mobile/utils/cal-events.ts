@@ -4,7 +4,12 @@
  * read the same event the same way.
  */
 
-import type { CalEvent, CalEventStatus, Team } from "@/services/types/cal-events.types";
+import type {
+  CalEvent,
+  CalEventLocation,
+  CalEventStatus,
+  Team,
+} from "@/services/types/cal-events.types";
 import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
 
 export type CalEventsGroupKind = "drafts" | "upcoming" | "past";
@@ -128,15 +133,90 @@ export function isCalEventInPerson(event: Pick<CalEvent, "locationAddress">): bo
   return !!event.locationAddress?.trim();
 }
 
+// Stored in whole units (¥1,500 is 1500); every other currency is stored in hundredths.
+// Mirrors Cal.com's convertToSmallestCurrencyUnit, which follows Stripe's zero-decimal list.
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "BIF",
+  "CLP",
+  "DJF",
+  "GNF",
+  "JPY",
+  "KMF",
+  "KRW",
+  "MGA",
+  "PYG",
+  "RWF",
+  "UGX",
+  "VND",
+  "VUV",
+  "XAF",
+  "XOF",
+  "XPF",
+]);
+
+/** Decimal places a price's smallest unit holds: 0 for JPY and the like, 2 otherwise. */
+export function getCalEventPriceDecimals(currency: string): 0 | 2 {
+  return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase()) ? 0 : 2;
+}
+
 /** "€15.00", from the smallest currency unit. Falls back to "15.00 EURO" for a malformed code. */
 export function formatCalEventPrice(price: number, currency: string | null): string {
-  const amount = price / 100;
   const code = (currency || "usd").toUpperCase();
+  const decimals = getCalEventPriceDecimals(code);
+  const amount = price / 10 ** decimals;
   try {
     return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(amount);
   } catch {
-    return `${amount.toFixed(2)} ${code}`;
+    return `${amount.toFixed(decimals)} ${code}`;
   }
+}
+
+/**
+ * The locations a guest picks at registration, and the Payment tab's rows. One this API version
+ * can't represent is never one.
+ */
+export function getAdmissionLocations(locations: CalEventLocation[]): CalEventLocation[] {
+  return locations.filter((location) => location.type !== "unknown");
+}
+
+/**
+ * Whether anyone can owe money, by the server's rule (isPaidCalEvent): the event-level price, or
+ * any location's own price.
+ */
+export function isPaidCalEvent(event: Pick<CalEvent, "price" | "locations">): boolean {
+  if ((event.price ?? 0) > 0) return true;
+  return getAdmissionLocations(event.locations).some((location) => (location.price ?? 0) > 0);
+}
+
+/**
+ * The price the web listing shows (getCalEventPublicPrice): the cheapest priced location, as
+ * "From €10.00" when the locations charge different amounts, or "Free – €10.00" when one is free.
+ * Unlike the web, amounts in different currencies aren't compared: each currency shows its own
+ * cheapest ("From €10.00 / ¥1,500"). Without priced locations, the event-level price. Null when
+ * the event is free.
+ */
+export function formatCalEventPublicPrice(
+  event: Pick<CalEvent, "price" | "currency" | "locations">
+): string | null {
+  const admission = getAdmissionLocations(event.locations);
+  const priced = admission.filter((location) => (location.price ?? 0) > 0);
+  if (priced.length === 0) {
+    return event.price ? formatCalEventPrice(event.price, event.currency) : null;
+  }
+  const currencyOf = (location: CalEventLocation) => (location.currency ?? "usd").toLowerCase();
+  const cheapest = new Map<string, number>();
+  for (const location of priced) {
+    const price = location.price ?? 0;
+    const currency = currencyOf(location);
+    cheapest.set(currency, Math.min(price, cheapest.get(currency) ?? price));
+  }
+  const label = [...cheapest]
+    .map(([currency, price]) => formatCalEventPrice(price, currency))
+    .join(" / ");
+  // A free location headlines the range: guests must never skip it believing they'd pay.
+  if (priced.length < admission.length) return `Free – ${label}`;
+  const charges = new Set(priced.map((location) => `${location.price}:${currencyOf(location)}`));
+  return charges.size > 1 ? `From ${label}` : label;
 }
 
 /**
@@ -146,7 +226,13 @@ export function formatCalEventPrice(price: number, currency: string | null): str
 export function getCalEventFacts(
   event: Pick<
     CalEvent,
-    "capacity" | "confirmedCount" | "price" | "currency" | "visibility" | "waitlistEnabled"
+    | "capacity"
+    | "confirmedCount"
+    | "price"
+    | "currency"
+    | "locations"
+    | "visibility"
+    | "waitlistEnabled"
   >
 ): string[] {
   const facts: string[] = [];
@@ -161,7 +247,8 @@ export function getCalEventFacts(
     if (capacity !== null) facts.push(`${capacity} cap`);
   }
 
-  if (event.price) facts.push(formatCalEventPrice(event.price, event.currency));
+  const price = formatCalEventPublicPrice(event);
+  if (price) facts.push(price);
   if (event.visibility === "UNLISTED") facts.push("Unlisted");
 
   return facts;
@@ -242,9 +329,10 @@ export function getCalEventPublicUrl(slug: string): string {
   return `${getCalWebUrl()}/${slug}`;
 }
 
-/** The web editor for an event: the app creates events but edits them on the web. */
-export function getCalEventEditorUrl(uuid: string): string {
-  return `${getCalAppUrl()}/events/${uuid}`;
+/** The web editor for an event, optionally opened on one of its tabs (such as `workflows`). */
+export function getCalEventEditorUrl(uuid: string, tabName?: string): string {
+  const url = `${getCalAppUrl()}/events/${uuid}`;
+  return tabName ? `${url}?tabName=${tabName}` : url;
 }
 
 /**
@@ -260,15 +348,16 @@ export function canManageCalEventLifecycle(
 }
 
 /**
- * Whether the server will accept a delete: never a published paid event (its payment records are
- * kept), and only without confirmed guests. A draft can't have any, and a cancelled event's
- * confirmedCount still counts the cancelled booking's seats, which the server ignores. Otherwise a
- * missing count (the single-event response has none) is unknown, not zero.
+ * Whether the server will accept a delete: never a published paid event, priced on the event or
+ * on any location (its payment records are kept; a cancelled one keeps `publishedAt` too), and
+ * only without confirmed guests. A draft can't have any, and a cancelled event's confirmedCount
+ * still counts the cancelled booking's seats, which the server ignores. Otherwise a missing count
+ * (the single-event response has none) is unknown, not zero.
  */
 export function canDeleteCalEvent(
-  event: Pick<CalEvent, "publishedAt" | "price" | "status" | "confirmedCount">
+  event: Pick<CalEvent, "publishedAt" | "price" | "locations" | "status" | "confirmedCount">
 ): boolean {
-  if (event.publishedAt && event.price) return false;
+  if (event.publishedAt && isPaidCalEvent(event)) return false;
   if (event.status === "draft" || event.status === "cancelled") return true;
   return event.confirmedCount === 0;
 }

@@ -66,7 +66,8 @@ export function useOpenCalEventEditor() {
 }
 
 /**
- * The actions an event row and the detail screen share: open, edit on web, copy, share,
+ * The actions an event row and the detail screen share: open, edit (natively, or on the web
+ * for co-hosts), copy, share,
  * and the host-only lifecycle changes behind a native confirmation.
  */
 export function useCalEventActions(options: { afterDelete?: () => void } = {}): CalEventActions {
@@ -83,6 +84,13 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
         pathname: "/event-detail",
         params: { uuid: event.uuid, title: event.title },
       });
+    },
+    [router]
+  );
+
+  const onEdit = useCallback(
+    (event: CalEvent) => {
+      router.push({ pathname: "/edit-cal-event", params: { uuid: event.uuid } });
     },
     [router]
   );
@@ -211,5 +219,15 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
     [remove, afterDelete]
   );
 
-  return { onPress, onOpenPage, onEditOnWeb, onCopyLink, onShare, onPublish, onCancel, onDelete };
+  return {
+    onPress,
+    onOpenPage,
+    onEdit,
+    onEditOnWeb,
+    onCopyLink,
+    onShare,
+    onPublish,
+    onCancel,
+    onDelete,
+  };
 }

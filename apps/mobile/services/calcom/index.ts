@@ -18,14 +18,43 @@
 
 // Re-export types for backward compatibility
 export type {
+  AddCalEventLocationInput,
+  ApproveAllCalEventRegistrationsInput,
   Booking,
   BookingLimitsCount,
   BookingLimitsDuration,
   BookingParticipationResult,
   CalEvent,
+  CalEventApproveAllResult,
+  CalEventBackground,
+  CalEventCategory,
+  CalEventCoHost,
+  CalEventCustomFieldType,
+  CalEventGuestList,
   CalEventHost,
+  CalEventInvitationReason,
+  CalEventInvitationResult,
+  CalEventLineup,
+  CalEventLineupPerson,
   CalEventLocation,
+  CalEventMessage,
+  CalEventMessageSegment,
+  CalEventMessageSendResult,
+  CalEventMessageStatus,
+  CalEventMessagesPage,
+  CalEventRegistrationCounts,
+  CalEventRegistrationDecision,
+  CalEventRegistrationField,
+  CalEventRegistrationStatus,
+  CalEventRosterGuest,
+  CalEventRsvpResponse,
+  CalEventScheduleItem,
+  CalEventSchedulePerson,
+  CalEventShaderId,
   CalEventStatus,
+  CalEventsListingStatus,
+  CalEventsPage,
+  CalEventTheme,
   ConferencingOption,
   ConfirmationPolicy,
   CreateCalEventInput,
@@ -33,9 +62,13 @@ export type {
   CreatePrivateLinkInput,
   CreateWebhookInput,
   EventType,
+  InviteCalEventGuestsInput,
   PrivateLink,
   Schedule,
+  SendCalEventMessageInput,
   Team,
+  UpdateCalEventInput,
+  UpdateCalEventLocationInput,
   UpdatePrivateLinkInput,
   UpdateWebhookInput,
   UserProfile,
@@ -72,13 +105,36 @@ import {
   updateLocationV2,
 } from "./bookings";
 import {
+  addCalEventLocation,
+  approveAllCalEventRegistrations,
+  approveCalEventRegistration,
   cancelCalEvent,
   createCalEvent,
+  declineCalEventRegistration,
   deleteCalEvent,
+  deleteCalEventCoverImage,
   getCalEvent,
+  getCalEventCoHosts,
+  getCalEventLocations,
+  getCalEventMessages,
+  getCalEventRegistrationCounts,
+  getCalEventRoster,
   getCalEvents,
+  inviteCalEventCoHost,
+  inviteCalEventGuests,
   publishCalEvent,
+  removeCalEventCoHost,
+  removeCalEventLocation,
+  reorderCalEventCoHosts,
+  sendCalEventMessage,
+  updateCalEvent,
+  updateCalEventLocation,
+  uploadCalEventCoverImage,
+  uploadCalEventPersonAvatar,
 } from "./cal-events";
+
+export type { CalEventImageFile } from "./cal-events";
+
 import { getConferencingOptions } from "./conferencing";
 import {
   createEventType,
@@ -103,7 +159,10 @@ import {
   getSchedules,
   updateSchedule,
 } from "./schedules";
-import { getTeams } from "./teams";
+import { getTeamMembers, getTeams } from "./teams";
+
+export type { TeamMember } from "./teams";
+
 import {
   clearUserProfile,
   getCurrentUser,
@@ -163,9 +222,30 @@ export const CalComAPIService = {
   publishCalEvent,
   cancelCalEvent,
   deleteCalEvent,
+  updateCalEvent,
+  getCalEventLocations,
+  addCalEventLocation,
+  updateCalEventLocation,
+  removeCalEventLocation,
+  uploadCalEventCoverImage,
+  deleteCalEventCoverImage,
+  uploadCalEventPersonAvatar,
+  getCalEventCoHosts,
+  inviteCalEventCoHost,
+  reorderCalEventCoHosts,
+  removeCalEventCoHost,
+  getCalEventRoster,
+  getCalEventRegistrationCounts,
+  inviteCalEventGuests,
+  sendCalEventMessage,
+  getCalEventMessages,
+  approveAllCalEventRegistrations,
+  approveCalEventRegistration,
+  declineCalEventRegistration,
 
   // Teams
   getTeams,
+  getTeamMembers,
 
   // Bookings
   cancelBooking,
