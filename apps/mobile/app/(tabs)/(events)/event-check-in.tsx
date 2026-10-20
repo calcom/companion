@@ -325,7 +325,15 @@ function SearchField({
         onChangeText={onChangeText}
         placeholder="Search guests"
         placeholderTextColor={theme.textMuted}
-        style={{ flex: 1, marginLeft: 8, color: theme.text, fontSize: 16 }}
+        // Fill the field's height: sized to its text, iOS can draw the placeholder low and clip it.
+        style={{
+          flex: 1,
+          alignSelf: "stretch",
+          paddingVertical: 0,
+          marginLeft: 8,
+          color: theme.text,
+          fontSize: 16,
+        }}
         autoCapitalize="none"
         autoCorrect={false}
         returnKeyType="search"
