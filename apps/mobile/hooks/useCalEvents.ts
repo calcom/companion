@@ -343,6 +343,8 @@ export function useAddCalEventLocation() {
       CalComAPIService.addCalEventLocation(uuid, location),
     // Not idempotent: a retry after a lost response would add it twice.
     retry: false,
+    // Unlike a change or removal, the response isn't written to the list, so the add waits for
+    // the refetch: the next add's address check and the removal lock read that list.
     onSettled: (_location, _error, { uuid }) => invalidateCalEventLocations(queryClient, uuid),
   });
 }
@@ -366,7 +368,9 @@ export function useUpdateCalEventLocation() {
         current?.map((existing) => (existing.id === locationId ? location : existing))
       );
     },
-    onSettled: (_location, _error, { uuid }) => invalidateCalEventLocations(queryClient, uuid),
+    onSettled: (_location, _error, { uuid }) => {
+      invalidateCalEventLocations(queryClient, uuid);
+    },
   });
 }
 
@@ -381,15 +385,20 @@ export function useRemoveCalEventLocation() {
     onSuccess: (remaining, { uuid }) => {
       queryClient.setQueryData(queryKeys.calEvents.locations(uuid), remaining);
     },
-    onSettled: (_remaining, _error, { uuid }) => invalidateCalEventLocations(queryClient, uuid),
+    onSettled: (_remaining, _error, { uuid }) => {
+      invalidateCalEventLocations(queryClient, uuid);
+    },
   });
 }
 
-/** A location change shows on the event's detail and in the listings too. */
+/**
+ * A location change shows on the event's detail and in the listings too. Resolves once the
+ * locations list has refetched.
+ */
 function invalidateCalEventLocations(queryClient: ReturnType<typeof useQueryClient>, uuid: string) {
-  queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.locations(uuid) });
   queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.detail(uuid) });
   queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.lists() });
+  return queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.locations(uuid) });
 }
 
 /** Hook to fetch an event's external co-hosts. */
@@ -424,9 +433,10 @@ export function useChangeCalEventCoHosts() {
       }
     },
     retry: false,
-    onSettled: (_result, _error, { uuid }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.coHosts(uuid) });
-    },
+    // Returned so isPending stays on until the list refetches: a reorder from the old list would
+    // undo this change, or be rejected as stale.
+    onSettled: (_result, _error, { uuid }) =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.coHosts(uuid) }),
   });
 }
 
