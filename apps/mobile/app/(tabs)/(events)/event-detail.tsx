@@ -10,13 +10,14 @@ import { getColors } from "@/constants/colors";
 import { isForbiddenError, useCalEvent, useUserProfile } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
+import { canEditCalEvent } from "@/utils/cal-event-edit";
 import {
   CAL_EVENT_STATUS_LABELS,
   canCheckInCalEventGuests,
   canDeleteCalEvent,
   canManageCalEventLifecycle,
   formatCalEventDate,
-  formatCalEventPrice,
+  formatCalEventPublicPrice,
   formatCalEventTimeRange,
   getCalEventLinkActions,
   getCalEventLocationLabel,
@@ -101,9 +102,11 @@ export default function CalEventDetailScreen() {
 
   const status = getCalEventStatusColors(event.status, isDark);
   const canManage = canManageCalEventLifecycle(event, me?.id);
+  const canEdit = canEditCalEvent(event, me?.id);
   const canCheckIn = canCheckInCalEventGuests(event, me?.id);
   const { canViewPage, canShare } = getCalEventLinkActions(event.status);
   const inPerson = isCalEventInPerson(event);
+  const price = formatCalEventPublicPrice(event);
   const link =
     event.locations.find(
       (location): location is Extract<CalEvent["locations"][number], { type: "link" }> =>
@@ -198,13 +201,8 @@ export default function CalEventDetailScreen() {
                   .join(" · ")}
               />
             ) : null}
-            {event.price ? (
-              <Row
-                theme={theme}
-                icon="pricetag-outline"
-                title={formatCalEventPrice(event.price, event.currency)}
-                subtitle="per ticket"
-              />
+            {price ? (
+              <Row theme={theme} icon="pricetag-outline" title={price} subtitle="per ticket" />
             ) : null}
           </Card>
 
@@ -270,13 +268,16 @@ export default function CalEventDetailScreen() {
                 }
               />
             ) : null}
-            <ActionButton
-              theme={theme}
-              isDark={isDark}
-              icon="pencil-outline"
-              label="Edit on web"
-              onPress={() => actions.onEditOnWeb(event)}
-            />
+            {/* Co-hosts can't edit natively, but the web still lets them change some fields. */}
+            {event.status !== "cancelled" ? (
+              <ActionButton
+                theme={theme}
+                isDark={isDark}
+                icon="pencil-outline"
+                label={canEdit ? "Edit" : "Edit on web"}
+                onPress={() => (canEdit ? actions.onEdit(event) : actions.onEditOnWeb(event))}
+              />
+            ) : null}
             {canShare ? (
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <ActionButton

@@ -19,17 +19,19 @@ jest.mock("@/services/calcom/request", () => ({
 const {
   CAL_EVENT_INVALID_TICKET_MESSAGE,
   canCheckInCalEventGuests,
-  canTapCalEventGuest,
-  createCalEventScanGate,
+  canCreateTeamCalEvents,
   canDeleteCalEvent,
   canManageCalEventLifecycle,
   canReadCalEvents,
+  canTapCalEventGuest,
+  createCalEventScanGate,
   deriveCalEventStatus,
   filterCalEventGuests,
   filterCalEventsByTitle,
   formatCalEventCheckInTime,
   formatCalEventDate,
   formatCalEventPrice,
+  formatCalEventPublicPrice,
   formatCalEventTime,
   formatCalEventTimeRange,
   getCalEventCheckInAvailability,
@@ -47,6 +49,7 @@ const {
   getCalEventTicketCheckInErrorMessage,
   groupCalEvents,
   isCalEventCheckInTokenShaped,
+  isPaidCalEvent,
   needsSignInAgainForCalEvents,
   refreshCalEventStatuses,
   setCalEventGuestCheckedInAt,
@@ -181,9 +184,116 @@ describe("getCalEventFacts", () => {
     expect(formatCalEventPrice(999, "usd")).toBe("$9.99");
   });
 
+  test("shows the price of priced locations", () => {
+    expect(
+      getCalEventFacts(
+        createEvent({
+          confirmedCount: 0,
+          visibility: "PUBLIC",
+          locations: [venue(2500), stream(null)],
+        })
+      )
+    ).toEqual(["Free – €25.00"]);
+  });
+
+  test("keeps zero-decimal currencies whole, as Cal.com stores them", () => {
+    expect(formatCalEventPrice(1500, "jpy")).toBe("¥1,500");
+    expect(formatCalEventPrice(15000, "KRW")).toBe("₩15,000");
+    // Intl shows ISK without decimals, but Cal.com still stores it in hundredths.
+    expect(formatCalEventPrice(15000, "isk")).toMatch(/^ISK\s150$/);
+  });
+
   test("falls back to the amount and code for a malformed currency code", () => {
     // Intl throws only for a malformed code; a well-formed unknown one like "XYZ" still formats.
     expect(formatCalEventPrice(1500, "euro")).toBe("15.00 EURO");
+  });
+});
+
+const venue = (price, currency = "eur") => ({
+  type: "address",
+  address: "Main St 1",
+  price,
+  currency,
+});
+const stream = (price, currency = "eur") => ({
+  type: "link",
+  link: "https://example.test/live",
+  price,
+  currency,
+});
+
+describe("isPaidCalEvent", () => {
+  test("counts the event-level price or any location's own price", () => {
+    expect(isPaidCalEvent(createEvent())).toBe(false);
+    expect(isPaidCalEvent(createEvent({ price: 1500, currency: "usd" }))).toBe(true);
+    expect(isPaidCalEvent(createEvent({ price: 0, currency: "usd" }))).toBe(false);
+    expect(isPaidCalEvent(createEvent({ locations: [venue(null), stream(1000)] }))).toBe(true);
+    expect(isPaidCalEvent(createEvent({ locations: [venue(null), stream(0)] }))).toBe(false);
+  });
+
+  test("ignores a location this API version can't represent, like the server", () => {
+    const unknown = { type: "unknown", location: "{}", price: 1000, currency: "eur" };
+    expect(isPaidCalEvent(createEvent({ locations: [unknown] }))).toBe(false);
+  });
+});
+
+describe("formatCalEventPublicPrice", () => {
+  test("is null for a free event", () => {
+    expect(formatCalEventPublicPrice(createEvent({ locations: [venue(null)] }))).toBeNull();
+  });
+
+  test("falls back to the event-level price while no location is priced", () => {
+    expect(
+      formatCalEventPublicPrice(
+        createEvent({ price: 1500, currency: "usd", locations: [venue(null)] })
+      )
+    ).toBe("$15.00");
+  });
+
+  test("shows one price when every location charges the same", () => {
+    expect(formatCalEventPublicPrice(createEvent({ locations: [venue(1000), stream(1000)] }))).toBe(
+      "€10.00"
+    );
+  });
+
+  test("shows the cheapest as a from price when the locations charge differently", () => {
+    expect(formatCalEventPublicPrice(createEvent({ locations: [venue(2500), stream(1000)] }))).toBe(
+      "From €10.00"
+    );
+    // Location prices win over a leftover event-level one.
+    expect(
+      formatCalEventPublicPrice(
+        createEvent({ price: 500, currency: "usd", locations: [venue(2500), stream(1000)] })
+      )
+    ).toBe("From €10.00");
+  });
+
+  test("headlines a free location as a range", () => {
+    expect(formatCalEventPublicPrice(createEvent({ locations: [venue(2500), stream(null)] }))).toBe(
+      "Free – €25.00"
+    );
+  });
+
+  test("keeps a zero-decimal currency whole", () => {
+    expect(formatCalEventPublicPrice(createEvent({ locations: [venue(1500, "jpy")] }))).toBe(
+      "¥1,500"
+    );
+  });
+
+  test("compares amounts only within a currency", () => {
+    // 1000 cents and 1500 yen: neither is the cheaper, so each currency starts its own range.
+    expect(
+      formatCalEventPublicPrice(createEvent({ locations: [venue(1000), stream(1500, "jpy")] }))
+    ).toBe("From €10.00 / ¥1,500");
+    expect(
+      formatCalEventPublicPrice(
+        createEvent({ locations: [venue(2500), stream(1000), stream(1500, "jpy"), stream(null)] })
+      )
+    ).toBe("Free – €10.00 / ¥1,500");
+    // A saved uppercase code is the same currency.
+    expect(
+      formatCalEventPublicPrice(createEvent({ locations: [venue(1000), stream(1000, "EUR")] }))
+    ).toBe("€10.00");
   });
 });
 
@@ -273,6 +383,9 @@ describe("urls", () => {
     expect(getCalEventPublicUrl("rio-turns-one")).toBe("https://example.test/rio-turns-one");
     expect(getCalEventEditorUrl("019f8549-65f0-7915-a8a5-0f8ce3b6f80a")).toBe(
       "https://app.example.test/events/019f8549-65f0-7915-a8a5-0f8ce3b6f80a"
+    );
+    expect(getCalEventEditorUrl("019f8549-65f0-7915-a8a5-0f8ce3b6f80a", "workflows")).toBe(
+      "https://app.example.test/events/019f8549-65f0-7915-a8a5-0f8ce3b6f80a?tabName=workflows"
     );
   });
 });
@@ -404,6 +517,14 @@ describe("canDeleteCalEvent", () => {
     }
   });
 
+  test("blocks deleting a published event priced only per location, upcoming, past or cancelled", () => {
+    const locations = [venue(2500), stream(null)];
+    for (const status of ["published", "past", "cancelled"]) {
+      expect(canDeleteCalEvent(createEvent({ locations, status, confirmedCount: 0 }))).toBe(false);
+    }
+    expect(canDeleteCalEvent(createEvent({ ...draft, locations }))).toBe(true);
+  });
+
   test("blocks deleting a past event with confirmed guests", () => {
     expect(canDeleteCalEvent(createEvent({ status: "past", confirmedCount: 4 }))).toBe(false);
   });
@@ -501,6 +622,25 @@ describe("getCalEventLinkActions", () => {
 
   test("offers no page actions on a draft, whose page 404s until it is published", () => {
     expect(getCalEventLinkActions("draft")).toEqual({ canViewPage: false, canShare: false });
+  });
+});
+
+describe("canCreateTeamCalEvents", () => {
+  const EVENTS_SCOPE = "EVENT_READ EVENT_WRITE TEAM_EVENT_READ TEAM_PROFILE_READ";
+
+  test("needs TEAM_EVENT_WRITE on an OAuth token", () => {
+    expect(canCreateTeamCalEvents({ isWebSession: false, oauthScope: EVENTS_SCOPE })).toBe(false);
+    expect(canCreateTeamCalEvents({ isWebSession: false, oauthScope: null })).toBe(false);
+    expect(
+      canCreateTeamCalEvents({
+        isWebSession: false,
+        oauthScope: `${EVENTS_SCOPE} TEAM_EVENT_WRITE`,
+      })
+    ).toBe(true);
+  });
+
+  test("never stops a web session, which has no OAuth scope", () => {
+    expect(canCreateTeamCalEvents({ isWebSession: true, oauthScope: null })).toBe(true);
   });
 });
 

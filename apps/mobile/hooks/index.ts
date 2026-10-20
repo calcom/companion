@@ -35,15 +35,22 @@ export {
   usePrefetchBookings,
   useRescheduleBooking,
 } from "./useBookings";
-// Cal Event guests (check-in) hooks
+// Cal Event guests hooks
 export {
   isCalEventGuestPending,
   refetchCalEventGuestsIfIdle,
+  useApproveAllCalEventRegistrations,
   useCalEventCheckInAvailability,
   useCalEventGuests,
+  useCalEventMessages,
+  useCalEventRegistrationCounts,
+  useCalEventRoster,
   useCheckInCalEventGuest,
   useCheckInCalEventGuestByTicket,
+  useDecideCalEventRegistration,
+  useInviteCalEventGuests,
   usePendingCalEventGuestIds,
+  useSendCalEventMessage,
   useUndoCalEventGuestCheckIn,
 } from "./useCalEventGuests";
 // Cal Events hooks
@@ -51,12 +58,23 @@ export {
   type CalEvent,
   isForbiddenError,
   isNotFoundError,
+  useAddCalEventLocation,
   useCalEvent,
+  useCalEventCoHosts,
+  useCalEventCoverImage,
+  useCalEventLocations,
   useCalEvents,
   useCancelCalEvent,
+  useChangeCalEventCoHosts,
+  useCreateCalEvent,
   useDeleteCalEvent,
   useInvalidateCalEvents,
   usePublishCalEvent,
+  useRemoveCalEventLocation,
+  useRestartCalEvents,
+  useUpdateCalEvent,
+  useUpdateCalEventLocation,
+  useUploadCalEventPersonAvatar,
 } from "./useCalEvents";
 // Event Types hooks
 export {
@@ -87,7 +105,7 @@ export {
   useUpdateSchedule,
 } from "./useSchedules";
 // Teams hooks
-export { type Team, useTeams } from "./useTeams";
+export { type Team, type TeamMember, useTeamMembers, useTeams } from "./useTeams";
 // Toast hook
 export { type ToastState, type ToastType, useToast } from "./useToast";
 // User Preferences hooks

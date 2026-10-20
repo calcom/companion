@@ -1,19 +1,16 @@
+import { Ionicons } from "@expo/vector-icons";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack } from "expo-router";
 import { useState } from "react";
-import { useColorScheme } from "react-native";
+import { TouchableOpacity, useColorScheme, View } from "react-native";
 import { CalEventsList } from "@/components/cal-events/CalEventsList";
-import { useOpenCalEventEditor } from "@/components/cal-events/useCalEventActions";
-import { getCalAppUrl } from "@/utils/region";
+import { useCreateCalEventFlow } from "@/components/cal-events/useCreateCalEventFlow";
 
 export default function EventsIOS() {
   const [searchQuery, setSearchQuery] = useState("");
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
-  const openEditor = useOpenCalEventEditor();
-
-  // Events are created in the web editor; the app lists and manages them.
-  const handleCreate = () => openEditor(`${getCalAppUrl()}/events/new`, "new event");
+  const { startCreate: handleCreate, picker } = useCreateCalEventFlow();
 
   return (
     <>
@@ -32,17 +29,25 @@ export default function EventsIOS() {
         blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
       >
         <Stack.Header.Title large>Events</Stack.Header.Title>
-        <Stack.Header.Right>
-          <Stack.Header.Button onPress={handleCreate}>
-            <Stack.Header.Icon sf="plus" />
-          </Stack.Header.Button>
-        </Stack.Header.Right>
       </Stack.Header>
       <CalEventsList
         searchQuery={searchQuery}
         onCreate={handleCreate}
         contentInsetAdjustmentBehavior="automatic"
       />
+      {/* The floating "+" the Links tab has, for a new event. */}
+      <View className="absolute right-6" style={{ bottom: 100 }}>
+        <TouchableOpacity
+          onPress={handleCreate}
+          accessibilityRole="button"
+          accessibilityLabel="New event"
+          className="h-14 w-14 items-center justify-center rounded-full bg-black shadow-lg shadow-black/20 dark:bg-white"
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={30} color={isDark ? "#000000" : "#FFFFFF"} />
+        </TouchableOpacity>
+      </View>
+      {picker}
     </>
   );
 }
