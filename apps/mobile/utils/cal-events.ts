@@ -257,6 +257,19 @@ export function getCalEventFacts(
   return facts;
 }
 
+/**
+ * The detail screen's attendance line ("4 going", "4 of 50 going"), or null while the count is
+ * unknown: the single-event response has none, so it's borrowed from a listing. A draft can't
+ * have guests, so one missing from every listing (just created) reads as nobody going.
+ */
+export function getCalEventGoingLabel(
+  event: Pick<CalEvent, "capacity" | "confirmedCount" | "status">
+): string | null {
+  const confirmed = event.confirmedCount ?? (event.status === "draft" ? 0 : undefined);
+  if (confirmed === undefined) return null;
+  return event.capacity === null ? `${confirmed} going` : `${confirmed} of ${event.capacity} going`;
+}
+
 type DateParts = { year: string; month: string; day: string; weekday: string };
 
 function partsIn(date: Date, timeZone: string): DateParts {

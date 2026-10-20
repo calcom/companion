@@ -41,6 +41,7 @@ const {
   getCalEventCheckInWindowNotice,
   getCalEventEditorUrl,
   getCalEventFacts,
+  getCalEventGoingLabel,
   getCalEventGuestName,
   getCalEventLinkActions,
   getCalEventLocationLabel,
@@ -138,6 +139,31 @@ describe("groupCalEvents", () => {
   test("omits empty groups", () => {
     expect(groupCalEvents([createEvent()], NOW).map((g) => g.kind)).toEqual(["upcoming"]);
     expect(groupCalEvents([], NOW)).toEqual([]);
+  });
+});
+
+describe("getCalEventGoingLabel", () => {
+  test("counts against the capacity when there is one", () => {
+    expect(getCalEventGoingLabel(createEvent({ confirmedCount: 4, capacity: null }))).toBe(
+      "4 going"
+    );
+    expect(getCalEventGoingLabel(createEvent({ confirmedCount: 4, capacity: 50 }))).toBe(
+      "4 of 50 going"
+    );
+  });
+
+  test("reads a draft with no count (just created, not listed yet) as nobody going", () => {
+    expect(
+      getCalEventGoingLabel(
+        createEvent({ status: "draft", confirmedCount: undefined, capacity: null })
+      )
+    ).toBe("0 going");
+  });
+
+  test("leaves a published event's unknown count out rather than guessing zero", () => {
+    expect(
+      getCalEventGoingLabel(createEvent({ status: "published", confirmedCount: undefined }))
+    ).toBeNull();
   });
 });
 

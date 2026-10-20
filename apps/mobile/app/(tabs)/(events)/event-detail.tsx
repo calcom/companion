@@ -19,6 +19,7 @@ import {
   formatCalEventDate,
   formatCalEventPublicPrice,
   formatCalEventTimeRange,
+  getCalEventGoingLabel,
   getCalEventLinkActions,
   getCalEventLocationLabel,
   getCalEventStatusColors,
@@ -112,12 +113,7 @@ export default function CalEventDetailScreen() {
       (location): location is Extract<CalEvent["locations"][number], { type: "link" }> =>
         location.type === "link"
     )?.link ?? null;
-  const goingLabel =
-    event.confirmedCount === undefined
-      ? null
-      : event.capacity === null
-        ? `${event.confirmedCount} going`
-        : `${event.confirmedCount} of ${event.capacity} going`;
+  const goingLabel = getCalEventGoingLabel(event);
 
   return (
     <>
