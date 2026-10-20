@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { usePreventRemove } from "@react-navigation/native";
+import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { useNavigation } from "expo-router";
 import { type ReactNode, useMemo, useRef, useState } from "react";
@@ -10,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   useColorScheme,
@@ -24,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Text as MenuText } from "@/components/ui/text";
 import {
+  refetchCalEventRoster,
   useCalEventCoverImage,
   useCalEventLocations,
   useUpdateCalEvent,
@@ -54,6 +57,7 @@ import {
   getCalEventStatusColors,
   isPaidCalEvent,
 } from "@/utils/cal-events";
+import { offlineAwareRefresh } from "@/utils/network";
 import {
   preserveWallTimeOnTimezoneChange,
   todayStartWallTime,
@@ -164,6 +168,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const navigation = useNavigation();
   const actions = useCalEventActions();
   const openEditor = useOpenCalEventEditor();
+  const queryClient = useQueryClient();
   const scrollRef = useRef<ScrollView>(null);
 
   // Prefilled once: a refetch while editing must not reset what the user typed.
@@ -174,6 +179,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const [openPicker, setOpenPicker] = useState<"start" | "end" | "timeZone" | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pullingGuests, setPullingGuests] = useState(false);
   const { mutateAsync: saveEvent } = useUpdateCalEvent();
   const { mutateAsync: saveCover } = useCalEventCoverImage();
   const { mutateAsync: saveLocation } = useUpdateCalEventLocation();
@@ -261,6 +267,15 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const showTab = (next: TabId) => {
     setTab(next);
     scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
+  // The Guests tab can be pulled to refresh: guests register and pay outside the app, and a paid
+  // event's Approve all runs on in the background. The form tabs have nothing to fetch.
+  const refreshGuests = () => {
+    setPullingGuests(true);
+    offlineAwareRefresh(() => refetchCalEventRoster(queryClient, event.uuid)).finally(() =>
+      setPullingGuests(false)
+    );
   };
 
   const save = () => {
@@ -844,6 +859,11 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
         ref={scrollRef}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 48 }}
+        refreshControl={
+          currentTab.id === "guests" ? (
+            <RefreshControl refreshing={pullingGuests} onRefresh={refreshGuests} />
+          ) : undefined
+        }
       >
         {/* Read-only while saving; the list itself still scrolls. */}
         <View pointerEvents={saving ? "none" : "auto"} style={{ gap: 24 }}>

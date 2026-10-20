@@ -90,6 +90,14 @@ export function useCalEventRegistrationCounts(uuid: string, { enabled = true } =
   return query;
 }
 
+/**
+ * Refetches an event's roster, and the counts under its key, for a pull on the Guests tab.
+ * Resolves once they're back, so the pull can stop its spinner.
+ */
+export function refetchCalEventRoster(queryClient: QueryClient, uuid: string): Promise<void> {
+  return queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.roster(uuid) });
+}
+
 /** How often the Sent list checks on a message that's still going out, as the web does. */
 const SENDING_POLL_MS = 3000;
 

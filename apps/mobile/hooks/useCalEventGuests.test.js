@@ -34,6 +34,7 @@ const {
   checkInCalEventGuestMutationOptions,
   isCalEventGuestPending,
   refetchCalEventGuestsIfIdle,
+  refetchCalEventRoster,
   undoCalEventGuestCheckInMutationOptions,
   useCalEventCheckInAvailability,
 } = require("./useCalEventGuests");
@@ -116,6 +117,22 @@ describe("refetchCalEventGuestsIfIdle", () => {
     refetched.resolve();
     await refresh;
     expect(done).toBe(true);
+  });
+});
+
+describe("refetchCalEventRoster", () => {
+  test("refreshes the Guests tab's roster and its counts, not the door list", async () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(queryKeys.calEvents.roster(UUID), []);
+    queryClient.setQueryData(queryKeys.calEvents.registrationCounts(UUID), {});
+    queryClient.setQueryData(queryKeys.calEvents.guests(UUID), { guests: [] });
+    const invalidated = (queryKey) => queryClient.getQueryState(queryKey).isInvalidated;
+
+    await refetchCalEventRoster(queryClient, UUID);
+
+    expect(invalidated(queryKeys.calEvents.roster(UUID))).toBe(true);
+    expect(invalidated(queryKeys.calEvents.registrationCounts(UUID))).toBe(true);
+    expect(invalidated(queryKeys.calEvents.guests(UUID))).toBe(false);
   });
 });
 

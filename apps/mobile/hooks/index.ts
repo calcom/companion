@@ -39,6 +39,7 @@ export {
 export {
   isCalEventGuestPending,
   refetchCalEventGuestsIfIdle,
+  refetchCalEventRoster,
   useApproveAllCalEventRegistrations,
   useCalEventCheckInAvailability,
   useCalEventGuests,
