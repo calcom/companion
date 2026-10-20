@@ -4,7 +4,14 @@
  * read the same event the same way.
  */
 
-import type { CalEvent, CalEventStatus, Team } from "@/services/types/cal-events.types";
+import { ApiRequestError } from "@/services/calcom/request";
+import type {
+  CalEvent,
+  CalEventGuest,
+  CalEventGuestList,
+  CalEventStatus,
+  Team,
+} from "@/services/types/cal-events.types";
 import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
 
 export type CalEventsGroupKind = "drafts" | "upcoming" | "past";
@@ -246,6 +253,21 @@ export function canManageCalEventLifecycle(
 }
 
 /**
+ * Whether the viewer gets the check-in screen: a host (as above) of a published or past event,
+ * since a draft has no guests and a cancelled event refuses check-ins. The API also lets accepted
+ * external co-hosts and team members with check-in permission in, but the app can't tell them apart.
+ */
+export function canCheckInCalEventGuests(
+  event: Pick<CalEvent, "userId" | "hosts" | "status">,
+  viewerId: number | undefined
+): boolean {
+  return (
+    (event.status === "published" || event.status === "past") &&
+    canManageCalEventLifecycle(event, viewerId)
+  );
+}
+
+/**
  * Whether the server will accept a delete: never a published paid event (its payment records are
  * kept), and only without confirmed guests. A draft can't have any, and a cancelled event's
  * confirmedCount still counts the cancelled booking's seats, which the server ignores. Otherwise a
@@ -305,4 +327,202 @@ export function getCalEventStatusColors(
 export function truncateCalEventTitle(title: string, max = 28): string {
   const characters = Array.from(title);
   return characters.length > max ? `${characters.slice(0, max - 1).join("")}…` : title;
+}
+
+/** How a guest is listed: their name, or their email when they gave none. */
+export function getCalEventGuestName(guest: Pick<CalEventGuest, "name" | "email">): string {
+  return guest.name.trim() || guest.email;
+}
+
+/** A door list reads alphabetically: by name, then email to keep namesakes in a stable order. */
+export function sortCalEventGuests(guests: CalEventGuest[]): CalEventGuest[] {
+  return [...guests].sort(
+    (a, b) =>
+      getCalEventGuestName(a).localeCompare(getCalEventGuestName(b), undefined, {
+        sensitivity: "base",
+      }) || a.email.localeCompare(b.email)
+  );
+}
+
+/** Guests whose name or email contains the query, case-insensitively. */
+export function filterCalEventGuests(guests: CalEventGuest[], query: string): CalEventGuest[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return guests;
+  return guests.filter(
+    (guest) =>
+      guest.name.toLowerCase().includes(needle) || guest.email.toLowerCase().includes(needle)
+  );
+}
+
+/** "1 of 3 checked in". */
+export function getCalEventCheckInProgress(list: CalEventGuestList): string {
+  const checkedIn = list.guests.filter((guest) => guest.checkedInAt).length;
+  return `${checkedIn} of ${list.guests.length} checked in`;
+}
+
+/** "6:05 PM" on the device's clock, which at the door is the venue's. */
+export function formatCalEventCheckInTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(
+    new Date(iso)
+  );
+}
+
+export type CalEventCheckInAvailability =
+  | { kind: "open"; closesAt: string | null }
+  | { kind: "not_yet_open"; opensAt: string }
+  | { kind: "closed"; closedAt: string };
+
+/**
+ * Whether the door takes check-ins now, by the window the API sends with the event, as the web's
+ * door page reads it (both ends included). A side the event doesn't carry, as on one cached before
+ * the API sent it, counts as open, and the server's 400 has the last word.
+ */
+export function getCalEventCheckInAvailability(
+  event: Pick<CalEvent, "checkInOpensAt" | "checkInClosesAt">,
+  now: Date = new Date()
+): CalEventCheckInAvailability {
+  const opensAt = validIso(event.checkInOpensAt);
+  const closesAt = validIso(event.checkInClosesAt);
+  if (opensAt && now < new Date(opensAt)) return { kind: "not_yet_open", opensAt };
+  if (closesAt && now > new Date(closesAt)) return { kind: "closed", closedAt: closesAt };
+  return { kind: "open", closesAt };
+}
+
+function validIso(iso: string | undefined): string | null {
+  return iso && !Number.isNaN(new Date(iso).getTime()) ? iso : null;
+}
+
+/** setTimeout fires at once when asked to wait longer than this (about 24.8 days). */
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
+
+/**
+ * How long until `availability` changes: until the window opens, or until it closes; null once it
+ * has closed, or when it has no end. For a timer that keeps a screen current, so it's capped at the
+ * longest delay setTimeout takes. A timer that fires early finds no change and waits again.
+ */
+export function getCalEventCheckInAvailabilityDelayMs(
+  availability: CalEventCheckInAvailability,
+  now: Date = new Date()
+): number | null {
+  if (availability.kind === "closed") return null;
+  const changesAt =
+    availability.kind === "not_yet_open" ? availability.opensAt : availability.closesAt;
+  if (!changesAt) return null;
+  // +1: the window includes both ends, so it closes just after closesAt.
+  const delay = new Date(changesAt).getTime() - now.getTime() + 1;
+  return Math.min(Math.max(delay, 0), MAX_TIMER_DELAY_MS);
+}
+
+/** "Check-in opens Sat, Oct 10, 4:45 AM", in the event's timezone; null while check-in is open. */
+export function getCalEventCheckInWindowNotice(
+  availability: CalEventCheckInAvailability,
+  timeZone: string
+): string | null {
+  if (availability.kind === "open") return null;
+  const iso = availability.kind === "not_yet_open" ? availability.opensAt : availability.closedAt;
+  const { weekday, month, day } = safeParts(new Date(iso), timeZone);
+  const when = `${weekday}, ${month} ${day}, ${formatCalEventTime(iso, timeZone)}`;
+  return availability.kind === "not_yet_open"
+    ? `Check-in opens ${when}`
+    : `Check-in closed ${when}`;
+}
+
+/**
+ * Whether tapping a guest's row does anything. Checking in needs the window open, or no window
+ * yet (the event still loading), when the server decides; undo is never gated, as on the server.
+ */
+export function canTapCalEventGuest(
+  guest: Pick<CalEventGuest, "checkedInAt">,
+  availability: CalEventCheckInAvailability | null
+): boolean {
+  return !!guest.checkedInAt || !availability || availability.kind === "open";
+}
+
+/** Under the window notice, as on the web: why the door is shut. */
+export const CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION =
+  "Guests can be checked in from 12 hours before the event starts until 12 hours after it ends.";
+
+/**
+ * Why a check-in or undo failed. The API's other 4xx reasons are written for people ("Check-in is
+ * closed outside the event window", "This event has been cancelled"), so they show as they are.
+ */
+export function getCalEventCheckInErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiRequestError)) return "Check your connection and try again.";
+  if (error.status === 403) {
+    return "Your sign-in doesn't include checking guests in. Sign out and sign back in to grant it.";
+  }
+  if (error.status === 404) return "This guest is no longer on the list.";
+  if (error.status === 429) return "Too many check-ins at once. Wait a moment and try again.";
+  if (error.status < 500) {
+    const message = error.message.replace(/^API Error: \d+ /, "").trim();
+    return message || "Something went wrong. Try again.";
+  }
+  return "Something went wrong. Try again.";
+}
+
+// A QR held in frame decodes many times a second. Same hold as the web's scanner.
+const RESCAN_HOLD_MS = 3000;
+
+/**
+ * Decides which scanned codes the scanner sends. iOS reports every code in frame on every frame,
+ * so one code goes out at a time: two tickets in view can't flood the API or answer out of order.
+ * A code isn't sent again until `holdMs` after its answer showed, so a ticket held up reads
+ * "Checked in" for a while before "Already checked in".
+ */
+export function createCalEventScanGate(
+  holdMs: number = RESCAN_HOLD_MS,
+  now: () => number = Date.now
+) {
+  let sending = false;
+  const answeredAt = new Map<string, number>();
+  return {
+    /** Whether to send this code now. A code taken is on its way until `settle(code)`. */
+    take(code: string): boolean {
+      if (sending) return false;
+      const at = answeredAt.get(code);
+      if (at !== undefined && now() - at < holdMs) return false;
+      sending = true;
+      return true;
+    },
+    /** The taken code's answer is showing: the next code may go, and this one waits out its hold. */
+    settle(code: string): void {
+      sending = false;
+      answeredAt.set(code, now());
+    },
+  };
+}
+
+/** What the scanner says for a code that isn't a check-in ticket for this event. */
+export const CAL_EVENT_INVALID_TICKET_MESSAGE = "Not a valid ticket for this event";
+
+/**
+ * Whether a scanned code is worth sending. The API answers a token outside 1–256 characters with
+ * a validation 400 written for developers; no ticket is that long, so the scanner says so itself.
+ */
+export function isCalEventCheckInTokenShaped(code: string): boolean {
+  return code.length >= 1 && code.length <= 256;
+}
+
+/**
+ * Why a scanned ticket checked no one in. A forged ticket and one for another event get the same
+ * 404 on purpose; anything else reads as it does for a tap.
+ */
+export function getCalEventTicketCheckInErrorMessage(error: unknown): string {
+  if (error instanceof ApiRequestError && error.status === 404) {
+    return CAL_EVENT_INVALID_TICKET_MESSAGE;
+  }
+  return getCalEventCheckInErrorMessage(error);
+}
+
+/** The list with one guest checked in at `checkedInAt`, or unchecked when it is null. */
+export function setCalEventGuestCheckedInAt(
+  list: CalEventGuestList | undefined,
+  guestId: string,
+  checkedInAt: string | null
+): CalEventGuestList | undefined {
+  if (!list) return list;
+  return {
+    ...list,
+    guests: list.guests.map((guest) => (guest.id === guestId ? { ...guest, checkedInAt } : guest)),
+  };
 }

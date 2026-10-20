@@ -4,14 +4,34 @@
 
 import { deriveCalEventStatus, getCalEventPublicUrl } from "@/utils/cal-events";
 
-import type { CalEvent, CalEventApi } from "../types";
+import type {
+  CalEvent,
+  CalEventApi,
+  CalEventBookingApi,
+  CalEventCheckInOutcomeApi,
+  CalEventCheckInResult,
+  CalEventGuest,
+  CalEventGuestList,
+  CalEventRegistrationApi,
+  CalEventsCursorPaginationApi,
+  CalEventTicketCheckInResult,
+  CalEventUndoCheckInOutcomeApi,
+} from "../types";
 
 import { ApiRequestError, makeRequest } from "./request";
 
 const API_VERSION = "2024-06-14";
 
+/** The API's largest page, so a big guest list takes as few calls as it can. */
+const GUESTS_PAGE_SIZE = 250;
+
 type ListResponse = { status: string; data: CalEventApi[] };
 type SingleResponse = { status: string; data: CalEventApi };
+type BookingsResponse = {
+  status: string;
+  data: CalEventBookingApi[];
+  pagination: CalEventsCursorPaginationApi;
+};
 
 /** The app's view of an event: the API row plus what every screen derives from it. */
 export function toCalEvent(event: CalEventApi, now: Date = new Date()): CalEvent {
@@ -88,4 +108,117 @@ export async function cancelCalEvent(uuid: string, reason?: string): Promise<Cal
  */
 export async function deleteCalEvent(uuid: string): Promise<void> {
   await makeRequest<{ status: string }>(`/events/${uuid}`, { method: "DELETE" }, API_VERSION);
+}
+
+/** The app's view of a guest: the one place the guest list's API shape is read. */
+export function toCalEventGuest(booking: CalEventBookingApi): CalEventGuest {
+  return {
+    id: booking.registrationId,
+    name: booking.name,
+    email: booking.email,
+    phoneNumber: booking.phoneNumber ?? null,
+    checkedInAt: booking.checkedInAt ?? null,
+  };
+}
+
+/**
+ * Get every confirmed guest of an event, page by page: the count, search and A–Z order all need
+ * the whole list. Hosts, accepted co-hosts and team members with access only; anyone else gets the
+ * same 404 as for an unknown event.
+ */
+export async function getCalEventGuests(uuid: string): Promise<CalEventGuestList> {
+  // By id, so a guest a later page repeats is listed (and counted) once.
+  const guests = new Map<string, CalEventGuest>();
+  const cursors = new Set<string>();
+  let cursor: string | null = null;
+  do {
+    const query = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+    const response: BookingsResponse = await makeRequest<BookingsResponse>(
+      `/events/${uuid}/bookings?limit=${GUESTS_PAGE_SIZE}${query}`,
+      {},
+      API_VERSION
+    );
+    for (const booking of Array.isArray(response?.data) ? response.data : []) {
+      const guest = toCalEventGuest(booking);
+      if (!guests.has(guest.id)) guests.set(guest.id, guest);
+    }
+    // No cursor to follow is the end, and so is one already followed: it would loop forever.
+    const next = response?.pagination?.hasMore ? response.pagination.nextCursor : null;
+    cursor = next && !cursors.has(next) ? next : null;
+    if (cursor) cursors.add(cursor);
+  } while (cursor);
+  return { guests: [...guests.values()] };
+}
+
+/**
+ * Check a guest in at the door. 400 on a cancelled event, or outside its check-in window.
+ */
+export async function checkInCalEventGuest(
+  uuid: string,
+  guestId: string
+): Promise<CalEventCheckInResult> {
+  const response = await makeRequest<{ status: string; data: CalEventCheckInOutcomeApi }>(
+    `/events/${uuid}/registrations/${guestId}/check-in`,
+    { method: "POST" },
+    API_VERSION
+  );
+  const outcome = response?.data;
+  if (!outcome?.kind) throw new Error("Invalid response from check-in API");
+  if (outcome.kind === "checked_in") {
+    return { kind: outcome.kind, checkedInAt: outcome.registration?.checkedInAt ?? undefined };
+  }
+  return outcome.kind === "already_checked_in"
+    ? { kind: outcome.kind, checkedInAt: outcome.checkedInAt }
+    : { kind: outcome.kind };
+}
+
+/** A registration from the check-in endpoints, as the guest list shows it. */
+function registrationToCalEventGuest(registration: CalEventRegistrationApi): CalEventGuest {
+  return {
+    id: registration.id,
+    name: registration.name,
+    email: registration.email,
+    phoneNumber: registration.phoneNumber ?? null,
+    checkedInAt: registration.checkedInAt ?? null,
+  };
+}
+
+/**
+ * Check a guest in from their scanned QR ticket. The token goes in the body, since URLs land in
+ * logs. A forged ticket and one for another event get the same 404 as an unknown guest; 400 on a
+ * cancelled event, or outside its check-in window.
+ */
+export async function checkInCalEventGuestByTicket(
+  uuid: string,
+  checkInToken: string
+): Promise<CalEventTicketCheckInResult> {
+  const response = await makeRequest<{ status: string; data: CalEventCheckInOutcomeApi }>(
+    `/events/${uuid}/check-ins`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checkInToken }),
+    },
+    API_VERSION
+  );
+  const outcome = response?.data;
+  if (outcome?.kind === "not_confirmed") return { kind: outcome.kind };
+  if (!outcome?.kind || !outcome.registration) {
+    throw new Error("Invalid response from check-in API");
+  }
+  const guest = registrationToCalEventGuest(outcome.registration);
+  return outcome.kind === "already_checked_in"
+    ? { kind: outcome.kind, guest, checkedInAt: outcome.checkedInAt }
+    : { kind: outcome.kind, guest };
+}
+
+/**
+ * Undo a guest's check-in. Idempotent, and allowed after the check-in window closes.
+ */
+export async function undoCalEventGuestCheckIn(uuid: string, guestId: string): Promise<void> {
+  await makeRequest<{ status: string; data: CalEventUndoCheckInOutcomeApi }>(
+    `/events/${uuid}/registrations/${guestId}/check-in`,
+    { method: "DELETE" },
+    API_VERSION
+  );
 }

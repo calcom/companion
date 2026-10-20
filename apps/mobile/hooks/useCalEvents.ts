@@ -12,12 +12,16 @@ import { CACHE_CONFIG, queryKeys } from "@/config/cache.config";
 import { CalComAPIService, type CalEvent } from "@/services/calcom";
 import { ApiRequestError } from "@/services/calcom/request";
 
-const isNetworkError = (error: Error | null) =>
+export const isNetworkError = (error: Error | null) =>
   !!error?.message && (error.message.includes("Network") || error.message.includes("fetch"));
 
 /** A 403 won't change on retry: a pending team membership, or a role that can't read events. */
 export const isForbiddenError = (error: Error | null) =>
   error instanceof ApiRequestError && error.status === 403;
+
+/** A 404 won't change on retry: the event was deleted, or the user no longer manages it. */
+export const isNotFoundError = (error: Error | null) =>
+  error instanceof ApiRequestError && error.status === 404;
 
 /**
  * Hook to fetch the cal events of one profile: the user's own (plus co-hosted) when

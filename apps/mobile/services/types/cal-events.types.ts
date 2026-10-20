@@ -31,6 +31,12 @@ export interface CalEventApi {
   description: string | null;
   startTime: string;
   endTime: string;
+  /**
+   * The span the door takes check-ins in: 12 hours before `startTime` to 12 hours after `endTime`.
+   * Missing on an event cached before the API sent it.
+   */
+  checkInOpensAt?: string;
+  checkInClosesAt?: string;
   /** The event's own timezone — in-person events display venue time, not the viewer's. */
   timeZone: string;
   visibility: CalEventVisibility;
@@ -63,6 +69,106 @@ export interface CalEvent extends CalEventApi {
   /** The public event page, `{webUrl}/{slug}`. */
   publicUrl: string;
 }
+
+export type CalEventRsvpResponse = "YES" | "NO" | "MAYBE";
+
+export type CalEventRegistrationStatus =
+  | "PENDING_APPROVAL"
+  | "WAITLISTED"
+  | "PENDING_PAYMENT"
+  | "OFFER_EXPIRED"
+  | "CONFIRMED"
+  | "DECLINED"
+  | "CANCELLED";
+
+/**
+ * One confirmed guest as `GET /v2/events/{uuid}/bookings` returns it: a seat on the Event's
+ * booking. Date fields are ISO 8601 strings.
+ */
+export interface CalEventBookingApi {
+  type: "event";
+  /** The id the check-in endpoints take. */
+  registrationId: string;
+  name: string;
+  email: string;
+  phoneNumber?: string | null;
+  rsvpResponse: CalEventRsvpResponse;
+  /** Registration-form answers. */
+  responses?: unknown;
+  locationId?: string | null;
+  createdAt: string;
+  /** When a door check-in was recorded. */
+  checkedInAt?: string | null;
+  /** Host who recorded the door check-in. */
+  checkedInByUserId?: number | null;
+}
+
+/** `GET /v2/events/{uuid}/bookings` pagination: pass `nextCursor` back as `cursor`. */
+export interface CalEventsCursorPaginationApi {
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+/** A registration as the check-in endpoints return it. */
+export interface CalEventRegistrationApi {
+  id: string;
+  name: string;
+  email: string;
+  phoneNumber?: string | null;
+  status: CalEventRegistrationStatus;
+  rsvpResponse: CalEventRsvpResponse;
+  responses?: unknown;
+  locationId?: string | null;
+  createdAt: string;
+  checkedInAt?: string | null;
+  checkedInByUserId?: number | null;
+}
+
+/** `POST /v2/events/{uuid}/registrations/{registrationId}/check-in` */
+export type CalEventCheckInOutcomeApi =
+  | { kind: "checked_in"; registration: CalEventRegistrationApi }
+  | { kind: "already_checked_in"; registration: CalEventRegistrationApi; checkedInAt: string }
+  | { kind: "not_confirmed"; status: CalEventRegistrationStatus };
+
+/** `DELETE /v2/events/{uuid}/registrations/{registrationId}/check-in`: idempotent. */
+export type CalEventUndoCheckInOutcomeApi =
+  | { kind: "undone"; registration: CalEventRegistrationApi }
+  | { kind: "not_checked_in" };
+
+/** A confirmed guest on an Event's check-in list. */
+export interface CalEventGuest {
+  /** What the check-in and undo calls take. */
+  id: string;
+  /** Empty when the guest gave none. */
+  name: string;
+  email: string;
+  phoneNumber: string | null;
+  /** ISO 8601; null until the guest is checked in. */
+  checkedInAt: string | null;
+}
+
+/** Every confirmed guest of an Event, read across all of `/bookings`' pages. */
+export interface CalEventGuestList {
+  guests: CalEventGuest[];
+}
+
+/**
+ * What a check-in did. `already_checked_in` means another host (or a scan) got there first;
+ * `not_confirmed` means the guest's registration is no longer confirmed, so nothing was recorded.
+ */
+export type CalEventCheckInResult =
+  | { kind: "checked_in"; checkedInAt?: string }
+  | { kind: "already_checked_in"; checkedInAt: string }
+  | { kind: "not_confirmed" };
+
+/**
+ * What a scanned ticket did. Only the server knows whose ticket it was, so the result names the
+ * guest; `guest.checkedInAt` is the server's time.
+ */
+export type CalEventTicketCheckInResult =
+  | { kind: "checked_in"; guest: CalEventGuest }
+  | { kind: "already_checked_in"; guest: CalEventGuest; checkedInAt: string }
+  | { kind: "not_confirmed" };
 
 /** A team the user belongs to, from `/v2/teams`: organizations and pending memberships included. */
 export interface Team {
