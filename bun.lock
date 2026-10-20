@@ -29,6 +29,7 @@
       "name": "mobile",
       "version": "1.7.6",
       "dependencies": {
+        "@babel/runtime": "7.28.6",
         "@bacons/apple-targets": "^3.0.7",
         "@expo/ui": "0.2.0-canary-20251230-fc48ddc",
         "@expo/vector-icons": "15.0.3",
