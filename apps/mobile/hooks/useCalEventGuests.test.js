@@ -5,10 +5,12 @@ import { queryKeys } from "@/config/cache.config";
 // The API client is the test boundary: each test decides when a call answers.
 const mockCheckIn = jest.fn();
 const mockUndo = jest.fn();
+const mockCheckInByTicket = jest.fn();
 jest.mock("@/services/calcom", () => ({
   CalComAPIService: {
     checkInCalEventGuest: (...args) => mockCheckIn(...args),
     undoCalEventGuestCheckIn: (...args) => mockUndo(...args),
+    checkInCalEventGuestByTicket: (...args) => mockCheckInByTicket(...args),
   },
 }));
 // Same exports as services/calcom/cal-events.test.js mocks: bun shares module mocks across files.
@@ -26,12 +28,16 @@ jest.mock("@/utils/region", () => ({
   getCalWebUrl: () => "https://example.test",
 }));
 
+const { act, renderHook } = require("@testing-library/react-native");
 const {
+  checkInCalEventGuestByTicketMutationOptions,
   checkInCalEventGuestMutationOptions,
   isCalEventGuestPending,
   refetchCalEventGuestsIfIdle,
   undoCalEventGuestCheckInMutationOptions,
+  useCalEventCheckInAvailability,
 } = require("./useCalEventGuests");
+const { getCalEventCheckInProgress } = require("@/utils/cal-events");
 
 const UUID = "event-uuid";
 const EARLIER = "2026-10-12T10:05:00.000Z";
@@ -51,7 +57,7 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function setup(guests) {
   const queryClient = new QueryClient();
-  queryClient.setQueryData(queryKeys.calEvents.guests(UUID), { guests, hasMore: false });
+  queryClient.setQueryData(queryKeys.calEvents.guests(UUID), { guests });
   const checkedInAt = (guestId) =>
     queryClient
       .getQueryData(queryKeys.calEvents.guests(UUID))
@@ -99,6 +105,7 @@ describe("refetchCalEventGuestsIfIdle", () => {
 beforeEach(() => {
   mockCheckIn.mockReset();
   mockUndo.mockReset();
+  mockCheckInByTicket.mockReset();
   jest.spyOn(console, "error").mockImplementation(() => {});
   jest.spyOn(console, "debug").mockImplementation(() => {});
 });
@@ -177,6 +184,28 @@ describe("checking a guest in", () => {
     expect(checkedInAt("b")).toEqual(expect.any(String));
   });
 
+  test("checks in and undoes a guest past the API's first page of 250", async () => {
+    const guests = Array.from({ length: 300 }, (_, n) => createGuest(`g${n}`));
+    const { queryClient, checkedInAt } = setup(guests);
+    mockCheckIn.mockResolvedValue({ kind: "checked_in", checkedInAt: EARLIER });
+    mockUndo.mockResolvedValue(undefined);
+    const guestList = () => queryClient.getQueryData(queryKeys.calEvents.guests(UUID));
+
+    await new MutationObserver(
+      queryClient,
+      checkInCalEventGuestMutationOptions(queryClient, UUID)
+    ).mutate("g299");
+    expect(checkedInAt("g299")).toBe(EARLIER);
+    expect(getCalEventCheckInProgress(guestList())).toBe("1 of 300 checked in");
+
+    await new MutationObserver(
+      queryClient,
+      undoCalEventGuestCheckInMutationOptions(queryClient, UUID)
+    ).mutate("g299");
+    expect(checkedInAt("g299")).toBeNull();
+    expect(getCalEventCheckInProgress(guestList())).toBe("0 of 300 checked in");
+  });
+
   test("shows another host's earlier check-in time", async () => {
     const { queryClient, checkedInAt } = setup([createGuest("a")]);
     mockCheckIn.mockResolvedValue({ kind: "already_checked_in", checkedInAt: EARLIER });
@@ -225,5 +254,156 @@ describe("undoing a check-in", () => {
     await expect(tap).rejects.toBe(failure);
     expect(checkedInAt("a")).toBe(EARLIER);
     expect(isCalEventGuestPending(queryClient, UUID, "a")).toBe(false);
+  });
+});
+
+describe("checking a guest in from a ticket", () => {
+  const scan = (queryClient, token) =>
+    new MutationObserver(
+      queryClient,
+      checkInCalEventGuestByTicketMutationOptions(queryClient, UUID)
+    ).mutate(token);
+
+  test("checks in the guest the server names, at the server's time", async () => {
+    const { queryClient, checkedInAt } = setup([createGuest("a"), createGuest("b")]);
+    mockCheckInByTicket.mockResolvedValue({
+      kind: "checked_in",
+      guest: createGuest("b", EARLIER),
+    });
+
+    await scan(queryClient, "ticket-b");
+
+    expect(mockCheckInByTicket).toHaveBeenCalledWith(UUID, "ticket-b");
+    expect(checkedInAt("a")).toBeNull();
+    expect(checkedInAt("b")).toBe(EARLIER);
+  });
+
+  test("shows the first check-in's time for a ticket used before", async () => {
+    const { queryClient, checkedInAt } = setup([createGuest("a")]);
+    mockCheckInByTicket.mockResolvedValue({
+      kind: "already_checked_in",
+      guest: createGuest("a", EARLIER),
+      checkedInAt: EARLIER,
+    });
+
+    await scan(queryClient, "ticket-a");
+
+    expect(checkedInAt("a")).toBe(EARLIER);
+  });
+
+  test("holds no guest's row while in flight, even when the token matches a guest id", async () => {
+    const { queryClient } = setup([createGuest("a")]);
+    const answer = deferred();
+    mockCheckInByTicket.mockReturnValue(answer.promise);
+
+    const scanning = scan(queryClient, "a");
+    await flush();
+
+    expect(isCalEventGuestPending(queryClient, UUID, "a")).toBe(false);
+
+    answer.resolve({ kind: "not_confirmed" });
+    await scanning;
+  });
+
+  test("refetches the list only once the last of a scan and a tap settles", async () => {
+    const { queryClient } = setup([createGuest("a"), createGuest("b")]);
+    const tapAnswer = deferred();
+    mockCheckIn.mockReturnValue(tapAnswer.promise);
+    const scanAnswer = deferred();
+    mockCheckInByTicket.mockReturnValue(scanAnswer.promise);
+    const invalidateQueries = jest.spyOn(queryClient, "invalidateQueries");
+
+    const tap = new MutationObserver(
+      queryClient,
+      checkInCalEventGuestMutationOptions(queryClient, UUID)
+    ).mutate("a");
+    const scanning = scan(queryClient, "ticket-b");
+    await flush();
+
+    scanAnswer.resolve({ kind: "checked_in", guest: createGuest("b", EARLIER) });
+    await scanning;
+    expect(invalidateQueries).not.toHaveBeenCalled();
+
+    tapAnswer.resolve({ kind: "checked_in" });
+    await tap;
+    expect(invalidateQueries).toHaveBeenCalledTimes(1);
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: queryKeys.calEvents.guests(UUID),
+    });
+  });
+});
+
+describe("useCalEventCheckInAvailability", () => {
+  const T0 = new Date("2026-10-13T10:00:00.000Z").getTime();
+  const HOUR = 60 * 60 * 1000;
+  // The door takes check-ins from 12 h before the start until 12 h after the end, as the API says.
+  const eventAt = (startOffset, endOffset) => ({
+    checkInOpensAt: new Date(T0 + startOffset - 12 * HOUR).toISOString(),
+    checkInClosesAt: new Date(T0 + endOffset + 12 * HOUR).toISOString(),
+  });
+  // The hook's own timers wait for a window boundary; React's and the test renderer's are short.
+  const windowTimers = (setTimeoutSpy) =>
+    setTimeoutSpy.mock.calls.filter(([, delay]) => delay >= 60 * 1000);
+  const render = (event) =>
+    renderHook((props) => useCalEventCheckInAvailability(props.event), {
+      initialProps: { event },
+    });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(T0);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test("closes when the window does, then stops ticking", async () => {
+    // Ends an hour from now, so check-in closes 13 h from now.
+    const { result } = await render(eventAt(-HOUR, HOUR));
+    expect(result.current.kind).toBe("open");
+
+    await act(() => jest.advanceTimersByTime(13 * HOUR + 1));
+    expect(result.current.kind).toBe("closed");
+
+    const setTimeoutSpy = jest.spyOn(global, "setTimeout");
+    await act(() => jest.advanceTimersByTime(48 * HOUR));
+    expect(result.current.kind).toBe("closed");
+    expect(windowTimers(setTimeoutSpy)).toHaveLength(0);
+  });
+
+  test("opens when the window does, while the screen stays open", async () => {
+    // Starts in 13 h, so check-in opens an hour from now.
+    const { result } = await render(eventAt(13 * HOUR, 15 * HOUR));
+    expect(result.current.kind).toBe("not_yet_open");
+
+    await act(() => jest.advanceTimersByTime(HOUR - 1000));
+    expect(result.current.kind).toBe("not_yet_open");
+    await act(() => jest.advanceTimersByTime(1001));
+    expect(result.current.kind).toBe("open");
+  });
+
+  test("stays open without ticking for an event cached before the API sent the window", async () => {
+    const setTimeoutSpy = jest.spyOn(global, "setTimeout");
+    const { result } = await render({});
+    expect(result.current).toEqual({ kind: "open", closesAt: null });
+    expect(windowTimers(setTimeoutSpy)).toHaveLength(0);
+  });
+
+  test("reads a rescheduled event against the current time, not the last tick", async () => {
+    const { result, rerender } = await render(eventAt(HOUR, 3 * HOUR));
+    expect(result.current.kind).toBe("open");
+
+    // Two hours pass with no tick, then a refetch brings the event moved into the past: its window
+    // closed an hour ago, though it was still open at the last tick.
+    jest.setSystemTime(T0 + 2 * HOUR);
+    const setTimeoutSpy = jest.spyOn(global, "setTimeout");
+    await rerender({ event: eventAt(-13 * HOUR, -11 * HOUR) });
+
+    expect(result.current).toEqual({
+      kind: "closed",
+      closedAt: new Date(T0 + HOUR).toISOString(),
+    });
+    expect(windowTimers(setTimeoutSpy)).toHaveLength(0);
   });
 });

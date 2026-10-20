@@ -20,6 +20,8 @@ import {
   isCalEventGuestPending,
   isForbiddenError,
   isNotFoundError,
+  useCalEvent,
+  useCalEventCheckInAvailability,
   useCalEventGuests,
   useCheckInCalEventGuest,
   usePendingCalEventGuestIds,
@@ -28,19 +30,19 @@ import {
 import type { CalEventGuest } from "@/services/calcom";
 import { showInfoAlert } from "@/utils/alerts";
 import {
+  CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION,
+  canTapCalEventGuest,
   filterCalEventGuests,
+  formatCalEventCheckInTime,
   getCalEventCheckInErrorMessage,
   getCalEventCheckInProgress,
+  getCalEventCheckInWindowNotice,
   getCalEventGuestName,
   sortCalEventGuests,
 } from "@/utils/cal-events";
 import { offlineAwareRefresh } from "@/utils/network";
 
 type Theme = ReturnType<typeof getColors>;
-
-/** "6:05 PM" on the device's clock, which at the door is the venue's. */
-const formatCheckInTime = (iso: string) =>
-  new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(iso));
 
 export default function CalEventCheckInScreen() {
   const { uuid, title } = useLocalSearchParams<{ uuid: string; title?: string }>();
@@ -50,15 +52,20 @@ export default function CalEventCheckInScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   // Not isFetching: the list also refetches after every tap, and that shouldn't spin the control.
   const [pulling, setPulling] = useState(false);
-  const { data: page, isLoading, isRefetchError, error, refetch } = useCalEventGuests(uuid);
+  const { data: list, isLoading, isRefetchError, error, refetch } = useCalEventGuests(uuid);
+  // Usually cached from the event's detail; until it loads, there's no window to show a scanner in.
+  const { data: event } = useCalEvent(uuid);
+  const availability = useCalEventCheckInAvailability(event);
+  const windowNotice =
+    event && availability ? getCalEventCheckInWindowNotice(availability, event.timeZone) : null;
   const queryClient = useQueryClient();
   const { mutateAsync: checkIn } = useCheckInCalEventGuest(uuid);
   const { mutateAsync: undoCheckIn } = useUndoCalEventGuestCheckIn(uuid);
   const pendingGuestIds = usePendingCalEventGuestIds(uuid);
 
   const guests = useMemo(
-    () => filterCalEventGuests(sortCalEventGuests(page?.guests ?? []), searchQuery),
-    [page, searchQuery]
+    () => filterCalEventGuests(sortCalEventGuests(list?.guests ?? []), searchQuery),
+    [list, searchQuery]
   );
 
   const onRefresh = async () => {
@@ -76,7 +83,7 @@ export default function CalEventCheckInScreen() {
       if (result.kind === "already_checked_in") {
         showInfoAlert(
           "Already checked in",
-          `${name} was checked in at ${formatCheckInTime(result.checkedInAt)}.`
+          `${name} was checked in at ${formatCalEventCheckInTime(result.checkedInAt)}.`
         );
       } else if (result.kind === "not_confirmed") {
         showInfoAlert("Not checked in", `${name} is no longer a confirmed guest.`);
@@ -98,13 +105,15 @@ export default function CalEventCheckInScreen() {
     // A guest takes one call at a time: an undo sent while the check-in is still on its way could
     // reach the server first, and the check-in would then win.
     if (isCalEventGuestPending(queryClient, uuid, guest.id)) return;
+    // Outside the window only undo goes through.
+    if (!canTapCalEventGuest(guest, availability)) return;
     if (!guest.checkedInAt) {
       onCheckIn(guest);
       return;
     }
     Alert.alert(
       "Undo check-in?",
-      `${getCalEventGuestName(guest)} was checked in at ${formatCheckInTime(guest.checkedInAt)}.`,
+      `${getCalEventGuestName(guest)} was checked in at ${formatCalEventCheckInTime(guest.checkedInAt)}.`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Undo", style: "destructive", onPress: () => onUndoCheckIn(guest) },
@@ -114,7 +123,7 @@ export default function CalEventCheckInScreen() {
 
   const screenOptions = <Stack.Screen options={{ title: "Check in", headerBackTitle: "Event" }} />;
 
-  if (isLoading && !page) {
+  if (isLoading && !list) {
     return (
       <>
         {screenOptions}
@@ -128,7 +137,7 @@ export default function CalEventCheckInScreen() {
     );
   }
 
-  if (!page) {
+  if (!list) {
     // A 404 is a deleted event, or one this user can't manage. A 403 is a sign-in without the
     // Events scopes, which no retry can fix. Any other failure may pass, so only it gets Retry.
     const forbidden = isForbiddenError(error);
@@ -181,9 +190,40 @@ export default function CalEventCheckInScreen() {
             accessibilityRole="header"
             accessibilityLiveRegion="polite"
           >
-            {getCalEventCheckInProgress(page)}
+            {getCalEventCheckInProgress(list)}
           </Text>
-          {page.guests.length > 0 || searchQuery ? (
+          {availability?.kind === "open" ? (
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/event-check-in-scanner", params: { uuid } })}
+              accessibilityRole="button"
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                height: 44,
+                marginTop: 12,
+                borderRadius: 10,
+                backgroundColor: theme.text,
+              }}
+            >
+              <Ionicons name="qr-code-outline" size={18} color={theme.background} />
+              <Text
+                style={{ color: theme.background, fontSize: 16, fontWeight: "600", marginLeft: 8 }}
+              >
+                Scan ticket
+              </Text>
+            </TouchableOpacity>
+          ) : windowNotice ? (
+            <View style={{ marginTop: 8 }}>
+              <Text style={{ color: theme.text, fontSize: 15, fontWeight: "600" }}>
+                {windowNotice}
+              </Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 14, marginTop: 2 }}>
+                {CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION}
+              </Text>
+            </View>
+          ) : null}
+          {list.guests.length > 0 || searchQuery ? (
             <SearchField theme={theme} value={searchQuery} onChangeText={setSearchQuery} />
           ) : null}
           {/* Cached guests after a failed refetch: say so, with Retry. */}
@@ -218,6 +258,7 @@ export default function CalEventCheckInScreen() {
             <GuestRow
               guest={item}
               pending={pendingGuestIds.has(item.id)}
+              canTap={canTapCalEventGuest(item, availability)}
               theme={theme}
               onPress={onPressGuest}
             />
@@ -248,20 +289,6 @@ export default function CalEventCheckInScreen() {
                 />
               )}
             </View>
-          }
-          ListFooterComponent={
-            page.hasMore && guests.length > 0 ? (
-              <Text
-                style={{
-                  color: theme.textSecondary,
-                  fontSize: 14,
-                  textAlign: "center",
-                  padding: 16,
-                }}
-              >
-                Showing the first {page.guests.length} guests.
-              </Text>
-            ) : null
           }
         />
       </View>
@@ -320,12 +347,15 @@ function SearchField({
 function GuestRow({
   guest,
   pending,
+  canTap,
   theme,
   onPress,
 }: {
   guest: CalEventGuest;
   /** A check-in or undo for this guest is on its way: the row waits for it. */
   pending: boolean;
+  /** False for a guest not yet in while the door is shut. */
+  canTap: boolean;
   theme: Theme;
   onPress: (guest: CalEventGuest) => void;
 }) {
@@ -334,11 +364,12 @@ function GuestRow({
   const detail = [guest.name.trim() ? guest.email : null, guest.phoneNumber]
     .filter(Boolean)
     .join(" · ");
+  const disabled = pending || !canTap;
   return (
     <TouchableOpacity
       onPress={() => onPress(guest)}
-      disabled={pending}
-      accessibilityState={{ busy: pending, disabled: pending }}
+      disabled={disabled}
+      accessibilityState={{ busy: pending, disabled }}
       accessibilityRole="button"
       accessibilityLabel={
         guest.checkedInAt ? `${name}, checked in. Undo check-in` : `Check in ${name}`
@@ -372,7 +403,7 @@ function GuestRow({
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Ionicons name="checkmark-circle" size={24} color={theme.success} />
           <Text style={{ color: theme.textSecondary, fontSize: 14, marginLeft: 6 }}>
-            {formatCheckInTime(guest.checkedInAt)}
+            {formatCalEventCheckInTime(guest.checkedInAt)}
           </Text>
         </View>
       ) : (
@@ -383,6 +414,7 @@ function GuestRow({
             borderColor: theme.border,
             paddingHorizontal: 12,
             paddingVertical: 6,
+            opacity: canTap ? 1 : 0.4,
           }}
         >
           <Text style={{ color: theme.text, fontSize: 15, fontWeight: "600" }}>Check in</Text>

@@ -31,6 +31,12 @@ export interface CalEventApi {
   description: string | null;
   startTime: string;
   endTime: string;
+  /**
+   * The span the door takes check-ins in: 12 hours before `startTime` to 12 hours after `endTime`.
+   * Missing on an event cached before the API sent it.
+   */
+  checkInOpensAt?: string;
+  checkInClosesAt?: string;
   /** The event's own timezone — in-person events display venue time, not the viewer's. */
   timeZone: string;
   visibility: CalEventVisibility;
@@ -141,10 +147,9 @@ export interface CalEventGuest {
   checkedInAt: string | null;
 }
 
-export interface CalEventGuestsPage {
+/** Every confirmed guest of an Event, read across all of `/bookings`' pages. */
+export interface CalEventGuestList {
   guests: CalEventGuest[];
-  /** More confirmed guests follow this page. */
-  hasMore: boolean;
 }
 
 /**
@@ -154,6 +159,15 @@ export interface CalEventGuestsPage {
 export type CalEventCheckInResult =
   | { kind: "checked_in"; checkedInAt?: string }
   | { kind: "already_checked_in"; checkedInAt: string }
+  | { kind: "not_confirmed" };
+
+/**
+ * What a scanned ticket did. Only the server knows whose ticket it was, so the result names the
+ * guest; `guest.checkedInAt` is the server's time.
+ */
+export type CalEventTicketCheckInResult =
+  | { kind: "checked_in"; guest: CalEventGuest }
+  | { kind: "already_checked_in"; guest: CalEventGuest; checkedInAt: string }
   | { kind: "not_confirmed" };
 
 /** A team the user belongs to, from `/v2/teams`: organizations and pending memberships included. */
