@@ -15,7 +15,9 @@ export function SegmentedField<T extends string>({
     <View style={{ gap: 8 }}>
       <FieldLabel label={label} />
       <Host matchContents={{ vertical: true }} style={{ minHeight: 32 }}>
+        {/* The segmented style doesn't draw its label, but VoiceOver can name the control by it. */}
         <Picker
+          label={label}
           selection={value}
           onSelectionChange={(next) => onChange(next as T)}
           modifiers={[pickerStyle("segmented")]}
