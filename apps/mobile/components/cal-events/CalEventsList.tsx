@@ -122,6 +122,15 @@ export function CalEventsList({
     setPulling(true);
     onRefresh().finally(() => setPulling(false));
   };
+  // The notice's Retry shows its own progress, like Sent messages, so the notice keeps its
+  // message while it runs: restarting the listing writes the cached pages back, and that clears
+  // the query's error until the refetch fails again.
+  const [retryingNotice, setRetryingNotice] = useState<string | null>(null);
+  const retry = () => {
+    setRetryingNotice(notice);
+    onRefresh().finally(() => setRetryingNotice(null));
+  };
+  const shownNotice = retryingNotice ?? (isRefetching ? null : notice);
 
   // The API has no title search, so a search matches the loaded events and keeps loading pages
   // until every event has been searched. Scrolling to the end loads the next page too. Either
@@ -136,6 +145,8 @@ export function CalEventsList({
   }, [wantsNextPage, isFetching, fetchNextPage]);
   const selectProfile = (id: number | null) => {
     setEndReached(false);
+    // A Retry still running belongs to the previous profile: its notice mustn't follow.
+    setRetryingNotice(null);
     setTeamId(id);
   };
 
@@ -276,7 +287,9 @@ export function CalEventsList({
           {renderHeader?.()}
           {profileTeams.length > 0 ? chips : <View style={{ height: 8 }} />}
           {/* Cached events after a failed refetch, or teams that never loaded: say so, with Retry. */}
-          {notice && !isRefetching ? <ListNotice message={notice} onRetry={onRefresh} /> : null}
+          {shownNotice ? (
+            <ListNotice message={shownNotice} onRetry={retry} busy={retryingNotice !== null} />
+          ) : null}
         </>
       }
       ListEmptyComponent={listState}
@@ -291,8 +304,16 @@ export function CalEventsList({
   );
 }
 
-/** A one-line problem with the list, and Retry. */
-function ListNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
+/** A one-line problem with the list, and Retry (a spinner while `busy`). */
+function ListNotice({
+  message,
+  onRetry,
+  busy = false,
+}: {
+  message: string;
+  onRetry: () => void;
+  busy?: boolean;
+}) {
   const colorScheme = useColorScheme();
   const theme = getColors(colorScheme === "dark");
   return (
@@ -312,9 +333,13 @@ function ListNotice({ message, onRetry }: { message: string; onRetry: () => void
       <Text style={{ flex: 1, marginHorizontal: 8, color: theme.textSecondary, fontSize: 15 }}>
         {message}
       </Text>
-      <TouchableOpacity onPress={onRetry} accessibilityRole="button" hitSlop={8}>
-        <Text style={{ color: theme.text, fontSize: 15, fontWeight: "600" }}>Retry</Text>
-      </TouchableOpacity>
+      {busy ? (
+        <ActivityIndicator size="small" color={theme.textMuted} accessibilityLabel="Retrying" />
+      ) : (
+        <TouchableOpacity onPress={onRetry} accessibilityRole="button" hitSlop={8}>
+          <Text style={{ color: theme.text, fontSize: 15, fontWeight: "600" }}>Retry</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
