@@ -15,6 +15,26 @@ const {
   wallTimeToUtcFaceDate,
 } = require("./wall-time");
 
+/**
+ * Runs `assert` with the device's clock in each of `timeZones`. Jest hands tests a copy of
+ * process.env, where TZ does nothing, so this sets it on Node's own, which re-reads it at once.
+ */
+function inDeviceTimeZones(timeZones, assert) {
+  const nodeEnv = require("node:vm").runInThisContext("process.env");
+  const original = nodeEnv.TZ;
+  try {
+    for (const timeZone of timeZones) {
+      nodeEnv.TZ = timeZone;
+      // Fails if the zone ever stops reaching the clock, rather than testing UTC again.
+      expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(timeZone);
+      assert();
+    }
+  } finally {
+    if (original === undefined) Reflect.deleteProperty(nodeEnv, "TZ");
+    else nodeEnv.TZ = original;
+  }
+}
+
 describe("wallTimeToUtc", () => {
   test("reads the wall time on the event's clock, not the device's", () => {
     expect(wallTimeToUtc("2026-10-19T07:00", "Europe/Madrid").toISOString()).toBe(
@@ -142,17 +162,24 @@ describe("preserveWallTimeOnTimezoneChange", () => {
 });
 
 describe("wallTimeToUtcFaceDate", () => {
+  // Two zones that skip an hour in March 2026, and the furthest east (UTC+14).
+  const deviceTimeZones = ["America/New_York", "Europe/Madrid", "Pacific/Kiritimati"];
+
   test("carries the face values on the UTC clock, whatever the device's zone", () => {
-    expect(wallTimeToUtcFaceDate("2026-08-01T18:00").toISOString()).toBe(
-      "2026-08-01T18:00:00.000Z"
-    );
+    inDeviceTimeZones(deviceTimeZones, () => {
+      expect(wallTimeToUtcFaceDate("2026-08-01T18:00").toISOString()).toBe(
+        "2026-08-01T18:00:00.000Z"
+      );
+    });
   });
 
-  test("round-trips a wall time that a DST zone skips", () => {
+  test("round-trips a wall time the device's own clock skips", () => {
     // 02:30 does not exist in America/New_York or Europe/Madrid on these dates.
-    for (const wallTime of ["2026-03-08T02:30", "2026-03-29T02:30"]) {
-      expect(utcFaceDateToWallTime(wallTimeToUtcFaceDate(wallTime))).toBe(wallTime);
-    }
+    inDeviceTimeZones(deviceTimeZones, () => {
+      for (const wallTime of ["2026-03-08T02:30", "2026-03-29T02:30"]) {
+        expect(utcFaceDateToWallTime(wallTimeToUtcFaceDate(wallTime))).toBe(wallTime);
+      }
+    });
   });
 
   test("reads back only the minutes a picker shows", () => {
