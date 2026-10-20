@@ -351,17 +351,20 @@ export function canManageCalEventLifecycle(
 }
 
 /**
- * Whether the viewer gets the check-in screen: a host (as above) of a published or past event,
- * since a draft has no guests and a cancelled event refuses check-ins. The API also lets accepted
- * external co-hosts and team members with check-in permission in, but the app can't tell them apart.
+ * Whether the viewer gets the check-in screen, on a published or past event only: a draft has no
+ * guests and a cancelled event refuses check-ins. Only the owner, the hosts and accepted external
+ * co-hosts can open a personal event, and the API lets each of them check in, so every viewer of
+ * one gets it, as on the web. A team event also lets in co-hosts and members with update
+ * permission, but the app can't tell them from members who may only view, so only its hosts (as
+ * above) get it there.
  */
 export function canCheckInCalEventGuests(
-  event: Pick<CalEvent, "userId" | "hosts" | "status">,
+  event: Pick<CalEvent, "userId" | "hosts" | "status" | "teamId">,
   viewerId: number | undefined
 ): boolean {
   return (
     (event.status === "published" || event.status === "past") &&
-    canManageCalEventLifecycle(event, viewerId)
+    (event.teamId === null || canManageCalEventLifecycle(event, viewerId))
   );
 }
 

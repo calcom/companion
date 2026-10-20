@@ -650,10 +650,20 @@ describe("canCheckInCalEventGuests", () => {
 
   test("opens the door list to a host of a published or past event", () => {
     for (const status of ["published", "past"]) {
-      expect(canCheckInCalEventGuests(createEvent({ status, userId: ME, hosts: [] }), ME)).toBe(
-        true
-      );
+      expect(
+        canCheckInCalEventGuests(
+          createEvent({ status, userId: null, teamId: 3, hosts: [host(ME)] }),
+          ME
+        )
+      ).toBe(true);
     }
+  });
+
+  test("opens it to everyone who can see a personal event, accepted co-hosts included", () => {
+    // A co-host isn't on the host roster; nobody but the owner, hosts and co-hosts gets the event.
+    const coHosted = createEvent({ userId: 1, teamId: null, hosts: [host(1)] });
+    expect(canCheckInCalEventGuests(coHosted, ME)).toBe(true);
+    expect(canCheckInCalEventGuests(coHosted, undefined)).toBe(true);
   });
 
   test("offers no check-in on a draft or a cancelled event", () => {

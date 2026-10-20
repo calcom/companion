@@ -386,21 +386,25 @@ export function checkInCalEventGuestByTicketMutationOptions(
 }
 
 /**
- * Hook to check a guest in at the door (hosts only). Use `mutateAsync`, one call per tap: callbacks
- * passed to `mutate` only fire for the latest call, so an earlier tap's failure would go unreported.
+ * Hook to check a guest in at the door (hosts and co-hosts). Use `mutateAsync`, one call per tap:
+ * callbacks passed to `mutate` only fire for the latest call, so an earlier tap's failure would go
+ * unreported.
  */
 export function useCheckInCalEventGuest(uuid: string) {
   const queryClient = useQueryClient();
   return useMutation(checkInCalEventGuestMutationOptions(queryClient, uuid));
 }
 
-/** Hook to undo a guest's check-in (hosts only). Use `mutateAsync`, as for check-in. */
+/** Hook to undo a guest's check-in (hosts and co-hosts). Use `mutateAsync`, as for check-in. */
 export function useUndoCalEventGuestCheckIn(uuid: string) {
   const queryClient = useQueryClient();
   return useMutation(undoCalEventGuestCheckInMutationOptions(queryClient, uuid));
 }
 
-/** Hook to check a guest in from a scanned QR ticket (hosts only). Use `mutateAsync`, one call per scan. */
+/**
+ * Hook to check a guest in from a scanned QR ticket (hosts and co-hosts). Use `mutateAsync`, one
+ * call per scan.
+ */
 export function useCheckInCalEventGuestByTicket(uuid: string) {
   const queryClient = useQueryClient();
   return useMutation(checkInCalEventGuestByTicketMutationOptions(queryClient, uuid));
