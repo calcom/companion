@@ -27,10 +27,12 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
     isPending,
     isError,
     isRefetching,
+    isRefetchError,
     refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isFetchNextPageError,
   } = useCalEventMessages(uuid);
 
   return (
@@ -41,6 +43,13 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
       }
     >
       <HintText>Messages sent to this event's guests, newest first.</HintText>
+      {/* Like the Events listing: the loaded messages stay, marked out of date. */}
+      {isRefetchError ? (
+        <ErrorNotice
+          message="Couldn't refresh. These messages may be out of date."
+          onRetry={() => refetch()}
+        />
+      ) : null}
       {isPending ? (
         <ActivityIndicator style={{ paddingVertical: 32 }} />
       ) : isError && !messages ? (
@@ -86,7 +95,9 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
               <MessageRow key={message.id} message={message} first={index === 0} />
             ))}
           </View>
-          {hasNextPage ? (
+          {hasNextPage && isFetchNextPageError && !isFetchingNextPage ? (
+            <ErrorNotice message="Couldn't load more messages." onRetry={() => fetchNextPage()} />
+          ) : hasNextPage ? (
             <View style={{ alignItems: "center" }}>
               <OutlineButton
                 label="Load more"
@@ -145,6 +156,20 @@ function MessageRow({ message, first }: { message: CalEventMessage; first: boole
           {MESSAGE_SEGMENT_LABELS[message.segment] ?? message.segment}
         </Text>
       </View>
+    </View>
+  );
+}
+
+/** A problem loading messages, and Retry. */
+function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const theme = useEditTheme();
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
+      <Text accessibilityRole="alert" style={{ flex: 1, color: theme.textSecondary, fontSize: 14 }}>
+        {message}
+      </Text>
+      <OutlineButton label="Retry" onPress={onRetry} />
     </View>
   );
 }
