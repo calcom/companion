@@ -97,8 +97,6 @@ export function CalEventsList({
   const restartEvents = useRestartCalEvents(selectedTeamId);
   const actions = useCalEventActions();
 
-  // Not while a page loads at the end of the list: that has its own spinner there.
-  const refreshing = isRefetching;
   const teamForbidden = selectedTeamId !== null && isForbiddenError(queryError);
   // The sign-in prompt wins over any error: a 403 from a stale fetch must not hide it.
   const error = needsReauth || teamForbidden ? null : getDisplayError(queryError, "events");
@@ -116,6 +114,14 @@ export function CalEventsList({
           : null;
   // Teams never go stale on their own: a pull refreshes the profile chips with the events.
   const onRefresh = () => offlineAwareRefresh(() => Promise.all([restartEvents(), refetchTeams()]));
+  // Only a pull shows the spinner. isRefetching is also true for the refetch a chip switch or a
+  // return to the tab starts, and showing it then moves the list down by the spinner's height.
+  // With the search bar open, iOS never moves it back, so the gap above the chips grows.
+  const [pulling, setPulling] = useState(false);
+  const onPull = () => {
+    setPulling(true);
+    onRefresh().finally(() => setPulling(false));
+  };
 
   // The API has no title search, so a search matches the loaded events and keeps loading pages
   // until every event has been searched. Scrolling to the end loads the next page too. Either
@@ -258,11 +264,7 @@ export function CalEventsList({
       keyboardShouldPersistTaps="handled"
       refreshControl={
         needsReauth ? undefined : (
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.textMuted}
-          />
+          <RefreshControl refreshing={pulling} onRefresh={onPull} tintColor={theme.textMuted} />
         )
       }
       // Ignored while a page loads: its spinner growing the list would ask for one more.
@@ -274,7 +276,7 @@ export function CalEventsList({
           {renderHeader?.()}
           {profileTeams.length > 0 ? chips : <View style={{ height: 8 }} />}
           {/* Cached events after a failed refetch, or teams that never loaded: say so, with Retry. */}
-          {notice && !refreshing ? <ListNotice message={notice} onRetry={onRefresh} /> : null}
+          {notice && !isRefetching ? <ListNotice message={notice} onRetry={onRefresh} /> : null}
         </>
       }
       ListEmptyComponent={listState}
