@@ -1,11 +1,11 @@
 import { Button, ContextMenu, Divider, Host, HStack, Image } from "@expo/ui/swift-ui";
-import { buttonStyle, frame } from "@expo/ui/swift-ui/modifiers";
+import { accessibilityLabel as a11yLabel, buttonStyle, frame } from "@expo/ui/swift-ui/modifiers";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Fragment } from "react";
 import type { CalEventMenuProps } from "./CalEventMenu.types";
 
 /** An event card's "⋯" menu: the native menu of the Links cards, its groups split by dividers. */
-export function CalEventMenu({ groups }: CalEventMenuProps) {
+export function CalEventMenu({ groups, accessibilityLabel }: CalEventMenuProps) {
   const shown = groups.filter((group) => group.length > 0);
 
   return (
@@ -36,7 +36,7 @@ export function CalEventMenu({ groups }: CalEventMenuProps) {
               systemName="ellipsis"
               color="primary"
               size={24}
-              modifiers={[frame({ height: 24, width: 17 })]}
+              modifiers={[frame({ height: 24, width: 17 }), a11yLabel(accessibilityLabel)]}
             />
           </HStack>
         </ContextMenu.Trigger>
