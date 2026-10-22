@@ -726,14 +726,6 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
           <Stack.Header
             blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
           >
-            {/* Opened alone (a deep link), there's no native back button, so close goes here. */}
-            {navigation.canGoBack() ? null : (
-              <Stack.Header.Left>
-                <Stack.Header.Button onPress={onClose} disabled={saving} accessibilityLabel="Back">
-                  <Stack.Header.Icon sf="chevron.backward" />
-                </Stack.Header.Button>
-              </Stack.Header.Left>
-            )}
             <Stack.Header.Right>
               {/* Publish and Cancel mutate the event too, so they wait for the save to settle. */}
               <Stack.Header.Menu disabled={saving} accessibilityLabel="More actions">
