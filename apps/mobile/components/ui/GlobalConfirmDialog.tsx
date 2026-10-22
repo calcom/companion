@@ -13,13 +13,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   type AlertButton,
+  Modal,
   Platform,
   Text,
   TouchableOpacity,
   useColorScheme,
   View,
 } from "react-native";
-import { FullScreenModal } from "@/components/FullScreenModal";
 import { getColors } from "@/constants/colors";
 import { type ConfirmRequest, setGlobalConfirmFunction } from "@/utils/alerts";
 
@@ -34,9 +34,11 @@ export function GlobalConfirmDialog() {
     return () => setGlobalConfirmFunction(null);
   }, []);
 
-  if (Platform.OS !== "web") return null;
+  // Mounted only while asking. RN Web places a modal's layer when it mounts, so one mounted at
+  // launch would sit under a sheet opened since (an "Add a location" sheet hid the question).
+  if (Platform.OS !== "web" || !request) return null;
 
-  const buttons = request?.buttons ?? [];
+  const buttons = request.buttons ?? [];
   const destructive = buttons.some((button) => button.style === "destructive");
   // Closes first: the button's action may open the next confirmation.
   const choose = (button?: AlertButton) => {
@@ -45,8 +47,11 @@ export function GlobalConfirmDialog() {
   };
 
   return (
-    <FullScreenModal
-      visible={request !== null}
+    // A plain modal, not FullScreenModal: the question fits in the extension's sidebar, so the
+    // sidebar keeps its width.
+    <Modal
+      visible
+      transparent
       animationType="fade"
       // Escape: the cancel choice, as a native alert's dismissal. A tap outside does nothing, as
       // with a native alert and the Bookings and Availability confirm dialogs.
@@ -67,9 +72,9 @@ export function GlobalConfirmDialog() {
                   accessibilityRole="header"
                   className="mb-2 text-xl font-semibold text-gray-900 dark:text-white"
                 >
-                  {request?.title}
+                  {request.title}
                 </Text>
-                {request?.message ? (
+                {request.message ? (
                   <Text className="text-sm leading-5 text-gray-600 dark:text-[#A3A3A3]">
                     {request.message}
                   </Text>
@@ -110,6 +115,6 @@ export function GlobalConfirmDialog() {
           </View>
         </View>
       </View>
-    </FullScreenModal>
+    </Modal>
   );
 }
