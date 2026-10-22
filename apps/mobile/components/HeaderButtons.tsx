@@ -39,13 +39,13 @@ export function HeaderBackButton({
   );
 }
 
-/** A pill that dismisses without saving, such as a sheet's Cancel. */
-export function HeaderCancelButton({
-  label = "Cancel",
+/** A pill with a label, such as a sheet's Cancel or a detail page's Edit. */
+export function HeaderPillButton({
+  label,
   onPress,
   disabled = false,
 }: {
-  label?: string;
+  label: string;
   onPress: () => void;
   disabled?: boolean;
 }) {

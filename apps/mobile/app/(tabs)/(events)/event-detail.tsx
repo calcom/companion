@@ -2,14 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import {
-  Linking,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  useColorScheme,
-  View,
-} from "react-native";
+import { Linking, ScrollView, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { CalEventListItemSkeleton } from "@/components/cal-event-list-item/CalEventListItemSkeleton";
 import { useCalEventActions } from "@/components/cal-events/useCalEventActions";
 import { useCalEventHeaderOptions } from "@/components/cal-events/useCalEventHeaderOptions";
@@ -53,7 +46,18 @@ export default function CalEventDetailScreen() {
   const actions = useCalEventActions({ afterDelete: () => router.back() });
 
   const headerTitle = truncateCalEventTitle(event?.title ?? title ?? "Event");
-  const headerOptions = useCalEventHeaderOptions("Events");
+  // Edit sits in the header, as on the other detail pages. Co-hosts can't edit natively, but the
+  // web still lets them change some fields; a cancelled event can't change.
+  const canEdit = event ? canEditCalEvent(event, me?.id) : false;
+  const headerOptions = useCalEventHeaderOptions(
+    "Events",
+    event && event.status !== "cancelled"
+      ? {
+          label: canEdit ? "Edit" : "Edit on web",
+          onPress: () => (canEdit ? actions.onEdit(event) : actions.onEditOnWeb(event)),
+        }
+      : null
+  );
 
   if (isLoading && !event) {
     return (
@@ -115,8 +119,8 @@ export default function CalEventDetailScreen() {
 
   const status = getCalEventStatusColors(event.status, isDark);
   const canManage = canManageCalEventLifecycle(event, me?.id);
-  const canEdit = canEditCalEvent(event, me?.id);
   const canCheckIn = canCheckInCalEventGuests(event, me?.id);
+  const canPreviewDraft = canManage && event.status === "draft";
   const { canViewPage, canShare } = getCalEventLinkActions(event.status);
   const inPerson = isCalEventInPerson(event);
   const price = formatCalEventPublicPrice(event);
@@ -267,16 +271,36 @@ export default function CalEventDetailScreen() {
             ))}
           </Card>
 
-          {/* The page's main step: see it. */}
+          {/* Opens a screen of its own, so a row with a chevron rather than a quick action. */}
+          {canCheckIn ? (
+            <NavigationRow
+              isDark={isDark}
+              icon="checkmark-done-outline"
+              label="Check in guests"
+              onPress={() =>
+                router.push({
+                  pathname: "/event-check-in",
+                  params: { uuid: event.uuid, title: event.title },
+                })
+              }
+            />
+          ) : null}
+
+          {/* The page as guests see it; a draft's renders only for its owner and hosts. */}
           {canViewPage ? (
-            <View style={{ marginTop: 24 }}>
-              <PrimaryButton
-                isDark={isDark}
-                icon="open-outline"
-                label="Open event page"
-                onPress={() => actions.onOpenPage(event)}
-              />
-            </View>
+            <PageButton
+              isDark={isDark}
+              icon="open-outline"
+              label="Open event page"
+              onPress={() => actions.onOpenPage(event)}
+            />
+          ) : canPreviewDraft ? (
+            <PageButton
+              isDark={isDark}
+              icon="eye-outline"
+              label="Preview"
+              onPress={() => actions.onPreview(event)}
+            />
           ) : null}
 
           {/* The rest as the link editor's quick actions, then its danger zone. */}
@@ -284,13 +308,16 @@ export default function CalEventDetailScreen() {
             isDark={isDark}
             header="Quick actions"
             actions={[
-              // A draft's page renders only for its owner and hosts, so only they get a preview.
-              canManage && event.status === "draft"
-                ? { label: "Preview", icon: "eye-outline", onPress: () => actions.onPreview(event) }
+              canPreviewDraft
+                ? {
+                    label: "Publish",
+                    icon: "rocket-outline",
+                    onPress: () => actions.onPublish(event),
+                  }
                 : null,
               // The address Preview and Open event page open, as the link editor's Copy link. A
               // cancelled event's page can be opened, but its link isn't handed out, as on the web.
-              canShare || (canManage && event.status === "draft")
+              canShare || canPreviewDraft
                 ? {
                     label: "Copy link",
                     icon: "link-outline",
@@ -299,32 +326,6 @@ export default function CalEventDetailScreen() {
                 : null,
               canShare
                 ? { label: "Share", icon: "share-outline", onPress: () => actions.onShare(event) }
-                : null,
-              canCheckIn
-                ? {
-                    label: "Check in guests",
-                    icon: "checkmark-done-outline",
-                    onPress: () =>
-                      router.push({
-                        pathname: "/event-check-in",
-                        params: { uuid: event.uuid, title: event.title },
-                      }),
-                  }
-                : null,
-              // Co-hosts can't edit natively, but the web still lets them change some fields.
-              event.status !== "cancelled"
-                ? {
-                    label: canEdit ? "Edit" : "Edit on web",
-                    icon: "pencil-outline",
-                    onPress: () => (canEdit ? actions.onEdit(event) : actions.onEditOnWeb(event)),
-                  }
-                : null,
-              canManage && event.status === "draft"
-                ? {
-                    label: "Publish",
-                    icon: "rocket-outline",
-                    onPress: () => actions.onPublish(event),
-                  }
                 : null,
             ]}
           />
@@ -430,7 +431,8 @@ function Row({
   );
 }
 
-function PrimaryButton({
+/** The event page's button: outlined, so it doesn't outweigh the rest of the page. */
+function PageButton({
   isDark,
   icon,
   label,
@@ -441,7 +443,7 @@ function PrimaryButton({
   label: string;
   onPress: () => void;
 }) {
-  const color = isDark ? "#000000" : "#FFFFFF";
+  const theme = getColors(isDark);
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -450,13 +452,51 @@ function PrimaryButton({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        height: 48,
-        borderRadius: 8,
-        backgroundColor: isDark ? "#FFFFFF" : "#111827",
+        height: 44,
+        marginTop: 24,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: isDark ? "#4D4D4D" : "#E5E5E5",
+        backgroundColor: getGroupedSurfaces(isDark).card,
       }}
     >
-      <Ionicons name={icon} size={18} color={color} style={{ marginRight: 8 }} />
-      <Text style={{ color, fontSize: 16, fontWeight: "600" }}>{label}</Text>
+      <Ionicons name={icon} size={18} color={theme.text} style={{ marginRight: 8 }} />
+      <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** A grouped row that opens another screen: icon, label and a chevron. */
+function NavigationRow({
+  isDark,
+  icon,
+  label,
+  onPress,
+}: {
+  isDark: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  const theme = getColors(isDark);
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      accessibilityRole="button"
+      activeOpacity={0.5}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        height: 44,
+        marginTop: 16,
+        paddingHorizontal: 16,
+        borderRadius: 14,
+        backgroundColor: getGroupedSurfaces(isDark).card,
+      }}
+    >
+      <Ionicons name={icon} size={20} color={theme.textSecondary} style={{ marginRight: 10 }} />
+      <Text style={{ flex: 1, color: theme.text, fontSize: 17 }}>{label}</Text>
+      <Ionicons name="chevron-forward" size={18} color="#C7C7CC" />
     </TouchableOpacity>
   );
 }

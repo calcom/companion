@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SectionHeader } from "@/components/event-type-detail/SettingsUI";
-import { HeaderCancelButton, HeaderSaveButton } from "@/components/HeaderButtons";
+import { HeaderPillButton, HeaderSaveButton } from "@/components/HeaderButtons";
 import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 
@@ -573,7 +573,7 @@ export function EditSheet({
             height: 60,
           }}
         >
-          <HeaderCancelButton onPress={onCancel} disabled={busy} />
+          <HeaderPillButton label="Cancel" onPress={onCancel} disabled={busy} />
           <Text
             accessibilityRole="header"
             style={{
