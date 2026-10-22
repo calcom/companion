@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { getUserFacingApiReason } from "@/components/cal-events/useCalEventActions";
 import {
   useAddCalEventLocation,
@@ -9,7 +9,7 @@ import {
   useUpdateCalEventLocation,
 } from "@/hooks";
 import type { CalEvent, CalEventLocation } from "@/services/calcom";
-import { showInfoAlert, showSilentSuccessAlert } from "@/utils/alerts";
+import { showConfirmAlert, showInfoAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import {
   type AddCalEventLocationFormValues,
   buildAddCalEventLocationInput,
@@ -122,7 +122,7 @@ export function LocationsSection({
       run();
       return;
     }
-    Alert.alert(title, message, [
+    showConfirmAlert(title, message, [
       { text: "Cancel", style: "cancel" },
       { text: action, onPress: run },
     ]);
@@ -182,7 +182,7 @@ export function LocationsSection({
   const remove = (location: CalEventLocation) => {
     const locationId = location.id;
     if (!locationId) return;
-    Alert.alert(
+    showConfirmAlert(
       "Remove location",
       published
         ? "It's removed right away, and registered guests are emailed about it."

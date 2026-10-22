@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import { type ReactNode, useState } from "react";
 import {
   ActionSheetIOS,
-  Alert,
   Modal,
   Platform,
   Pressable,
@@ -16,6 +15,7 @@ import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTeams, useUserProfile } from "@/hooks";
 import type { Team } from "@/services/calcom";
+import { showConfirmAlert } from "@/utils/alerts";
 import {
   canCreateTeamCalEvents,
   getCalEventsProfileTeams,
@@ -46,7 +46,7 @@ export function useCreateCalEventFlow(): { startCreate: () => void; picker: Reac
 
   const openCreate = (team: Team | null) => {
     if (team && !canCreateTeamCalEvents({ isWebSession, oauthScope })) {
-      Alert.alert(
+      showConfirmAlert(
         "Sign in again to create team events",
         "Creating team events needs a permission your current sign-in doesn't include. Sign out and sign back in to grant it.",
         [
@@ -66,7 +66,7 @@ export function useCreateCalEventFlow(): { startCreate: () => void; picker: Reac
     // A sign-in from before Events gets the list's sign-in-again prompt, not a form whose save
     // 403s. Its teams query is off, so it would also pass for having no teams.
     if (needsReauth) {
-      Alert.alert(
+      showConfirmAlert(
         "Sign in again to create events",
         "Events need permissions your current sign-in doesn't include. Sign out and sign back in to grant them.",
         [
@@ -81,13 +81,13 @@ export function useCreateCalEventFlow(): { startCreate: () => void; picker: Reac
     if (teamsData === undefined) {
       const createPersonal = { text: "Create personal event", onPress: () => openCreate(null) };
       if (teamsLoadError) {
-        Alert.alert("Couldn't load your teams", "Retry to create the event on a team.", [
+        showConfirmAlert("Couldn't load your teams", "Retry to create the event on a team.", [
           { text: "Cancel", style: "cancel" },
           { text: "Retry", onPress: () => void refetchTeams() },
           createPersonal,
         ]);
       } else {
-        Alert.alert(
+        showConfirmAlert(
           "Still loading your teams",
           "To create the event on a team, try again once they load.",
           [{ text: "Cancel", style: "cancel" }, createPersonal]

@@ -6,7 +6,6 @@ import { useNavigation } from "expo-router";
 import { type ReactNode, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -33,7 +32,12 @@ import {
   useUpdateCalEventLocation,
 } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
-import { showInfoAlert, showNotAvailableAlert, showSuccessAlert } from "@/utils/alerts";
+import {
+  showConfirmAlert,
+  showInfoAlert,
+  showNotAvailableAlert,
+  showSuccessAlert,
+} from "@/utils/alerts";
 import { CAL_EVENT_NAME_MAX_LENGTH, minEndWallTime, moveStart } from "@/utils/cal-event-create";
 import {
   buildCalEventLocationPriceUpdates,
@@ -253,7 +257,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       return;
     }
     if (saving) return;
-    Alert.alert(
+    showConfirmAlert(
       "Unsaved changes",
       "You have unsaved changes to this event. If you leave now, they will be lost.",
       [

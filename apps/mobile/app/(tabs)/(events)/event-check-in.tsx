@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -29,7 +28,7 @@ import {
   useUndoCalEventGuestCheckIn,
 } from "@/hooks";
 import type { CalEventGuest } from "@/services/calcom";
-import { showInfoAlert } from "@/utils/alerts";
+import { showConfirmAlert, showInfoAlert } from "@/utils/alerts";
 import {
   CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION,
   canTapCalEventGuest,
@@ -114,7 +113,7 @@ export default function CalEventCheckInScreen() {
       onCheckIn(guest);
       return;
     }
-    Alert.alert(
+    showConfirmAlert(
       "Undo check-in?",
       `${getCalEventGuestName(guest)} was checked in at ${formatCalEventCheckInTime(guest.checkedInAt)}.`,
       [

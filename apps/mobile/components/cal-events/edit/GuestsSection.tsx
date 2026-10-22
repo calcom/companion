@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import { type ReactNode, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -21,7 +20,7 @@ import {
   useDecideCalEventRegistration,
 } from "@/hooks";
 import type { CalEvent, CalEventLocation, CalEventRosterGuest } from "@/services/calcom";
-import { showInfoAlert } from "@/utils/alerts";
+import { showConfirmAlert, showInfoAlert } from "@/utils/alerts";
 import {
   buildRosterCsv,
   CAL_EVENT_REGISTRATION_STATUS_LABELS,
@@ -170,7 +169,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
     });
 
   const confirmApproveAll = () => {
-    Alert.alert(
+    showConfirmAlert(
       "Approve all pending guests?",
       getApproveAllPrompt(counts.PENDING_APPROVAL, { paid }),
       [
@@ -219,7 +218,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
       runDecision(guest, decision);
       return;
     }
-    Alert.alert(
+    showConfirmAlert(
       `Decline ${getGuestDisplayName(guest)}?`,
       "They'll get an email letting them know.",
       [

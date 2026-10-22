@@ -10,6 +10,7 @@ import { CalComLogo } from "@/components/CalComLogo";
 import LoginScreenComponent from "@/components/LoginScreen";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { PushNotificationProvider } from "@/components/PushNotificationProvider";
+import { GlobalConfirmDialog } from "@/components/ui/GlobalConfirmDialog";
 import { GlobalToast } from "@/components/ui/GlobalToast";
 import { WidgetSyncProvider } from "@/components/WidgetSyncProvider";
 import { getColors, colors as semanticColors } from "@/constants/colors";
@@ -575,6 +576,7 @@ export default function RootLayout() {
             </WidgetSyncProvider>
           </PushNotificationProvider>
           <GlobalToast />
+          <GlobalConfirmDialog />
         </ToastProvider>
       </AuthProvider>
     </QueryProvider>
