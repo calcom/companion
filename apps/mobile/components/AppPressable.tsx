@@ -1,4 +1,5 @@
 import * as Haptics from "expo-haptics";
+import { cssInterop } from "nativewind";
 import React, { useCallback } from "react";
 import type { GestureResponderEvent, PressableProps, ViewStyle } from "react-native";
 import { Platform, Pressable } from "react-native";
@@ -10,6 +11,9 @@ import Animated, {
 } from "react-native-reanimated";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+// NativeWind styles className only on the components it knows, and on the web the animated
+// Pressable isn't one: its classes were dropped (a "pill" showed as bare text).
+if (Platform.OS === "web") cssInterop(AnimatedPressable, { className: "style" });
 
 type AppPressableProps = PressableProps & {
   className?: string;
@@ -88,23 +92,6 @@ export const AppPressable = React.forwardRef<React.ElementRef<typeof Pressable>,
       },
       [enableHaptics, hapticStyle, onPress]
     );
-
-    // NativeWind styles className only on the components it knows, and on the web the animated
-    // Pressable isn't one: its classes were dropped (a "pill" showed as bare text). The plain
-    // Pressable takes them there, without the press animation.
-    if (Platform.OS === "web") {
-      return (
-        <Pressable
-          ref={ref}
-          className={className}
-          style={style}
-          onPressIn={onPressIn}
-          onPressOut={onPressOut}
-          onPress={handlePress}
-          {...props}
-        />
-      );
-    }
 
     return (
       <AnimatedPressable
