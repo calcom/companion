@@ -124,8 +124,7 @@ export function PaymentSection({
                 style={{
                   borderWidth: 1,
                   borderColor: theme.border,
-                  borderRadius: 12,
-                  backgroundColor: theme.background,
+                  borderRadius: 8,
                 }}
               >
                 {admission.map((location, index) => {

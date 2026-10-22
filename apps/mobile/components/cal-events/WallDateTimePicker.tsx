@@ -1,5 +1,5 @@
 import { Modal, Pressable, Text, useColorScheme, View } from "react-native";
-import { getColors } from "@/constants/colors";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { isSameWallDay, splitWallTimeParts } from "@/utils/wall-time";
 import type { WallDateTimePickerProps } from "./WallDateTimePicker.types";
 
@@ -35,7 +35,12 @@ export function WallDateTimePicker({
       >
         <Pressable
           onPress={() => {}}
-          style={{ borderRadius: 16, padding: 16, gap: 12, backgroundColor: theme.background }}
+          style={{
+            borderRadius: 16,
+            padding: 16,
+            gap: 12,
+            backgroundColor: getGroupedSurfaces(isDark).card,
+          }}
         >
           <Text style={{ color: theme.text, fontSize: 17, fontWeight: "600" }}>{title}</Text>
           {/*

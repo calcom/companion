@@ -231,7 +231,7 @@ export function LocationsSection({
                 alignItems: "flex-start",
                 gap: 8,
                 padding: 12,
-                borderRadius: 12,
+                borderRadius: 8,
                 borderWidth: 1,
                 borderColor: theme.border,
                 backgroundColor: theme.backgroundMuted,

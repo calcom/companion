@@ -3,7 +3,7 @@ import { Stack } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { AppPressable } from "@/components/AppPressable";
-import { useEditTheme } from "@/components/cal-events/edit/EditControls";
+import { useEditSurfaces, useEditTheme } from "@/components/cal-events/edit/EditControls";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 
 export interface CalEventSheetProps {
@@ -24,6 +24,7 @@ export function CalEventSheet({
   children,
 }: CalEventSheetProps) {
   const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
   // Dimmed on a wrapper: AppPressable's press animation sets its own opacity over the style's.
   // Pressable reports `disabled` to screen readers itself.
   const headerButton = (icon: "close" | "checkmark", onPress: () => void, disabled: boolean) => (
@@ -59,7 +60,7 @@ export function CalEventSheet({
             : undefined,
         }}
       />
-      <View style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}>{children}</View>
+      <View style={{ flex: 1, backgroundColor: surfaces.screen }}>{children}</View>
     </>
   );
 }

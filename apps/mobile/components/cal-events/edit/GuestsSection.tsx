@@ -59,7 +59,7 @@ import {
 import { getCalEventStatusColors, isPaidCalEvent } from "@/utils/cal-events";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 import { getUserFacingApiReason } from "../useCalEventActions";
-import { EditTextField, useEditTheme } from "./EditControls";
+import { EditTextField, useEditSurfaces, useEditTheme } from "./EditControls";
 import { SelectField } from "./SelectField";
 
 /** The web's badge variants in the Events tab's status colors. */
@@ -92,7 +92,7 @@ export function GuestsSection({ event, locations, onPageChange }: GuestsSectionP
           gap: 12,
           paddingVertical: 48,
           paddingHorizontal: 24,
-          borderRadius: 16,
+          borderRadius: 12,
           borderWidth: 1,
           borderStyle: "dashed",
           borderColor: theme.border,
@@ -356,7 +356,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
               paddingHorizontal: 16,
               height: 36,
               justifyContent: "center",
-              borderRadius: 10,
+              borderRadius: 8,
               borderWidth: 1,
               borderColor: theme.border,
             }}
@@ -370,7 +370,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
             alignItems: "center",
             gap: 10,
             paddingVertical: 40,
-            borderRadius: 16,
+            borderRadius: 12,
             borderWidth: 1,
             borderStyle: "dashed",
             borderColor: theme.border,
@@ -466,10 +466,10 @@ function ToolbarButton({
         gap: 6,
         height: 36,
         paddingHorizontal: 12,
-        borderRadius: 10,
+        borderRadius: 8,
         borderWidth: 1,
         borderColor: primary ? theme.text : theme.border,
-        backgroundColor: primary ? theme.text : theme.background,
+        backgroundColor: primary ? theme.text : "transparent",
         opacity: disabled ? 0.4 : 1,
       }}
     >
@@ -538,13 +538,12 @@ function FilterChips({
 
 function GuestCard({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
   const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
   return (
     <View
       style={{
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: theme.border,
-        backgroundColor: theme.background,
+        borderRadius: 12,
+        backgroundColor: surfaces.card,
         overflow: "hidden",
       }}
     >
@@ -554,7 +553,7 @@ function GuestCard({ children, footer }: { children: ReactNode; footer?: ReactNo
           style={{
             borderTopWidth: 1,
             borderTopColor: theme.border,
-            backgroundColor: theme.backgroundSecondary,
+            backgroundColor: theme.backgroundMuted,
             paddingHorizontal: 14,
             paddingVertical: 8,
           }}
@@ -700,7 +699,7 @@ function GuestRow({
             style={{
               padding: 12,
               gap: 10,
-              borderRadius: 10,
+              borderRadius: 8,
               backgroundColor: theme.backgroundMuted,
             }}
           >
@@ -787,7 +786,6 @@ function Pagination({
         borderRadius: 8,
         borderWidth: 1,
         borderColor: theme.border,
-        backgroundColor: theme.background,
         alignItems: "center",
         justifyContent: "center",
         opacity: enabled ? 1 : 0.4,

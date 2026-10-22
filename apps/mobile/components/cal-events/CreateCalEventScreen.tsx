@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getColors } from "@/constants/colors";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { useCreateCalEvent } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showInfoAlert } from "@/utils/alerts";
@@ -127,7 +127,7 @@ export function CreateCalEventScreen({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
+      style={{ flex: 1, backgroundColor: getGroupedSurfaces(isDark).screen }}
     >
       <View
         style={{
@@ -280,7 +280,7 @@ export function CreateCalEventScreen({
               gap: 8,
               height: 48,
               paddingHorizontal: 20,
-              borderRadius: 12,
+              borderRadius: 8,
               marginTop: 8,
               backgroundColor: theme.text,
               opacity: canSubmit ? 1 : 0.5,
@@ -442,7 +442,7 @@ function OptionChip({ icon, label, hint, selected, onPress }: OptionChipProps) {
         gap: 8,
         height: 44,
         paddingHorizontal: 14,
-        borderRadius: 12,
+        borderRadius: 8,
         backgroundColor: selected ? theme.backgroundEmphasis : "transparent",
       }}
     >

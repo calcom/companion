@@ -277,7 +277,7 @@ export function CalEventsList({
       data={showingEvents ? rows : []}
       keyExtractor={(row) => (row.type === "event" ? row.event.uuid : `group-${row.kind}`)}
       renderItem={renderRow}
-      style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
+      style={{ flex: 1, backgroundColor: theme.background }}
       contentContainerStyle={{ paddingBottom: 120 }}
       showsVerticalScrollIndicator={false}
       contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior}
@@ -330,12 +330,13 @@ function ListNotice({
       style={{
         flexDirection: "row",
         alignItems: "center",
-        marginHorizontal: 16,
+        marginHorizontal: 8,
         marginBottom: 12,
         paddingVertical: 10,
         paddingHorizontal: 14,
-        borderRadius: 12,
-        backgroundColor: theme.background,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: theme.border,
       }}
     >
       <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />

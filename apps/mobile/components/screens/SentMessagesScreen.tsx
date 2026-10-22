@@ -9,7 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { HintText, useEditTheme } from "@/components/cal-events/edit/EditControls";
+import { HintText, useEditSurfaces, useEditTheme } from "@/components/cal-events/edit/EditControls";
 import { useCalEventMessages } from "@/hooks";
 import type { CalEventMessage } from "@/services/calcom";
 import {
@@ -23,6 +23,7 @@ import { offlineAwareRefresh } from "@/utils/network";
 
 export function SentMessagesScreen({ uuid }: { uuid: string }) {
   const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
   const insets = useSafeAreaInsets();
   const {
     data: messages,
@@ -80,7 +81,7 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
             gap: 8,
             paddingVertical: 40,
             paddingHorizontal: 24,
-            borderRadius: 16,
+            borderRadius: 12,
             borderWidth: 1,
             borderStyle: "dashed",
             borderColor: theme.border,
@@ -98,10 +99,8 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
         <>
           <View
             style={{
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: theme.border,
-              backgroundColor: theme.background,
+              borderRadius: 12,
+              backgroundColor: surfaces.card,
               overflow: "hidden",
             }}
           >
@@ -218,10 +217,9 @@ function OutlineButton({
         gap: 8,
         height: 36,
         paddingHorizontal: 16,
-        borderRadius: 10,
+        borderRadius: 8,
         borderWidth: 1,
         borderColor: theme.border,
-        backgroundColor: theme.background,
       }}
     >
       {busy ? <ActivityIndicator size="small" /> : null}

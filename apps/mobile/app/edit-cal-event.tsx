@@ -3,7 +3,7 @@ import { ActivityIndicator, Text, TouchableOpacity, useColorScheme, View } from 
 import { EditCalEventScreen } from "@/components/cal-events/EditCalEventScreen";
 import { useOpenCalEventEditor } from "@/components/cal-events/useCalEventActions";
 import { EmptyScreen } from "@/components/EmptyScreen";
-import { getColors } from "@/constants/colors";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { isForbiddenError, useCalEvent, useUserProfile } from "@/hooks";
 import { showSilentSuccessAlert } from "@/utils/alerts";
 import { canEditCalEvent } from "@/utils/cal-event-edit";
@@ -12,7 +12,9 @@ import { getCalEventEditorUrl } from "@/utils/cal-events";
 /** The edit screen, pushed over the event's detail like the web editor's own page. */
 export default function EditCalEvent() {
   const router = useRouter();
-  const theme = getColors(useColorScheme() === "dark");
+  const isDark = useColorScheme() === "dark";
+  const theme = getColors(isDark);
+  const surfaces = getGroupedSurfaces(isDark);
   const { uuid } = useLocalSearchParams<{ uuid: string }>();
   const { data: event, isLoading, isPlaceholderData, error, refetch } = useCalEvent(uuid);
 
@@ -47,7 +49,7 @@ export default function EditCalEvent() {
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: theme.backgroundSecondary,
+          backgroundColor: surfaces.screen,
         }}
       >
         <ActivityIndicator />
@@ -77,7 +79,7 @@ export default function EditCalEvent() {
           alignItems: "center",
           justifyContent: "center",
           padding: 20,
-          backgroundColor: theme.backgroundSecondary,
+          backgroundColor: surfaces.screen,
         }}
       >
         <EmptyScreen
@@ -101,7 +103,7 @@ export default function EditCalEvent() {
           alignItems: "center",
           justifyContent: "center",
           padding: 20,
-          backgroundColor: theme.backgroundSecondary,
+          backgroundColor: surfaces.screen,
         }}
       >
         <EmptyScreen
@@ -125,7 +127,7 @@ export default function EditCalEvent() {
           alignItems: "center",
           justifyContent: "center",
           padding: 20,
-          backgroundColor: theme.backgroundSecondary,
+          backgroundColor: surfaces.screen,
         }}
       >
         <EmptyScreen

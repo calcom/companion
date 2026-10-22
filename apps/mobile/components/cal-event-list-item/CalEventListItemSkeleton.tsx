@@ -12,9 +12,9 @@ export function CalEventListItemSkeleton() {
         backgroundColor: theme.background,
         borderColor: theme.border,
         borderWidth: 1,
-        borderRadius: 20,
-        marginHorizontal: 16,
-        marginBottom: 16,
+        borderRadius: 8,
+        marginHorizontal: 8,
+        marginBottom: 12,
         overflow: "hidden",
       }}
     >
@@ -33,7 +33,7 @@ export function CalEventListItemSkeleton() {
           }}
         >
           <Skeleton style={{ height: 22, width: 80, borderRadius: 6 }} />
-          <Skeleton style={{ height: 36, width: 36, borderRadius: 10 }} />
+          <Skeleton style={{ height: 36, width: 36, borderRadius: 8 }} />
         </View>
       </View>
     </View>

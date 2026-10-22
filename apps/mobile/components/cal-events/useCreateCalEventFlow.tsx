@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getColors } from "@/constants/colors";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTeams, useUserProfile } from "@/hooks";
 import type { Team } from "@/services/calcom";
@@ -187,9 +187,9 @@ function ProfilePickerSheet({
           style={{
             paddingTop: 16,
             paddingBottom: insets.bottom + 16,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            backgroundColor: theme.background,
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            backgroundColor: getGroupedSurfaces(isDark).card,
           }}
         >
           <Text

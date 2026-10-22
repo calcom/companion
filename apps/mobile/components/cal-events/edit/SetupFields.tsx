@@ -74,7 +74,7 @@ export function CoverField({
           style={{
             width: "100%",
             aspectRatio: wide ? 2 : 1,
-            borderRadius: 12,
+            borderRadius: 8,
             backgroundColor: theme.backgroundMuted,
           }}
           contentFit={wide || landscape ? "cover" : "contain"}
@@ -95,7 +95,7 @@ export function CoverField({
             paddingVertical: 28,
             paddingHorizontal: 16,
             gap: 6,
-            borderRadius: 12,
+            borderRadius: 8,
             borderWidth: 1,
             borderStyle: "dashed",
             borderColor: theme.borderLight,
@@ -164,7 +164,7 @@ export function ThemeField({
                   aspectRatio: 1.3,
                   flexDirection: "row",
                   overflow: "hidden",
-                  borderRadius: 10,
+                  borderRadius: 8,
                   borderWidth: selected ? 2 : 1,
                   borderColor: selected ? theme.text : theme.border,
                 }}

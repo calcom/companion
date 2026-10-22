@@ -85,10 +85,9 @@ export function SelectBox({
         gap: 10,
         minHeight: 44,
         paddingHorizontal: 12,
-        borderRadius: 10,
+        borderRadius: 8,
         borderWidth: 1,
         borderColor: theme.border,
-        backgroundColor: theme.background,
       }}
     >
       {swatches ? <Swatches colors={swatches} /> : null}

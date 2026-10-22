@@ -6,7 +6,7 @@ import { Linking, ScrollView, Text, TouchableOpacity, useColorScheme, View } fro
 import { CalEventListItemSkeleton } from "@/components/cal-event-list-item/CalEventListItemSkeleton";
 import { useCalEventActions } from "@/components/cal-events/useCalEventActions";
 import { EmptyScreen } from "@/components/EmptyScreen";
-import { getColors } from "@/constants/colors";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { isForbiddenError, useCalEvent, useUserProfile } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
@@ -37,6 +37,7 @@ export default function CalEventDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
+  const surfaces = getGroupedSurfaces(isDark);
   const { data: event, isLoading, error, refetch } = useCalEvent(uuid);
   const { data: me } = useUserProfile();
   const actions = useCalEventActions({ afterDelete: () => router.back() });
@@ -48,7 +49,7 @@ export default function CalEventDetailScreen() {
       <>
         <Stack.Screen options={{ title: headerTitle }} />
         <ScrollView
-          style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
+          style={{ flex: 1, backgroundColor: surfaces.screen }}
           contentContainerStyle={{ paddingTop: 16 }}
         >
           <CalEventListItemSkeleton />
@@ -79,7 +80,7 @@ export default function CalEventDetailScreen() {
             alignItems: "center",
             justifyContent: "center",
             padding: 20,
-            backgroundColor: theme.backgroundSecondary,
+            backgroundColor: surfaces.screen,
           }}
         >
           <EmptyScreen
@@ -119,7 +120,7 @@ export default function CalEventDetailScreen() {
     <>
       <Stack.Screen options={{ title: headerTitle, headerBackTitle: "Events" }} />
       <ScrollView
-        style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
+        style={{ flex: 1, backgroundColor: surfaces.screen }}
         contentContainerStyle={{ paddingBottom: 120 }}
         contentInsetAdjustmentBehavior="automatic"
       >
@@ -163,7 +164,7 @@ export default function CalEventDetailScreen() {
             </Text>
           ) : null}
 
-          <Card theme={theme}>
+          <Card isDark={isDark}>
             <Row
               theme={theme}
               icon="calendar-outline"
@@ -203,7 +204,7 @@ export default function CalEventDetailScreen() {
           </Card>
 
           {event.description ? (
-            <Card theme={theme}>
+            <Card isDark={isDark}>
               <Text style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 6 }}>
                 About the event
               </Text>
@@ -213,7 +214,7 @@ export default function CalEventDetailScreen() {
             </Card>
           ) : null}
 
-          <Card theme={theme}>
+          <Card isDark={isDark}>
             <Text style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 8 }}>
               {event.hosts.length === 1 ? "Host" : "Hosts"}
             </Text>
@@ -343,14 +344,13 @@ export default function CalEventDetailScreen() {
 
 type Theme = ReturnType<typeof getColors>;
 
-function Card({ theme, children }: { theme: Theme; children: ReactNode }) {
+/** A card as on the booking and availability detail screens. */
+function Card({ isDark, children }: { isDark: boolean; children: ReactNode }) {
   return (
     <View
       style={{
-        backgroundColor: theme.background,
-        borderColor: theme.border,
-        borderWidth: 1,
-        borderRadius: 16,
+        backgroundColor: getGroupedSurfaces(isDark).card,
+        borderRadius: 12,
         padding: 14,
         marginTop: 16,
       }}
@@ -420,7 +420,7 @@ function ActionButton({
   destructive?: boolean;
   grow?: boolean;
 }) {
-  const background = primary ? (isDark ? "#FFFFFF" : "#111827") : theme.background;
+  const background = primary ? (isDark ? "#FFFFFF" : "#111827") : getGroupedSurfaces(isDark).card;
   const color = primary
     ? isDark
       ? "#000000"
@@ -438,9 +438,7 @@ function ActionButton({
         alignItems: "center",
         justifyContent: "center",
         height: 48,
-        borderRadius: 12,
-        borderWidth: primary ? 0 : 1,
-        borderColor: theme.border,
+        borderRadius: 8,
         backgroundColor: background,
       }}
     >

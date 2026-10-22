@@ -119,3 +119,13 @@ export const semanticColors = {
     dark: colors.dark.backgroundEmphasis,
   },
 } as const;
+
+/**
+ * Surfaces of a detail or edit screen: cards on a screen that sets them off, as Bookings and
+ * Availability draw them. Dark mode lifts the cards off black; light mode sets white cards on gray.
+ */
+export function getGroupedSurfaces(isDark: boolean) {
+  return isDark
+    ? { screen: colors.dark.background, card: colors.dark.backgroundSecondary }
+    : { screen: colors.light.backgroundMuted, card: colors.light.background };
+}

@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getColors } from "@/constants/colors";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import {
   isCalEventGuestPending,
   isForbiddenError,
@@ -50,6 +50,7 @@ export default function CalEventCheckInScreen() {
   const router = useRouter();
   const isDark = useColorScheme() === "dark";
   const theme = getColors(isDark);
+  const surfaces = getGroupedSurfaces(isDark);
   const [searchQuery, setSearchQuery] = useState("");
   // Not isFetching: the list also refetches after every tap, and that shouldn't spin the control.
   const [pulling, setPulling] = useState(false);
@@ -129,10 +130,10 @@ export default function CalEventCheckInScreen() {
     return (
       <>
         {screenOptions}
-        <View style={{ flex: 1, backgroundColor: theme.backgroundSecondary, padding: 16 }}>
+        <View style={{ flex: 1, backgroundColor: surfaces.screen, padding: 16 }}>
           <Skeleton style={{ height: 28, width: 200, borderRadius: 6 }} />
           {[0, 1, 2].map((row) => (
-            <Skeleton key={row} style={{ height: 52, borderRadius: 10, marginTop: 16 }} />
+            <Skeleton key={row} style={{ height: 52, borderRadius: 8, marginTop: 16 }} />
           ))}
         </View>
       </>
@@ -162,7 +163,7 @@ export default function CalEventCheckInScreen() {
             alignItems: "center",
             justifyContent: "center",
             padding: 20,
-            backgroundColor: theme.backgroundSecondary,
+            backgroundColor: surfaces.screen,
           }}
         >
           <EmptyScreen
@@ -180,7 +181,7 @@ export default function CalEventCheckInScreen() {
   return (
     <>
       {screenOptions}
-      <View style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}>
+      <View style={{ flex: 1, backgroundColor: surfaces.screen }}>
         <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
           {title ? (
             <Text style={{ color: theme.textSecondary, fontSize: 15 }} numberOfLines={1}>
@@ -204,7 +205,7 @@ export default function CalEventCheckInScreen() {
                 justifyContent: "center",
                 height: 44,
                 marginTop: 12,
-                borderRadius: 10,
+                borderRadius: 8,
                 backgroundColor: theme.text,
               }}
             >
@@ -226,7 +227,12 @@ export default function CalEventCheckInScreen() {
             </View>
           ) : null}
           {list.guests.length > 0 || searchQuery ? (
-            <SearchField theme={theme} value={searchQuery} onChangeText={setSearchQuery} />
+            <SearchField
+              theme={theme}
+              background={surfaces.card}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
           ) : null}
           {/* Cached guests after a failed refetch: say so, with Retry. */}
           {isRefetchError && !pulling ? (
@@ -237,8 +243,8 @@ export default function CalEventCheckInScreen() {
                 marginTop: 12,
                 paddingVertical: 10,
                 paddingHorizontal: 14,
-                borderRadius: 12,
-                backgroundColor: theme.background,
+                borderRadius: 8,
+                backgroundColor: surfaces.card,
               }}
             >
               <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
@@ -262,6 +268,7 @@ export default function CalEventCheckInScreen() {
               pending={pendingGuestIds.has(item.id)}
               canTap={canTapCalEventGuest(item, availability)}
               theme={theme}
+              background={surfaces.card}
               onPress={onPressGuest}
             />
           )}
@@ -300,10 +307,12 @@ export default function CalEventCheckInScreen() {
 
 function SearchField({
   theme,
+  background,
   value,
   onChangeText,
 }: {
   theme: Theme;
+  background: string;
   value: string;
   onChangeText: (text: string) => void;
 }) {
@@ -312,11 +321,11 @@ function SearchField({
       style={{
         flexDirection: "row",
         alignItems: "center",
-        borderRadius: 10,
+        borderRadius: 8,
         paddingHorizontal: 10,
         height: 40,
         marginTop: 12,
-        backgroundColor: theme.backgroundMuted,
+        backgroundColor: background,
       }}
     >
       <Ionicons name="search-outline" size={18} color={theme.textMuted} />
@@ -359,6 +368,7 @@ function GuestRow({
   pending,
   canTap,
   theme,
+  background,
   onPress,
 }: {
   guest: CalEventGuest;
@@ -367,6 +377,7 @@ function GuestRow({
   /** False for a guest not yet in while the door is shut. */
   canTap: boolean;
   theme: Theme;
+  background: string;
   onPress: (guest: CalEventGuest) => void;
 }) {
   const name = getCalEventGuestName(guest);
@@ -390,7 +401,7 @@ function GuestRow({
         minHeight: 64,
         paddingHorizontal: 16,
         paddingVertical: 10,
-        backgroundColor: theme.background,
+        backgroundColor: background,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: theme.border,
         opacity: pending ? 0.5 : 1,

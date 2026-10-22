@@ -67,9 +67,9 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
         backgroundColor: theme.background,
         borderColor: theme.border,
         borderWidth: 1,
-        borderRadius: 20,
-        marginHorizontal: 16,
-        marginBottom: 16,
+        borderRadius: 8,
+        marginHorizontal: 8,
+        marginBottom: 12,
         overflow: "hidden",
       }}
     >
@@ -182,7 +182,7 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
               style={{
                 width: 36,
                 height: 36,
-                borderRadius: 10,
+                borderRadius: 8,
                 borderWidth: 1,
                 borderColor: theme.border,
                 backgroundColor: isDark ? "#171717" : "#FFFFFF",

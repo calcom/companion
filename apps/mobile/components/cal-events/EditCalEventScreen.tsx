@@ -70,6 +70,7 @@ import {
   FieldLabel,
   HintText,
   SwitchRow,
+  useEditSurfaces,
   useEditTheme,
 } from "./edit/EditControls";
 import { GuestsSection } from "./edit/GuestsSection";
@@ -163,6 +164,7 @@ type FormUpdate =
  */
 export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScreenProps) {
   const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
   const isDark = useColorScheme() === "dark";
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -669,7 +671,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
+      style={{ flex: 1, backgroundColor: surfaces.screen }}
     >
       <View
         style={{
@@ -713,7 +715,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
                   opacity: saving ? 0.4 : 1,
                   width: 36,
                   height: 36,
-                  borderRadius: 10,
+                  borderRadius: 8,
                   borderWidth: 1,
                   borderColor: theme.border,
                   alignItems: "center",
@@ -762,7 +764,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
                   maxWidth: 170,
                   height: 36,
                   paddingHorizontal: 12,
-                  borderRadius: 10,
+                  borderRadius: 8,
                   borderWidth: 1,
                   borderColor: theme.border,
                 }}
@@ -825,7 +827,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
               gap: 6,
               height: 36,
               paddingHorizontal: 16,
-              borderRadius: 10,
+              borderRadius: 8,
               backgroundColor: theme.text,
               opacity: dirty ? 1 : 0.4,
             }}
@@ -1032,10 +1034,9 @@ function SelectButton({
         gap: 10,
         minHeight: 44,
         paddingHorizontal: 12,
-        borderRadius: 10,
+        borderRadius: 8,
         borderWidth: 1,
         borderColor: error ? theme.error : theme.border,
-        backgroundColor: theme.background,
       }}
     >
       {leadingIcon ? <Ionicons name={leadingIcon} size={18} color={theme.textSecondary} /> : null}

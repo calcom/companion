@@ -1,7 +1,7 @@
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack } from "expo-router";
 import { View } from "react-native";
-import { useEditTheme } from "@/components/cal-events/edit/EditControls";
+import { useEditSurfaces, useEditTheme } from "@/components/cal-events/edit/EditControls";
 import type { CalEventSheetProps } from "./CalEventSheet";
 
 /**
@@ -16,6 +16,7 @@ export function CalEventSheet({
   children,
 }: CalEventSheetProps) {
   const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
   const glass = isLiquidGlassAvailable();
   return (
     <>
@@ -47,7 +48,7 @@ export function CalEventSheet({
         style={{
           flex: 1,
           paddingTop: 56,
-          backgroundColor: glass ? "transparent" : theme.backgroundSecondary,
+          backgroundColor: glass ? "transparent" : surfaces.screen,
         }}
       >
         {children}

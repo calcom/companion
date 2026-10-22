@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getColors } from "@/constants/colors";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 
 /** The edit screen's building blocks: sections, fields, rows and sheets in one visual style. */
@@ -25,6 +25,11 @@ export { moveItem } from "@/utils/cal-event-edit";
 
 export function useEditTheme() {
   return getColors(useColorScheme() === "dark");
+}
+
+/** The screen and card colors of the other tabs' detail screens. */
+export function useEditSurfaces() {
+  return getGroupedSurfaces(useColorScheme() === "dark");
 }
 
 export function EditSection({
@@ -37,6 +42,7 @@ export function EditSection({
   children: ReactNode;
 }) {
   const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
   return (
     <View style={{ gap: 8 }}>
       <View style={{ paddingHorizontal: 4, gap: 2 }}>
@@ -52,10 +58,8 @@ export function EditSection({
       </View>
       <View
         style={{
-          backgroundColor: theme.background,
-          borderColor: theme.border,
-          borderWidth: 1,
-          borderRadius: 16,
+          backgroundColor: surfaces.card,
+          borderRadius: 12,
           padding: 14,
           gap: 18,
         }}
@@ -142,9 +146,10 @@ export function EditTextField({
           alignItems: multiline ? "flex-start" : "center",
           borderWidth: 1,
           borderColor: error ? theme.error : theme.border,
-          borderRadius: 10,
+          borderRadius: 8,
           paddingHorizontal: 12,
-          backgroundColor: editable ? theme.background : theme.backgroundMuted,
+          // Takes the color of the card or sheet it's on, as the search fields do.
+          backgroundColor: editable ? "transparent" : theme.backgroundMuted,
           gap: leading ? 8 : 0,
         }}
       >
@@ -259,7 +264,7 @@ export function ChoiceChips<T extends string | null>({
                 height: 38,
                 justifyContent: "center",
                 paddingHorizontal: 14,
-                borderRadius: 10,
+                borderRadius: 8,
                 borderWidth: 1,
                 borderColor: selected ? theme.text : theme.border,
                 backgroundColor: selected ? theme.backgroundEmphasis : "transparent",
@@ -470,6 +475,7 @@ export function EditSheet({
   children: ReactNode;
 }) {
   const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
   const insets = useSafeAreaInsets();
   // Android's back button and an iOS swipe down both ask through onRequestClose.
   const requestClose = () => {
@@ -486,7 +492,7 @@ export function EditSheet({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{
           flex: 1,
-          backgroundColor: theme.backgroundSecondary,
+          backgroundColor: surfaces.screen,
           paddingTop: Platform.OS === "ios" ? 8 : insets.top,
         }}
       >
