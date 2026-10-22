@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SectionHeader } from "@/components/event-type-detail/SettingsUI";
+import { HeaderCancelButton, HeaderSaveButton } from "@/components/HeaderButtons";
 import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 
@@ -479,8 +480,8 @@ export function ListRow({
 }
 
 /**
- * A page sheet over the edit screen with Cancel and Done, for editing one list item (a person,
- * a schedule item, a question) before it goes into the form.
+ * A page sheet over the edit screen with a Cancel pill and a primary one, for editing one list
+ * item (a person, a schedule item, a question) before it goes into the form.
  */
 export function EditSheet({
   visible,
@@ -527,51 +528,37 @@ export function EditSheet({
           paddingTop: Platform.OS === "ios" ? 8 : insets.top,
         }}
       >
+        {/* The editor's own header buttons: a Cancel pill and the primary pill, greyed out until
+            the item can be added. */}
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
-            justifyContent: "space-between",
+            gap: 12,
             paddingHorizontal: 16,
-            height: 52,
+            height: 60,
           }}
         >
-          <Pressable
-            onPress={onCancel}
-            disabled={busy}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: busy }}
-            hitSlop={10}
-          >
-            <Text style={{ color: theme.accent, fontSize: 17, opacity: busy ? 0.4 : 1 }}>
-              Cancel
-            </Text>
-          </Pressable>
+          <HeaderCancelButton onPress={onCancel} disabled={busy} />
           <Text
             accessibilityRole="header"
-            style={{ color: theme.text, fontSize: 17, fontWeight: "600", flexShrink: 1 }}
+            style={{
+              flex: 1,
+              color: theme.text,
+              fontSize: 17,
+              fontWeight: "600",
+              textAlign: "center",
+            }}
             numberOfLines={1}
           >
             {title}
           </Text>
-          <Pressable
+          <HeaderSaveButton
+            label={doneLabel}
             onPress={onDone}
-            disabled={doneDisabled || busy}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: doneDisabled || busy, busy }}
-            hitSlop={10}
-          >
-            <Text
-              style={{
-                color: theme.accent,
-                fontSize: 17,
-                fontWeight: "600",
-                opacity: doneDisabled || busy ? 0.4 : 1,
-              }}
-            >
-              {doneLabel}
-            </Text>
-          </Pressable>
+            saving={busy}
+            dirty={!doneDisabled}
+          />
         </View>
         <ScrollView
           keyboardShouldPersistTaps="handled"

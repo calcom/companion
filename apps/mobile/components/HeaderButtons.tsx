@@ -1,6 +1,7 @@
 /**
  * The round buttons of an editor's header on the web and Android, as the Links editor draws
- * them: back, a pill (such as the tab switcher) and Save. iOS uses the native header instead.
+ * them: back, a pill (such as the tab switcher) and Save. iOS uses the native header instead,
+ * but the Events editor's item sheets, which have no native header, use these everywhere.
  */
 
 import { Ionicons } from "@expo/vector-icons";
@@ -34,6 +35,31 @@ export function HeaderBackButton({
       style={{ opacity: disabled ? 0.4 : 1 }}
     >
       <Ionicons name="chevron-back" size={20} color={isDark ? "#FFFFFF" : "#000000"} />
+    </AppPressable>
+  );
+}
+
+/** A pill that dismisses without saving, such as a sheet's Cancel. */
+export function HeaderCancelButton({
+  label = "Cancel",
+  onPress,
+  disabled = false,
+}: {
+  label?: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <AppPressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      aria-disabled={disabled}
+      className={HEADER_PILL_CLASS}
+      style={{ opacity: disabled ? 0.4 : 1 }}
+    >
+      <Text className="text-[15px] font-medium text-black dark:text-white">{label}</Text>
     </AppPressable>
   );
 }

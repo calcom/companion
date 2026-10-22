@@ -297,6 +297,8 @@ export function LocationsSection({
         visible={draft !== null}
         title={editing ? "Edit location" : "Add a location"}
         doneLabel={editing ? "Save" : "Add"}
+        // Greyed out until the address or link is in; other mistakes show their message on a tap.
+        doneDisabled={hasValue && !values.value.trim()}
         busy={isAdding || isUpdating}
         onCancel={() => setDraft(null)}
         onDone={submit}
