@@ -14,6 +14,7 @@ import {
   CAL_EVENT_SHADERS,
   DEFAULT_CAL_EVENT_BACKGROUND,
 } from "@/utils/cal-event-edit";
+import { getCalEventLiveStreamError } from "@/utils/cal-event-live-stream";
 import {
   EditTextField,
   ErrorText,
@@ -74,7 +75,7 @@ export function CoverField({
           style={{
             width: "100%",
             aspectRatio: wide ? 2 : 1,
-            borderRadius: 12,
+            borderRadius: 8,
             backgroundColor: theme.backgroundMuted,
           }}
           contentFit={wide || landscape ? "cover" : "contain"}
@@ -95,7 +96,7 @@ export function CoverField({
             paddingVertical: 28,
             paddingHorizontal: 16,
             gap: 6,
-            borderRadius: 12,
+            borderRadius: 8,
             borderWidth: 1,
             borderStyle: "dashed",
             borderColor: theme.borderLight,
@@ -110,7 +111,7 @@ export function CoverField({
           </Text>
         </Pressable>
       )}
-      <View style={{ flexDirection: "row", gap: 20 }}>
+      <View style={{ flexDirection: "row", gap: 8 }}>
         <TextButton
           icon={previewUri ? "swap-horizontal-outline" : "cloud-upload-outline"}
           label={previewUri ? "Replace" : "Upload"}
@@ -164,7 +165,7 @@ export function ThemeField({
                   aspectRatio: 1.3,
                   flexDirection: "row",
                   overflow: "hidden",
-                  borderRadius: 10,
+                  borderRadius: 8,
                   borderWidth: selected ? 2 : 1,
                   borderColor: selected ? theme.text : theme.border,
                 }}
@@ -172,17 +173,14 @@ export function ThemeField({
                 {option.value !== "dark" ? <ThemeSketch dark={false} /> : null}
                 {option.value !== "light" ? <ThemeSketch dark /> : null}
               </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              {/* A long label wraps rather than shrinking, which the web can't do. */}
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
                 <Ionicons
                   name={selected ? "radio-button-on" : "radio-button-off"}
                   size={18}
                   color={selected ? theme.text : theme.textMuted}
                 />
-                <Text
-                  style={{ flexShrink: 1, color: theme.text, fontSize: 14 }}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
+                <Text style={{ flexShrink: 1, color: theme.text, fontSize: 14, lineHeight: 18 }}>
                   {option.label}
                 </Text>
               </View>
@@ -297,6 +295,11 @@ export function BackgroundField({
   );
 }
 
+/**
+ * As on the web, a link's error shows under it once the host leaves the field, and under every
+ * link after a save attempt (`error` set). `error` itself shows alone only when no single link
+ * is to blame (too many links).
+ */
 export function LiveStreamsField({
   value,
   onChange,
@@ -306,6 +309,10 @@ export function LiveStreamsField({
   onChange: (value: string[]) => void;
   error?: string;
 }) {
+  const [left, setLeft] = useState<boolean[]>(() => value.map(() => false));
+  const rowErrors = value.map((url, index) =>
+    left[index] || error ? getCalEventLiveStreamError(url) : null
+  );
   return (
     <View style={{ gap: 8 }}>
       {value.map((url, index) => (
@@ -313,31 +320,42 @@ export function LiveStreamsField({
           // Rows have no identity besides their place; edits keep the order.
           // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
           key={index}
-          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+          style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}
         >
           <View style={{ flex: 1 }}>
             <EditTextField
               value={url}
               onChangeText={(text) => onChange(value.map((row, i) => (i === index ? text : row)))}
+              onBlur={() => setLeft((current) => value.map((_, i) => current[i] || i === index))}
               placeholder="https://streaming-provider.com/..."
               keyboardType="url"
               autoCapitalize="none"
               accessibilityLabel={`Live stream ${index + 1}`}
+              error={rowErrors[index]}
             />
           </View>
-          <RowControls
-            itemLabel={`live stream ${index + 1}`}
-            onRemove={() => onChange(value.filter((_, i) => i !== index))}
-          />
+          {/* Level with the field, not with the field and its message. */}
+          <View style={{ height: 46, justifyContent: "center" }}>
+            <RowControls
+              itemLabel={`live stream ${index + 1}`}
+              onRemove={() => {
+                onChange(value.filter((_, i) => i !== index));
+                setLeft((current) => current.filter((_, i) => i !== index));
+              }}
+            />
+          </View>
         </View>
       ))}
       <TextButton
         icon="add"
         label="Add live stream"
         disabled={value.length >= CAL_EVENT_LIVE_STREAM_LIMIT}
-        onPress={() => onChange([...value, ""])}
+        onPress={() => {
+          onChange([...value, ""]);
+          setLeft((current) => [...current, false]);
+        }}
       />
-      <ErrorText message={error} />
+      {rowErrors.some(Boolean) ? null : <ErrorText message={error} />}
     </View>
   );
 }

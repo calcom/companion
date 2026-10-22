@@ -7,15 +7,14 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   useColorScheme,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getColors } from "@/constants/colors";
-import { useCreateCalEvent } from "@/hooks";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
+import { useCreateCalEvent, useHour12 } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showInfoAlert } from "@/utils/alerts";
 import {
@@ -37,6 +36,7 @@ import {
   todayStartWallTime,
   wallTimeDiffMs,
 } from "@/utils/wall-time";
+import { EditSwitch } from "./edit/EditControls";
 import { TimeZonePickerModal } from "./TimeZonePickerModal";
 import { getUserFacingApiReason } from "./useCalEventActions";
 import { WallDateTimePicker } from "./WallDateTimePicker";
@@ -65,6 +65,7 @@ export function CreateCalEventScreen({
 }: CreateCalEventScreenProps) {
   const isDark = useColorScheme() === "dark";
   const theme = getColors(isDark);
+  const hour12 = useHour12();
   const insets = useSafeAreaInsets();
 
   const [values, setValues] = useState<CreateCalEventFormValues>(() =>
@@ -127,7 +128,7 @@ export function CreateCalEventScreen({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
+      style={{ flex: 1, backgroundColor: getGroupedSurfaces(isDark).screen }}
     >
       <View
         style={{
@@ -186,11 +187,11 @@ export function CreateCalEventScreen({
               onSubmitEditing={() => setOpenPicker("start")}
             />
             {muted(multiDay ? "from" : "on")}
-            {token(formatSentenceDateTime(values.startWallTime), "Change start", () =>
+            {token(formatSentenceDateTime(values.startWallTime, hour12), "Change start", () =>
               setOpenPicker("start")
             )}
             {muted("until")}
-            {token(formatSentenceEnd(values), "Change end", () => setOpenPicker("end"))}
+            {token(formatSentenceEnd(values, hour12), "Change end", () => setOpenPicker("end"))}
             {location.prefix ? words(location.prefix) : null}
             <InlineField
               value={location.text}
@@ -244,12 +245,9 @@ export function CreateCalEventScreen({
             accessibilityHint="Approve guests before they join"
             style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 4 }}
           >
-            <Switch
+            <EditSwitch
               value={values.requiresApproval}
               onValueChange={(requiresApproval) => update({ requiresApproval })}
-              // The row is the one switch screen readers see, as in SwitchRow.
-              accessibilityElementsHidden
-              importantForAccessibility="no"
             />
             <Text style={{ color: theme.text, fontSize: 17, fontWeight: "500" }}>
               Require approval
@@ -280,7 +278,7 @@ export function CreateCalEventScreen({
               gap: 8,
               height: 48,
               paddingHorizontal: 20,
-              borderRadius: 12,
+              borderRadius: 8,
               marginTop: 8,
               backgroundColor: theme.text,
               opacity: canSubmit ? 1 : 0.5,
@@ -442,7 +440,7 @@ function OptionChip({ icon, label, hint, selected, onPress }: OptionChipProps) {
         gap: 8,
         height: 44,
         paddingHorizontal: 14,
-        borderRadius: 12,
+        borderRadius: 8,
         backgroundColor: selected ? theme.backgroundEmphasis : "transparent",
       }}
     >

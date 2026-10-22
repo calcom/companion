@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -13,9 +12,10 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { useCalEventHeaderOptions } from "@/components/cal-events/useCalEventHeaderOptions";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getColors } from "@/constants/colors";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import {
   isCalEventGuestPending,
   isForbiddenError,
@@ -25,11 +25,12 @@ import {
   useCalEventCheckInAvailability,
   useCalEventGuests,
   useCheckInCalEventGuest,
+  useHour12,
   usePendingCalEventGuestIds,
   useUndoCalEventGuestCheckIn,
 } from "@/hooks";
 import type { CalEventGuest } from "@/services/calcom";
-import { showInfoAlert } from "@/utils/alerts";
+import { showConfirmAlert, showInfoAlert } from "@/utils/alerts";
 import {
   CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION,
   canTapCalEventGuest,
@@ -50,6 +51,7 @@ export default function CalEventCheckInScreen() {
   const router = useRouter();
   const isDark = useColorScheme() === "dark";
   const theme = getColors(isDark);
+  const surfaces = getGroupedSurfaces(isDark);
   const [searchQuery, setSearchQuery] = useState("");
   // Not isFetching: the list also refetches after every tap, and that shouldn't spin the control.
   const [pulling, setPulling] = useState(false);
@@ -57,8 +59,11 @@ export default function CalEventCheckInScreen() {
   // Usually cached from the event's detail; until it loads, there's no window to show a scanner in.
   const { data: event } = useCalEvent(uuid);
   const availability = useCalEventCheckInAvailability(event);
+  const hour12 = useHour12();
   const windowNotice =
-    event && availability ? getCalEventCheckInWindowNotice(availability, event.timeZone) : null;
+    event && availability
+      ? getCalEventCheckInWindowNotice(availability, event.timeZone, hour12)
+      : null;
   const queryClient = useQueryClient();
   const { mutateAsync: checkIn } = useCheckInCalEventGuest(uuid);
   const { mutateAsync: undoCheckIn } = useUndoCalEventGuestCheckIn(uuid);
@@ -85,7 +90,7 @@ export default function CalEventCheckInScreen() {
       if (result.kind === "already_checked_in") {
         showInfoAlert(
           "Already checked in",
-          `${name} was checked in at ${formatCalEventCheckInTime(result.checkedInAt)}.`
+          `${name} was checked in at ${formatCalEventCheckInTime(result.checkedInAt, hour12)}.`
         );
       } else if (result.kind === "not_confirmed") {
         showInfoAlert("Not checked in", `${name} is no longer a confirmed guest.`);
@@ -113,9 +118,9 @@ export default function CalEventCheckInScreen() {
       onCheckIn(guest);
       return;
     }
-    Alert.alert(
+    showConfirmAlert(
       "Undo check-in?",
-      `${getCalEventGuestName(guest)} was checked in at ${formatCalEventCheckInTime(guest.checkedInAt)}.`,
+      `${getCalEventGuestName(guest)} was checked in at ${formatCalEventCheckInTime(guest.checkedInAt, hour12)}.`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Undo", style: "destructive", onPress: () => onUndoCheckIn(guest) },
@@ -123,16 +128,17 @@ export default function CalEventCheckInScreen() {
     );
   };
 
-  const screenOptions = <Stack.Screen options={{ title: "Check in", headerBackTitle: "Event" }} />;
+  const headerOptions = useCalEventHeaderOptions("Event");
+  const screenOptions = <Stack.Screen options={{ ...headerOptions, title: "Check in" }} />;
 
   if (isLoading && !list) {
     return (
       <>
         {screenOptions}
-        <View style={{ flex: 1, backgroundColor: theme.backgroundSecondary, padding: 16 }}>
+        <View style={{ flex: 1, backgroundColor: surfaces.screen, padding: 16 }}>
           <Skeleton style={{ height: 28, width: 200, borderRadius: 6 }} />
           {[0, 1, 2].map((row) => (
-            <Skeleton key={row} style={{ height: 52, borderRadius: 10, marginTop: 16 }} />
+            <Skeleton key={row} style={{ height: 52, borderRadius: 8, marginTop: 16 }} />
           ))}
         </View>
       </>
@@ -162,7 +168,7 @@ export default function CalEventCheckInScreen() {
             alignItems: "center",
             justifyContent: "center",
             padding: 20,
-            backgroundColor: theme.backgroundSecondary,
+            backgroundColor: surfaces.screen,
           }}
         >
           <EmptyScreen
@@ -180,7 +186,7 @@ export default function CalEventCheckInScreen() {
   return (
     <>
       {screenOptions}
-      <View style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}>
+      <View style={{ flex: 1, backgroundColor: surfaces.screen }}>
         <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
           {title ? (
             <Text style={{ color: theme.textSecondary, fontSize: 15 }} numberOfLines={1}>
@@ -204,7 +210,7 @@ export default function CalEventCheckInScreen() {
                 justifyContent: "center",
                 height: 44,
                 marginTop: 12,
-                borderRadius: 10,
+                borderRadius: 8,
                 backgroundColor: theme.text,
               }}
             >
@@ -226,7 +232,12 @@ export default function CalEventCheckInScreen() {
             </View>
           ) : null}
           {list.guests.length > 0 || searchQuery ? (
-            <SearchField theme={theme} value={searchQuery} onChangeText={setSearchQuery} />
+            <SearchField
+              theme={theme}
+              background={surfaces.card}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
           ) : null}
           {/* Cached guests after a failed refetch: say so, with Retry. */}
           {isRefetchError && !pulling ? (
@@ -237,8 +248,8 @@ export default function CalEventCheckInScreen() {
                 marginTop: 12,
                 paddingVertical: 10,
                 paddingHorizontal: 14,
-                borderRadius: 12,
-                backgroundColor: theme.background,
+                borderRadius: 8,
+                backgroundColor: surfaces.card,
               }}
             >
               <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
@@ -262,6 +273,8 @@ export default function CalEventCheckInScreen() {
               pending={pendingGuestIds.has(item.id)}
               canTap={canTapCalEventGuest(item, availability)}
               theme={theme}
+              background={surfaces.card}
+              hour12={hour12}
               onPress={onPressGuest}
             />
           )}
@@ -300,10 +313,12 @@ export default function CalEventCheckInScreen() {
 
 function SearchField({
   theme,
+  background,
   value,
   onChangeText,
 }: {
   theme: Theme;
+  background: string;
   value: string;
   onChangeText: (text: string) => void;
 }) {
@@ -312,11 +327,11 @@ function SearchField({
       style={{
         flexDirection: "row",
         alignItems: "center",
-        borderRadius: 10,
+        borderRadius: 8,
         paddingHorizontal: 10,
         height: 40,
         marginTop: 12,
-        backgroundColor: theme.backgroundMuted,
+        backgroundColor: background,
       }}
     >
       <Ionicons name="search-outline" size={18} color={theme.textMuted} />
@@ -359,6 +374,8 @@ function GuestRow({
   pending,
   canTap,
   theme,
+  background,
+  hour12,
   onPress,
 }: {
   guest: CalEventGuest;
@@ -367,6 +384,8 @@ function GuestRow({
   /** False for a guest not yet in while the door is shut. */
   canTap: boolean;
   theme: Theme;
+  background: string;
+  hour12: boolean;
   onPress: (guest: CalEventGuest) => void;
 }) {
   const name = getCalEventGuestName(guest);
@@ -390,7 +409,7 @@ function GuestRow({
         minHeight: 64,
         paddingHorizontal: 16,
         paddingVertical: 10,
-        backgroundColor: theme.background,
+        backgroundColor: background,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: theme.border,
         opacity: pending ? 0.5 : 1,
@@ -413,7 +432,7 @@ function GuestRow({
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Ionicons name="checkmark-circle" size={24} color={theme.success} />
           <Text style={{ color: theme.textSecondary, fontSize: 14, marginLeft: 6 }}>
-            {formatCalEventCheckInTime(guest.checkedInAt)}
+            {formatCalEventCheckInTime(guest.checkedInAt, hour12)}
           </Text>
         </View>
       ) : (

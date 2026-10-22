@@ -3,6 +3,7 @@ import type { Booking } from "@/services/calcom";
 
 import { shouldShowRecurringPendingPaymentBadge } from "./booking-payment-status";
 import { isBookingRequestPending } from "./booking-request-actions";
+import { formatTime as formatClockTime, formatDate as formatDayMonth } from "./date-time-format";
 import { safeLogError, safeLogWarn } from "./safeLogger";
 
 export const getEmptyStateContent = (activeFilter: BookingFilter) => {
@@ -47,29 +48,21 @@ export const getEmptyStateContent = (activeFilter: BookingFilter) => {
 };
 
 /**
- * Format a date string to a time string in 12-hour format
+ * Format a date string to a time string on the user's clock
  * @param dateString ISO date string
- * @returns Formatted time string (e.g., "2:30 PM")
+ * @param hour12 false for the 24-hour clock
+ * @returns Formatted time string (e.g., "2:30 PM" or "14:30")
  */
-export const formatTime = (dateString: string): string => {
+export const formatTime = (dateString: string, hour12 = true): string => {
   if (!dateString) {
     return "";
   }
-  try {
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) {
-      safeLogWarn("Invalid date string provided to formatTime", { dateString });
-      return "";
-    }
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch (error) {
-    safeLogError("Error formatting time:", error);
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) {
+    safeLogWarn("Invalid date string provided to formatTime", { dateString });
     return "";
   }
+  return formatClockTime(date, { hour12 });
 };
 
 /**
@@ -88,27 +81,16 @@ export const formatDate = (dateString: string, isUpcoming: boolean): string => {
       safeLogWarn("Invalid date string provided to formatDate", { dateString });
       return "";
     }
-    const bookingYear = date.getFullYear();
-    const currentYear = new Date().getFullYear();
-    const isDifferentYear = bookingYear !== currentYear;
-
     if (isUpcoming) {
       // Format: "ddd, D MMM" or "ddd, D MMM YYYY" if different year
-      const weekday = date.toLocaleDateString("en-US", { weekday: "short" });
-      const day = date.getDate();
-      const month = date.toLocaleDateString("en-US", { month: "short" });
-      if (isDifferentYear) {
-        return `${weekday}, ${day} ${month} ${bookingYear}`;
-      }
-      return `${weekday}, ${day} ${month}`;
-    } else {
-      // Format: "D MMMM YYYY" for past bookings
-      return date.toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
+      return formatDayMonth(date);
     }
+    // Format: "D MMMM YYYY" for past bookings
+    return date.toLocaleDateString("en-US", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
   } catch (error) {
     safeLogError("Error formatting date:", error);
     return "";

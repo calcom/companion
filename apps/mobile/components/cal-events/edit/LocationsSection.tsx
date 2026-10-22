@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { getUserFacingApiReason } from "@/components/cal-events/useCalEventActions";
 import {
   useAddCalEventLocation,
@@ -9,7 +9,7 @@ import {
   useUpdateCalEventLocation,
 } from "@/hooks";
 import type { CalEvent, CalEventLocation } from "@/services/calcom";
-import { showInfoAlert, showSilentSuccessAlert } from "@/utils/alerts";
+import { showConfirmAlert, showInfoAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import {
   type AddCalEventLocationFormValues,
   buildAddCalEventLocationInput,
@@ -58,6 +58,8 @@ const EMPTY_LOCATION: AddCalEventLocationFormValues = {
 interface LocationDraft {
   location: EditableCalEventLocation | null;
   values: CalEventLocationFormValues;
+  /** What a new location's other type held, back when the host switches to it again. */
+  otherValue?: string;
 }
 
 const isEditable = (location: CalEventLocation): location is EditableCalEventLocation =>
@@ -122,7 +124,7 @@ export function LocationsSection({
       run();
       return;
     }
-    Alert.alert(title, message, [
+    showConfirmAlert(title, message, [
       { text: "Cancel", style: "cancel" },
       { text: action, onPress: run },
     ]);
@@ -182,7 +184,7 @@ export function LocationsSection({
   const remove = (location: CalEventLocation) => {
     const locationId = location.id;
     if (!locationId) return;
-    Alert.alert(
+    showConfirmAlert(
       "Remove location",
       published
         ? "It's removed right away, and registered guests are emailed about it."
@@ -211,6 +213,18 @@ export function LocationsSection({
       current ? { ...current, values: { ...current.values, ...patch } } : current
     );
 
+  // An address and a link are separate values: switching shows the one typed for that type, if
+  // any, and no error until the next Add.
+  const switchKind = (kind: "address" | "link") => {
+    if (!draft || kind === draft.values.kind) return;
+    setSubmitted(false);
+    setDraft({
+      ...draft,
+      values: { ...draft.values, kind, value: draft.otherValue ?? "" },
+      otherValue: draft.values.value,
+    });
+  };
+
   const editing = draft?.location ?? null;
   const values = draft?.values ?? null;
   // A published event's prices can't change: guests who registered paid them.
@@ -231,7 +245,7 @@ export function LocationsSection({
                 alignItems: "flex-start",
                 gap: 8,
                 padding: 12,
-                borderRadius: 12,
+                borderRadius: 8,
                 borderWidth: 1,
                 borderColor: theme.border,
                 backgroundColor: theme.backgroundMuted,
@@ -297,6 +311,8 @@ export function LocationsSection({
         visible={draft !== null}
         title={editing ? "Edit location" : "Add a location"}
         doneLabel={editing ? "Save" : "Add"}
+        // Greyed out until the address or link is in; other mistakes show their message on a tap.
+        doneDisabled={hasValue && !values.value.trim()}
         busy={isAdding || isUpdating}
         onCancel={() => setDraft(null)}
         onDone={submit}
@@ -326,7 +342,7 @@ export function LocationsSection({
                   { value: "link" as const, label: "Link" },
                 ]}
                 value={values.kind === "address" ? "address" : "link"}
-                onChange={(kind) => update({ kind })}
+                onChange={switchKind}
               />
             )}
             {hasValue ? (

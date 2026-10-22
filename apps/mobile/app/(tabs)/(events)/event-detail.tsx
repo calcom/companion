@@ -4,10 +4,13 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Linking, ScrollView, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { CalEventListItemSkeleton } from "@/components/cal-event-list-item/CalEventListItemSkeleton";
+import { getCalEventHeaderMenu } from "@/components/cal-events/calEventHeaderMenu";
 import { useCalEventActions } from "@/components/cal-events/useCalEventActions";
+import { useCalEventHeaderOptions } from "@/components/cal-events/useCalEventHeaderOptions";
 import { EmptyScreen } from "@/components/EmptyScreen";
-import { getColors } from "@/constants/colors";
-import { isForbiddenError, useCalEvent, useUserProfile } from "@/hooks";
+import { SectionHeader } from "@/components/event-type-detail/SettingsUI";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
+import { isForbiddenError, useCalEvent, useHour12, useUserProfile } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 import { canEditCalEvent } from "@/utils/cal-event-edit";
@@ -20,7 +23,6 @@ import {
   formatCalEventPublicPrice,
   formatCalEventTimeRange,
   getCalEventGoingLabel,
-  getCalEventLinkActions,
   getCalEventLocationLabel,
   getCalEventStatusColors,
   isCalEventInPerson,
@@ -37,18 +39,42 @@ export default function CalEventDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
+  const surfaces = getGroupedSurfaces(isDark);
   const { data: event, isLoading, error, refetch } = useCalEvent(uuid);
   const { data: me } = useUserProfile();
+  const hour12 = useHour12();
   const actions = useCalEventActions({ afterDelete: () => router.back() });
 
   const headerTitle = truncateCalEventTitle(event?.title ?? title ?? "Event");
+  // Edit sits in the header with the editor's "⋯" menu to its left. Co-hosts can't edit
+  // natively, but the web still lets them change some fields; a cancelled event can't change.
+  const canEdit = event ? canEditCalEvent(event, me?.id) : false;
+  const headerOptions = useCalEventHeaderOptions(
+    "Events",
+    event && event.status !== "cancelled"
+      ? {
+          label: canEdit ? "Edit" : "Edit on web",
+          onPress: () => (canEdit ? actions.onEdit(event) : actions.onEditOnWeb(event)),
+        }
+      : null,
+    event
+      ? getCalEventHeaderMenu(event, canManageCalEventLifecycle(event, me?.id), {
+          onOpenPage: () => actions.onOpenPage(event),
+          onPreview: () => actions.onPreview(event),
+          onPublish: () => actions.onPublish(event),
+          onCopyLink: () => actions.onCopyLink(event),
+          onShare: () => actions.onShare(event),
+          onCancel: () => actions.onCancel(event),
+        })
+      : []
+  );
 
   if (isLoading && !event) {
     return (
       <>
-        <Stack.Screen options={{ title: headerTitle }} />
+        <Stack.Screen options={{ ...headerOptions, title: headerTitle }} />
         <ScrollView
-          style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
+          style={{ flex: 1, backgroundColor: surfaces.screen }}
           contentContainerStyle={{ paddingTop: 16 }}
         >
           <CalEventListItemSkeleton />
@@ -72,14 +98,14 @@ export default function CalEventDetailScreen() {
         : ["Event not found", "This event was deleted, or you no longer manage it."];
     return (
       <>
-        <Stack.Screen options={{ title: headerTitle }} />
+        <Stack.Screen options={{ ...headerOptions, title: headerTitle }} />
         <View
           style={{
             flex: 1,
             alignItems: "center",
             justifyContent: "center",
             padding: 20,
-            backgroundColor: theme.backgroundSecondary,
+            backgroundColor: surfaces.screen,
           }}
         >
           <EmptyScreen
@@ -103,9 +129,8 @@ export default function CalEventDetailScreen() {
 
   const status = getCalEventStatusColors(event.status, isDark);
   const canManage = canManageCalEventLifecycle(event, me?.id);
-  const canEdit = canEditCalEvent(event, me?.id);
   const canCheckIn = canCheckInCalEventGuests(event, me?.id);
-  const { canViewPage, canShare } = getCalEventLinkActions(event.status);
+  const canPreviewDraft = canManage && event.status === "draft";
   const inPerson = isCalEventInPerson(event);
   const price = formatCalEventPublicPrice(event);
   const link =
@@ -117,9 +142,10 @@ export default function CalEventDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: headerTitle, headerBackTitle: "Events" }} />
+      {/* The page leads with the title, so the header doesn't repeat it. */}
+      <Stack.Screen options={{ ...headerOptions, title: "" }} />
       <ScrollView
-        style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
+        style={{ flex: 1, backgroundColor: surfaces.screen }}
         contentContainerStyle={{ paddingBottom: 120 }}
         contentInsetAdjustmentBehavior="automatic"
       >
@@ -163,12 +189,12 @@ export default function CalEventDetailScreen() {
             </Text>
           ) : null}
 
-          <Card theme={theme}>
+          <Card isDark={isDark}>
             <Row
               theme={theme}
               icon="calendar-outline"
               title={formatCalEventDate(event.startTime, event.endTime, event.timeZone)}
-              subtitle={`${formatCalEventTimeRange(event.startTime, event.endTime, event.timeZone)} · ${event.timeZone}`}
+              subtitle={`${formatCalEventTimeRange(event.startTime, event.endTime, event.timeZone, hour12)} · ${event.timeZone}`}
             />
             <Row
               theme={theme}
@@ -203,28 +229,43 @@ export default function CalEventDetailScreen() {
           </Card>
 
           {event.description ? (
-            <Card theme={theme}>
-              <Text style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 6 }}>
-                About the event
-              </Text>
+            <Card isDark={isDark} header="About the event">
               <Text style={{ color: theme.text, fontSize: 16, lineHeight: 22 }}>
                 {event.description}
               </Text>
             </Card>
           ) : null}
 
-          <Card theme={theme}>
-            <Text style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 8 }}>
-              {event.hosts.length === 1 ? "Host" : "Hosts"}
-            </Text>
-            {event.hosts.map((host) => (
+          <Card
+            isDark={isDark}
+            header={event.hosts.length === 1 ? "Host" : "Hosts"}
+            paddingVertical={0}
+          >
+            {event.hosts.map((host, index) => (
+              // Rows reach the card's edges so the divider between hosts runs its full width.
               <View
                 key={host.userId}
-                style={{ flexDirection: "row", alignItems: "center", paddingVertical: 6 }}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginHorizontal: -14,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  borderTopWidth: index > 0 ? 1 : 0,
+                  borderTopColor: isDark ? "#4D4D4D" : "#E5E5E5",
+                }}
               >
                 <Image
                   source={{ uri: getAvatarUrl(host.avatarUrl) }}
-                  style={{ width: 32, height: 32, borderRadius: 16, marginRight: 10 }}
+                  // Outlined like the dividers, so a missing or white avatar still reads as one.
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    marginRight: 10,
+                    borderWidth: 1,
+                    borderColor: isDark ? "#4D4D4D" : "#E5E5E5",
+                  }}
                   accessibilityIgnoresInvertColors
                 />
                 <View style={{ flex: 1 }}>
@@ -239,102 +280,40 @@ export default function CalEventDetailScreen() {
             ))}
           </Card>
 
-          <View style={{ marginTop: 16, gap: 10 }}>
-            {canViewPage ? (
-              <ActionButton
-                theme={theme}
-                isDark={isDark}
-                primary
-                icon="open-outline"
-                label="Open event page"
-                onPress={() => actions.onOpenPage(event)}
-              />
-            ) : null}
-            {/* A draft's page renders only for its owner and hosts, so only they get a preview. */}
-            {canManage && event.status === "draft" ? (
-              <ActionButton
-                theme={theme}
-                isDark={isDark}
-                primary
-                icon="eye-outline"
-                label="Preview"
-                onPress={() => actions.onPreview(event)}
-              />
-            ) : null}
-            {canCheckIn ? (
-              <ActionButton
-                theme={theme}
-                isDark={isDark}
-                icon="checkmark-done-outline"
-                label="Check in guests"
-                onPress={() =>
-                  router.push({
-                    pathname: "/event-check-in",
-                    params: { uuid: event.uuid, title: event.title },
-                  })
-                }
-              />
-            ) : null}
-            {/* Co-hosts can't edit natively, but the web still lets them change some fields. */}
-            {event.status !== "cancelled" ? (
-              <ActionButton
-                theme={theme}
-                isDark={isDark}
-                icon="pencil-outline"
-                label={canEdit ? "Edit" : "Edit on web"}
-                onPress={() => (canEdit ? actions.onEdit(event) : actions.onEditOnWeb(event))}
-              />
-            ) : null}
-            {canShare ? (
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <ActionButton
-                  theme={theme}
-                  isDark={isDark}
-                  icon="link-outline"
-                  label="Copy link"
-                  onPress={() => actions.onCopyLink(event)}
-                  grow
-                />
-                <ActionButton
-                  theme={theme}
-                  isDark={isDark}
-                  icon="share-outline"
-                  label="Share"
-                  onPress={() => actions.onShare(event)}
-                  grow
-                />
-              </View>
-            ) : null}
-            {canManage && event.status === "draft" ? (
-              <ActionButton
-                theme={theme}
-                isDark={isDark}
-                icon="rocket-outline"
-                label="Publish"
-                onPress={() => actions.onPublish(event)}
-              />
-            ) : null}
-            {canManage && event.status === "published" ? (
-              <ActionButton
-                theme={theme}
-                isDark={isDark}
-                icon="ban-outline"
-                label="Cancel event"
-                destructive
-                onPress={() => actions.onCancel(event)}
-              />
-            ) : null}
-            {canManage && canDeleteCalEvent(event) ? (
-              <ActionButton
-                theme={theme}
-                isDark={isDark}
-                icon="trash-outline"
-                label="Delete event"
-                destructive
-                onPress={() => actions.onDelete(event)}
-              />
-            ) : null}
-          </View>
+          {/* Opens a screen of its own, so a row with a chevron rather than a quick action. */}
+          {canCheckIn ? (
+            <NavigationRow
+              isDark={isDark}
+              icon="checkmark-done-outline"
+              label="Check in guests"
+              onPress={() =>
+                router.push({
+                  pathname: "/event-check-in",
+                  params: { uuid: event.uuid, title: event.title },
+                })
+              }
+            />
+          ) : null}
+
+          {/* A draft's next step, so the one button on the page; the rest is in the "⋯" menu. */}
+          {canPreviewDraft ? (
+            <PublishButton isDark={isDark} onPress={() => actions.onPublish(event)} />
+          ) : null}
+
+          {/* The link editor's danger zone; Cancel event is in the "⋯" menu. */}
+          <ActionGroup
+            isDark={isDark}
+            destructive
+            actions={[
+              canManage && canDeleteCalEvent(event)
+                ? {
+                    label: "Delete event",
+                    icon: "trash-outline",
+                    onPress: () => actions.onDelete(event),
+                  }
+                : null,
+            ]}
+          />
         </View>
       </ScrollView>
     </>
@@ -343,19 +322,33 @@ export default function CalEventDetailScreen() {
 
 type Theme = ReturnType<typeof getColors>;
 
-function Card({ theme, children }: { theme: Theme; children: ReactNode }) {
+/** A card with the link editor's corners on the booking and availability detail colors. */
+function Card({
+  isDark,
+  header,
+  paddingVertical = 14,
+  children,
+}: {
+  isDark: boolean;
+  /** The link editor's small heading above the card. */
+  header?: string;
+  /** For rows that space themselves, such as hosts split by dividers. */
+  paddingVertical?: number;
+  children: ReactNode;
+}) {
   return (
-    <View
-      style={{
-        backgroundColor: theme.background,
-        borderColor: theme.border,
-        borderWidth: 1,
-        borderRadius: 16,
-        padding: 14,
-        marginTop: 16,
-      }}
-    >
-      {children}
+    <View style={{ marginTop: header ? 24 : 16 }}>
+      {header ? <SectionHeader title={header} /> : null}
+      <View
+        style={{
+          backgroundColor: getGroupedSurfaces(isDark).card,
+          borderRadius: 14,
+          paddingHorizontal: 14,
+          paddingVertical,
+        }}
+      >
+        {children}
+      </View>
     </View>
   );
 }
@@ -381,7 +374,9 @@ function Row({
         {subtitle ? (
           <Text
             style={{
-              color: onPress ? theme.accent : theme.textSecondary,
+              // A link reads as one by its underline, in the app's neutral colors.
+              color: onPress ? theme.text : theme.textSecondary,
+              textDecorationLine: onPress ? "underline" : "none",
               fontSize: 14,
               marginTop: 2,
             }}
@@ -401,52 +396,132 @@ function Row({
   );
 }
 
-function ActionButton({
-  theme,
-  isDark,
-  icon,
-  label,
-  onPress,
-  primary = false,
-  destructive = false,
-  grow = false,
-}: {
-  theme: Theme;
-  isDark: boolean;
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-  primary?: boolean;
-  destructive?: boolean;
-  grow?: boolean;
-}) {
-  const background = primary ? (isDark ? "#FFFFFF" : "#111827") : theme.background;
-  const color = primary
-    ? isDark
-      ? "#000000"
-      : "#FFFFFF"
-    : destructive
-      ? theme.destructive
-      : theme.text;
+/** A draft's Publish: full width and filled, in the editor Save pill's black. */
+function PublishButton({ isDark, onPress }: { isDark: boolean; onPress: () => void }) {
+  const fill = isDark ? "#FFFFFF" : "#000000";
+  const color = isDark ? "#000000" : "#FFFFFF";
   return (
     <TouchableOpacity
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel="Publish"
       style={{
-        flex: grow ? 1 : undefined,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        height: 48,
-        borderRadius: 12,
-        borderWidth: primary ? 0 : 1,
-        borderColor: theme.border,
-        backgroundColor: background,
+        height: 44,
+        marginTop: 24,
+        borderRadius: 14,
+        backgroundColor: fill,
       }}
     >
-      <Ionicons name={icon} size={18} color={color} style={{ marginRight: 8 }} />
-      <Text style={{ color, fontSize: 16, fontWeight: "600" }}>{label}</Text>
+      <Ionicons name="rocket-outline" size={18} color={color} style={{ marginRight: 8 }} />
+      <Text style={{ color, fontSize: 16, fontWeight: "600" }}>Publish</Text>
     </TouchableOpacity>
+  );
+}
+
+/** A grouped row that opens another screen: icon, label and a chevron. */
+function NavigationRow({
+  isDark,
+  icon,
+  label,
+  onPress,
+}: {
+  isDark: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  const theme = getColors(isDark);
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      activeOpacity={0.5}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        height: 44,
+        marginTop: 16,
+        paddingHorizontal: 16,
+        borderRadius: 14,
+        backgroundColor: getGroupedSurfaces(isDark).card,
+      }}
+    >
+      <Ionicons name={icon} size={20} color={theme.textSecondary} style={{ marginRight: 10 }} />
+      <Text style={{ flex: 1, color: theme.text, fontSize: 17 }}>{label}</Text>
+      <Ionicons name="chevron-forward" size={18} color="#C7C7CC" />
+    </TouchableOpacity>
+  );
+}
+
+interface Action {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+}
+
+/**
+ * The link editor's grouped action rows: the label on the left, its icon on the right, red for
+ * the danger zone. Left out when none of its actions apply.
+ */
+function ActionGroup({
+  isDark,
+  header,
+  destructive = false,
+  actions,
+}: {
+  isDark: boolean;
+  header?: string;
+  destructive?: boolean;
+  actions: (Action | null)[];
+}) {
+  const theme = getColors(isDark);
+  const shown = actions.filter((action): action is Action => action !== null);
+  if (shown.length === 0) return null;
+  const color = destructive ? theme.destructive : theme.text;
+  return (
+    <View style={{ marginTop: 24 }}>
+      {header ? <SectionHeader title={header} /> : null}
+      <View
+        style={{
+          backgroundColor: getGroupedSurfaces(isDark).card,
+          borderRadius: 14,
+          overflow: "hidden",
+        }}
+      >
+        {shown.map((action, index) => (
+          <TouchableOpacity
+            key={action.label}
+            onPress={action.onPress}
+            accessibilityRole="button"
+            activeOpacity={0.5}
+          >
+            {/* The divider runs the card's full width, as between hosts. */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                height: 44,
+                paddingHorizontal: 16,
+                borderBottomWidth: index < shown.length - 1 ? 1 : 0,
+                borderBottomColor: isDark ? "#4D4D4D" : "#E5E5E5",
+              }}
+            >
+              <Text style={{ color, fontSize: 17 }}>{action.label}</Text>
+              <Ionicons
+                name={action.icon}
+                size={18}
+                color={destructive ? theme.destructive : "#C7C7CC"}
+              />
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
   );
 }
 

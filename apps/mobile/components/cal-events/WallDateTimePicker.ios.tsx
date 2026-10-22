@@ -1,7 +1,7 @@
 import { DatePicker, Host } from "@expo/ui/swift-ui";
 import { datePickerStyle } from "@expo/ui/swift-ui/modifiers";
 import { Modal, Pressable, Text, useColorScheme, View } from "react-native";
-import { getColors } from "@/constants/colors";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { calendarDateToWallTime, wallTimeToCalendarDate } from "@/utils/wall-time";
 import type { WallDateTimePickerProps } from "./WallDateTimePicker.types";
 
@@ -47,7 +47,11 @@ export function WallDateTimePicker({
         <Pressable
           onPress={() => {}}
           accessible={false}
-          style={{ borderRadius: 20, padding: 12, backgroundColor: theme.background }}
+          style={{
+            borderRadius: 16,
+            padding: 12,
+            backgroundColor: getGroupedSurfaces(isDark).card,
+          }}
         >
           <Text
             style={{

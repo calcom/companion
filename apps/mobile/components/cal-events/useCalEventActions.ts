@@ -12,13 +12,18 @@ import {
 import type { CalEvent } from "@/services/calcom";
 import { ApiRequestError } from "@/services/calcom/request";
 import {
+  showConfirmAlert,
   showErrorAlert,
   showInfoAlert,
   showSilentSuccessAlert,
   showSuccessAlert,
 } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
-import { getCalEventEditorUrl, getCalEventPreviewUrl } from "@/utils/cal-events";
+import {
+  getCalEventEditorUrl,
+  getCalEventPreviewUrl,
+  getCalEventPublicUrl,
+} from "@/utils/cal-events";
 
 const describeError = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -68,7 +73,7 @@ export function useOpenCalEventEditor() {
 /**
  * The actions an event row and the detail screen share: open, edit (natively, or on the web
  * for co-hosts), copy, share,
- * and the host-only lifecycle changes behind a native confirmation.
+ * and the host-only lifecycle changes behind a confirmation (a dialog on the web).
  */
 export function useCalEventActions(options: { afterDelete?: () => void } = {}): CalEventActions {
   const router = useRouter();
@@ -111,10 +116,11 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
     [openEditor]
   );
 
+  // From the slug, as Preview builds its address, so the copy is what Preview opens.
   const onCopyLink = useCallback(async (event: CalEvent) => {
     try {
-      await Clipboard.setStringAsync(event.publicUrl);
-      showSuccessAlert("Link Copied", "Event link copied!");
+      await Clipboard.setStringAsync(getCalEventPublicUrl(event.slug));
+      showSuccessAlert("Link copied", "Event link copied!");
     } catch {
       showErrorAlert("Error", "Failed to copy link. Please try again.");
     }
@@ -130,7 +136,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
 
   const onPublish = useCallback(
     (event: CalEvent) => {
-      Alert.alert(
+      showConfirmAlert(
         "Publish event",
         `"${event.title}" goes live: its page becomes reachable and guests can RSVP.`,
         [
@@ -188,7 +194,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
         );
         return;
       }
-      Alert.alert(title, message, [
+      showConfirmAlert(title, message, [
         { text: "Keep event", style: "cancel" },
         { text: "Cancel event", style: "destructive", onPress: () => runCancel(event) },
       ]);
@@ -198,7 +204,7 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
 
   const onDelete = useCallback(
     (event: CalEvent) => {
-      Alert.alert(
+      showConfirmAlert(
         "Delete event",
         `Are you sure you want to delete "${event.title}"? This action cannot be undone.`,
         [

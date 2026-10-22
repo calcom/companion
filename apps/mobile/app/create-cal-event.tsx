@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CreateCalEventScreen } from "@/components/cal-events/CreateCalEventScreen";
-import { getColors } from "@/constants/colors";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { useUserProfile } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showSilentSuccessAlert } from "@/utils/alerts";
@@ -49,10 +49,12 @@ export default function CreateCalEvent() {
 
 /** The wait for the profile: the form's close button, so the modal never looks stuck. */
 function CreateCalEventLoading({ onClose }: { onClose: () => void }) {
-  const theme = getColors(useColorScheme() === "dark");
+  const isDark = useColorScheme() === "dark";
+  const theme = getColors(isDark);
+  const surfaces = getGroupedSurfaces(isDark);
   const insets = useSafeAreaInsets();
   return (
-    <View style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}>
+    <View style={{ flex: 1, backgroundColor: surfaces.screen }}>
       <View
         style={{
           flexDirection: "row",

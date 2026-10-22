@@ -10,7 +10,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { EditTextField, HintText, useEditTheme } from "@/components/cal-events/edit/EditControls";
+import {
+  EditTextField,
+  HintText,
+  useEditSurfaces,
+  useEditTheme,
+  useFieldBackground,
+} from "@/components/cal-events/edit/EditControls";
 import { getUserFacingApiReason } from "@/components/cal-events/useCalEventActions";
 import { useInviteCalEventGuests } from "@/hooks";
 import { showInfoAlert } from "@/utils/alerts";
@@ -48,6 +54,8 @@ export const InviteGuestsScreen = forwardRef<InviteGuestsScreenHandle, InviteGue
     ref
   ) {
     const theme = useEditTheme();
+    const surfaces = useEditSurfaces();
+    const fieldBackground = useFieldBackground();
     const insets = useSafeAreaInsets();
     const [emails, setEmails] = useState<string[]>(() =>
       initialEmail && isValidInviteEmail(initialEmail) ? [initialEmail] : []
@@ -130,7 +138,7 @@ export const InviteGuestsScreen = forwardRef<InviteGuestsScreenHandle, InviteGue
       <ScrollView
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
-        style={{ backgroundColor: transparentBackground ? undefined : theme.backgroundSecondary }}
+        style={{ backgroundColor: transparentBackground ? undefined : surfaces.screen }}
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 20 }}
       >
         <View style={{ gap: 8 }}>
@@ -139,10 +147,10 @@ export const InviteGuestsScreen = forwardRef<InviteGuestsScreenHandle, InviteGue
               style={{
                 flex: 1,
                 borderWidth: 1,
-                borderColor: error ? theme.error : theme.border,
-                borderRadius: 10,
+                borderColor: error ? theme.error : "transparent",
+                borderRadius: 8,
                 paddingHorizontal: 12,
-                backgroundColor: theme.background,
+                backgroundColor: fieldBackground,
               }}
             >
               <TextInput
@@ -171,10 +179,9 @@ export const InviteGuestsScreen = forwardRef<InviteGuestsScreenHandle, InviteGue
                 height: 44,
                 paddingHorizontal: 16,
                 justifyContent: "center",
-                borderRadius: 10,
+                borderRadius: 8,
                 borderWidth: 1,
                 borderColor: theme.border,
-                backgroundColor: theme.background,
                 opacity: draft.trim() ? 1 : 0.4,
               }}
             >
@@ -247,10 +254,8 @@ export const InviteGuestsScreen = forwardRef<InviteGuestsScreenHandle, InviteGue
                 style={{
                   gap: 4,
                   padding: 12,
-                  borderRadius: 10,
-                  backgroundColor: theme.background,
-                  borderWidth: 1,
-                  borderColor: theme.border,
+                  borderRadius: 14,
+                  backgroundColor: surfaces.card,
                 }}
               >
                 <Text style={{ color: theme.text, fontSize: 15, fontWeight: "500" }}>

@@ -1,24 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Pressable, Text, useColorScheme, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Text as MenuText } from "@/components/ui/text";
 import { getColors } from "@/constants/colors";
+import { useHour12 } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { canEditCalEvent } from "@/utils/cal-event-edit";
 import {
   CAL_EVENT_STATUS_LABELS,
   canDeleteCalEvent,
   canManageCalEventLifecycle,
+  formatCalEventCardTime,
   formatCalEventDate,
-  formatCalEventTime,
   getCalEventFacts,
   getCalEventLinkActions,
   getCalEventLocationLabel,
@@ -26,6 +18,8 @@ import {
   isCalEventInPerson,
 } from "@/utils/cal-events";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
+import { CalEventMenu } from "./CalEventMenu";
+import type { CalEventMenuItem } from "./CalEventMenu.types";
 
 export interface CalEventActions {
   onPress: (event: CalEvent) => void;
@@ -51,15 +45,12 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
-  const insets = useSafeAreaInsets();
+  const hour12 = useHour12();
   const status = getCalEventStatusColors(event.status, isDark);
   const facts = [getCalEventLocationLabel(event), ...getCalEventFacts(event)];
   const host = event.hosts[0];
   const extraHosts = event.hosts.length - 1;
-  const canManage = canManageCalEventLifecycle(event, viewerId);
-  const canEdit = canEditCalEvent(event, viewerId);
-  const { canViewPage, canShare } = getCalEventLinkActions(event.status);
-  const menuIconColor = isDark ? "#E5E5EA" : "#374151";
+  const menuGroups = getCalEventMenuGroups(event, viewerId, actions);
 
   return (
     <View
@@ -67,9 +58,9 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
         backgroundColor: theme.background,
         borderColor: theme.border,
         borderWidth: 1,
-        borderRadius: 20,
-        marginHorizontal: 16,
-        marginBottom: 16,
+        borderRadius: 8,
+        marginHorizontal: 8,
+        marginBottom: 12,
         overflow: "hidden",
       }}
     >
@@ -110,13 +101,16 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
           </Text>
 
           {/* One paragraph so a long date wraps instead of pushing the time off the card; the
-              no-break spaces keep "·" off the start of a line and the time in one piece. */}
+              no-break spaces keep "·" off the start of a line and the times in one piece. */}
           <Text style={{ color: theme.textSecondary, fontSize: 15, marginTop: 6 }}>
             <Text style={{ color: theme.text, fontWeight: "500" }}>
               {formatCalEventDate(event.startTime, event.endTime, event.timeZone)}
             </Text>
             {"\u00A0\u00A0·  "}
-            {formatCalEventTime(event.startTime, event.timeZone).replace(" ", "\u00A0")}
+            {formatCalEventCardTime(event.startTime, event.endTime, event.timeZone, hour12).replace(
+              / /g,
+              "\u00A0"
+            )}
           </Text>
 
           <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
@@ -173,121 +167,96 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
           </Text>
         </View>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`More actions for ${event.title}`}
-              hitSlop={8}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: isDark ? "#171717" : "#FFFFFF",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Ionicons name="ellipsis-horizontal" size={18} color={theme.text} />
-            </Pressable>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            insets={{ top: insets.top, bottom: insets.bottom, left: 12, right: 12 }}
-            sideOffset={8}
-            className="w-48"
-            align="end"
-          >
-            {canViewPage ? (
-              <DropdownMenuItem onPress={() => actions.onOpenPage(event)}>
-                <Ionicons
-                  name="open-outline"
-                  size={18}
-                  color={menuIconColor}
-                  style={{ marginRight: 8 }}
-                />
-                <MenuText>Open event page</MenuText>
-              </DropdownMenuItem>
-            ) : null}
-            {/* Co-hosts can't edit natively, but the web still lets them change some fields. */}
-            {event.status !== "cancelled" ? (
-              <DropdownMenuItem
-                onPress={() => (canEdit ? actions.onEdit(event) : actions.onEditOnWeb(event))}
-              >
-                <Ionicons
-                  name="pencil-outline"
-                  size={18}
-                  color={menuIconColor}
-                  style={{ marginRight: 8 }}
-                />
-                <MenuText>{canEdit ? "Edit" : "Edit on web"}</MenuText>
-              </DropdownMenuItem>
-            ) : null}
-            {canShare ? (
-              <>
-                <DropdownMenuItem onPress={() => actions.onCopyLink(event)}>
-                  <Ionicons
-                    name="link-outline"
-                    size={18}
-                    color={menuIconColor}
-                    style={{ marginRight: 8 }}
-                  />
-                  <MenuText>Copy link</MenuText>
-                </DropdownMenuItem>
-                <DropdownMenuItem onPress={() => actions.onShare(event)}>
-                  <Ionicons
-                    name="share-outline"
-                    size={18}
-                    color={menuIconColor}
-                    style={{ marginRight: 8 }}
-                  />
-                  <MenuText>Share</MenuText>
-                </DropdownMenuItem>
-              </>
-            ) : null}
-
-            {canManage ? (
-              <>
-                <DropdownMenuSeparator />
-                {event.status === "draft" ? (
-                  <DropdownMenuItem onPress={() => actions.onPublish(event)}>
-                    <Ionicons
-                      name="rocket-outline"
-                      size={18}
-                      color={menuIconColor}
-                      style={{ marginRight: 8 }}
-                    />
-                    <MenuText>Publish</MenuText>
-                  </DropdownMenuItem>
-                ) : null}
-                {event.status === "published" ? (
-                  <DropdownMenuItem variant="destructive" onPress={() => actions.onCancel(event)}>
-                    <Ionicons
-                      name="ban-outline"
-                      size={18}
-                      color={theme.destructive}
-                      style={{ marginRight: 8 }}
-                    />
-                    <MenuText style={{ color: theme.destructive }}>Cancel event</MenuText>
-                  </DropdownMenuItem>
-                ) : null}
-                {canDeleteCalEvent(event) ? (
-                  <DropdownMenuItem variant="destructive" onPress={() => actions.onDelete(event)}>
-                    <Ionicons
-                      name="trash-outline"
-                      size={18}
-                      color={theme.destructive}
-                      style={{ marginRight: 8 }}
-                    />
-                    <MenuText style={{ color: theme.destructive }}>Delete</MenuText>
-                  </DropdownMenuItem>
-                ) : null}
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <CalEventMenu groups={menuGroups} accessibilityLabel={`More actions for ${event.title}`} />
       </View>
     </View>
   );
+}
+
+/**
+ * The card's menu in the Links card's order: look at it, change it, then remove it. A draft's
+ * Preview opens its page through the web sign-in, as only its owner and hosts can see it.
+ */
+function getCalEventMenuGroups(
+  event: CalEvent,
+  viewerId: number | undefined,
+  actions: Omit<CalEventActions, "onPress">
+): CalEventMenuItem[][] {
+  const canManage = canManageCalEventLifecycle(event, viewerId);
+  const canEdit = canEditCalEvent(event, viewerId);
+  const { canViewPage, canShare } = getCalEventLinkActions(event.status);
+  const view: CalEventMenuItem[] = [];
+  const change: CalEventMenuItem[] = [];
+  const remove: CalEventMenuItem[] = [];
+
+  // A draft's page is there for its owner and hosts (Preview), so they can copy its link too.
+  const canPreviewDraft = canManage && event.status === "draft";
+  if (canViewPage) {
+    view.push({
+      label: "View event page",
+      icon: "compass-outline",
+      systemImage: "safari",
+      onPress: () => actions.onOpenPage(event),
+    });
+  } else if (canPreviewDraft) {
+    view.push({
+      label: "Preview",
+      icon: "eye-outline",
+      systemImage: "eye",
+      onPress: () => actions.onPreview(event),
+    });
+  }
+  // A cancelled event's page can be opened, but its link isn't handed out, as on the web.
+  if (canShare || canPreviewDraft) {
+    view.push({
+      label: "Copy link",
+      icon: "link-outline",
+      systemImage: "link",
+      onPress: () => actions.onCopyLink(event),
+    });
+  }
+  if (canShare) {
+    view.push({
+      label: "Share",
+      icon: "share-outline",
+      systemImage: "square.and.arrow.up",
+      onPress: () => actions.onShare(event),
+    });
+  }
+  // Co-hosts can't edit natively, but the web still lets them change some fields.
+  if (event.status !== "cancelled") {
+    change.push({
+      label: canEdit ? "Edit" : "Edit on web",
+      icon: "pencil-outline",
+      systemImage: "pencil",
+      onPress: () => (canEdit ? actions.onEdit(event) : actions.onEditOnWeb(event)),
+    });
+  }
+  if (canManage && event.status === "draft") {
+    change.push({
+      label: "Publish",
+      icon: "rocket-outline",
+      systemImage: "paperplane",
+      onPress: () => actions.onPublish(event),
+    });
+  }
+  if (canManage && event.status === "published") {
+    remove.push({
+      label: "Cancel event",
+      icon: "ban-outline",
+      systemImage: "xmark.circle",
+      destructive: true,
+      onPress: () => actions.onCancel(event),
+    });
+  }
+  if (canManage && canDeleteCalEvent(event)) {
+    remove.push({
+      label: "Delete",
+      icon: "trash-outline",
+      systemImage: "trash",
+      destructive: true,
+      onPress: () => actions.onDelete(event),
+    });
+  }
+  return [view, change, remove];
 }

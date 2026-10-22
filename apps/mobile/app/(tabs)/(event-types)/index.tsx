@@ -42,8 +42,8 @@ import { useEventTypeFilter } from "@/hooks/useEventTypeFilter";
 import type { EventType } from "@/services/calcom";
 import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
-import { getEventDuration } from "@/utils/getEventDuration";
 import { getDisplayError } from "@/utils/error";
+import { getEventDuration } from "@/utils/getEventDuration";
 import { offlineAwareRefresh } from "@/utils/network";
 import { normalizeMarkdown } from "@/utils/normalizeMarkdown";
 import { shadows } from "@/utils/shadows";
@@ -138,7 +138,7 @@ export default function EventTypes() {
     }
     try {
       await Clipboard.setStringAsync(eventType.bookingUrl);
-      showSuccessAlert("Link Copied", "Booking link copied!");
+      showSuccessAlert("Link copied", "Booking link copied!");
     } catch {
       showErrorAlert("Error", "Failed to copy link. Please try again.");
     }
@@ -179,7 +179,7 @@ export default function EventTypes() {
     // Use native Alert.alert on Android for simple yes/no confirmation
     if (Platform.OS === "android") {
       Alert.alert(
-        "Delete Link",
+        "Delete link",
         `This will permanently delete the "${eventType.title}" link. This action cannot be undone.`,
         [
           { text: "Cancel", style: "cancel" },
@@ -978,13 +978,13 @@ export default function EventTypes() {
                 {/* Title and description */}
                 <View className="flex-1">
                   <Text className="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-                    Delete Link
+                    Delete link
                   </Text>
                   <Text className="text-sm leading-5 text-gray-600 dark:text-gray-400">
                     {eventTypeToDelete ? (
                       <>
-                        This will permanently delete the "{eventTypeToDelete.title}" link.
-                        This action cannot be undone.
+                        This will permanently delete the "{eventTypeToDelete.title}" link. This
+                        action cannot be undone.
                       </>
                     ) : null}
                   </Text>

@@ -320,7 +320,9 @@ function QuestionSheet({
             value={draft.slug}
             onChangeText={(slug) => update({ slug, slugEdited: true })}
             autoCapitalize="none"
-            error={slugError}
+            // Done stays greyed out meanwhile, so a fresh question shows no "Required" before the
+            // host has typed a label or an identifier.
+            error={draft.slugEdited || draft.label.trim() ? slugError : null}
           />
           {customHasPlaceholder(draft.type) ? (
             <EditTextField

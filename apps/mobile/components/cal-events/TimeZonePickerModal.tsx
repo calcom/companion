@@ -105,7 +105,7 @@ export function TimeZonePickerModal({
               flexDirection: "row",
               alignItems: "center",
               height: 40,
-              borderRadius: 10,
+              borderRadius: 8,
               paddingHorizontal: 10,
               backgroundColor: theme.backgroundMuted,
             }}

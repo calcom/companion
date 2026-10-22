@@ -46,6 +46,8 @@ interface CalEventsListProps {
   /** Header rendered inside the scroll view (Android/web); iOS uses the native stack header. */
   renderHeader?: () => ReactNode;
   onCreate: () => void;
+  /** The selected chip's name (null until the profile loads), for the search placeholder. */
+  onProfileNameChange?: (name: string | null) => void;
   /** iOS: let the large-title header collapse over the list. */
   contentInsetAdjustmentBehavior?: "automatic" | "never";
 }
@@ -60,6 +62,7 @@ export function CalEventsList({
   searchQuery,
   renderHeader,
   onCreate,
+  onProfileNameChange,
   contentInsetAdjustmentBehavior = "never",
 }: CalEventsListProps) {
   const colorScheme = useColorScheme();
@@ -80,6 +83,12 @@ export function CalEventsList({
   const profileTeams = getCalEventsProfileTeams(teams);
   // A refresh can drop the selected team (the user left or was removed): show Personal instead.
   const selectedTeamId = profileTeams.some((team) => team.id === teamId) ? teamId : null;
+  const personalName = userProfile?.name || userProfile?.username || null;
+  const selectedProfileName =
+    profileTeams.find((team) => team.id === selectedTeamId)?.name ?? personalName;
+  useEffect(() => {
+    onProfileNameChange?.(selectedProfileName);
+  }, [onProfileNameChange, selectedProfileName]);
   const {
     data: events = [],
     isLoading,
@@ -179,7 +188,7 @@ export function CalEventsList({
       teams={profileTeams}
       selectedTeamId={selectedTeamId}
       onSelect={selectProfile}
-      personalName={userProfile?.name || userProfile?.username || "Personal"}
+      personalName={personalName ?? "Personal"}
       personalAvatarUrl={userProfile?.avatarUrl}
     />
   );
@@ -268,7 +277,7 @@ export function CalEventsList({
       data={showingEvents ? rows : []}
       keyExtractor={(row) => (row.type === "event" ? row.event.uuid : `group-${row.kind}`)}
       renderItem={renderRow}
-      style={{ flex: 1, backgroundColor: theme.backgroundSecondary }}
+      style={{ flex: 1, backgroundColor: theme.background }}
       contentContainerStyle={{ paddingBottom: 120 }}
       showsVerticalScrollIndicator={false}
       contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior}
@@ -321,12 +330,13 @@ function ListNotice({
       style={{
         flexDirection: "row",
         alignItems: "center",
-        marginHorizontal: 16,
+        marginHorizontal: 8,
         marginBottom: 12,
         paddingVertical: 10,
         paddingHorizontal: 14,
-        borderRadius: 12,
-        backgroundColor: theme.background,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: theme.border,
       }}
     >
       <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />

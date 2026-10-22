@@ -31,9 +31,9 @@ import { useEventTypeFilter } from "@/hooks/useEventTypeFilter";
 import type { EventType } from "@/services/calcom";
 import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
+import { getDisplayError } from "@/utils/error";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 import { getEventDuration } from "@/utils/getEventDuration";
-import { getDisplayError } from "@/utils/error";
 import { offlineAwareRefresh } from "@/utils/network";
 import { slugify } from "@/utils/slugify";
 
@@ -114,7 +114,7 @@ export default function EventTypesIOS() {
     }
     try {
       await Clipboard.setStringAsync(eventType.bookingUrl);
-      showSuccessAlert("Link Copied", "Booking link copied!");
+      showSuccessAlert("Link copied", "Booking link copied!");
     } catch {
       showErrorAlert("Error", "Failed to copy link. Please try again.");
     }
@@ -154,7 +154,7 @@ export default function EventTypesIOS() {
   const handleDelete = (eventType: EventType) => {
     // Use native iOS Alert for confirmation
     Alert.alert(
-      "Delete Link",
+      "Delete link",
       `Are you sure you want to delete "${eventType.title}"? This action cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },

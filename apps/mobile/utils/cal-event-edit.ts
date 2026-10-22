@@ -27,6 +27,7 @@ import {
   type CreateCalEventFormValues,
   parseLocationInput,
 } from "@/utils/cal-event-create";
+import { getCalEventLiveStreamError } from "@/utils/cal-event-live-stream";
 import {
   canManageCalEventLifecycle,
   formatCalEventPrice,
@@ -34,13 +35,7 @@ import {
   getCalEventPriceDecimals,
   isPaidCalEvent,
 } from "@/utils/cal-events";
-import {
-  isStartTimeInPast,
-  splitWallTimeParts,
-  utcToWallTime,
-  wallTimeDiffMs,
-  wallTimeToUtc,
-} from "@/utils/wall-time";
+import { isStartTimeInPast, utcToWallTime, wallTimeDiffMs, wallTimeToUtc } from "@/utils/wall-time";
 
 export const CAL_EVENT_DESCRIPTION_MAX_LENGTH = 5000;
 export const CAL_EVENT_SLUG_MIN_LENGTH = 10;
@@ -50,7 +45,6 @@ export const CAL_EVENT_MAX_CAPACITY = 100_000;
 export const CAL_EVENT_PAYMENT_TIMEOUT_MIN = 10;
 export const CAL_EVENT_PAYMENT_TIMEOUT_MAX = 10_080;
 export const CAL_EVENT_LIVE_STREAM_LIMIT = 5;
-const CAL_EVENT_LIVE_STREAM_URL_MAX_LENGTH = 2048;
 export const MAX_LINEUP_PEOPLE = 30;
 export const MAX_LINEUP_LINKS_PER_PERSON = 5;
 export const MAX_LINEUP_MEDIA_PER_PERSON = 6;
@@ -612,10 +606,10 @@ export function getEditCalEventErrors(
   const streams = values.liveStreams.map((url) => url.trim()).filter(Boolean);
   if (streams.length > CAL_EVENT_LIVE_STREAM_LIMIT) {
     errors.liveStreams = `Add up to ${CAL_EVENT_LIVE_STREAM_LIMIT} live streams`;
-  } else if (
-    streams.some((url) => url.length > CAL_EVENT_LIVE_STREAM_URL_MAX_LENGTH || !isHttpUrl(url))
-  ) {
-    errors.liveStreams = "Live streams must be links starting with http:// or https://";
+  } else {
+    // Each row shows its own message (LiveStreamsField); this one blocks the save.
+    const streamError = streams.map(getCalEventLiveStreamError).find(Boolean);
+    if (streamError) errors.liveStreams = streamError;
   }
 
   if (values.background && !values.background.colors.every((color) => HEX_COLOR.test(color))) {
@@ -1032,13 +1026,4 @@ export function isCalEventLocationRemovalLocked(
   locations: CalEventLocation[]
 ): boolean {
   return !!event.publishedAt && isPaidCalEvent({ price: event.price, locations });
-}
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "Jan 15, 2027 · 16:00", the web editor's date-time trigger ("PP · HH:mm"). */
-export function formatWallDateTime(wallTime: string): string {
-  const { date, timeOfDay } = splitWallTimeParts(wallTime);
-  const [year, month, day] = date.split("-").map(Number);
-  return `${MONTHS[month - 1]} ${day}, ${year} · ${timeOfDay}`;
 }

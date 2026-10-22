@@ -108,16 +108,18 @@ describe("the sentence's times", () => {
     expect(minEndWallTime("2026-10-20T23:50")).toBe("2026-10-21T00:05");
   });
 
-  test("reads 'Oct 19 at 07:00'", () => {
-    expect(formatSentenceDateTime("2026-10-19T07:00")).toBe("Oct 19 at 07:00");
+  test("reads '19 Oct at 7:00 AM', or '19 Oct at 07:00' on the 24-hour clock", () => {
+    expect(formatSentenceDateTime("2026-10-19T07:00")).toBe("19 Oct at 7:00 AM");
+    expect(formatSentenceDateTime("2026-10-19T07:00", false)).toBe("19 Oct at 07:00");
   });
 
   test("shows only the end time on the start's day, else its date too", () => {
     expect(isMultiDay(values())).toBe(false);
-    expect(formatSentenceEnd(values())).toBe("21:00");
+    expect(formatSentenceEnd(values())).toBe("9:00 PM");
+    expect(formatSentenceEnd(values(), false)).toBe("21:00");
     const multiDay = values({ endWallTime: "2026-10-22T02:00" });
     expect(isMultiDay(multiDay)).toBe(true);
-    expect(formatSentenceEnd(multiDay)).toBe("Oct 22 at 02:00");
+    expect(formatSentenceEnd(multiDay)).toBe("22 Oct at 2:00 AM");
   });
 });
 

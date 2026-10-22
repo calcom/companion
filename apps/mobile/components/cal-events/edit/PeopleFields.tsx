@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Alert, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { getUserFacingApiReason } from "@/components/cal-events/useCalEventActions";
 import {
   isForbiddenError,
@@ -9,7 +9,7 @@ import {
   useChangeCalEventCoHosts,
 } from "@/hooks";
 import { type CalEvent, getHostCandidateLabel } from "@/services/calcom";
-import { showInfoAlert, showSilentSuccessAlert } from "@/utils/alerts";
+import { showConfirmAlert, showInfoAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import {
   EditSheet,
   EditTextField,
@@ -95,7 +95,7 @@ export function HostsField({
                       : undefined
                   }
                   onRemove={() =>
-                    Alert.alert(
+                    showConfirmAlert(
                       "Remove host?",
                       "They will no longer be listed as a host on this event.",
                       [
@@ -272,7 +272,7 @@ export function CoHostsField({ uuid }: { uuid: string }) {
                 // make the reorder's full ID list stale.
                 removeDisabled={isPending}
                 onRemove={() =>
-                  Alert.alert(
+                  showConfirmAlert(
                     "Revoke co-host access?",
                     "They lose access to this event immediately.",
                     [

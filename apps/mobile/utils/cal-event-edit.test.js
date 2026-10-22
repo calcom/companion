@@ -15,7 +15,6 @@ const {
   calEventLocationFormValues,
   canEditCalEvent,
   describeCalEventLocation,
-  formatWallDateTime,
   getCalEventLocationError,
   getEditCalEventErrors,
   getRegistrationFieldsError,
@@ -268,10 +267,15 @@ describe("getEditCalEventErrors", () => {
     expect(errors({ paymentTimeoutMinutes: "5" }).paymentTimeoutMinutes).toBeUndefined();
   });
 
-  test("live streams are links, at most five", () => {
-    expect(errors({ liveStreams: ["youtube"] }).liveStreams).toBeDefined();
+  test("live streams are supported stream links, at most five", () => {
+    expect(errors({ liveStreams: ["youtube"] }).liveStreams).toBe(
+      "Enter a valid YouTube, Twitch, X, or Restream stream URL"
+    );
+    expect(errors({ liveStreams: ["https://vimeo.com/1"] }).liveStreams).toBeDefined();
+    expect(errors({ liveStreams: ["https://youtu.be/abc", " "] }).liveStreams).toBeUndefined();
     expect(
-      errors({ liveStreams: Array.from({ length: 6 }, (_, i) => `https://x.com/${i}`) }).liveStreams
+      errors({ liveStreams: Array.from({ length: 6 }, (_, i) => `https://youtu.be/${i}`) })
+        .liveStreams
     ).toMatch(/up to 5/);
   });
 
@@ -510,12 +514,6 @@ describe("editing a location", () => {
     expect(isCalEventLocationRemovalLocked(published, [free, link])).toBe(true);
     expect(isCalEventLocationRemovalLocked({ ...published, price: 500 }, [free])).toBe(true);
     expect(isCalEventLocationRemovalLocked({ publishedAt: null, price: 500 }, [link])).toBe(false);
-  });
-});
-
-describe("formatWallDateTime", () => {
-  test("reads like the web editor's date-time trigger", () => {
-    expect(formatWallDateTime("2027-01-15T16:00")).toBe("Jan 15, 2027 · 16:00");
   });
 });
 

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import {
   KeyboardAvoidingView,
   type KeyboardTypeOptions,
@@ -15,7 +15,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getColors } from "@/constants/colors";
+import { SectionHeader } from "@/components/event-type-detail/SettingsUI";
+import { HeaderPillButton, HeaderSaveButton } from "@/components/HeaderButtons";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 
 /** The edit screen's building blocks: sections, fields, rows and sheets in one visual style. */
@@ -25,6 +27,23 @@ export { moveItem } from "@/utils/cal-event-edit";
 
 export function useEditTheme() {
   return getColors(useColorScheme() === "dark");
+}
+
+/** The screen and card colors of the other tabs' detail screens. */
+export function useEditSurfaces() {
+  return getGroupedSurfaces(useColorScheme() === "dark");
+}
+
+const OnCardContext = createContext(false);
+
+/**
+ * A field's fill: the link editor's gray on a card, else the card color, which sets it off the
+ * screen or sheet behind it.
+ */
+export function useFieldBackground() {
+  const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
+  return useContext(OnCardContext) ? theme.backgroundMuted : surfaces.card;
 }
 
 export function EditSection({
@@ -37,30 +56,25 @@ export function EditSection({
   children: ReactNode;
 }) {
   const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
   return (
-    <View style={{ gap: 8 }}>
-      <View style={{ paddingHorizontal: 4, gap: 2 }}>
-        <Text
-          accessibilityRole="header"
-          style={{ color: theme.text, fontSize: 20, fontWeight: "700" }}
-        >
-          {title}
+    <View>
+      {/* The link editor's small grey heading. */}
+      <SectionHeader title={title} />
+      {description ? (
+        <Text style={{ color: theme.textSecondary, fontSize: 13, marginLeft: 16, marginBottom: 8 }}>
+          {description}
         </Text>
-        {description ? (
-          <Text style={{ color: theme.textSecondary, fontSize: 14 }}>{description}</Text>
-        ) : null}
-      </View>
+      ) : null}
       <View
         style={{
-          backgroundColor: theme.background,
-          borderColor: theme.border,
-          borderWidth: 1,
-          borderRadius: 16,
+          backgroundColor: surfaces.card,
+          borderRadius: 14,
           padding: 14,
           gap: 18,
         }}
       >
-        {children}
+        <OnCardContext.Provider value={true}>{children}</OnCardContext.Provider>
       </View>
     </View>
   );
@@ -97,6 +111,7 @@ interface EditTextFieldProps {
   hint?: string;
   value: string;
   onChangeText: (text: string) => void;
+  onBlur?: () => void;
   placeholder?: string;
   multiline?: boolean;
   keyboardType?: KeyboardTypeOptions;
@@ -119,6 +134,7 @@ export function EditTextField({
   hint,
   value,
   onChangeText,
+  onBlur,
   placeholder,
   multiline = false,
   keyboardType,
@@ -133,6 +149,7 @@ export function EditTextField({
   trailing,
 }: EditTextFieldProps) {
   const theme = useEditTheme();
+  const fieldBackground = useFieldBackground();
   return (
     <View style={{ gap: 6 }}>
       {label ? <FieldLabel label={label} hint={hint} /> : null}
@@ -140,23 +157,41 @@ export function EditTextField({
         style={{
           flexDirection: "row",
           alignItems: multiline ? "flex-start" : "center",
+          // As in the link editor: a fill, no outline. The outline only marks an error.
           borderWidth: 1,
-          borderColor: error ? theme.error : theme.border,
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          backgroundColor: editable ? theme.background : theme.backgroundMuted,
+          borderColor: error ? theme.error : "transparent",
+          borderRadius: 8,
+          paddingLeft: prefix ? 0 : 12,
+          paddingRight: 12,
+          overflow: "hidden",
+          backgroundColor: fieldBackground,
           gap: leading ? 8 : 0,
         }}
       >
         {leading}
+        {/* The link editor's URL host, on a darker block at the field's start. A long host
+            shortens rather than pushing the field's end out of it. */}
         {prefix ? (
-          <Text style={{ color: theme.textSecondary, fontSize: 16 }} numberOfLines={1}>
-            {prefix}
-          </Text>
+          <View
+            style={{
+              alignSelf: "stretch",
+              justifyContent: "center",
+              flexShrink: 1,
+              maxWidth: "60%",
+              paddingHorizontal: 12,
+              marginRight: 12,
+              backgroundColor: theme.backgroundEmphasis,
+            }}
+          >
+            <Text style={{ color: theme.textSecondary, fontSize: 16 }} numberOfLines={1}>
+              {prefix}
+            </Text>
+          </View>
         ) : null}
         <TextInput
           value={value}
           onChangeText={onChangeText}
+          onBlur={onBlur}
           placeholder={placeholder}
           placeholderTextColor={theme.textMuted}
           multiline={multiline}
@@ -170,6 +205,8 @@ export function EditTextField({
           accessibilityHint={hint}
           style={{
             flex: 1,
+            // The web's input otherwise keeps its default width and pushes `trailing` out.
+            minWidth: 0,
             color: editable ? theme.text : theme.textSecondary,
             fontSize: 16,
             paddingVertical: 10,
@@ -209,14 +246,42 @@ export function SwitchRow({
       <View style={{ flex: 1 }}>
         <FieldLabel label={label} hint={hint} />
       </View>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        disabled={disabled}
-        accessibilityElementsHidden
-        importantForAccessibility="no"
-      />
+      <EditSwitch value={value} onValueChange={onValueChange} disabled={disabled} />
     </Pressable>
+  );
+}
+
+/** The web's switch colors an on thumb from this (teal by default), not thumbColor; untyped in RN. */
+const WEB_SWITCH_THUMB = { activeThumbColor: "#FFFFFF" };
+
+/**
+ * A switch in the Links editor's colors: black when on (green in dark mode), never the platform's
+ * own green or the web's teal. Hidden from screen readers: its row is the switch they hear.
+ */
+export function EditSwitch({
+  value,
+  onValueChange,
+  disabled = false,
+}: {
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
+  const isDark = useColorScheme() === "dark";
+  return (
+    <Switch
+      value={value}
+      onValueChange={onValueChange}
+      disabled={disabled}
+      trackColor={{
+        false: isDark ? "#404040" : "#E5E5EA",
+        true: isDark ? "#34C759" : "#000000",
+      }}
+      thumbColor="#FFFFFF"
+      {...WEB_SWITCH_THUMB}
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+    />
   );
 }
 
@@ -259,7 +324,7 @@ export function ChoiceChips<T extends string | null>({
                 height: 38,
                 justifyContent: "center",
                 paddingHorizontal: 14,
-                borderRadius: 10,
+                borderRadius: 8,
                 borderWidth: 1,
                 borderColor: selected ? theme.text : theme.border,
                 backgroundColor: selected ? theme.backgroundEmphasis : "transparent",
@@ -278,7 +343,10 @@ export function ChoiceChips<T extends string | null>({
   );
 }
 
-/** A plain text button: "Add person", "Invite", "Remove cover". */
+/**
+ * The editor's secondary button, outlined in the app's neutral colors like the guest toolbar's:
+ * "Add lineup person", "Upload", "Remove".
+ */
 export function TextButton({
   icon,
   label,
@@ -295,7 +363,7 @@ export function TextButton({
   accessibilityLabel?: string;
 }) {
   const theme = useEditTheme();
-  const color = destructive ? theme.destructive : theme.accent;
+  const color = destructive ? theme.destructive : theme.text;
   return (
     <Pressable
       onPress={onPress}
@@ -303,18 +371,21 @@ export function TextButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled }}
-      hitSlop={6}
       style={{
         flexDirection: "row",
         alignItems: "center",
         gap: 6,
         alignSelf: "flex-start",
-        paddingVertical: 6,
+        height: 36,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: theme.border,
         opacity: disabled ? 0.4 : 1,
       }}
     >
-      {icon ? <Ionicons name={icon} size={18} color={color} /> : null}
-      <Text style={{ color, fontSize: 16, fontWeight: "500" }}>{label}</Text>
+      {icon ? <Ionicons name={icon} size={16} color={color} /> : null}
+      <Text style={{ color, fontSize: 15, fontWeight: "500" }}>{label}</Text>
     </Pressable>
   );
 }
@@ -443,8 +514,8 @@ export function ListRow({
 }
 
 /**
- * A page sheet over the edit screen with Cancel and Done, for editing one list item (a person,
- * a schedule item, a question) before it goes into the form.
+ * A page sheet over the edit screen with a Cancel pill and a primary one, for editing one list
+ * item (a person, a schedule item, a question) before it goes into the form.
  */
 export function EditSheet({
   visible,
@@ -470,6 +541,7 @@ export function EditSheet({
   children: ReactNode;
 }) {
   const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
   const insets = useSafeAreaInsets();
   // Android's back button and an iOS swipe down both ask through onRequestClose.
   const requestClose = () => {
@@ -486,61 +558,48 @@ export function EditSheet({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{
           flex: 1,
-          backgroundColor: theme.backgroundSecondary,
+          backgroundColor: surfaces.screen,
           paddingTop: Platform.OS === "ios" ? 8 : insets.top,
         }}
       >
+        {/* The editor's own header buttons: a Cancel pill and the primary pill, greyed out until
+            the item can be added. */}
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
-            justifyContent: "space-between",
+            gap: 12,
             paddingHorizontal: 16,
-            height: 52,
+            height: 60,
           }}
         >
-          <Pressable
-            onPress={onCancel}
-            disabled={busy}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: busy }}
-            hitSlop={10}
-          >
-            <Text style={{ color: theme.accent, fontSize: 17, opacity: busy ? 0.4 : 1 }}>
-              Cancel
-            </Text>
-          </Pressable>
+          <HeaderPillButton label="Cancel" onPress={onCancel} disabled={busy} />
           <Text
             accessibilityRole="header"
-            style={{ color: theme.text, fontSize: 17, fontWeight: "600", flexShrink: 1 }}
+            style={{
+              flex: 1,
+              color: theme.text,
+              fontSize: 17,
+              fontWeight: "600",
+              textAlign: "center",
+            }}
             numberOfLines={1}
           >
             {title}
           </Text>
-          <Pressable
+          <HeaderSaveButton
+            label={doneLabel}
             onPress={onDone}
-            disabled={doneDisabled || busy}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: doneDisabled || busy, busy }}
-            hitSlop={10}
-          >
-            <Text
-              style={{
-                color: theme.accent,
-                fontSize: 17,
-                fontWeight: "600",
-                opacity: doneDisabled || busy ? 0.4 : 1,
-              }}
-            >
-              {doneLabel}
-            </Text>
-          </Pressable>
+            saving={busy}
+            dirty={!doneDisabled}
+          />
         </View>
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 18 }}
         >
-          {children}
+          {/* Off the card even when opened from one (Add a question), so its fields stand out. */}
+          <OnCardContext.Provider value={false}>{children}</OnCardContext.Provider>
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
