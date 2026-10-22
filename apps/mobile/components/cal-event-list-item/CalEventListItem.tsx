@@ -174,8 +174,8 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
 }
 
 /**
- * The card's menu in the Links card's order: look at it, change it, then remove it. Preview opens
- * the event's page, through the web sign-in for a draft, which only its owner and hosts can see.
+ * The card's menu in the Links card's order: look at it, change it, then remove it. A draft's
+ * Preview opens its page through the web sign-in, as only its owner and hosts can see it.
  */
 function getCalEventMenuGroups(
   event: CalEvent,
@@ -191,12 +191,19 @@ function getCalEventMenuGroups(
 
   // A draft's page is there for its owner and hosts (Preview), so they can copy its link too.
   const canPreviewDraft = canManage && event.status === "draft";
-  if (canViewPage || canPreviewDraft) {
+  if (canViewPage) {
+    view.push({
+      label: "View event page",
+      icon: "compass-outline",
+      systemImage: "safari",
+      onPress: () => actions.onOpenPage(event),
+    });
+  } else if (canPreviewDraft) {
     view.push({
       label: "Preview",
-      icon: "open-outline",
-      systemImage: "safari",
-      onPress: () => (canViewPage ? actions.onOpenPage(event) : actions.onPreview(event)),
+      icon: "eye-outline",
+      systemImage: "eye",
+      onPress: () => actions.onPreview(event),
     });
   }
   // A cancelled event's page can be opened, but its link isn't handed out, as on the web.

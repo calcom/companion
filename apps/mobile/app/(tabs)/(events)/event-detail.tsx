@@ -23,7 +23,6 @@ import {
   formatCalEventPublicPrice,
   formatCalEventTimeRange,
   getCalEventGoingLabel,
-  getCalEventLinkActions,
   getCalEventLocationLabel,
   getCalEventStatusColors,
   isCalEventInPerson,
@@ -132,7 +131,6 @@ export default function CalEventDetailScreen() {
   const canManage = canManageCalEventLifecycle(event, me?.id);
   const canCheckIn = canCheckInCalEventGuests(event, me?.id);
   const canPreviewDraft = canManage && event.status === "draft";
-  const { canViewPage } = getCalEventLinkActions(event.status);
   const inPerson = isCalEventInPerson(event);
   const price = formatCalEventPublicPrice(event);
   const link =
@@ -297,46 +295,16 @@ export default function CalEventDetailScreen() {
             />
           ) : null}
 
-          {/* The page as guests see it; a draft's renders only for its owner and hosts. */}
-          {canViewPage ? (
-            <PageButton
-              isDark={isDark}
-              // The compass of the "⋯" menu's View event page.
-              icon="compass-outline"
-              label="Open event page"
-              onPress={() => actions.onOpenPage(event)}
-            />
-          ) : canPreviewDraft ? (
-            <>
-              <PageButton
-                isDark={isDark}
-                icon="eye-outline"
-                label="Preview"
-                onPress={() => actions.onPreview(event)}
-              />
-              {/* A draft's next step, so the one filled button. */}
-              <PageButton
-                isDark={isDark}
-                icon="rocket-outline"
-                label="Publish"
-                primary
-                onPress={() => actions.onPublish(event)}
-              />
-            </>
+          {/* A draft's next step, so the one button on the page; the rest is in the "⋯" menu. */}
+          {canPreviewDraft ? (
+            <PublishButton isDark={isDark} onPress={() => actions.onPublish(event)} />
           ) : null}
 
-          {/* The link editor's danger zone. */}
+          {/* The link editor's danger zone; Cancel event is in the "⋯" menu. */}
           <ActionGroup
             isDark={isDark}
             destructive
             actions={[
-              canManage && event.status === "published"
-                ? {
-                    label: "Cancel event",
-                    icon: "ban-outline",
-                    onPress: () => actions.onCancel(event),
-                  }
-                : null,
               canManage && canDeleteCalEvent(event)
                 ? {
                     label: "Delete event",
@@ -428,46 +396,27 @@ function Row({
   );
 }
 
-/**
- * A full-width button under the hosts: outlined for the event page, so it doesn't outweigh the
- * rest of the page, and filled (`primary`) for a draft's Publish.
- */
-function PageButton({
-  isDark,
-  icon,
-  label,
-  primary = false,
-  onPress,
-}: {
-  isDark: boolean;
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  primary?: boolean;
-  onPress: () => void;
-}) {
-  const theme = getColors(isDark);
+/** A draft's Publish: full width and filled, in the editor Save pill's black. */
+function PublishButton({ isDark, onPress }: { isDark: boolean; onPress: () => void }) {
   const fill = isDark ? "#FFFFFF" : "#000000";
-  const color = primary ? (isDark ? "#000000" : "#FFFFFF") : theme.text;
+  const color = isDark ? "#000000" : "#FFFFFF";
   return (
     <TouchableOpacity
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel="Publish"
       style={{
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         height: 44,
-        marginTop: primary ? 12 : 24,
+        marginTop: 24,
         borderRadius: 14,
-        borderWidth: 1,
-        // The filled one in the editor Save pill's black (white in dark mode).
-        borderColor: primary ? fill : isDark ? "#4D4D4D" : "#E5E5E5",
-        backgroundColor: primary ? fill : getGroupedSurfaces(isDark).card,
+        backgroundColor: fill,
       }}
     >
-      <Ionicons name={icon} size={18} color={color} style={{ marginRight: 8 }} />
-      <Text style={{ color, fontSize: 16, fontWeight: primary ? "600" : "500" }}>{label}</Text>
+      <Ionicons name="rocket-outline" size={18} color={color} style={{ marginRight: 8 }} />
+      <Text style={{ color, fontSize: 16, fontWeight: "600" }}>Publish</Text>
     </TouchableOpacity>
   );
 }
