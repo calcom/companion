@@ -1,0 +1,653 @@
+/**
+ * Presentation helpers for Cal Events: grouping, labels and date formatting.
+ * Pure functions — mirrored from the web app's /events listing so both surfaces
+ * read the same event the same way.
+ */
+
+import { ApiRequestError } from "@/services/calcom/request";
+import type {
+  CalEvent,
+  CalEventCheckInList,
+  CalEventGuest,
+  CalEventLocation,
+  CalEventStatus,
+  Team,
+} from "@/services/types/cal-events.types";
+import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
+
+export type CalEventsGroupKind = "drafts" | "upcoming" | "past";
+
+export interface CalEventsGroup {
+  kind: CalEventsGroupKind;
+  events: CalEvent[];
+}
+
+export const CAL_EVENTS_GROUP_LABELS: Record<CalEventsGroupKind, string> = {
+  drafts: "Drafts",
+  upcoming: "Upcoming",
+  past: "Past",
+};
+
+const startMs = (event: Pick<CalEvent, "startTime">) => new Date(event.startTime).getTime();
+
+/**
+ * Drafts first (soonest first), then upcoming (soonest first), then past (most recent first).
+ * A cancelled event stays under "Upcoming" until its start passes, as on the web.
+ */
+export function groupCalEvents(events: CalEvent[], now: Date = new Date()): CalEventsGroup[] {
+  const nowMs = now.getTime();
+  const drafts = events.filter((e) => e.status === "draft").sort((a, b) => startMs(a) - startMs(b));
+  const rest = events.filter((e) => e.status !== "draft");
+  const isUpcoming = (e: CalEvent) =>
+    e.status === "published" || (e.status === "cancelled" && startMs(e) >= nowMs);
+  const upcoming = rest.filter(isUpcoming).sort((a, b) => startMs(a) - startMs(b));
+  const past = rest.filter((e) => !isUpcoming(e)).sort((a, b) => startMs(b) - startMs(a));
+
+  const groups: CalEventsGroup[] = [];
+  if (drafts.length) groups.push({ kind: "drafts", events: drafts });
+  if (upcoming.length) groups.push({ kind: "upcoming", events: upcoming });
+  if (past.length) groups.push({ kind: "past", events: past });
+  return groups;
+}
+
+export function filterCalEventsByTitle(events: CalEvent[], query: string): CalEvent[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return events;
+  return events.filter((e) => e.title.toLowerCase().includes(needle));
+}
+
+/** The teams that get a profile chip: `/v2/teams` also lists the user's organizations. */
+export function getCalEventsProfileTeams(teams: Team[]): Team[] {
+  return teams.filter((team) => !team.isOrganization);
+}
+
+/** One per route the tab reads: `/v2/events`, `/v2/teams/{teamId}/events`, `/v2/teams` (chips). */
+const CAL_EVENTS_READ_SCOPES = ["EVENT_READ", "TEAM_EVENT_READ", "TEAM_PROFILE_READ"];
+
+/**
+ * Whether an OAuth token's space-separated scope can read every Events listing, so a team's 403
+ * means membership or role, never a missing scope. A refreshed token keeps the scopes of its
+ * original sign-in, so tokens from before the Events tab never can; a token with no recorded
+ * scope predates it too.
+ */
+export function canReadCalEvents(scope: string | null | undefined): boolean {
+  const granted = scope?.split(" ") ?? [];
+  return CAL_EVENTS_READ_SCOPES.every((required) => granted.includes(required));
+}
+
+/** Only OAuth sessions carry scopes: a web session (the extension) is never asked to sign in again. */
+export function needsSignInAgainForCalEvents(session: {
+  isWebSession: boolean;
+  oauthScope: string | null;
+}): boolean {
+  return !session.isWebSession && !canReadCalEvents(session.oauthScope);
+}
+
+/**
+ * Whether a session can create team events: `POST /v2/teams/{teamId}/events` needs
+ * `TEAM_EVENT_WRITE`, which tokens from before native creation don't carry. Web sessions
+ * (the extension) have no scopes to check.
+ */
+export function canCreateTeamCalEvents(session: {
+  isWebSession: boolean;
+  oauthScope: string | null;
+}): boolean {
+  return (
+    session.isWebSession || (session.oauthScope?.split(" ") ?? []).includes("TEAM_EVENT_WRITE")
+  );
+}
+
+/** Same rule as the web listing: cancelled wins, then draft, then past once the end has passed. */
+export function deriveCalEventStatus(
+  event: Pick<CalEvent, "publishedAt" | "cancelledAt" | "endTime">,
+  now: Date = new Date()
+): CalEventStatus {
+  if (event.cancelledAt) return "cancelled";
+  if (!event.publishedAt) return "draft";
+  if (new Date(event.endTime).getTime() < now.getTime()) return "past";
+  return "published";
+}
+
+/**
+ * The events with each status re-read at `now`. The status derived at fetch time stays in the
+ * (persisted) cache, so an event that has ended since would still read as published, group as
+ * upcoming and offer Cancel. An event whose status holds is returned as is.
+ */
+export function refreshCalEventStatuses(events: CalEvent[], now: Date = new Date()): CalEvent[] {
+  return events.map((event) => {
+    const status = deriveCalEventStatus(event, now);
+    return status === event.status ? event : { ...event, status };
+  });
+}
+
+export const CAL_EVENT_STATUS_LABELS: Record<CalEventStatus, string> = {
+  draft: "Draft",
+  published: "Published",
+  past: "Past",
+  cancelled: "Cancelled",
+};
+
+/** "Online" for virtual events, the venue address otherwise. */
+export function getCalEventLocationLabel(event: Pick<CalEvent, "locationAddress">): string {
+  return event.locationAddress?.trim() || "Online";
+}
+
+export function isCalEventInPerson(event: Pick<CalEvent, "locationAddress">): boolean {
+  return !!event.locationAddress?.trim();
+}
+
+// Stored in whole units (¥1,500 is 1500); every other currency is stored in hundredths.
+// Mirrors Cal.com's convertToSmallestCurrencyUnit, which follows Stripe's zero-decimal list.
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "BIF",
+  "CLP",
+  "DJF",
+  "GNF",
+  "JPY",
+  "KMF",
+  "KRW",
+  "MGA",
+  "PYG",
+  "RWF",
+  "UGX",
+  "VND",
+  "VUV",
+  "XAF",
+  "XOF",
+  "XPF",
+]);
+
+/** Decimal places a price's smallest unit holds: 0 for JPY and the like, 2 otherwise. */
+export function getCalEventPriceDecimals(currency: string): 0 | 2 {
+  return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase()) ? 0 : 2;
+}
+
+/** "€15.00", from the smallest currency unit. Falls back to "15.00 EURO" for a malformed code. */
+export function formatCalEventPrice(price: number, currency: string | null): string {
+  const code = (currency || "usd").toUpperCase();
+  const decimals = getCalEventPriceDecimals(code);
+  const amount = price / 10 ** decimals;
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(amount);
+  } catch {
+    return `${amount.toFixed(decimals)} ${code}`;
+  }
+}
+
+/**
+ * The locations a guest picks at registration, and the Payment tab's rows. One this API version
+ * can't represent is never one.
+ */
+export function getAdmissionLocations(locations: CalEventLocation[]): CalEventLocation[] {
+  return locations.filter((location) => location.type !== "unknown");
+}
+
+/**
+ * Whether anyone can owe money, by the server's rule (isPaidCalEvent): the event-level price, or
+ * any location's own price.
+ */
+export function isPaidCalEvent(event: Pick<CalEvent, "price" | "locations">): boolean {
+  if ((event.price ?? 0) > 0) return true;
+  return getAdmissionLocations(event.locations).some((location) => (location.price ?? 0) > 0);
+}
+
+/**
+ * The price the web listing shows (getCalEventPublicPrice): the cheapest priced location, as
+ * "From €10.00" when the locations charge different amounts, or "Free – €10.00" when one is free.
+ * Unlike the web, amounts in different currencies aren't compared: each currency shows its own
+ * cheapest ("From €10.00 / ¥1,500"). Without priced locations, the event-level price. Null when
+ * the event is free.
+ */
+export function formatCalEventPublicPrice(
+  event: Pick<CalEvent, "price" | "currency" | "locations">
+): string | null {
+  const admission = getAdmissionLocations(event.locations);
+  const priced = admission.filter((location) => (location.price ?? 0) > 0);
+  if (priced.length === 0) {
+    return event.price ? formatCalEventPrice(event.price, event.currency) : null;
+  }
+  const currencyOf = (location: CalEventLocation) => (location.currency ?? "usd").toLowerCase();
+  const cheapest = new Map<string, number>();
+  for (const location of priced) {
+    const price = location.price ?? 0;
+    const currency = currencyOf(location);
+    cheapest.set(currency, Math.min(price, cheapest.get(currency) ?? price));
+  }
+  const label = [...cheapest]
+    .map(([currency, price]) => formatCalEventPrice(price, currency))
+    .join(" / ");
+  // A free location headlines the range: guests must never skip it believing they'd pay.
+  if (priced.length < admission.length) return `Free – ${label}`;
+  const charges = new Set(priced.map((location) => `${location.price}:${currencyOf(location)}`));
+  return charges.size > 1 ? `From ${label}` : label;
+}
+
+/**
+ * The facts a row states after the location, in order. Only what differs from the
+ * default (free, public, unlimited, nobody going) — same rule as the web listing.
+ */
+export function getCalEventFacts(
+  event: Pick<
+    CalEvent,
+    | "capacity"
+    | "confirmedCount"
+    | "price"
+    | "currency"
+    | "locations"
+    | "visibility"
+    | "waitlistEnabled"
+  >
+): string[] {
+  const facts: string[] = [];
+  const { capacity } = event;
+  const confirmed = event.confirmedCount ?? 0;
+
+  if (capacity !== null && confirmed >= capacity) {
+    facts.push(`${confirmed}/${capacity} full`);
+    facts.push(event.waitlistEnabled ? "Waitlist" : "Sold out");
+  } else {
+    if (confirmed > 0 || capacity !== null) facts.push(`${confirmed} going`);
+    if (capacity !== null) facts.push(`${capacity} cap`);
+  }
+
+  const price = formatCalEventPublicPrice(event);
+  if (price) facts.push(price);
+  if (event.visibility === "UNLISTED") facts.push("Unlisted");
+
+  return facts;
+}
+
+/**
+ * The detail screen's attendance line ("4 going", "4 of 50 going"), or null while the count is
+ * unknown: the single-event response has none, so it's borrowed from a listing. A draft can't
+ * have guests, so one missing from every listing (just created) reads as nobody going.
+ */
+export function getCalEventGoingLabel(
+  event: Pick<CalEvent, "capacity" | "confirmedCount" | "status">
+): string | null {
+  const confirmed = event.confirmedCount ?? (event.status === "draft" ? 0 : undefined);
+  if (confirmed === undefined) return null;
+  return event.capacity === null ? `${confirmed} going` : `${confirmed} of ${event.capacity} going`;
+}
+
+type DateParts = { year: string; month: string; day: string; weekday: string };
+
+function partsIn(date: Date, timeZone: string): DateParts {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone,
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return { year: get("year"), month: get("month"), day: get("day"), weekday: get("weekday") };
+}
+
+function safeParts(date: Date, timeZone: string): DateParts {
+  try {
+    return partsIn(date, timeZone);
+  } catch {
+    // An unknown IANA zone on this device: fall back to UTC rather than crash the row.
+    return partsIn(date, "UTC");
+  }
+}
+
+/**
+ * Date line for a row, in the EVENT's timezone: "Sat, Oct 10", or "Fri, Oct 30 – Sun, Nov 1"
+ * for a multi-day event. The year is appended only when the event is not in the current one.
+ */
+export function formatCalEventDate(
+  startIso: string,
+  endIso: string,
+  timeZone: string,
+  now: Date = new Date()
+): string {
+  const start = safeParts(new Date(startIso), timeZone);
+  const end = safeParts(new Date(endIso), timeZone);
+  const currentYear = safeParts(now, timeZone).year;
+  const withYear = start.year !== currentYear || end.year !== currentYear;
+  const fmt = (p: DateParts) => `${p.weekday}, ${p.month} ${p.day}${withYear ? `, ${p.year}` : ""}`;
+  const sameDay = start.year === end.year && start.month === end.month && start.day === end.day;
+  return sameDay ? fmt(start) : `${fmt(start)} – ${fmt(end)}`;
+}
+
+/** Start time in the event's timezone: "4:00 PM". */
+export function formatCalEventTime(iso: string, timeZone: string): string {
+  const date = new Date(iso);
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone,
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "UTC",
+    }).format(date);
+  }
+}
+
+/** "4:00 PM – 9:00 PM" */
+export function formatCalEventTimeRange(
+  startIso: string,
+  endIso: string,
+  timeZone: string
+): string {
+  return `${formatCalEventTime(startIso, timeZone)} – ${formatCalEventTime(endIso, timeZone)}`;
+}
+
+/** The public event page, root namespace: `{webUrl}/{slug}` — the same rule as the web listing. */
+export function getCalEventPublicUrl(slug: string): string {
+  return `${getCalWebUrl()}/${slug}`;
+}
+
+/**
+ * A draft's public page through the web login: the page renders a draft only for its owner and
+ * hosts signed in on the web, and the app's ephemeral OAuth sign-in leaves the in-app browser
+ * without that session. The login page sends a signed-in user straight on to `callbackUrl`, and
+ * a fresh sign-in there too, so only the first preview asks the host to sign in.
+ */
+export function getCalEventPreviewUrl(slug: string): string {
+  return `${getCalAppUrl()}/auth/login?callbackUrl=${encodeURIComponent(getCalEventPublicUrl(slug))}`;
+}
+
+/** The web editor for an event, optionally opened on one of its tabs (such as `workflows`). */
+export function getCalEventEditorUrl(uuid: string, tabName?: string): string {
+  const url = `${getCalAppUrl()}/events/${uuid}`;
+  return tabName ? `${url}?tabName=${tabName}` : url;
+}
+
+/**
+ * Whether the viewer may publish/cancel/delete: the event's owner or one of its hosts. The API's
+ * host roster leaves out external co-hosts, and an unknown viewer (profile not loaded) may not.
+ */
+export function canManageCalEventLifecycle(
+  event: Pick<CalEvent, "userId" | "hosts">,
+  viewerId: number | undefined
+): boolean {
+  if (viewerId === undefined) return false;
+  return event.userId === viewerId || event.hosts.some((host) => host.userId === viewerId);
+}
+
+/**
+ * Whether the viewer gets the check-in screen, on a published or past event only: a draft has no
+ * guests and a cancelled event refuses check-ins. Only the owner, the hosts and accepted external
+ * co-hosts can open a personal event, and the API lets each of them check in, so every viewer of
+ * one gets it, as on the web. A team event also lets in co-hosts and members with update
+ * permission, but the app can't tell them from members who may only view, so only its hosts (as
+ * above) get it there.
+ */
+export function canCheckInCalEventGuests(
+  event: Pick<CalEvent, "userId" | "hosts" | "status" | "teamId">,
+  viewerId: number | undefined
+): boolean {
+  return (
+    (event.status === "published" || event.status === "past") &&
+    (event.teamId === null || canManageCalEventLifecycle(event, viewerId))
+  );
+}
+
+/**
+ * Whether the server will accept a delete: never a published paid event, priced on the event or
+ * on any location (its payment records are kept; a cancelled one keeps `publishedAt` too), and
+ * only without confirmed guests. A draft can't have any, and a cancelled event's confirmedCount
+ * still counts the cancelled booking's seats, which the server ignores. Otherwise a missing count
+ * (the single-event response has none) is unknown, not zero.
+ */
+export function canDeleteCalEvent(
+  event: Pick<CalEvent, "publishedAt" | "price" | "locations" | "status" | "confirmedCount">
+): boolean {
+  if (event.publishedAt && isPaidCalEvent(event)) return false;
+  if (event.status === "draft" || event.status === "cancelled") return true;
+  return event.confirmedCount === 0;
+}
+
+/**
+ * Which public-page actions an event offers, by the web listing's rule. A draft's page 404s until
+ * it is published (only a host signed in on the web sees it, which getCalEventPreviewUrl handles),
+ * so it offers none; a cancelled event's page shows the cancellation notice: opened, not shared.
+ */
+export function getCalEventLinkActions(status: CalEventStatus): {
+  canViewPage: boolean;
+  canShare: boolean;
+} {
+  const canShare = status === "published" || status === "past";
+  return { canViewPage: canShare || status === "cancelled", canShare };
+}
+
+/** A row's status badge colors, matching the web variants (warning/success/secondary/error). */
+export function getCalEventStatusColors(
+  status: CalEventStatus,
+  isDark: boolean
+): { background: string; text: string } {
+  switch (status) {
+    case "draft":
+      return isDark
+        ? { background: "#3D2E00", text: "#FFD60A" }
+        : { background: "#FEF3C7", text: "#92400E" };
+    case "published":
+      return isDark
+        ? { background: "#0B3D1F", text: "#4ADE80" }
+        : { background: "#DCFCE7", text: "#166534" };
+    case "cancelled":
+      return isDark
+        ? { background: "#3F1212", text: "#F87171" }
+        : { background: "#FEE2E2", text: "#991B1B" };
+    default:
+      return isDark
+        ? { background: "#262626", text: "#A3A3A3" }
+        : { background: "#F3F4F6", text: "#4B5563" };
+  }
+}
+
+/**
+ * A title short enough for the navigation bar: at most `max` characters, the last one "…".
+ * Counts code points, not UTF-16 units, so an emoji at the cutoff is kept or dropped whole rather
+ * than halved into "�" (Hermes has no Intl.Segmenter to count graphemes).
+ */
+export function truncateCalEventTitle(title: string, max = 28): string {
+  const characters = Array.from(title);
+  return characters.length > max ? `${characters.slice(0, max - 1).join("")}…` : title;
+}
+
+/** How a guest is listed: their name, or their email when they gave none. */
+export function getCalEventGuestName(guest: Pick<CalEventGuest, "name" | "email">): string {
+  return guest.name.trim() || guest.email;
+}
+
+/** A door list reads alphabetically: by name, then email to keep namesakes in a stable order. */
+export function sortCalEventGuests(guests: CalEventGuest[]): CalEventGuest[] {
+  return [...guests].sort(
+    (a, b) =>
+      getCalEventGuestName(a).localeCompare(getCalEventGuestName(b), undefined, {
+        sensitivity: "base",
+      }) || a.email.localeCompare(b.email)
+  );
+}
+
+/** Guests whose name or email contains the query, case-insensitively. */
+export function filterCalEventGuests(guests: CalEventGuest[], query: string): CalEventGuest[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return guests;
+  return guests.filter(
+    (guest) =>
+      guest.name.toLowerCase().includes(needle) || guest.email.toLowerCase().includes(needle)
+  );
+}
+
+/** "1 of 3 checked in". */
+export function getCalEventCheckInProgress(list: CalEventCheckInList): string {
+  const checkedIn = list.guests.filter((guest) => guest.checkedInAt).length;
+  return `${checkedIn} of ${list.guests.length} checked in`;
+}
+
+/** "6:05 PM" on the device's clock, which at the door is the venue's. */
+export function formatCalEventCheckInTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(
+    new Date(iso)
+  );
+}
+
+export type CalEventCheckInAvailability =
+  | { kind: "open"; closesAt: string | null }
+  | { kind: "not_yet_open"; opensAt: string }
+  | { kind: "closed"; closedAt: string };
+
+/**
+ * Whether the door takes check-ins now, by the window the API sends with the event, as the web's
+ * door page reads it (both ends included). A side the event doesn't carry, as on one cached before
+ * the API sent it, counts as open, and the server's 400 has the last word.
+ */
+export function getCalEventCheckInAvailability(
+  event: Pick<CalEvent, "checkInOpensAt" | "checkInClosesAt">,
+  now: Date = new Date()
+): CalEventCheckInAvailability {
+  const opensAt = validIso(event.checkInOpensAt);
+  const closesAt = validIso(event.checkInClosesAt);
+  if (opensAt && now < new Date(opensAt)) return { kind: "not_yet_open", opensAt };
+  if (closesAt && now > new Date(closesAt)) return { kind: "closed", closedAt: closesAt };
+  return { kind: "open", closesAt };
+}
+
+function validIso(iso: string | undefined): string | null {
+  return iso && !Number.isNaN(new Date(iso).getTime()) ? iso : null;
+}
+
+/** setTimeout fires at once when asked to wait longer than this (about 24.8 days). */
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
+
+/**
+ * How long until `availability` changes: until the window opens, or until it closes; null once it
+ * has closed, or when it has no end. For a timer that keeps a screen current, so it's capped at the
+ * longest delay setTimeout takes. A timer that fires early finds no change and waits again.
+ */
+export function getCalEventCheckInAvailabilityDelayMs(
+  availability: CalEventCheckInAvailability,
+  now: Date = new Date()
+): number | null {
+  if (availability.kind === "closed") return null;
+  const changesAt =
+    availability.kind === "not_yet_open" ? availability.opensAt : availability.closesAt;
+  if (!changesAt) return null;
+  // +1: the window includes both ends, so it closes just after closesAt.
+  const delay = new Date(changesAt).getTime() - now.getTime() + 1;
+  return Math.min(Math.max(delay, 0), MAX_TIMER_DELAY_MS);
+}
+
+/** "Check-in opens Sat, Oct 10, 4:45 AM", in the event's timezone; null while check-in is open. */
+export function getCalEventCheckInWindowNotice(
+  availability: CalEventCheckInAvailability,
+  timeZone: string
+): string | null {
+  if (availability.kind === "open") return null;
+  const iso = availability.kind === "not_yet_open" ? availability.opensAt : availability.closedAt;
+  const { weekday, month, day } = safeParts(new Date(iso), timeZone);
+  const when = `${weekday}, ${month} ${day}, ${formatCalEventTime(iso, timeZone)}`;
+  return availability.kind === "not_yet_open"
+    ? `Check-in opens ${when}`
+    : `Check-in closed ${when}`;
+}
+
+/**
+ * Whether tapping a guest's row does anything. Checking in needs the window open, or no window
+ * yet (the event still loading), when the server decides; undo is never gated, as on the server.
+ */
+export function canTapCalEventGuest(
+  guest: Pick<CalEventGuest, "checkedInAt">,
+  availability: CalEventCheckInAvailability | null
+): boolean {
+  return !!guest.checkedInAt || !availability || availability.kind === "open";
+}
+
+/** Under the window notice, as on the web: why the door is shut. */
+export const CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION =
+  "Guests can be checked in from 12 hours before the event starts until 12 hours after it ends.";
+
+/**
+ * Why a check-in or undo failed. The API's other 4xx reasons are written for people ("Check-in is
+ * closed outside the event window", "This event has been cancelled"), so they show as they are.
+ */
+export function getCalEventCheckInErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiRequestError)) return "Check your connection and try again.";
+  if (error.status === 403) {
+    return "Your sign-in doesn't include checking guests in. Sign out and sign back in to grant it.";
+  }
+  if (error.status === 404) return "This guest is no longer on the list.";
+  if (error.status === 429) return "Too many check-ins at once. Wait a moment and try again.";
+  if (error.status < 500) {
+    const message = error.message.replace(/^API Error: \d+ /, "").trim();
+    return message || "Something went wrong. Try again.";
+  }
+  return "Something went wrong. Try again.";
+}
+
+// A QR held in frame decodes many times a second. Same hold as the web's scanner.
+const RESCAN_HOLD_MS = 3000;
+
+/**
+ * Decides which scanned codes the scanner sends. iOS reports every code in frame on every frame,
+ * so one code goes out at a time: two tickets in view can't flood the API or answer out of order.
+ * A code isn't sent again until `holdMs` after its answer showed, so a ticket held up reads
+ * "Checked in" for a while before "Already checked in".
+ */
+export function createCalEventScanGate(
+  holdMs: number = RESCAN_HOLD_MS,
+  now: () => number = Date.now
+) {
+  let sending = false;
+  const answeredAt = new Map<string, number>();
+  return {
+    /** Whether to send this code now. A code taken is on its way until `settle(code)`. */
+    take(code: string): boolean {
+      if (sending) return false;
+      const at = answeredAt.get(code);
+      if (at !== undefined && now() - at < holdMs) return false;
+      sending = true;
+      return true;
+    },
+    /** The taken code's answer is showing: the next code may go, and this one waits out its hold. */
+    settle(code: string): void {
+      sending = false;
+      answeredAt.set(code, now());
+    },
+  };
+}
+
+/** What the scanner says for a code that isn't a check-in ticket for this event. */
+export const CAL_EVENT_INVALID_TICKET_MESSAGE = "Not a valid ticket for this event";
+
+/**
+ * Whether a scanned code is worth sending. The API answers a token outside 1–256 characters with
+ * a validation 400 written for developers; no ticket is that long, so the scanner says so itself.
+ */
+export function isCalEventCheckInTokenShaped(code: string): boolean {
+  return code.length >= 1 && code.length <= 256;
+}
+
+/**
+ * Why a scanned ticket checked no one in. A forged ticket and one for another event get the same
+ * 404 on purpose; anything else reads as it does for a tap.
+ */
+export function getCalEventTicketCheckInErrorMessage(error: unknown): string {
+  if (error instanceof ApiRequestError && error.status === 404) {
+    return CAL_EVENT_INVALID_TICKET_MESSAGE;
+  }
+  return getCalEventCheckInErrorMessage(error);
+}
+
+/** The list with one guest checked in at `checkedInAt`, or unchecked when it is null. */
+export function setCalEventGuestCheckedInAt(
+  list: CalEventCheckInList | undefined,
+  guestId: string,
+  checkedInAt: string | null
+): CalEventCheckInList | undefined {
+  if (!list) return list;
+  return {
+    ...list,
+    guests: list.guests.map((guest) => (guest.id === guestId ? { ...guest, checkedInAt } : guest)),
+  };
+}

@@ -15,12 +15,13 @@
 #   documentation prose / docstring @example URLs don't cause runtime bugs.
 # - `ALLOWLIST` exempts files that legitimately reference the bare hostnames:
 #   the region helpers themselves, the env template, the hostname match-set
-#   used for video-call URL detection, and this script.
+#   used for video-call URL detection, the region-independent `@sms.cal.com`
+#   placeholder the backend gives phone-registered guests, and this script.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PATTERN='\bcal\.(com|eu)\b'
-ALLOWLIST='^(\./)?(utils/region\.ts|utils/booking\.ts|\.env\.example|scripts/check-no-cal-hostnames\.sh):'
+ALLOWLIST='^(\./)?(utils/region\.ts|utils/booking\.ts|utils/cal-event-guests(\.test\.js|\.ts)|\.env\.example|scripts/check-no-cal-hostnames\.sh):'
 
 raw=$(rg -n --no-heading "$PATTERN" . 2>/dev/null || true)
 hits=$(echo "$raw" | grep -Ev "$ALLOWLIST" | grep -Ev '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' || true)

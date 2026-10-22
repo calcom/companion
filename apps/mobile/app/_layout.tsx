@@ -50,6 +50,12 @@ function RootLayoutContent() {
   const content = isAuthenticated ? (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {/* A sheet over the tab bar, like the app's other modals. As a fullScreenModal, iOS kept
+          it on screen after Done, swallowing every tap. */}
+      <Stack.Screen
+        name="event-check-in-scanner"
+        options={{ presentation: "modal", headerShown: false }}
+      />
       <Stack.Screen
         name="profile-sheet"
         options={{
@@ -131,6 +137,113 @@ function RootLayoutContent() {
               : "containedModal",
           sheetGrabberVisible: Platform.OS === "ios",
           sheetAllowedDetents: Platform.OS === "ios" ? [0.5, 0.7] : undefined,
+          sheetInitialDetentIndex: Platform.OS === "ios" ? 0 : undefined,
+          contentStyle: {
+            backgroundColor:
+              Platform.OS === "ios" && isLiquidGlassAvailable()
+                ? "transparent"
+                : colors.backgroundSecondary,
+          },
+          headerStyle: {
+            backgroundColor: Platform.OS === "ios" ? "transparent" : colors.backgroundSecondary,
+          },
+          headerBlurEffect:
+            Platform.OS === "ios" && isLiquidGlassAvailable()
+              ? undefined
+              : isDark
+                ? "dark"
+                : "light",
+        }}
+      />
+      <Stack.Screen
+        name="create-cal-event"
+        options={{
+          headerShown: false,
+          presentation: Platform.OS === "ios" ? "modal" : "containedModal",
+        }}
+      />
+      <Stack.Screen name="edit-cal-event" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="cal-event-invite-guests"
+        options={{
+          headerShown: true,
+          headerTransparent: Platform.OS === "ios",
+          headerLargeTitle: false,
+          title: "Invite guests",
+          presentation:
+            Platform.OS === "ios"
+              ? isLiquidGlassAvailable()
+                ? "formSheet"
+                : "modal"
+              : "containedModal",
+          sheetGrabberVisible: Platform.OS === "ios",
+          sheetAllowedDetents: Platform.OS === "ios" ? [0.7, 1] : undefined,
+          sheetInitialDetentIndex: Platform.OS === "ios" ? 0 : undefined,
+          contentStyle: {
+            backgroundColor:
+              Platform.OS === "ios" && isLiquidGlassAvailable()
+                ? "transparent"
+                : colors.backgroundSecondary,
+          },
+          headerStyle: {
+            backgroundColor: Platform.OS === "ios" ? "transparent" : colors.backgroundSecondary,
+          },
+          headerBlurEffect:
+            Platform.OS === "ios" && isLiquidGlassAvailable()
+              ? undefined
+              : isDark
+                ? "dark"
+                : "light",
+        }}
+      />
+      <Stack.Screen
+        name="cal-event-message-guests"
+        options={{
+          headerShown: true,
+          headerTransparent: Platform.OS === "ios",
+          headerLargeTitle: false,
+          title: "Message guests",
+          presentation:
+            Platform.OS === "ios"
+              ? isLiquidGlassAvailable()
+                ? "formSheet"
+                : "modal"
+              : "containedModal",
+          sheetGrabberVisible: Platform.OS === "ios",
+          sheetAllowedDetents: Platform.OS === "ios" ? [1] : undefined,
+          sheetInitialDetentIndex: Platform.OS === "ios" ? 0 : undefined,
+          contentStyle: {
+            backgroundColor:
+              Platform.OS === "ios" && isLiquidGlassAvailable()
+                ? "transparent"
+                : colors.backgroundSecondary,
+          },
+          headerStyle: {
+            backgroundColor: Platform.OS === "ios" ? "transparent" : colors.backgroundSecondary,
+          },
+          headerBlurEffect:
+            Platform.OS === "ios" && isLiquidGlassAvailable()
+              ? undefined
+              : isDark
+                ? "dark"
+                : "light",
+        }}
+      />
+      <Stack.Screen
+        name="cal-event-sent-messages"
+        options={{
+          headerShown: true,
+          headerTransparent: Platform.OS === "ios",
+          headerLargeTitle: false,
+          title: "Sent messages",
+          presentation:
+            Platform.OS === "ios"
+              ? isLiquidGlassAvailable()
+                ? "formSheet"
+                : "modal"
+              : "containedModal",
+          sheetGrabberVisible: Platform.OS === "ios",
+          sheetAllowedDetents: Platform.OS === "ios" ? [0.7, 1] : undefined,
           sheetInitialDetentIndex: Platform.OS === "ios" ? 0 : undefined,
           contentStyle: {
             backgroundColor:

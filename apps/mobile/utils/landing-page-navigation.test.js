@@ -1,11 +1,25 @@
-import { describe, expect, test } from "@jest/globals";
+import { describe, expect, jest, test } from "@jest/globals";
 import { getInitialLandingRedirectDecision } from "@/utils/landing-page-navigation";
+
+// getRouteFromPreference is pure: keep its module's storage (AsyncStorage, SecureStore) unloaded.
+jest.mock("@/utils/storage", () => ({ generalStorage: {} }));
+
+const { getRouteFromPreference } = require("@/hooks/useUserPreferences");
 
 describe("getInitialLandingRedirectDecision", () => {
   test("redirects event-types preference from the tabs root", () => {
     expect(
       getInitialLandingRedirectDecision({
         landingPage: "event-types",
+        segments: ["(tabs)"],
+      })
+    ).toBe("redirect");
+  });
+
+  test("redirects events preference from the tabs root", () => {
+    expect(
+      getInitialLandingRedirectDecision({
+        landingPage: "events",
         segments: ["(tabs)"],
       })
     ).toBe("redirect");
@@ -61,5 +75,11 @@ describe("getInitialLandingRedirectDecision", () => {
         segments: ["profile-sheet"],
       })
     ).toBe("wait");
+  });
+});
+
+describe("getRouteFromPreference", () => {
+  test("routes events preference to the Events tab", () => {
+    expect(getRouteFromPreference("events")).toBe("/(tabs)/(events)");
   });
 });

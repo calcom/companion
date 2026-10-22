@@ -112,7 +112,8 @@ export async function makeRequest<T>(
       ...options,
       headers: {
         Authorization: getAuthHeader(),
-        "Content-Type": "application/json",
+        // A multipart body sets its own Content-Type, with the boundary.
+        ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
         "cal-api-version": apiVersion,
         ...options.headers,
       },
