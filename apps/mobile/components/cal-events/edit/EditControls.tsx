@@ -59,7 +59,7 @@ export function EditSection({
       <View
         style={{
           backgroundColor: surfaces.card,
-          borderRadius: 12,
+          borderRadius: 14,
           padding: 14,
           gap: 18,
         }}

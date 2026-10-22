@@ -81,7 +81,7 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
             gap: 8,
             paddingVertical: 40,
             paddingHorizontal: 24,
-            borderRadius: 12,
+            borderRadius: 14,
             borderWidth: 1,
             borderStyle: "dashed",
             borderColor: theme.border,
@@ -99,7 +99,7 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
         <>
           <View
             style={{
-              borderRadius: 12,
+              borderRadius: 14,
               backgroundColor: surfaces.card,
               overflow: "hidden",
             }}

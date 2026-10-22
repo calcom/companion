@@ -344,13 +344,13 @@ export default function CalEventDetailScreen() {
 
 type Theme = ReturnType<typeof getColors>;
 
-/** A card as on the booking and availability detail screens. */
+/** A card with the link editor's corners on the booking and availability detail colors. */
 function Card({ isDark, children }: { isDark: boolean; children: ReactNode }) {
   return (
     <View
       style={{
         backgroundColor: getGroupedSurfaces(isDark).card,
-        borderRadius: 12,
+        borderRadius: 14,
         padding: 14,
         marginTop: 16,
       }}

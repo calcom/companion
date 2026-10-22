@@ -251,7 +251,7 @@ export const InviteGuestsScreen = forwardRef<InviteGuestsScreenHandle, InviteGue
                 style={{
                   gap: 4,
                   padding: 12,
-                  borderRadius: 12,
+                  borderRadius: 14,
                   backgroundColor: surfaces.card,
                 }}
               >

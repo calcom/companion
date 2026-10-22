@@ -92,7 +92,7 @@ export function GuestsSection({ event, locations, onPageChange }: GuestsSectionP
           gap: 12,
           paddingVertical: 48,
           paddingHorizontal: 24,
-          borderRadius: 12,
+          borderRadius: 14,
           borderWidth: 1,
           borderStyle: "dashed",
           borderColor: theme.border,
@@ -370,7 +370,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
             alignItems: "center",
             gap: 10,
             paddingVertical: 40,
-            borderRadius: 12,
+            borderRadius: 14,
             borderWidth: 1,
             borderStyle: "dashed",
             borderColor: theme.border,
@@ -542,7 +542,7 @@ function GuestCard({ children, footer }: { children: ReactNode; footer?: ReactNo
   return (
     <View
       style={{
-        borderRadius: 12,
+        borderRadius: 14,
         backgroundColor: surfaces.card,
         overflow: "hidden",
       }}
