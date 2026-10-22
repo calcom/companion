@@ -8,6 +8,8 @@ import { useCreateCalEventFlow } from "@/components/cal-events/useCreateCalEvent
 
 export default function EventsIOS() {
   const [searchQuery, setSearchQuery] = useState("");
+  // Search only covers the selected chip's events, so the placeholder names it.
+  const [profileName, setProfileName] = useState<string | null>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const { startCreate: handleCreate, picker } = useCreateCalEventFlow();
@@ -17,7 +19,7 @@ export default function EventsIOS() {
       <Stack.Screen
         options={{
           headerSearchBarOptions: {
-            placeholder: "Search events",
+            placeholder: profileName ? `Search ${profileName} events` : "Search events",
             onChangeText: (e) => setSearchQuery(e.nativeEvent.text),
             onCancelButtonPress: () => setSearchQuery(""),
             // Hiding it on scroll also starts it hidden: it showed only after a pull down.
@@ -34,6 +36,7 @@ export default function EventsIOS() {
       <CalEventsList
         searchQuery={searchQuery}
         onCreate={handleCreate}
+        onProfileNameChange={setProfileName}
         contentInsetAdjustmentBehavior="automatic"
       />
       {/* The floating "+" the Links tab has, for a new event. */}
