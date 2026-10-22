@@ -27,6 +27,7 @@ import {
   type CreateCalEventFormValues,
   parseLocationInput,
 } from "@/utils/cal-event-create";
+import { getCalEventLiveStreamError } from "@/utils/cal-event-live-stream";
 import {
   canManageCalEventLifecycle,
   formatCalEventPrice,
@@ -44,7 +45,6 @@ export const CAL_EVENT_MAX_CAPACITY = 100_000;
 export const CAL_EVENT_PAYMENT_TIMEOUT_MIN = 10;
 export const CAL_EVENT_PAYMENT_TIMEOUT_MAX = 10_080;
 export const CAL_EVENT_LIVE_STREAM_LIMIT = 5;
-const CAL_EVENT_LIVE_STREAM_URL_MAX_LENGTH = 2048;
 export const MAX_LINEUP_PEOPLE = 30;
 export const MAX_LINEUP_LINKS_PER_PERSON = 5;
 export const MAX_LINEUP_MEDIA_PER_PERSON = 6;
@@ -606,10 +606,10 @@ export function getEditCalEventErrors(
   const streams = values.liveStreams.map((url) => url.trim()).filter(Boolean);
   if (streams.length > CAL_EVENT_LIVE_STREAM_LIMIT) {
     errors.liveStreams = `Add up to ${CAL_EVENT_LIVE_STREAM_LIMIT} live streams`;
-  } else if (
-    streams.some((url) => url.length > CAL_EVENT_LIVE_STREAM_URL_MAX_LENGTH || !isHttpUrl(url))
-  ) {
-    errors.liveStreams = "Live streams must be links starting with http:// or https://";
+  } else {
+    // Each row shows its own message (LiveStreamsField); this one blocks the save.
+    const streamError = streams.map(getCalEventLiveStreamError).find(Boolean);
+    if (streamError) errors.liveStreams = streamError;
   }
 
   if (values.background && !values.background.colors.every((color) => HEX_COLOR.test(color))) {

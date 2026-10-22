@@ -110,6 +110,7 @@ interface EditTextFieldProps {
   hint?: string;
   value: string;
   onChangeText: (text: string) => void;
+  onBlur?: () => void;
   placeholder?: string;
   multiline?: boolean;
   keyboardType?: KeyboardTypeOptions;
@@ -132,6 +133,7 @@ export function EditTextField({
   hint,
   value,
   onChangeText,
+  onBlur,
   placeholder,
   multiline = false,
   keyboardType,
@@ -188,6 +190,7 @@ export function EditTextField({
         <TextInput
           value={value}
           onChangeText={onChangeText}
+          onBlur={onBlur}
           placeholder={placeholder}
           placeholderTextColor={theme.textMuted}
           multiline={multiline}

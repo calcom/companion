@@ -267,10 +267,15 @@ describe("getEditCalEventErrors", () => {
     expect(errors({ paymentTimeoutMinutes: "5" }).paymentTimeoutMinutes).toBeUndefined();
   });
 
-  test("live streams are links, at most five", () => {
-    expect(errors({ liveStreams: ["youtube"] }).liveStreams).toBeDefined();
+  test("live streams are supported stream links, at most five", () => {
+    expect(errors({ liveStreams: ["youtube"] }).liveStreams).toBe(
+      "Enter a valid YouTube, Twitch, X, or Restream stream URL"
+    );
+    expect(errors({ liveStreams: ["https://vimeo.com/1"] }).liveStreams).toBeDefined();
+    expect(errors({ liveStreams: ["https://youtu.be/abc", " "] }).liveStreams).toBeUndefined();
     expect(
-      errors({ liveStreams: Array.from({ length: 6 }, (_, i) => `https://x.com/${i}`) }).liveStreams
+      errors({ liveStreams: Array.from({ length: 6 }, (_, i) => `https://youtu.be/${i}`) })
+        .liveStreams
     ).toMatch(/up to 5/);
   });
 
