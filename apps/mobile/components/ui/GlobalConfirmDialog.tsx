@@ -48,7 +48,8 @@ export function GlobalConfirmDialog() {
     <FullScreenModal
       visible={request !== null}
       animationType="fade"
-      // Escape or the backdrop: the cancel choice, as a native alert's dismissal.
+      // Escape: the cancel choice, as a native alert's dismissal. A tap outside does nothing, as
+      // with a native alert and the Bookings and Availability confirm dialogs.
       onRequestClose={() => choose(buttons.find((button) => button.style === "cancel"))}
     >
       <View className="flex-1 items-center justify-center bg-black/50 p-4">
