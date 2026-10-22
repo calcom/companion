@@ -173,17 +173,14 @@ export function ThemeField({
                 {option.value !== "dark" ? <ThemeSketch dark={false} /> : null}
                 {option.value !== "light" ? <ThemeSketch dark /> : null}
               </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              {/* A long label wraps rather than shrinking, which the web can't do. */}
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
                 <Ionicons
                   name={selected ? "radio-button-on" : "radio-button-off"}
                   size={18}
                   color={selected ? theme.text : theme.textMuted}
                 />
-                <Text
-                  style={{ flexShrink: 1, color: theme.text, fontSize: 14 }}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
+                <Text style={{ flexShrink: 1, color: theme.text, fontSize: 14, lineHeight: 18 }}>
                   {option.label}
                 </Text>
               </View>
