@@ -295,12 +295,22 @@ export default function CalEventDetailScreen() {
               onPress={() => actions.onOpenPage(event)}
             />
           ) : canPreviewDraft ? (
-            <PageButton
-              isDark={isDark}
-              icon="eye-outline"
-              label="Preview"
-              onPress={() => actions.onPreview(event)}
-            />
+            <>
+              <PageButton
+                isDark={isDark}
+                icon="eye-outline"
+                label="Preview"
+                onPress={() => actions.onPreview(event)}
+              />
+              {/* A draft's next step, so the one filled button. */}
+              <PageButton
+                isDark={isDark}
+                icon="rocket-outline"
+                label="Publish"
+                primary
+                onPress={() => actions.onPublish(event)}
+              />
+            </>
           ) : null}
 
           {/* The rest as the link editor's quick actions, then its danger zone. */}
@@ -308,13 +318,6 @@ export default function CalEventDetailScreen() {
             isDark={isDark}
             header="Quick actions"
             actions={[
-              canPreviewDraft
-                ? {
-                    label: "Publish",
-                    icon: "rocket-outline",
-                    onPress: () => actions.onPublish(event),
-                  }
-                : null,
               // The address Preview and Open event page open, as the link editor's Copy link. A
               // cancelled event's page can be opened, but its link isn't handed out, as on the web.
               canShare || canPreviewDraft
@@ -431,37 +434,46 @@ function Row({
   );
 }
 
-/** The event page's button: outlined, so it doesn't outweigh the rest of the page. */
+/**
+ * A full-width button under the hosts: outlined for the event page, so it doesn't outweigh the
+ * rest of the page, and filled (`primary`) for a draft's Publish.
+ */
 function PageButton({
   isDark,
   icon,
   label,
+  primary = false,
   onPress,
 }: {
   isDark: boolean;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  primary?: boolean;
   onPress: () => void;
 }) {
   const theme = getColors(isDark);
+  const fill = isDark ? "#FFFFFF" : "#000000";
+  const color = primary ? (isDark ? "#000000" : "#FFFFFF") : theme.text;
   return (
     <TouchableOpacity
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={label}
       style={{
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         height: 44,
-        marginTop: 24,
+        marginTop: primary ? 12 : 24,
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: isDark ? "#4D4D4D" : "#E5E5E5",
-        backgroundColor: getGroupedSurfaces(isDark).card,
+        // The filled one in the editor Save pill's black (white in dark mode).
+        borderColor: primary ? fill : isDark ? "#4D4D4D" : "#E5E5E5",
+        backgroundColor: primary ? fill : getGroupedSurfaces(isDark).card,
       }}
     >
-      <Ionicons name={icon} size={18} color={theme.text} style={{ marginRight: 8 }} />
-      <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>{label}</Text>
+      <Ionicons name={icon} size={18} color={color} style={{ marginRight: 8 }} />
+      <Text style={{ color, fontSize: 16, fontWeight: primary ? "600" : "500" }}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -483,6 +495,7 @@ function NavigationRow({
     <TouchableOpacity
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={label}
       activeOpacity={0.5}
       style={{
         flexDirection: "row",
