@@ -17,6 +17,9 @@ describe("getCalEventLiveStreamError", () => {
     "https://twitter.com/calcom/status/1",
     "https://studio.restream.io/webinar/abc-123",
     "  https://YouTube.com/watch?v=abc  ",
+    "https://youtube.com:443/watch?v=abc",
+    "https://youtube.com:65535/watch?v=abc",
+    "https://youtube.com:/watch?v=abc",
   ])("accepts %s, as the web does", (url) => {
     expect(getCalEventLiveStreamError(url)).toBeNull();
   });
@@ -32,6 +35,9 @@ describe("getCalEventLiveStreamError", () => {
     "https://x.com/calcom",
     "https://studio.restream.io/abc",
     "https://www.youtube.com/watch?v=%E0%A4%A",
+    // Past the highest port, which the browser's URL turns down.
+    "https://youtube.com:65536/watch?v=abc",
+    "https://youtu.be:99999/abc",
   ])("rejects %s", (url) => {
     expect(getCalEventLiveStreamError(url)).toBe(CAL_EVENT_LIVE_STREAM_INVALID);
   });

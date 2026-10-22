@@ -14,7 +14,9 @@ export const CAL_EVENT_LIVE_STREAM_INVALID =
 export const CAL_EVENT_LIVE_STREAM_TOO_LONG = "Enter a stream URL under 2,048 characters";
 
 const HTTP_URL =
-  /^https?:\/\/(?:[^@/?#\s]*@)?([^:/?#\s]+)(?::\d+)?(\/[^?#\s]*)?(\?[^#\s]*)?(#\S*)?$/i;
+  /^https?:\/\/(?:[^@/?#\s]*@)?([^:/?#\s]+)(?::(\d*))?(\/[^?#\s]*)?(\?[^#\s]*)?(#\S*)?$/i;
+/** The highest port, past which the browser's URL turns a link down. */
+const MAX_PORT = 65535;
 const YOUTUBE_VIDEO_ID = /^[\w-]{1,64}$/;
 const TWITCH_CHANNEL = /^[a-z0-9_]{1,25}$/i;
 const NUMERIC_ID = /^\d+$/;
@@ -31,12 +33,15 @@ interface ParsedUrl {
 function parseHttpUrl(input: string): ParsedUrl | null {
   const match = HTTP_URL.exec(input);
   if (!match) return null;
-  const path = match[2] || "/";
+  const [, host, port, pathname, query] = match;
+  // An empty port (`host:/path`) is fine, as in the browser.
+  if (port && Number(port) > MAX_PORT) return null;
+  const path = pathname || "/";
   return {
-    host: match[1].toLowerCase(),
+    host: host.toLowerCase(),
     path,
     segments: path.split("/").filter(Boolean),
-    query: match[3] ?? "",
+    query: query ?? "",
   };
 }
 
