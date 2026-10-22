@@ -264,12 +264,18 @@ export interface CalEventImageFile {
   name: string;
   /** image/jpeg, image/png or image/webp. */
   type: string;
+  /** On the web, the picked file itself: a browser's FormData turns { uri, name, type } into text. */
+  file?: File;
 }
 
 function imageFormData(file: CalEventImageFile): FormData {
   const body = new FormData();
-  // React Native reads { uri, name, type } as a file part.
-  body.append("file", file as unknown as Blob);
+  if (file.file) {
+    body.append("file", file.file, file.name);
+  } else {
+    // React Native reads { uri, name, type } as a file part.
+    body.append("file", file as unknown as Blob);
+  }
   return body;
 }
 

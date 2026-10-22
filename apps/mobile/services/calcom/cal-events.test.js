@@ -317,6 +317,20 @@ describe("event media and locations", () => {
     expect(appendSpy.mock.contexts[0]).toBe(options.body);
   });
 
+  test("uploads the web's picked File itself, which a browser's FormData can send", async () => {
+    mockMakeRequest.mockResolvedValue({
+      status: "success",
+      data: { coverImageUrl: "https://x/c.jpg" },
+    });
+    const picked = new File(["jpeg"], "cover.jpg", { type: "image/jpeg" });
+    await uploadCalEventCoverImage("event-uuid", { ...file, uri: "blob:x", file: picked });
+    const [, options] = mockMakeRequest.mock.calls[0];
+    expect(appendSpy).toHaveBeenCalledWith("file", picked, "cover.jpg");
+    const sent = options.body.get("file");
+    expect(sent).toBeInstanceOf(File);
+    expect(sent.type).toBe("image/jpeg");
+  });
+
   test("removes the cover with a DELETE", async () => {
     mockMakeRequest.mockResolvedValue({ status: "success" });
     await deleteCalEventCoverImage("event-uuid");

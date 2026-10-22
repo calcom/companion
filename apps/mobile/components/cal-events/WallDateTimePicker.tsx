@@ -62,6 +62,8 @@ export function WallDateTimePicker({
               height: 40,
               fontSize: 17,
               color: theme.text,
+              // The browser draws the calendar icon and its popup for this scheme, not from color.
+              colorScheme: isDark ? "dark" : "light",
               backgroundColor: "transparent",
               border: `1px solid ${theme.border}`,
               borderRadius: 8,
