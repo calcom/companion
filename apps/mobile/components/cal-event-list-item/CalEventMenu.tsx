@@ -14,7 +14,7 @@ import { getColors } from "@/constants/colors";
 import type { CalEventMenuProps } from "./CalEventMenu.types";
 
 /** An event card's "⋯" menu: the Links card's menu, its groups split by dividers. */
-export function CalEventMenu({ groups, accessibilityLabel }: CalEventMenuProps) {
+export function CalEventMenu({ groups, accessibilityLabel, triggerClassName }: CalEventMenuProps) {
   const isDark = useColorScheme() === "dark";
   const theme = getColors(isDark);
   const insets = useSafeAreaInsets();
@@ -28,8 +28,11 @@ export function CalEventMenu({ groups, accessibilityLabel }: CalEventMenuProps) 
           accessibilityRole="button"
           accessibilityLabel={accessibilityLabel}
           hitSlop={8}
-          className="items-center justify-center rounded-lg border border-cal-border bg-white dark:border-cal-border-dark dark:bg-[#171717]"
-          style={{ width: 36, height: 36, flexShrink: 0 }}
+          className={
+            triggerClassName ??
+            "items-center justify-center rounded-lg border border-cal-border bg-white dark:border-cal-border-dark dark:bg-[#171717]"
+          }
+          style={triggerClassName ? undefined : { width: 36, height: 36, flexShrink: 0 }}
         >
           <Ionicons name="ellipsis-horizontal" size={18} color={isDark ? "#FFFFFF" : "#3C3F44"} />
         </Pressable>

@@ -18,4 +18,6 @@ export interface CalEventMenuProps {
   /** The menu's items, a divider between groups; empty groups are left out. */
   groups: CalEventMenuItem[][];
   accessibilityLabel: string;
+  /** The web and Android trigger's look, such as a header's round button; a card's by default. */
+  triggerClassName?: string;
 }

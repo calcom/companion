@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Linking, ScrollView, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { CalEventListItemSkeleton } from "@/components/cal-event-list-item/CalEventListItemSkeleton";
+import { getCalEventHeaderMenu } from "@/components/cal-events/calEventHeaderMenu";
 import { useCalEventActions } from "@/components/cal-events/useCalEventActions";
 import { useCalEventHeaderOptions } from "@/components/cal-events/useCalEventHeaderOptions";
 import { EmptyScreen } from "@/components/EmptyScreen";
@@ -46,8 +47,8 @@ export default function CalEventDetailScreen() {
   const actions = useCalEventActions({ afterDelete: () => router.back() });
 
   const headerTitle = truncateCalEventTitle(event?.title ?? title ?? "Event");
-  // Edit sits in the header, as on the other detail pages. Co-hosts can't edit natively, but the
-  // web still lets them change some fields; a cancelled event can't change.
+  // Edit sits in the header with the editor's "⋯" menu to its left. Co-hosts can't edit
+  // natively, but the web still lets them change some fields; a cancelled event can't change.
   const canEdit = event ? canEditCalEvent(event, me?.id) : false;
   const headerOptions = useCalEventHeaderOptions(
     "Events",
@@ -56,7 +57,17 @@ export default function CalEventDetailScreen() {
           label: canEdit ? "Edit" : "Edit on web",
           onPress: () => (canEdit ? actions.onEdit(event) : actions.onEditOnWeb(event)),
         }
-      : null
+      : null,
+    event
+      ? getCalEventHeaderMenu(event, canManageCalEventLifecycle(event, me?.id), {
+          onOpenPage: () => actions.onOpenPage(event),
+          onPreview: () => actions.onPreview(event),
+          onPublish: () => actions.onPublish(event),
+          onCopyLink: () => actions.onCopyLink(event),
+          onShare: () => actions.onShare(event),
+          onCancel: () => actions.onCancel(event),
+        })
+      : []
   );
 
   if (isLoading && !event) {
@@ -121,7 +132,7 @@ export default function CalEventDetailScreen() {
   const canManage = canManageCalEventLifecycle(event, me?.id);
   const canCheckIn = canCheckInCalEventGuests(event, me?.id);
   const canPreviewDraft = canManage && event.status === "draft";
-  const { canViewPage, canShare } = getCalEventLinkActions(event.status);
+  const { canViewPage } = getCalEventLinkActions(event.status);
   const inPerson = isCalEventInPerson(event);
   const price = formatCalEventPublicPrice(event);
   const link =
@@ -290,7 +301,8 @@ export default function CalEventDetailScreen() {
           {canViewPage ? (
             <PageButton
               isDark={isDark}
-              icon="open-outline"
+              // The compass of the "⋯" menu's View event page.
+              icon="compass-outline"
               label="Open event page"
               onPress={() => actions.onOpenPage(event)}
             />
@@ -313,25 +325,7 @@ export default function CalEventDetailScreen() {
             </>
           ) : null}
 
-          {/* The rest as the link editor's quick actions, then its danger zone. */}
-          <ActionGroup
-            isDark={isDark}
-            header="Quick actions"
-            actions={[
-              // The address Preview and Open event page open, as the link editor's Copy link. A
-              // cancelled event's page can be opened, but its link isn't handed out, as on the web.
-              canShare || canPreviewDraft
-                ? {
-                    label: "Copy link",
-                    icon: "link-outline",
-                    onPress: () => actions.onCopyLink(event),
-                  }
-                : null,
-              canShare
-                ? { label: "Share", icon: "share-outline", onPress: () => actions.onShare(event) }
-                : null,
-            ]}
-          />
+          {/* The link editor's danger zone. */}
           <ActionGroup
             isDark={isDark}
             destructive

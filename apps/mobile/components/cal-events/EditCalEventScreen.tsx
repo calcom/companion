@@ -75,6 +75,7 @@ import {
   todayStartWallTime,
   wallTimeDiffMs,
 } from "@/utils/wall-time";
+import { getCalEventHeaderMenu } from "./calEventHeaderMenu";
 import {
   EditSection,
   EditTextField,
@@ -161,15 +162,6 @@ const ERROR_TABS: Record<CalEventEditErrorKey, TabId> = {
   price: "payment",
   locationPrices: "payment",
   requiresApproval: "privacy-security",
-};
-
-type MenuItem = {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  /** The iOS header menu's icon. */
-  sf: SFSymbol;
-  onPress: () => void;
-  destructive?: boolean;
 };
 
 type SFSymbol = Extract<ComponentProps<typeof Stack.Header.MenuAction>["icon"], string>;
@@ -399,42 +391,15 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
     openEditor(getCalEventEditorUrl(event.uuid, tabName), label);
   };
 
-  const viewPage: MenuItem = {
-    label: "View event page",
-    icon: "open-outline",
-    sf: "safari",
-    onPress: () => actions.onOpenPage(event),
-  };
-  const menuItems: MenuItem[] =
-    event.status === "draft"
-      ? [
-          { label: "Preview", icon: "eye-outline", sf: "eye", onPress: preview },
-          { label: "Publish", icon: "rocket-outline", sf: "paperplane", onPress: publish },
-        ]
-      : event.status === "published"
-        ? [
-            viewPage,
-            {
-              label: "Copy link",
-              icon: "link-outline",
-              sf: "link",
-              onPress: () => actions.onCopyLink(event),
-            },
-            {
-              label: "Share event",
-              icon: "share-outline",
-              sf: "square.and.arrow.up",
-              onPress: () => actions.onShare(event),
-            },
-            {
-              label: "Cancel event",
-              icon: "ban-outline",
-              sf: "xmark.circle",
-              destructive: true,
-              onPress: () => actions.onCancel(event),
-            },
-          ]
-        : [viewPage];
+  // The editor opens only for the event's owner and hosts, so every step is theirs.
+  const menuItems = getCalEventHeaderMenu(event, true, {
+    onOpenPage: () => actions.onOpenPage(event),
+    onPreview: preview,
+    onPublish: publish,
+    onCopyLink: () => actions.onCopyLink(event),
+    onShare: () => actions.onShare(event),
+    onCancel: () => actions.onCancel(event),
+  });
 
   const tabContent: Record<TabId, ReactNode> = {
     basics: (
@@ -733,7 +698,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
                 {menuItems.map((item) => (
                   <Stack.Header.MenuAction
                     key={item.label}
-                    icon={item.sf}
+                    icon={item.systemImage}
                     destructive={item.destructive}
                     onPress={item.onPress}
                   >
