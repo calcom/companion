@@ -60,7 +60,11 @@ export function HeaderSaveButton({
       disabled={inactive}
       testID={testID}
       accessibilityRole="button"
-      accessibilityState={{ disabled: inactive, busy: saving }}
+      // Named even while the spinner stands in for the label. The aria props, unlike
+      // accessibilityState, reach the web too.
+      accessibilityLabel={label}
+      aria-disabled={inactive}
+      aria-busy={saving}
       className={`h-10 flex-row items-center justify-center rounded-full border px-5 ${
         inactive
           ? "border-[#E5E5EA] bg-[#E5E5EA] dark:border-[#262626] dark:bg-[#262626]"
