@@ -44,9 +44,12 @@ export default function Events() {
             autoCorrect={false}
             clearButtonMode="while-editing"
           />
-          {searchQuery.length > 0 && Platform.OS === "android" && (
+          {/* iOS draws its own (clearButtonMode); Android and the web need this one. */}
+          {searchQuery.length > 0 && Platform.OS !== "ios" && (
             <TouchableOpacity
               onPress={() => setSearchQuery("")}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
               style={{ position: "absolute", right: 8 }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
