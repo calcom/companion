@@ -20,7 +20,8 @@ export default function EventsIOS() {
             placeholder: "Search events",
             onChangeText: (e) => setSearchQuery(e.nativeEvent.text),
             onCancelButtonPress: () => setSearchQuery(""),
-            hideWhenScrolling: true,
+            // Hiding it on scroll also starts it hidden: it showed only after a pull down.
+            hideWhenScrolling: false,
           },
         }}
       />
