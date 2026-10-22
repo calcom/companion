@@ -8,7 +8,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Switch,
   Text,
   TextInput,
@@ -164,18 +163,10 @@ export function EditTextField({
           paddingLeft: prefix ? 0 : 12,
           paddingRight: 12,
           overflow: "hidden",
-          backgroundColor: editable ? fieldBackground : undefined,
+          backgroundColor: fieldBackground,
           gap: leading ? 8 : 0,
         }}
       >
-        {/* A locked field's fill fades, as the web dims a disabled input (to 64%); its button
-            (such as copy) stays as it is, since it still works. */}
-        {editable ? null : (
-          <View
-            pointerEvents="none"
-            style={[StyleSheet.absoluteFill, { backgroundColor: fieldBackground, opacity: 0.64 }]}
-          />
-        )}
         {leading}
         {/* The link editor's URL host, on a darker block at the field's start. A long host
             shortens rather than pushing the field's end out of it. */}
