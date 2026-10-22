@@ -20,6 +20,7 @@ import {
   useCalEvent,
   useCalEventCheckInAvailability,
   useCheckInCalEventGuestByTicket,
+  useHour12,
 } from "@/hooks";
 import {
   CAL_EVENT_CHECK_IN_WINDOW_DESCRIPTION,
@@ -59,8 +60,11 @@ export default function CalEventCheckInScannerScreen() {
   // The check-in screen only opens this inside the window, but it can close while scanning.
   const { data: event } = useCalEvent(uuid);
   const availability = useCalEventCheckInAvailability(event);
+  const hour12 = useHour12();
   const windowNotice =
-    event && availability ? getCalEventCheckInWindowNotice(availability, event.timeZone) : null;
+    event && availability
+      ? getCalEventCheckInWindowNotice(availability, event.timeZone, hour12)
+      : null;
 
   // Ask once per opening. Once refused, iOS won't ask again, so the screen points to Settings.
   useEffect(() => {
@@ -108,7 +112,7 @@ export default function CalEventCheckInScannerScreen() {
         setResult({
           tone: "info",
           title: getCalEventGuestName(outcome.guest),
-          detail: `Already checked in at ${formatCalEventCheckInTime(outcome.checkedInAt)}`,
+          detail: `Already checked in at ${formatCalEventCheckInTime(outcome.checkedInAt, hour12)}`,
         });
       } else {
         setResult({ tone: "error", title: "This registration is no longer confirmed" });

@@ -15,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SectionHeader } from "@/components/event-type-detail/SettingsUI";
 import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 
@@ -56,18 +57,14 @@ export function EditSection({
   const theme = useEditTheme();
   const surfaces = useEditSurfaces();
   return (
-    <View style={{ gap: 8 }}>
-      <View style={{ paddingHorizontal: 4, gap: 2 }}>
-        <Text
-          accessibilityRole="header"
-          style={{ color: theme.text, fontSize: 20, fontWeight: "700" }}
-        >
-          {title}
+    <View>
+      {/* The link editor's small grey heading. */}
+      <SectionHeader title={title} />
+      {description ? (
+        <Text style={{ color: theme.textSecondary, fontSize: 13, marginLeft: 16, marginBottom: 8 }}>
+          {description}
         </Text>
-        {description ? (
-          <Text style={{ color: theme.textSecondary, fontSize: 14 }}>{description}</Text>
-        ) : null}
-      </View>
+      ) : null}
       <View
         style={{
           backgroundColor: surfaces.card,
@@ -169,12 +166,15 @@ export function EditTextField({
         }}
       >
         {leading}
-        {/* The link editor's URL host, on a darker block at the field's start. */}
+        {/* The link editor's URL host, on a darker block at the field's start. A long host
+            shortens rather than pushing the field's end out of it. */}
         {prefix ? (
           <View
             style={{
               alignSelf: "stretch",
               justifyContent: "center",
+              flexShrink: 1,
+              maxWidth: "60%",
               paddingHorizontal: 12,
               marginRight: 12,
               backgroundColor: theme.backgroundEmphasis,
@@ -201,6 +201,8 @@ export function EditTextField({
           accessibilityHint={hint}
           style={{
             flex: 1,
+            // The web's input otherwise keeps its default width and pushes `trailing` out.
+            minWidth: 0,
             color: editable ? theme.text : theme.textSecondary,
             fontSize: 16,
             paddingVertical: 10,

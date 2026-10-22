@@ -71,6 +71,15 @@ export function useUsername() {
 }
 
 /**
+ * Whether times show on the 12-hour clock: the user's time format setting, 12-hour until the
+ * profile loads.
+ */
+export function useHour12() {
+  const { data: profile } = useUserProfile();
+  return profile?.timeFormat !== 24;
+}
+
+/**
  * Hook to update the user profile
  *
  * @returns Mutation function and state

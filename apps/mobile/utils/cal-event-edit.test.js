@@ -15,7 +15,6 @@ const {
   calEventLocationFormValues,
   canEditCalEvent,
   describeCalEventLocation,
-  formatWallDateTime,
   getCalEventLocationError,
   getEditCalEventErrors,
   getRegistrationFieldsError,
@@ -510,12 +509,6 @@ describe("editing a location", () => {
     expect(isCalEventLocationRemovalLocked(published, [free, link])).toBe(true);
     expect(isCalEventLocationRemovalLocked({ ...published, price: 500 }, [free])).toBe(true);
     expect(isCalEventLocationRemovalLocked({ publishedAt: null, price: 500 }, [link])).toBe(false);
-  });
-});
-
-describe("formatWallDateTime", () => {
-  test("reads like the web editor's date-time trigger", () => {
-    expect(formatWallDateTime("2027-01-15T16:00")).toBe("Jan 15, 2027 · 16:00");
   });
 });
 

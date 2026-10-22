@@ -2,10 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { usePreventRemove } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
-import { useNavigation } from "expo-router";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { isLiquidGlassAvailable } from "expo-glass-effect";
+import { Stack, useNavigation } from "expo-router";
+import { type ComponentProps, type ReactNode, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +18,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
+  HEADER_ICON_BUTTON_CLASS,
+  HEADER_PILL_CLASS,
+  HeaderBackButton,
+  HeaderSaveButton,
+} from "@/components/HeaderButtons";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -28,6 +34,7 @@ import {
   refetchCalEventRoster,
   useCalEventCoverImage,
   useCalEventLocations,
+  useHour12,
   useUpdateCalEvent,
   useUpdateCalEventLocation,
 } from "@/hooks";
@@ -50,7 +57,6 @@ import {
   CAL_EVENT_SLUG_MAX_LENGTH,
   type CalEventEditErrorKey,
   type CalEventEditFormValues,
-  formatWallDateTime,
   getEditCalEventErrors,
   hasCalEventPrice,
 } from "@/utils/cal-event-edit";
@@ -60,7 +66,9 @@ import {
   getCalEventPublicUrl,
   getCalEventStatusColors,
   isPaidCalEvent,
+  truncateCalEventTitle,
 } from "@/utils/cal-events";
+import { formatWallDateTime } from "@/utils/date-time-format";
 import { offlineAwareRefresh } from "@/utils/network";
 import {
   preserveWallTimeOnTimezoneChange,
@@ -112,18 +120,29 @@ type TabId =
  * apply at once, outside Save. Workflows and Webhooks are only on the web, so "Other" links to
  * them like the event type editor's tab of the same name.
  */
-const TABS: { id: TabId; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { id: "basics", label: "Basics", icon: "document-text-outline" },
-  { id: "appearance", label: "Appearance", icon: "brush-outline" },
-  { id: "location", label: "Locations", icon: "location-outline" },
-  { id: "page-content", label: "Page content", icon: "grid-outline" },
-  { id: "hosts", label: "Hosts", icon: "people-outline" },
-  { id: "capacity", label: "Settings", icon: "settings-outline" },
-  { id: "guests", label: "Guests", icon: "people-circle-outline" },
-  { id: "registration-form", label: "Registration form", icon: "clipboard-outline" },
-  { id: "payment", label: "Payment", icon: "card-outline" },
-  { id: "privacy-security", label: "Privacy & security", icon: "lock-closed-outline" },
-  { id: "other", label: "Other", icon: "ellipsis-horizontal" },
+const TABS: {
+  id: TabId;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  /** The iOS header menu's icon. */
+  sf: SFSymbol;
+}[] = [
+  { id: "basics", label: "Basics", icon: "document-text-outline", sf: "doc.text" },
+  { id: "appearance", label: "Appearance", icon: "brush-outline", sf: "paintbrush" },
+  { id: "location", label: "Locations", icon: "location-outline", sf: "location" },
+  { id: "page-content", label: "Page content", icon: "grid-outline", sf: "square.grid.2x2" },
+  { id: "hosts", label: "Hosts", icon: "people-outline", sf: "person.2" },
+  { id: "capacity", label: "Settings", icon: "settings-outline", sf: "gearshape" },
+  { id: "guests", label: "Guests", icon: "people-circle-outline", sf: "person.3" },
+  {
+    id: "registration-form",
+    label: "Registration form",
+    icon: "clipboard-outline",
+    sf: "list.clipboard",
+  },
+  { id: "payment", label: "Payment", icon: "card-outline", sf: "creditcard" },
+  { id: "privacy-security", label: "Privacy & security", icon: "lock-closed-outline", sf: "lock" },
+  { id: "other", label: "Other", icon: "ellipsis-horizontal", sf: "ellipsis" },
 ];
 
 /** Which tab shows each error, so a failed save can jump to it like the web does. */
@@ -147,9 +166,13 @@ const ERROR_TABS: Record<CalEventEditErrorKey, TabId> = {
 type MenuItem = {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
+  /** The iOS header menu's icon. */
+  sf: SFSymbol;
   onPress: () => void;
   destructive?: boolean;
 };
+
+type SFSymbol = Extract<ComponentProps<typeof Stack.Header.MenuAction>["icon"], string>;
 
 interface EditCalEventScreenProps {
   /** The event as `GET /v2/events/{uuid}` returns it; the form prefills from it once. */
@@ -349,7 +372,6 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   // Like the web: a paid event can't have both a waitlist and approval, so each locks the other.
   const waitlistBlocked = values.paymentEnabled && values.requiresApproval;
   const approvalBlocked = values.paymentEnabled && values.waitlistEnabled;
-  const status = getCalEventStatusColors(event.status, isDark);
   // A live event's start may have passed: the picker then still offers its own day.
   const today = todayStartWallTime(values.timeZone);
   const minStart =
@@ -380,22 +402,34 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const viewPage: MenuItem = {
     label: "View event page",
     icon: "open-outline",
+    sf: "safari",
     onPress: () => actions.onOpenPage(event),
   };
   const menuItems: MenuItem[] =
     event.status === "draft"
       ? [
-          { label: "Preview", icon: "eye-outline", onPress: preview },
-          { label: "Publish", icon: "rocket-outline", onPress: publish },
+          { label: "Preview", icon: "eye-outline", sf: "eye", onPress: preview },
+          { label: "Publish", icon: "rocket-outline", sf: "paperplane", onPress: publish },
         ]
       : event.status === "published"
         ? [
             viewPage,
-            { label: "Copy link", icon: "link-outline", onPress: () => actions.onCopyLink(event) },
-            { label: "Share event", icon: "share-outline", onPress: () => actions.onShare(event) },
+            {
+              label: "Copy link",
+              icon: "link-outline",
+              sf: "link",
+              onPress: () => actions.onCopyLink(event),
+            },
+            {
+              label: "Share event",
+              icon: "share-outline",
+              sf: "square.and.arrow.up",
+              onPress: () => actions.onShare(event),
+            },
             {
               label: "Cancel event",
               icon: "ban-outline",
+              sf: "xmark.circle",
               destructive: true,
               onPress: () => actions.onCancel(event),
             },
@@ -445,7 +479,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
                 <Pressable
                   onPress={() =>
                     Clipboard.setStringAsync(publicUrl).then(
-                      () => showSuccessAlert("Link Copied", "Link copied!"),
+                      () => showSuccessAlert("Link copied", "Link copied!"),
                       () => showInfoAlert("Error", "Failed to copy link. Please try again.")
                     )
                   }
@@ -678,203 +712,206 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={{ flex: 1, backgroundColor: surfaces.screen }}
     >
-      <View
-        style={{
-          paddingTop: insets.top,
-          backgroundColor: theme.background,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.border,
-        }}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 12,
-            height: 56,
-            gap: 8,
-          }}
-        >
-          {/* Disabled while saving, which closes the editor itself when it's done. */}
-          <Pressable
-            onPress={onClose}
-            disabled={saving}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            accessibilityState={{ disabled: saving }}
-            hitSlop={10}
-            style={{ padding: 4, opacity: saving ? 0.4 : 1 }}
+      {Platform.OS === "ios" ? (
+        <>
+          {/* The link editor's native header: the tabs as a menu, then Save. */}
+          <Stack.Screen
+            options={{
+              headerShown: true,
+              title: truncateCalEventTitle(values.name.trim() || "Untitled event"),
+              headerBackButtonDisplayMode: "minimal",
+              headerTransparent: true,
+            }}
+          />
+          <Stack.Header
+            blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
           >
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
-          </Pressable>
-          <View style={{ flex: 1 }} />
-          <DropdownMenu>
-            {/* Publish and Cancel mutate the event too, so they wait for the save to settle. */}
-            <DropdownMenuTrigger asChild disabled={saving}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="More actions"
-                accessibilityState={{ disabled: saving }}
-                hitSlop={8}
-                style={{
-                  opacity: saving ? 0.4 : 1,
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons name="ellipsis-horizontal" size={18} color={theme.text} />
-              </Pressable>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              insets={{ top: insets.top, bottom: insets.bottom, left: 12, right: 12 }}
-              sideOffset={8}
-              className="w-48"
-              align="end"
-            >
-              {menuItems.map((item) => (
-                <DropdownMenuItem key={item.label} onPress={item.onPress}>
-                  <Ionicons
-                    name={item.icon}
-                    size={18}
-                    color={item.destructive ? theme.destructive : theme.textSecondary}
-                    style={{ marginRight: 8 }}
-                  />
-                  <MenuText style={item.destructive ? { color: theme.destructive } : undefined}>
+            <Stack.Header.Right>
+              {/* Publish and Cancel mutate the event too, so they wait for the save to settle. */}
+              <Stack.Header.Menu disabled={saving} accessibilityLabel="More actions">
+                <Stack.Header.Icon sf="ellipsis" />
+                {menuItems.map((item) => (
+                  <Stack.Header.MenuAction
+                    key={item.label}
+                    icon={item.sf}
+                    destructive={item.destructive}
+                    onPress={item.onPress}
+                  >
                     {item.label}
-                  </MenuText>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {/* The tabs as one menu, like the event type editor's. Its root view is the row's item,
-              so it's what shrinks on a narrow screen: the label truncates and Save stays whole. */}
-          <DropdownMenu style={{ flexShrink: 1 }}>
-            <DropdownMenuTrigger asChild>
-              <Pressable
-                accessibilityRole="button"
+                  </Stack.Header.MenuAction>
+                ))}
+              </Stack.Header.Menu>
+              <Stack.Header.Menu
                 accessibilityLabel={`Tab, ${currentTab.label}`}
                 accessibilityHint={
                   otherTabHasErrors ? "Other tabs have errors" : "Shows the editor's tabs"
                 }
-                hitSlop={8}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 6,
-                  maxWidth: 170,
-                  height: 36,
-                  paddingHorizontal: 12,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                }}
               >
-                <Text
-                  style={{ flexShrink: 1, color: theme.text, fontSize: 15, fontWeight: "500" }}
-                  numberOfLines={1}
-                >
-                  {currentTab.label}
-                </Text>
-                {otherTabHasErrors ? <ErrorDot /> : null}
-              </Pressable>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              insets={{ top: insets.top, bottom: insets.bottom, left: 12, right: 12 }}
-              sideOffset={8}
-              className="w-56"
-              align="end"
-            >
-              {tabs.map((item) => {
-                const selected = item.id === currentTab.id;
-                const hasErrors = tabsWithErrors.has(item.id);
-                return (
-                  <DropdownMenuItem
+                <Stack.Header.Label>{currentTab.label}</Stack.Header.Label>
+                {tabs.map((item) => (
+                  <Stack.Header.MenuAction
                     key={item.id}
+                    icon={item.id === currentTab.id ? "checkmark.circle.fill" : item.sf}
+                    subtitle={tabsWithErrors.has(item.id) ? "Has errors" : undefined}
                     onPress={() => showTab(item.id)}
-                    // The checkmark and the error dot are only drawn, so the label says them: the
-                    // web drops accessibilityState and hints, and iOS reads the open menu as one
-                    // element made of these labels.
-                    accessibilityLabel={`${item.label}${selected ? ", selected" : ""}${hasErrors ? ", has errors" : ""}`}
                   >
-                    <Ionicons
-                      name={selected ? "checkmark-circle" : item.icon}
-                      size={18}
-                      color={selected ? theme.text : theme.textSecondary}
-                      style={{ marginRight: 8 }}
-                    />
-                    <MenuText style={selected ? { fontWeight: "600" } : undefined}>
-                      {item.label}
-                    </MenuText>
-                    {hasErrors ? (
-                      <View style={{ marginLeft: 8 }}>
-                        <ErrorDot />
-                      </View>
-                    ) : null}
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Pressable
-            onPress={save}
-            disabled={!dirty || saving}
-            testID="edit-event-save"
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !dirty || saving, busy: saving }}
+                    {item.label}
+                  </Stack.Header.MenuAction>
+                ))}
+              </Stack.Header.Menu>
+              <Stack.Header.Button
+                onPress={save}
+                disabled={!dirty || saving}
+                variant="prominent"
+                tintColor={isDark ? "#FFF" : "#000"}
+              >
+                Save
+              </Stack.Header.Button>
+            </Stack.Header.Right>
+          </Stack.Header>
+        </>
+      ) : (
+        // The link editor's round header buttons; the title gets its own row below them.
+        <View style={{ paddingTop: insets.top, backgroundColor: theme.background }}>
+          <View
             style={{
               flexDirection: "row",
               alignItems: "center",
-              gap: 6,
-              height: 36,
-              paddingHorizontal: 16,
-              borderRadius: 8,
-              backgroundColor: theme.text,
-              opacity: dirty ? 1 : 0.4,
+              paddingHorizontal: 12,
+              height: 64,
+              gap: 8,
             }}
           >
-            {saving ? <ActivityIndicator size="small" color={theme.background} /> : null}
-            <Text style={{ color: theme.background, fontSize: 16, fontWeight: "600" }}>Save</Text>
-          </Pressable>
-        </View>
+            {/* Disabled while saving, which closes the editor itself when it's done. */}
+            <HeaderBackButton onPress={onClose} disabled={saving} />
+            <View style={{ flex: 1 }} />
+            <DropdownMenu>
+              {/* Publish and Cancel mutate the event too, so they wait for the save to settle. */}
+              <DropdownMenuTrigger asChild disabled={saving}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="More actions"
+                  accessibilityState={{ disabled: saving }}
+                  hitSlop={8}
+                  className={HEADER_ICON_BUTTON_CLASS}
+                  style={{ opacity: saving ? 0.4 : 1 }}
+                >
+                  <Ionicons name="ellipsis-horizontal" size={18} color={theme.text} />
+                </Pressable>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                insets={{ top: insets.top, bottom: insets.bottom, left: 12, right: 12 }}
+                sideOffset={8}
+                className="w-48"
+                align="end"
+              >
+                {menuItems.map((item) => (
+                  <DropdownMenuItem key={item.label} onPress={item.onPress}>
+                    <Ionicons
+                      name={item.icon}
+                      size={18}
+                      color={item.destructive ? theme.destructive : theme.textSecondary}
+                      style={{ marginRight: 8 }}
+                    />
+                    <MenuText style={item.destructive ? { color: theme.destructive } : undefined}>
+                      {item.label}
+                    </MenuText>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {/* The tabs as one menu, like the link editor's. Its root view is the row's item,
+                so it's what shrinks on a narrow screen: the label truncates and Save stays whole. */}
+            <DropdownMenu style={{ flexShrink: 1 }}>
+              <DropdownMenuTrigger asChild>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Tab, ${currentTab.label}`}
+                  accessibilityHint={
+                    otherTabHasErrors ? "Other tabs have errors" : "Shows the editor's tabs"
+                  }
+                  hitSlop={8}
+                  className={HEADER_PILL_CLASS}
+                  style={{ maxWidth: 170 }}
+                >
+                  <Text
+                    className="text-[15px] font-medium text-[#000000] dark:text-white"
+                    style={{ flexShrink: 1 }}
+                    numberOfLines={1}
+                  >
+                    {currentTab.label}
+                  </Text>
+                  {otherTabHasErrors ? <ErrorDot /> : null}
+                </Pressable>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                insets={{ top: insets.top, bottom: insets.bottom, left: 12, right: 12 }}
+                sideOffset={8}
+                className="w-56"
+                align="end"
+              >
+                {tabs.map((item) => {
+                  const selected = item.id === currentTab.id;
+                  const hasErrors = tabsWithErrors.has(item.id);
+                  return (
+                    <DropdownMenuItem
+                      key={item.id}
+                      onPress={() => showTab(item.id)}
+                      // The checkmark and the error dot are only drawn, so the label says them:
+                      // the web drops accessibilityState and hints.
+                      accessibilityLabel={`${item.label}${selected ? ", selected" : ""}${hasErrors ? ", has errors" : ""}`}
+                    >
+                      <Ionicons
+                        name={selected ? "checkmark-circle" : item.icon}
+                        size={18}
+                        color={selected ? theme.text : theme.textSecondary}
+                        style={{ marginRight: 8 }}
+                      />
+                      <MenuText style={selected ? { fontWeight: "600" } : undefined}>
+                        {item.label}
+                      </MenuText>
+                      {hasErrors ? (
+                        <View style={{ marginLeft: 8 }}>
+                          <ErrorDot />
+                        </View>
+                      ) : null}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <HeaderSaveButton
+              onPress={save}
+              saving={saving}
+              dirty={dirty}
+              testID="edit-event-save"
+            />
+          </View>
 
-        {/* The title has its own row so the header's buttons leave it room. */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-            paddingHorizontal: 16,
-            paddingBottom: 12,
-          }}
-        >
-          <Text
-            style={{ flexShrink: 1, color: theme.text, fontSize: 20, fontWeight: "700" }}
-            numberOfLines={1}
-          >
-            {values.name.trim() || "Untitled event"}
-          </Text>
+          {/* The title has its own row so the header's buttons leave it room. */}
           <View
             style={{
-              backgroundColor: status.background,
-              borderRadius: 6,
-              paddingHorizontal: 8,
-              paddingVertical: 3,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              paddingHorizontal: 16,
+              paddingBottom: 12,
             }}
           >
-            <Text style={{ color: status.text, fontSize: 13, fontWeight: "600" }}>
-              {CAL_EVENT_STATUS_LABELS[event.status]}
+            <Text
+              style={{ flexShrink: 1, color: theme.text, fontSize: 20, fontWeight: "700" }}
+              numberOfLines={1}
+            >
+              {values.name.trim() || "Untitled event"}
             </Text>
+            <StatusBadge status={event.status} />
           </View>
         </View>
-      </View>
+      )}
 
       <ScrollView
         ref={scrollRef}
+        contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 48 }}
         refreshControl={
@@ -885,6 +922,8 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
       >
         {/* Read-only while saving; the list itself still scrolls. */}
         <View pointerEvents={saving ? "none" : "auto"} style={{ gap: 24 }}>
+          {/* iOS has the title in its header, so only the status is left to show. */}
+          {Platform.OS === "ios" ? <StatusBadge status={event.status} /> : null}
           {tabContent[currentTab.id]}
         </View>
       </ScrollView>
@@ -932,6 +971,26 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   );
 }
 
+function StatusBadge({ status }: { status: CalEvent["status"] }) {
+  const isDark = useColorScheme() === "dark";
+  const colors = getCalEventStatusColors(status, isDark);
+  return (
+    <View
+      style={{
+        alignSelf: "flex-start",
+        backgroundColor: colors.background,
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+      }}
+    >
+      <Text style={{ color: colors.text, fontSize: 13, fontWeight: "600" }}>
+        {CAL_EVENT_STATUS_LABELS[status]}
+      </Text>
+    </View>
+  );
+}
+
 function ErrorDot() {
   const theme = useEditTheme();
   return <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.error }} />;
@@ -949,7 +1008,8 @@ function DateTimeField({
   error?: string;
 }) {
   const theme = useEditTheme();
-  const text = value ? formatWallDateTime(value) : "Select date";
+  const hour12 = useHour12();
+  const text = value ? formatWallDateTime(value, { hour12 }) : "Select date";
   return (
     <View style={{ gap: 6 }}>
       <FieldLabel label={label} />

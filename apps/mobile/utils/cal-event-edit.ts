@@ -34,13 +34,7 @@ import {
   getCalEventPriceDecimals,
   isPaidCalEvent,
 } from "@/utils/cal-events";
-import {
-  isStartTimeInPast,
-  splitWallTimeParts,
-  utcToWallTime,
-  wallTimeDiffMs,
-  wallTimeToUtc,
-} from "@/utils/wall-time";
+import { isStartTimeInPast, utcToWallTime, wallTimeDiffMs, wallTimeToUtc } from "@/utils/wall-time";
 
 export const CAL_EVENT_DESCRIPTION_MAX_LENGTH = 5000;
 export const CAL_EVENT_SLUG_MIN_LENGTH = 10;
@@ -1032,13 +1026,4 @@ export function isCalEventLocationRemovalLocked(
   locations: CalEventLocation[]
 ): boolean {
   return !!event.publishedAt && isPaidCalEvent({ price: event.price, locations });
-}
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "Jan 15, 2027 · 16:00", the web editor's date-time trigger ("PP · HH:mm"). */
-export function formatWallDateTime(wallTime: string): string {
-  const { date, timeOfDay } = splitWallTimeParts(wallTime);
-  const [year, month, day] = date.split("-").map(Number);
-  return `${MONTHS[month - 1]} ${day}, ${year} · ${timeOfDay}`;
 }

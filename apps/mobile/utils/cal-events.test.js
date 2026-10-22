@@ -342,7 +342,7 @@ describe("date formatting", () => {
         "Europe/Berlin",
         NOW
       )
-    ).toBe("Sat, Oct 10");
+    ).toBe("Sat, 10 Oct");
     expect(formatCalEventTime("2026-10-10T14:00:00.000Z", "Europe/Berlin")).toBe("4:00 PM");
     expect(
       formatCalEventTimeRange(
@@ -350,7 +350,7 @@ describe("date formatting", () => {
         "2026-10-10T19:00:00.000Z",
         "Europe/Berlin"
       )
-    ).toBe("4:00 PM – 9:00 PM");
+    ).toBe("4:00 PM - 9:00 PM");
   });
 
   test("shows a multi-day range and adds the year outside the current one", () => {
@@ -361,7 +361,7 @@ describe("date formatting", () => {
         "Europe/Berlin",
         NOW
       )
-    ).toBe("Fri, Oct 30 – Sun, Nov 1");
+    ).toBe("Fri, 30 Oct - Sun, 1 Nov");
     expect(
       formatCalEventDate(
         "2027-05-08T07:00:00.000Z",
@@ -369,14 +369,14 @@ describe("date formatting", () => {
         "Atlantic/Canary",
         NOW
       )
-    ).toBe("Sat, May 8, 2027");
+    ).toBe("Sat, 8 May 2027");
   });
 
   test("crosses midnight correctly when the venue is ahead of UTC", () => {
     // 23:30Z on Oct 10 is already Oct 11 in Tokyo.
     expect(
       formatCalEventDate("2026-10-10T23:30:00.000Z", "2026-10-11T01:00:00.000Z", "Asia/Tokyo", NOW)
-    ).toBe("Sun, Oct 11");
+    ).toBe("Sun, 11 Oct");
   });
 
   test("falls back to UTC for an unknown timezone instead of throwing", () => {
@@ -387,7 +387,7 @@ describe("date formatting", () => {
         "Mars/Olympus",
         NOW
       )
-    ).toBe("Sat, Oct 10");
+    ).toBe("Sat, 10 Oct");
     expect(formatCalEventTime("2026-10-10T14:00:00.000Z", "Mars/Olympus")).toBe("2:00 PM");
   });
 });
@@ -996,13 +996,13 @@ describe("getCalEventCheckInWindowNotice", () => {
         { kind: "not_yet_open", opensAt: "2026-10-10T02:00:00.000Z" },
         "Europe/Berlin"
       )
-    ).toBe("Check-in opens Sat, Oct 10, 4:00 AM");
+    ).toBe("Check-in opens Sat, 10 Oct, 4:00 AM");
     expect(
       getCalEventCheckInWindowNotice(
         { kind: "closed", closedAt: "2026-10-11T07:00:00.000Z" },
         "Europe/Berlin"
       )
-    ).toBe("Check-in closed Sun, Oct 11, 9:00 AM");
+    ).toBe("Check-in closed Sun, 11 Oct, 9:00 AM");
   });
 
   test("says nothing while check-in is open", () => {

@@ -24,6 +24,7 @@ import {
   useCalEventCheckInAvailability,
   useCalEventGuests,
   useCheckInCalEventGuest,
+  useHour12,
   usePendingCalEventGuestIds,
   useUndoCalEventGuestCheckIn,
 } from "@/hooks";
@@ -57,8 +58,11 @@ export default function CalEventCheckInScreen() {
   // Usually cached from the event's detail; until it loads, there's no window to show a scanner in.
   const { data: event } = useCalEvent(uuid);
   const availability = useCalEventCheckInAvailability(event);
+  const hour12 = useHour12();
   const windowNotice =
-    event && availability ? getCalEventCheckInWindowNotice(availability, event.timeZone) : null;
+    event && availability
+      ? getCalEventCheckInWindowNotice(availability, event.timeZone, hour12)
+      : null;
   const queryClient = useQueryClient();
   const { mutateAsync: checkIn } = useCheckInCalEventGuest(uuid);
   const { mutateAsync: undoCheckIn } = useUndoCalEventGuestCheckIn(uuid);
@@ -85,7 +89,7 @@ export default function CalEventCheckInScreen() {
       if (result.kind === "already_checked_in") {
         showInfoAlert(
           "Already checked in",
-          `${name} was checked in at ${formatCalEventCheckInTime(result.checkedInAt)}.`
+          `${name} was checked in at ${formatCalEventCheckInTime(result.checkedInAt, hour12)}.`
         );
       } else if (result.kind === "not_confirmed") {
         showInfoAlert("Not checked in", `${name} is no longer a confirmed guest.`);
@@ -115,7 +119,7 @@ export default function CalEventCheckInScreen() {
     }
     showConfirmAlert(
       "Undo check-in?",
-      `${getCalEventGuestName(guest)} was checked in at ${formatCalEventCheckInTime(guest.checkedInAt)}.`,
+      `${getCalEventGuestName(guest)} was checked in at ${formatCalEventCheckInTime(guest.checkedInAt, hour12)}.`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Undo", style: "destructive", onPress: () => onUndoCheckIn(guest) },
@@ -268,6 +272,7 @@ export default function CalEventCheckInScreen() {
               canTap={canTapCalEventGuest(item, availability)}
               theme={theme}
               background={surfaces.card}
+              hour12={hour12}
               onPress={onPressGuest}
             />
           )}
@@ -368,6 +373,7 @@ function GuestRow({
   canTap,
   theme,
   background,
+  hour12,
   onPress,
 }: {
   guest: CalEventGuest;
@@ -377,6 +383,7 @@ function GuestRow({
   canTap: boolean;
   theme: Theme;
   background: string;
+  hour12: boolean;
   onPress: (guest: CalEventGuest) => void;
 }) {
   const name = getCalEventGuestName(guest);
@@ -423,7 +430,7 @@ function GuestRow({
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Ionicons name="checkmark-circle" size={24} color={theme.success} />
           <Text style={{ color: theme.textSecondary, fontSize: 14, marginLeft: 6 }}>
-            {formatCalEventCheckInTime(guest.checkedInAt)}
+            {formatCalEventCheckInTime(guest.checkedInAt, hour12)}
           </Text>
         </View>
       ) : (

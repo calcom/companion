@@ -13,6 +13,14 @@ import type {
   CalEventStatus,
   Team,
 } from "@/services/types/cal-events.types";
+import {
+  formatTime,
+  formatTimeRange,
+  formatWallClock,
+  formatWallDate,
+  RANGE_SEPARATOR,
+  toWallParts,
+} from "@/utils/date-time-format";
 import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
 
 export type CalEventsGroupKind = "drafts" | "upcoming" | "past";
@@ -270,32 +278,8 @@ export function getCalEventGoingLabel(
   return event.capacity === null ? `${confirmed} going` : `${confirmed} of ${event.capacity} going`;
 }
 
-type DateParts = { year: string; month: string; day: string; weekday: string };
-
-function partsIn(date: Date, timeZone: string): DateParts {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone,
-  }).formatToParts(date);
-  const get = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((p) => p.type === type)?.value ?? "";
-  return { year: get("year"), month: get("month"), day: get("day"), weekday: get("weekday") };
-}
-
-function safeParts(date: Date, timeZone: string): DateParts {
-  try {
-    return partsIn(date, timeZone);
-  } catch {
-    // An unknown IANA zone on this device: fall back to UTC rather than crash the row.
-    return partsIn(date, "UTC");
-  }
-}
-
 /**
- * Date line for a row, in the EVENT's timezone: "Sat, Oct 10", or "Fri, Oct 30 – Sun, Nov 1"
+ * Date line for a row, in the EVENT's timezone: "Sat, 10 Oct", or "Fri, 30 Oct - Sun, 1 Nov"
  * for a multi-day event. The year is appended only when the event is not in the current one.
  */
 export function formatCalEventDate(
@@ -304,40 +288,48 @@ export function formatCalEventDate(
   timeZone: string,
   now: Date = new Date()
 ): string {
-  const start = safeParts(new Date(startIso), timeZone);
-  const end = safeParts(new Date(endIso), timeZone);
-  const currentYear = safeParts(now, timeZone).year;
+  const start = toWallParts(new Date(startIso), timeZone);
+  const end = toWallParts(new Date(endIso), timeZone);
+  const currentYear = toWallParts(now, timeZone).year;
+  // Both ends get the year when either needs it, so a range across New Year reads right.
   const withYear = start.year !== currentYear || end.year !== currentYear;
-  const fmt = (p: DateParts) => `${p.weekday}, ${p.month} ${p.day}${withYear ? `, ${p.year}` : ""}`;
   const sameDay = start.year === end.year && start.month === end.month && start.day === end.day;
-  return sameDay ? fmt(start) : `${fmt(start)} – ${fmt(end)}`;
+  return sameDay
+    ? formatWallDate(start, withYear)
+    : `${formatWallDate(start, withYear)}${RANGE_SEPARATOR}${formatWallDate(end, withYear)}`;
 }
 
-/** Start time in the event's timezone: "4:00 PM". */
-export function formatCalEventTime(iso: string, timeZone: string): string {
-  const date = new Date(iso);
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      timeZone,
-    }).format(date);
-  } catch {
-    return new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      timeZone: "UTC",
-    }).format(date);
-  }
+/** Start time in the event's timezone: "4:00 PM", or "16:00" on the 24-hour clock. */
+export function formatCalEventTime(iso: string, timeZone: string, hour12 = true): string {
+  return formatTime(iso, { timeZone, hour12 });
 }
 
-/** "4:00 PM – 9:00 PM" */
+/** "4:00 PM - 9:00 PM" */
 export function formatCalEventTimeRange(
   startIso: string,
   endIso: string,
-  timeZone: string
+  timeZone: string,
+  hour12 = true
 ): string {
-  return `${formatCalEventTime(startIso, timeZone)} – ${formatCalEventTime(endIso, timeZone)}`;
+  return formatTimeRange(startIso, endIso, { timeZone, hour12 });
+}
+
+/**
+ * The time on an event's card: "4:00 PM - 9:00 PM", or the start alone for a multi-day event,
+ * whose date line already spans its days.
+ */
+export function formatCalEventCardTime(
+  startIso: string,
+  endIso: string,
+  timeZone: string,
+  hour12 = true
+): string {
+  const start = toWallParts(new Date(startIso), timeZone);
+  const end = toWallParts(new Date(endIso), timeZone);
+  const sameDay = start.year === end.year && start.month === end.month && start.day === end.day;
+  return sameDay
+    ? formatCalEventTimeRange(startIso, endIso, timeZone, hour12)
+    : formatCalEventTime(startIso, timeZone, hour12);
 }
 
 /** The public event page, root namespace: `{webUrl}/{slug}` — the same rule as the web listing. */
@@ -486,10 +478,8 @@ export function getCalEventCheckInProgress(list: CalEventCheckInList): string {
 }
 
 /** "6:05 PM" on the device's clock, which at the door is the venue's. */
-export function formatCalEventCheckInTime(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(
-    new Date(iso)
-  );
+export function formatCalEventCheckInTime(iso: string, hour12 = true): string {
+  return formatTime(iso, { hour12 });
 }
 
 export type CalEventCheckInAvailability =
@@ -538,15 +528,16 @@ export function getCalEventCheckInAvailabilityDelayMs(
   return Math.min(Math.max(delay, 0), MAX_TIMER_DELAY_MS);
 }
 
-/** "Check-in opens Sat, Oct 10, 4:45 AM", in the event's timezone; null while check-in is open. */
+/** "Check-in opens Sat, 10 Oct, 4:45 AM", in the event's timezone; null while check-in is open. */
 export function getCalEventCheckInWindowNotice(
   availability: CalEventCheckInAvailability,
-  timeZone: string
+  timeZone: string,
+  hour12 = true
 ): string | null {
   if (availability.kind === "open") return null;
   const iso = availability.kind === "not_yet_open" ? availability.opensAt : availability.closedAt;
-  const { weekday, month, day } = safeParts(new Date(iso), timeZone);
-  const when = `${weekday}, ${month} ${day}, ${formatCalEventTime(iso, timeZone)}`;
+  const parts = toWallParts(new Date(iso), timeZone);
+  const when = `${formatWallDate(parts, false)}, ${formatWallClock(parts, hour12)}`;
   return availability.kind === "not_yet_open"
     ? `Check-in opens ${when}`
     : `Check-in closed ${when}`;

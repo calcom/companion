@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getColors, getGroupedSurfaces } from "@/constants/colors";
-import { useCreateCalEvent } from "@/hooks";
+import { useCreateCalEvent, useHour12 } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showInfoAlert } from "@/utils/alerts";
 import {
@@ -65,6 +65,7 @@ export function CreateCalEventScreen({
 }: CreateCalEventScreenProps) {
   const isDark = useColorScheme() === "dark";
   const theme = getColors(isDark);
+  const hour12 = useHour12();
   const insets = useSafeAreaInsets();
 
   const [values, setValues] = useState<CreateCalEventFormValues>(() =>
@@ -186,11 +187,11 @@ export function CreateCalEventScreen({
               onSubmitEditing={() => setOpenPicker("start")}
             />
             {muted(multiDay ? "from" : "on")}
-            {token(formatSentenceDateTime(values.startWallTime), "Change start", () =>
+            {token(formatSentenceDateTime(values.startWallTime, hour12), "Change start", () =>
               setOpenPicker("start")
             )}
             {muted("until")}
-            {token(formatSentenceEnd(values), "Change end", () => setOpenPicker("end"))}
+            {token(formatSentenceEnd(values, hour12), "Change end", () => setOpenPicker("end"))}
             {location.prefix ? words(location.prefix) : null}
             <InlineField
               value={location.text}

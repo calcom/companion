@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Text as UIText } from "@/components/ui/text";
 import { getColors } from "@/constants/colors";
+import { useHour12 } from "@/hooks";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 import { getBookingActions } from "@/utils/booking-actions";
@@ -22,6 +23,7 @@ import {
 } from "@/utils/booking-request-actions";
 import type { RecurringBookingGroup } from "@/utils/bookings-utils";
 import { formatDate, formatTime, getHostAndAttendeesDisplay } from "@/utils/bookings-utils";
+import { RANGE_SEPARATOR } from "@/utils/date-time-format";
 import { getMeetingInfo } from "@/utils/meetings-utils";
 
 export interface RecurringBookingListItemProps {
@@ -86,7 +88,8 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
   const hostAndAttendeesDisplay = getHostAndAttendeesDisplay(booking, userEmail);
   const meetingInfo = getMeetingInfo(booking.location);
   const formattedDate = formatDate(startTime, isUpcoming);
-  const formattedTimeRange = `${formatTime(startTime)} - ${formatTime(endTime)}`;
+  const hour12 = useHour12();
+  const formattedTimeRange = `${formatTime(startTime, hour12)}${RANGE_SEPARATOR}${formatTime(endTime, hour12)}`;
 
   const isProcessing = isConfirmingAll || isDecliningAll || isCancellingAll;
 

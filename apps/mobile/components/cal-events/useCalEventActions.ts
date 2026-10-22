@@ -19,7 +19,11 @@ import {
   showSuccessAlert,
 } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
-import { getCalEventEditorUrl, getCalEventPreviewUrl } from "@/utils/cal-events";
+import {
+  getCalEventEditorUrl,
+  getCalEventPreviewUrl,
+  getCalEventPublicUrl,
+} from "@/utils/cal-events";
 
 const describeError = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -112,10 +116,11 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
     [openEditor]
   );
 
+  // From the slug, as Preview builds its address, so the copy is what Preview opens.
   const onCopyLink = useCallback(async (event: CalEvent) => {
     try {
-      await Clipboard.setStringAsync(event.publicUrl);
-      showSuccessAlert("Link Copied", "Event link copied!");
+      await Clipboard.setStringAsync(getCalEventPublicUrl(event.slug));
+      showSuccessAlert("Link copied", "Event link copied!");
     } catch {
       showErrorAlert("Error", "Failed to copy link. Please try again.");
     }

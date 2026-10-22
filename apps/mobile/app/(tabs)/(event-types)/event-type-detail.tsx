@@ -4,8 +4,6 @@ import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   Animated,
   Modal,
   Platform,
@@ -24,6 +22,7 @@ import { LimitsTab } from "@/components/event-type-detail/tabs/LimitsTab";
 import { RecurringTab } from "@/components/event-type-detail/tabs/RecurringTab";
 import { truncateTitle } from "@/components/event-type-detail/utils";
 import { buildPartialUpdatePayload } from "@/components/event-type-detail/utils/buildPartialUpdatePayload";
+import { HEADER_PILL_CLASS, HeaderBackButton, HeaderSaveButton } from "@/components/HeaderButtons";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 import {
   DropdownMenu,
@@ -40,6 +39,7 @@ import {
 } from "@/services/calcom";
 import type { LocationItem, LocationOptionGroup } from "@/types/locations";
 import {
+  showConfirmAlert,
   showErrorAlert,
   showInfoAlert,
   showNotAvailableAlert,
@@ -985,7 +985,8 @@ export default function EventTypeDetail() {
   };
 
   const handleDelete = () => {
-    Alert.alert("Delete Link", `Are you sure you want to delete "${eventTitle}"?`, [
+    // showConfirmAlert: the web's Alert.alert does nothing.
+    showConfirmAlert("Delete link", `Are you sure you want to delete "${eventTitle}"?`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -1286,15 +1287,10 @@ export default function EventTypeDetail() {
   const renderHeaderLeft = useCallback(
     () => (
       <HeaderButtonWrapper side="left">
-        <AppPressable
-          onPress={() => router.back()}
-          className="mr-2 h-10 w-10 items-center justify-center rounded-full border border-[#E5E5E5] bg-white dark:border-[#262626] dark:bg-[#171717]"
-        >
-          <Ionicons name="chevron-back" size={20} color={isDarkMode ? "#FFFFFF" : "#000000"} />
-        </AppPressable>
+        <HeaderBackButton onPress={() => router.back()} />
       </HeaderButtonWrapper>
     ),
-    [router, isDarkMode]
+    [router]
   );
 
   const renderHeaderRight = useCallback(
@@ -1304,7 +1300,7 @@ export default function EventTypeDetail() {
           {/* Tab Navigation Dropdown Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <AppPressable className="h-10 flex-row items-center justify-center gap-2 rounded-full border border-[#E5E5E5] bg-white px-4 dark:border-[#262626] dark:bg-[#171717]">
+              <AppPressable className={HEADER_PILL_CLASS}>
                 <Text
                   className="text-[15px] font-medium text-[#000000] dark:text-white"
                   numberOfLines={1}
@@ -1346,39 +1342,12 @@ export default function EventTypeDetail() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Save Button */}
-          <AppPressable
+          <HeaderSaveButton
+            label={saveButtonText}
             onPress={handleSave}
-            disabled={isSaving || !isDirty}
-            className={`h-10 flex-row items-center justify-center rounded-full border px-5 ${
-              isSaving || !isDirty
-                ? "border-[#E5E5EA] bg-[#E5E5EA] dark:border-[#262626] dark:bg-[#262626]"
-                : "border-black bg-black dark:border-white dark:bg-white"
-            }`}
-          >
-            {isSaving ? (
-              <ActivityIndicator
-                size="small"
-                color={
-                  isSaving || !isDirty
-                    ? isDarkMode
-                      ? "#A3A3A3"
-                      : "#A3A3A3"
-                    : isDarkMode
-                      ? "#000000"
-                      : "#FFFFFF"
-                }
-              />
-            ) : (
-              <Text
-                className={`text-[15px] font-medium ${
-                  isSaving || !isDirty ? "text-[#A3A3A3]" : isDarkMode ? "text-black" : "text-white"
-                }`}
-              >
-                {saveButtonText}
-              </Text>
-            )}
-          </AppPressable>
+            saving={isSaving}
+            dirty={isDirty}
+          />
         </View>
       </HeaderButtonWrapper>
     ),
@@ -2332,10 +2301,7 @@ export default function EventTypeDetail() {
                       style={{ minHeight: 56 }}
                       onPress={() => {
                         if (id === "new") {
-                          showInfoAlert(
-                            "Info",
-                            "Save the link first to configure this setting."
-                          );
+                          showInfoAlert("Info", "Save the link first to configure this setting.");
                         } else if (Platform.OS === "ios") {
                           showNotAvailableAlert();
                         } else {
@@ -2367,10 +2333,7 @@ export default function EventTypeDetail() {
                       style={{ minHeight: 56 }}
                       onPress={() => {
                         if (id === "new") {
-                          showInfoAlert(
-                            "Info",
-                            "Save the link first to configure this setting."
-                          );
+                          showInfoAlert("Info", "Save the link first to configure this setting.");
                         } else if (Platform.OS === "ios") {
                           showNotAvailableAlert();
                         } else {
@@ -2402,10 +2365,7 @@ export default function EventTypeDetail() {
                       style={{ minHeight: 56 }}
                       onPress={() => {
                         if (id === "new") {
-                          showInfoAlert(
-                            "Info",
-                            "Save the link first to configure this setting."
-                          );
+                          showInfoAlert("Info", "Save the link first to configure this setting.");
                         } else if (Platform.OS === "ios") {
                           showNotAvailableAlert();
                         } else {
@@ -2496,7 +2456,7 @@ export default function EventTypeDetail() {
                       onPress={handleCopyLink}
                       activeOpacity={0.5}
                     >
-                      <Text className="text-[17px] text-black dark:text-white">Copy Link</Text>
+                      <Text className="text-[17px] text-black dark:text-white">Copy link</Text>
                       <Ionicons name="link-outline" size={18} color="#C7C7CC" />
                     </TouchableOpacity>
                   </View>
@@ -2513,7 +2473,7 @@ export default function EventTypeDetail() {
                       onPress={handleDelete}
                       activeOpacity={0.5}
                     >
-                      <Text className="text-[17px] text-[#FF3B30]">Delete Link</Text>
+                      <Text className="text-[17px] text-[#FF3B30]">Delete link</Text>
                       <Ionicons name="trash-outline" size={18} color="#FF3B30" />
                     </TouchableOpacity>
                   </View>

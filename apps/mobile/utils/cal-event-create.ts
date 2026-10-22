@@ -6,13 +6,13 @@
  */
 
 import type { CreateCalEventInput } from "@/services/types/cal-events.types";
+import { formatWallClock, parseWallTime } from "@/utils/date-time-format";
 import {
   addHoursToWallTime,
   addMillisecondsToWallTime,
   isSameWallDay,
   isStartTimeInPast,
   nextHourWallTime,
-  splitWallTimeParts,
   wallTimeDiffMs,
   wallTimeToUtc,
 } from "@/utils/wall-time";
@@ -112,20 +112,25 @@ export function minEndWallTime(startWallTime: string): string {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** "Oct 19 at 07:00", the sentence's start (and a multi-day end). */
-export function formatSentenceDateTime(wallTime: string): string {
-  const { date, timeOfDay } = splitWallTimeParts(wallTime);
-  const [, month, day] = date.split("-").map(Number);
-  return `${MONTHS[month - 1]} ${day} at ${timeOfDay}`;
+/** "19 Oct at 7:00 AM", the sentence's start (and a multi-day end). */
+export function formatSentenceDateTime(wallTime: string, hour12 = true): string {
+  const parts = parseWallTime(wallTime);
+  return `${parts.day} ${MONTHS[parts.month - 1]} at ${formatWallClock(parts, hour12)}`;
+}
+
+/** "7:00 AM", a wall time's time of day. */
+export function formatWallTimeOfDay(wallTime: string, hour12 = true): string {
+  return formatWallClock(parseWallTime(wallTime), hour12);
 }
 
 /** The sentence's end: only the time on the start's day, else the date too. */
 export function formatSentenceEnd(
-  values: Pick<CreateCalEventFormValues, "startWallTime" | "endWallTime">
+  values: Pick<CreateCalEventFormValues, "startWallTime" | "endWallTime">,
+  hour12 = true
 ): string {
   return isMultiDay(values)
-    ? formatSentenceDateTime(values.endWallTime)
-    : splitWallTimeParts(values.endWallTime).timeOfDay;
+    ? formatSentenceDateTime(values.endWallTime, hour12)
+    : formatWallTimeOfDay(values.endWallTime, hour12);
 }
 
 /** The web's messages: the name first, then a start that has passed. */

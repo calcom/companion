@@ -123,6 +123,7 @@ export {
 export {
   type UpdateUserProfileInput,
   type UserProfile,
+  useHour12,
   useInvalidateUserProfile,
   usePrefetchUserProfile,
   useUpdateUserProfile,

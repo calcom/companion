@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { useHour12 } from "@/hooks";
 import type {
   CalEventCategory,
   CalEventLineupPerson,
   CalEventSchedulePerson,
 } from "@/services/types/cal-events.types";
-import { formatSentenceDateTime } from "@/utils/cal-event-create";
+import { formatSentenceDateTime, formatWallTimeOfDay } from "@/utils/cal-event-create";
 import {
   type CalEventEditFormValues,
   type CalEventEditScheduleItem,
@@ -17,6 +18,7 @@ import {
   MAX_SCHEDULE_LINKS_PER_PERSON,
   MAX_SCHEDULE_PEOPLE_PER_ITEM,
 } from "@/utils/cal-event-edit";
+import { RANGE_SEPARATOR } from "@/utils/date-time-format";
 import {
   addMillisecondsToWallTime,
   isSameWallDay,
@@ -101,19 +103,25 @@ function rowControls<T>(items: T[], index: number, label: string, onChange: (nex
 }
 
 /** A schedule time as the web shows it: just the time within a single-day event, else the date too. */
-function formatScheduleTime(wallTime: string, singleDay: boolean): string {
-  return singleDay ? splitWallTimeParts(wallTime).timeOfDay : formatSentenceDateTime(wallTime);
+function formatScheduleTime(wallTime: string, singleDay: boolean, hour12: boolean): string {
+  return singleDay
+    ? formatWallTimeOfDay(wallTime, hour12)
+    : formatSentenceDateTime(wallTime, hour12);
 }
 
-/** "Nov 1 at 18:30 – 19:00" ("18:30 – 19:00" within a single-day event), or the item's label. */
-function formatItemTime(item: CalEventEditScheduleItem, singleDay: boolean): string {
+/** "1 Nov at 6:30 PM - 7:00 PM" ("6:30 PM - 7:00 PM" within a single-day event), or the item's label. */
+function formatItemTime(
+  item: CalEventEditScheduleItem,
+  singleDay: boolean,
+  hour12: boolean
+): string {
   if (!item.startWallTime) return item.timeLabel.trim();
-  const start = formatScheduleTime(item.startWallTime, singleDay);
+  const start = formatScheduleTime(item.startWallTime, singleDay, hour12);
   if (!item.endWallTime) return start;
   const end = isSameWallDay(item.startWallTime, item.endWallTime)
-    ? splitWallTimeParts(item.endWallTime).timeOfDay
-    : formatSentenceDateTime(item.endWallTime);
-  return `${start} – ${end}`;
+    ? formatWallTimeOfDay(item.endWallTime, hour12)
+    : formatSentenceDateTime(item.endWallTime, hour12);
+  return `${start}${RANGE_SEPARATOR}${end}`;
 }
 
 function PersonRows({
@@ -155,6 +163,7 @@ export function PageContentSection({
   onChange: (patch: Partial<CalEventEditFormValues>) => void;
   errors: { lineup?: string; schedule?: string };
 }) {
+  const hour12 = useHour12();
   const personSheet = useListSheet<CalEventLineupPerson>();
   const itemSheet = useListSheet<CalEventEditScheduleItem>();
   const { lineupPeople: people, schedule } = values;
@@ -201,7 +210,7 @@ export function PageContentSection({
           {schedule.map((item, index) => {
             const title = item.content.trim() || "Untitled item";
             const names = item.people.map((person) => person.name.trim()).filter(Boolean);
-            const subtitle = [formatItemTime(item, singleDay), names.join(", ")]
+            const subtitle = [formatItemTime(item, singleDay, hour12), names.join(", ")]
               .filter(Boolean)
               .join(" · ");
             return (
@@ -336,6 +345,7 @@ function ScheduleItemSheet({
   onDone: (item: CalEventEditScheduleItem) => void;
 }) {
   const theme = useEditTheme();
+  const hour12 = useHour12();
   const [draft, setDraft] = useState(initial);
   // The picker keeps its target while closed, so it doesn't swap values as it fades out.
   const [picker, setPicker] = useState<{ target: "start" | "end"; open: boolean }>({
@@ -410,25 +420,29 @@ function ScheduleItemSheet({
           <FieldLabel label="Time" />
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
             <TimeToken
-              label={start ? formatScheduleTime(start, singleDay) : null}
+              label={start ? formatScheduleTime(start, singleDay, hour12) : null}
               placeholder="Start"
               accessibilityLabel={
-                start ? `Starts ${formatSentenceDateTime(start)}. Change start` : "Set start"
+                start
+                  ? `Starts ${formatSentenceDateTime(start, hour12)}. Change start`
+                  : "Set start"
               }
               onPress={() => openPicker("start")}
             />
-            <Text style={{ color: theme.textSecondary, fontSize: 16 }}>–</Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 16 }}>-</Text>
             <TimeToken
               label={
                 end
                   ? start && isSameWallDay(start, end)
-                    ? splitWallTimeParts(end).timeOfDay
-                    : formatScheduleTime(end, singleDay)
+                    ? formatWallTimeOfDay(end, hour12)
+                    : formatScheduleTime(end, singleDay, hour12)
                   : null
               }
               placeholder="End"
               accessibilityLabel={
-                end ? `Ends ${formatSentenceDateTime(end)}. Change end` : "Set end (optional)"
+                end
+                  ? `Ends ${formatSentenceDateTime(end, hour12)}. Change end`
+                  : "Set end (optional)"
               }
               onPress={() => openPicker("end")}
             />

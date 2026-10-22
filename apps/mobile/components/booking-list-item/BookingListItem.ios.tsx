@@ -4,6 +4,7 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import React from "react";
 import { Pressable, useColorScheme, View } from "react-native";
 import type { SFSymbols7_0 } from "sf-symbols-typescript";
+import { useHour12 } from "@/hooks";
 import { getBookingActions } from "@/utils/booking-actions";
 import { getBookingRequestActionState } from "@/utils/booking-request-actions";
 import {
@@ -47,7 +48,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
     hasNoShowAttendee,
     formattedDate,
     formattedTimeRange,
-  } = useBookingListItemData(booking, userEmail);
+  } = useBookingListItemData(booking, userEmail, useHour12());
 
   // Use centralized action gating for consistency
   const actions = React.useMemo(() => {
