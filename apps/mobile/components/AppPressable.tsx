@@ -1,8 +1,7 @@
 import * as Haptics from "expo-haptics";
-import { cssInterop } from "nativewind";
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import type { GestureResponderEvent, PressableProps, ViewStyle } from "react-native";
-import { Platform, Pressable } from "react-native";
+import { Platform, Pressable, StyleSheet } from "react-native";
 import Animated, {
   type SharedValue,
   useAnimatedStyle,
@@ -11,9 +10,6 @@ import Animated, {
 } from "react-native-reanimated";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-// NativeWind styles className only on the components it knows, and on the web the animated
-// Pressable isn't one: its classes were dropped (a "pill" showed as bare text).
-if (Platform.OS === "web") cssInterop(AnimatedPressable, { className: "style" });
 
 type AppPressableProps = PressableProps & {
   className?: string;
@@ -93,6 +89,21 @@ export const AppPressable = React.forwardRef<React.ElementRef<typeof Pressable>,
       [enableHaptics, hapticStyle, onPress]
     );
 
+    if (Platform.OS === "web") {
+      return (
+        <WebPressable
+          ref={ref}
+          className={className}
+          style={style}
+          activeOpacity={activeOpacity}
+          onPressIn={onPressIn}
+          onPressOut={onPressOut}
+          onPress={handlePress}
+          {...props}
+        />
+      );
+    }
+
     return (
       <AnimatedPressable
         ref={ref}
@@ -108,3 +119,43 @@ export const AppPressable = React.forwardRef<React.ElementRef<typeof Pressable>,
 );
 
 AppPressable.displayName = "AppPressable";
+
+const WEB_PRESS_TRANSITION = {
+  transitionProperty: "opacity, transform",
+  transitionDuration: "100ms",
+} as ViewStyle;
+
+/**
+ * The web's AppPressable. NativeWind styles className only on the components it knows: the
+ * animated Pressable isn't one there (a "pill" showed as bare text). So the plain Pressable takes
+ * the classes, and the press feedback is a CSS transition.
+ */
+const WebPressable = React.forwardRef<
+  React.ElementRef<typeof Pressable>,
+  PressableProps & { className?: string; style?: ViewStyle; activeOpacity: number }
+>(({ style, activeOpacity, onPressIn, onPressOut, ...props }, ref) => {
+  const [pressed, setPressed] = useState(false);
+  return (
+    <Pressable
+      ref={ref}
+      // One object, not an array: NativeWind pushes the class styles into a style array, and the
+      // React Compiler hands the same array back each render, so old classes piled up.
+      style={StyleSheet.flatten([
+        style,
+        WEB_PRESS_TRANSITION,
+        pressed ? { opacity: activeOpacity, transform: [{ scale: 0.98 }] } : null,
+      ])}
+      onPressIn={(event) => {
+        setPressed(true);
+        onPressIn?.(event);
+      }}
+      onPressOut={(event) => {
+        setPressed(false);
+        onPressOut?.(event);
+      }}
+      {...props}
+    />
+  );
+});
+
+WebPressable.displayName = "WebPressable";
