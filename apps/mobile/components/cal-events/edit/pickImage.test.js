@@ -35,6 +35,16 @@ describe("pickCalEventImage", () => {
     });
   });
 
+  test("passes on the web's File, which the upload sends there", async () => {
+    const file = new File(["png"], "photo.png", { type: "image/png" });
+    await expect(pick({ fileName: "photo.png", mimeType: "image/png", file })).resolves.toEqual({
+      uri: "file:///cache/photo",
+      name: "photo.png",
+      type: "image/png",
+      file,
+    });
+  });
+
   test("says so and resolves to null when the picker fails", async () => {
     mockLaunchImageLibraryAsync.mockRejectedValue(new Error("Failed to read picked image"));
     await expect(pickCalEventImage({ maxBytes: 10 * 1024 * 1024 })).resolves.toBeNull();

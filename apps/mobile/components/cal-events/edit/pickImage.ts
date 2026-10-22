@@ -64,7 +64,8 @@ export async function pickCalEventImage({
   }
   const name =
     asset.fileName ?? `photo.${type.split("/")[1] === "jpeg" ? "jpg" : type.split("/")[1]}`;
-  return { uri: asset.uri, name, type };
+  // expo-image-picker gives the web its File, which the upload needs there.
+  return { uri: asset.uri, name, type, file: asset.file };
 }
 
 export const CAL_EVENT_COVER_MAX_BYTES = 10 * 1024 * 1024;
