@@ -58,6 +58,8 @@ const EMPTY_LOCATION: AddCalEventLocationFormValues = {
 interface LocationDraft {
   location: EditableCalEventLocation | null;
   values: CalEventLocationFormValues;
+  /** What a new location's other type held, back when the host switches to it again. */
+  otherValue?: string;
 }
 
 const isEditable = (location: CalEventLocation): location is EditableCalEventLocation =>
@@ -211,6 +213,18 @@ export function LocationsSection({
       current ? { ...current, values: { ...current.values, ...patch } } : current
     );
 
+  // An address and a link are separate values: switching shows the one typed for that type, if
+  // any, and no error until the next Add.
+  const switchKind = (kind: "address" | "link") => {
+    if (!draft || kind === draft.values.kind) return;
+    setSubmitted(false);
+    setDraft({
+      ...draft,
+      values: { ...draft.values, kind, value: draft.otherValue ?? "" },
+      otherValue: draft.values.value,
+    });
+  };
+
   const editing = draft?.location ?? null;
   const values = draft?.values ?? null;
   // A published event's prices can't change: guests who registered paid them.
@@ -328,7 +342,7 @@ export function LocationsSection({
                   { value: "link" as const, label: "Link" },
                 ]}
                 value={values.kind === "address" ? "address" : "link"}
-                onChange={(kind) => update({ kind })}
+                onChange={switchKind}
               />
             )}
             {hasValue ? (
