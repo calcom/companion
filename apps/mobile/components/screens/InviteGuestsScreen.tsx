@@ -15,6 +15,7 @@ import {
   HintText,
   useEditSurfaces,
   useEditTheme,
+  useFieldBackground,
 } from "@/components/cal-events/edit/EditControls";
 import { getUserFacingApiReason } from "@/components/cal-events/useCalEventActions";
 import { useInviteCalEventGuests } from "@/hooks";
@@ -54,6 +55,7 @@ export const InviteGuestsScreen = forwardRef<InviteGuestsScreenHandle, InviteGue
   ) {
     const theme = useEditTheme();
     const surfaces = useEditSurfaces();
+    const fieldBackground = useFieldBackground();
     const insets = useSafeAreaInsets();
     const [emails, setEmails] = useState<string[]>(() =>
       initialEmail && isValidInviteEmail(initialEmail) ? [initialEmail] : []
@@ -145,9 +147,10 @@ export const InviteGuestsScreen = forwardRef<InviteGuestsScreenHandle, InviteGue
               style={{
                 flex: 1,
                 borderWidth: 1,
-                borderColor: error ? theme.error : theme.border,
+                borderColor: error ? theme.error : "transparent",
                 borderRadius: 8,
                 paddingHorizontal: 12,
+                backgroundColor: fieldBackground,
               }}
             >
               <TextInput

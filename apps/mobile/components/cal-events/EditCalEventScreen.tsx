@@ -72,6 +72,7 @@ import {
   SwitchRow,
   useEditSurfaces,
   useEditTheme,
+  useFieldBackground,
 } from "./edit/EditControls";
 import { GuestsSection } from "./edit/GuestsSection";
 import { LocationsSection } from "./edit/LocationsSection";
@@ -1006,7 +1007,7 @@ function WebSettingRow({
   );
 }
 
-/** A bordered button that looks like the web's select and date triggers. */
+/** A select or date trigger, filled like the text fields. */
 function SelectButton({
   label,
   accessibilityLabel,
@@ -1023,6 +1024,7 @@ function SelectButton({
   error?: boolean;
 }) {
   const theme = useEditTheme();
+  const fieldBackground = useFieldBackground();
   return (
     <Pressable
       onPress={onPress}
@@ -1036,7 +1038,8 @@ function SelectButton({
         paddingHorizontal: 12,
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: error ? theme.error : theme.border,
+        borderColor: error ? theme.error : "transparent",
+        backgroundColor: fieldBackground,
       }}
     >
       {leadingIcon ? <Ionicons name={leadingIcon} size={18} color={theme.textSecondary} /> : null}

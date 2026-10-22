@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import {
   KeyboardAvoidingView,
   type KeyboardTypeOptions,
@@ -30,6 +30,18 @@ export function useEditTheme() {
 /** The screen and card colors of the other tabs' detail screens. */
 export function useEditSurfaces() {
   return getGroupedSurfaces(useColorScheme() === "dark");
+}
+
+const OnCardContext = createContext(false);
+
+/**
+ * A field's fill: the link editor's gray on a card, else the card color, which sets it off the
+ * screen or sheet behind it.
+ */
+export function useFieldBackground() {
+  const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
+  return useContext(OnCardContext) ? theme.backgroundMuted : surfaces.card;
 }
 
 export function EditSection({
@@ -64,7 +76,7 @@ export function EditSection({
           gap: 18,
         }}
       >
-        {children}
+        <OnCardContext.Provider value={true}>{children}</OnCardContext.Provider>
       </View>
     </View>
   );
@@ -137,6 +149,7 @@ export function EditTextField({
   trailing,
 }: EditTextFieldProps) {
   const theme = useEditTheme();
+  const fieldBackground = useFieldBackground();
   return (
     <View style={{ gap: 6 }}>
       {label ? <FieldLabel label={label} hint={hint} /> : null}
@@ -144,20 +157,33 @@ export function EditTextField({
         style={{
           flexDirection: "row",
           alignItems: multiline ? "flex-start" : "center",
+          // As in the link editor: a fill, no outline. The outline only marks an error.
           borderWidth: 1,
-          borderColor: error ? theme.error : theme.border,
+          borderColor: error ? theme.error : "transparent",
           borderRadius: 8,
-          paddingHorizontal: 12,
-          // Takes the color of the card or sheet it's on, as the search fields do.
-          backgroundColor: editable ? "transparent" : theme.backgroundMuted,
+          paddingLeft: prefix ? 0 : 12,
+          paddingRight: 12,
+          overflow: "hidden",
+          backgroundColor: fieldBackground,
           gap: leading ? 8 : 0,
         }}
       >
         {leading}
+        {/* The link editor's URL host, on a darker block at the field's start. */}
         {prefix ? (
-          <Text style={{ color: theme.textSecondary, fontSize: 16 }} numberOfLines={1}>
-            {prefix}
-          </Text>
+          <View
+            style={{
+              alignSelf: "stretch",
+              justifyContent: "center",
+              paddingHorizontal: 12,
+              marginRight: 12,
+              backgroundColor: theme.backgroundEmphasis,
+            }}
+          >
+            <Text style={{ color: theme.textSecondary, fontSize: 16 }} numberOfLines={1}>
+              {prefix}
+            </Text>
+          </View>
         ) : null}
         <TextInput
           value={value}

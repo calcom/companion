@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode } from "react";
 import { Text, View } from "react-native";
-import { FieldLabel, HintText, useEditTheme } from "./EditControls";
+import { FieldLabel, HintText, useEditTheme, useFieldBackground } from "./EditControls";
 
 /** What both platforms' `SelectField` share: its props, its closed look and its swatches. */
 
@@ -77,6 +77,7 @@ export function SelectBox({
   chevron?: boolean;
 }) {
   const theme = useEditTheme();
+  const fieldBackground = useFieldBackground();
   return (
     <View
       style={{
@@ -86,8 +87,7 @@ export function SelectBox({
         minHeight: 44,
         paddingHorizontal: 12,
         borderRadius: 8,
-        borderWidth: 1,
-        borderColor: theme.border,
+        backgroundColor: fieldBackground,
       }}
     >
       {swatches ? <Swatches colors={swatches} /> : null}

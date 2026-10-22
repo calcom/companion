@@ -36,6 +36,7 @@ import {
   RowControls,
   TextButton,
   useEditTheme,
+  useFieldBackground,
 } from "./EditControls";
 import { EMPTY_PERSON, PersonSheet } from "./PersonSheet";
 
@@ -284,6 +285,7 @@ function TimeToken({
   onPress: () => void;
 }) {
   const theme = useEditTheme();
+  const fieldBackground = useFieldBackground();
   return (
     <Pressable
       onPress={onPress}
@@ -296,8 +298,7 @@ function TimeToken({
         gap: 6,
         paddingHorizontal: 12,
         borderRadius: 8,
-        borderWidth: 1,
-        borderColor: theme.border,
+        backgroundColor: fieldBackground,
       }}
     >
       <Ionicons name="time-outline" size={16} color={theme.textSecondary} />
