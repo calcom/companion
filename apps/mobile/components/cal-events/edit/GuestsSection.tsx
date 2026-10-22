@@ -271,8 +271,11 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
             accessibilityRole="button"
             style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }}
           >
-            <Ionicons name="person-add-outline" size={18} color={theme.accent} />
-            <Text style={{ flex: 1, color: theme.accent, fontSize: 15 }} numberOfLines={1}>
+            <Ionicons name="person-add-outline" size={18} color={theme.text} />
+            <Text
+              style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: "500" }}
+              numberOfLines={1}
+            >
               Invite {searchEmail} as a guest
             </Text>
           </Pressable>

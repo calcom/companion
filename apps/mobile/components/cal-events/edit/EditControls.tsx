@@ -246,14 +246,42 @@ export function SwitchRow({
       <View style={{ flex: 1 }}>
         <FieldLabel label={label} hint={hint} />
       </View>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        disabled={disabled}
-        accessibilityElementsHidden
-        importantForAccessibility="no"
-      />
+      <EditSwitch value={value} onValueChange={onValueChange} disabled={disabled} />
     </Pressable>
+  );
+}
+
+/** The web's switch colors an on thumb from this (teal by default), not thumbColor; untyped in RN. */
+const WEB_SWITCH_THUMB = { activeThumbColor: "#FFFFFF" };
+
+/**
+ * A switch in the Links editor's colors: black when on (green in dark mode), never the platform's
+ * own green or the web's teal. Hidden from screen readers: its row is the switch they hear.
+ */
+export function EditSwitch({
+  value,
+  onValueChange,
+  disabled = false,
+}: {
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
+  const isDark = useColorScheme() === "dark";
+  return (
+    <Switch
+      value={value}
+      onValueChange={onValueChange}
+      disabled={disabled}
+      trackColor={{
+        false: isDark ? "#404040" : "#E5E5EA",
+        true: isDark ? "#34C759" : "#000000",
+      }}
+      thumbColor="#FFFFFF"
+      {...WEB_SWITCH_THUMB}
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+    />
   );
 }
 
@@ -315,7 +343,10 @@ export function ChoiceChips<T extends string | null>({
   );
 }
 
-/** A plain text button: "Add person", "Invite", "Remove cover". */
+/**
+ * The editor's secondary button, outlined in the app's neutral colors like the guest toolbar's:
+ * "Add lineup person", "Upload", "Remove".
+ */
 export function TextButton({
   icon,
   label,
@@ -332,7 +363,7 @@ export function TextButton({
   accessibilityLabel?: string;
 }) {
   const theme = useEditTheme();
-  const color = destructive ? theme.destructive : theme.accent;
+  const color = destructive ? theme.destructive : theme.text;
   return (
     <Pressable
       onPress={onPress}
@@ -340,18 +371,21 @@ export function TextButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled }}
-      hitSlop={6}
       style={{
         flexDirection: "row",
         alignItems: "center",
         gap: 6,
         alignSelf: "flex-start",
-        paddingVertical: 6,
+        height: 36,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: theme.border,
         opacity: disabled ? 0.4 : 1,
       }}
     >
-      {icon ? <Ionicons name={icon} size={18} color={color} /> : null}
-      <Text style={{ color, fontSize: 16, fontWeight: "500" }}>{label}</Text>
+      {icon ? <Ionicons name={icon} size={16} color={color} /> : null}
+      <Text style={{ color, fontSize: 15, fontWeight: "500" }}>{label}</Text>
     </Pressable>
   );
 }
@@ -564,7 +598,8 @@ export function EditSheet({
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 18 }}
         >
-          {children}
+          {/* Off the card even when opened from one (Add a question), so its fields stand out. */}
+          <OnCardContext.Provider value={false}>{children}</OnCardContext.Provider>
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>

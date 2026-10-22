@@ -7,7 +7,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   useColorScheme,
@@ -37,6 +36,7 @@ import {
   todayStartWallTime,
   wallTimeDiffMs,
 } from "@/utils/wall-time";
+import { EditSwitch } from "./edit/EditControls";
 import { TimeZonePickerModal } from "./TimeZonePickerModal";
 import { getUserFacingApiReason } from "./useCalEventActions";
 import { WallDateTimePicker } from "./WallDateTimePicker";
@@ -245,12 +245,9 @@ export function CreateCalEventScreen({
             accessibilityHint="Approve guests before they join"
             style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 4 }}
           >
-            <Switch
+            <EditSwitch
               value={values.requiresApproval}
               onValueChange={(requiresApproval) => update({ requiresApproval })}
-              // The row is the one switch screen readers see, as in SwitchRow.
-              accessibilityElementsHidden
-              importantForAccessibility="no"
             />
             <Text style={{ color: theme.text, fontSize: 17, fontWeight: "500" }}>
               Require approval

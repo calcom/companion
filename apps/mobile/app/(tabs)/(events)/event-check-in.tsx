@@ -12,6 +12,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { useCalEventHeaderOptions } from "@/components/cal-events/useCalEventHeaderOptions";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getColors, getGroupedSurfaces } from "@/constants/colors";
@@ -127,7 +128,8 @@ export default function CalEventCheckInScreen() {
     );
   };
 
-  const screenOptions = <Stack.Screen options={{ title: "Check in", headerBackTitle: "Event" }} />;
+  const headerOptions = useCalEventHeaderOptions("Event");
+  const screenOptions = <Stack.Screen options={{ ...headerOptions, title: "Check in" }} />;
 
   if (isLoading && !list) {
     return (

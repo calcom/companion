@@ -4,7 +4,6 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import {
   Linking,
-  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -13,10 +12,9 @@ import {
 } from "react-native";
 import { CalEventListItemSkeleton } from "@/components/cal-event-list-item/CalEventListItemSkeleton";
 import { useCalEventActions } from "@/components/cal-events/useCalEventActions";
+import { useCalEventHeaderOptions } from "@/components/cal-events/useCalEventHeaderOptions";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { SectionHeader } from "@/components/event-type-detail/SettingsUI";
-import { HeaderBackButton } from "@/components/HeaderButtons";
-import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { isForbiddenError, useCalEvent, useHour12, useUserProfile } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
@@ -55,21 +53,7 @@ export default function CalEventDetailScreen() {
   const actions = useCalEventActions({ afterDelete: () => router.back() });
 
   const headerTitle = truncateCalEventTitle(event?.title ?? title ?? "Event");
-  // The Links and Bookings header on the web and Android: a round back button, no divider.
-  const headerOptions = {
-    headerBackTitle: "Events",
-    ...(Platform.OS === "ios"
-      ? {}
-      : {
-          headerStyle: { backgroundColor: isDark ? "black" : "white" },
-          headerShadowVisible: false,
-          headerLeft: () => (
-            <HeaderButtonWrapper side="left">
-              <HeaderBackButton onPress={() => router.back()} />
-            </HeaderButtonWrapper>
-          ),
-        }),
-  };
+  const headerOptions = useCalEventHeaderOptions("Events");
 
   if (isLoading && !event) {
     return (
@@ -424,7 +408,9 @@ function Row({
         {subtitle ? (
           <Text
             style={{
-              color: onPress ? theme.accent : theme.textSecondary,
+              // A link reads as one by its underline, in the app's neutral colors.
+              color: onPress ? theme.text : theme.textSecondary,
+              textDecorationLine: onPress ? "underline" : "none",
               fontSize: 14,
               marginTop: 2,
             }}

@@ -144,7 +144,7 @@ export function PersonSheet({
               </View>
             ) : null}
           </View>
-          <View>
+          <View style={{ gap: 8 }}>
             <TextButton
               label={
                 upload.isPending

@@ -111,7 +111,7 @@ export function CoverField({
           </Text>
         </Pressable>
       )}
-      <View style={{ flexDirection: "row", gap: 20 }}>
+      <View style={{ flexDirection: "row", gap: 8 }}>
         <TextButton
           icon={previewUri ? "swap-horizontal-outline" : "cloud-upload-outline"}
           label={previewUri ? "Replace" : "Upload"}
