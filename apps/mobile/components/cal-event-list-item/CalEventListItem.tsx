@@ -190,21 +190,23 @@ function getCalEventMenuGroups(
   const remove: CalEventMenuItem[] = [];
 
   // A draft's page is there for its owner and hosts (Preview), so they can copy its link too.
-  if (canViewPage || (canManage && event.status === "draft")) {
-    view.push(
-      {
-        label: "Preview",
-        icon: "open-outline",
-        systemImage: "safari",
-        onPress: () => (canViewPage ? actions.onOpenPage(event) : actions.onPreview(event)),
-      },
-      {
-        label: "Copy link",
-        icon: "link-outline",
-        systemImage: "link",
-        onPress: () => actions.onCopyLink(event),
-      }
-    );
+  const canPreviewDraft = canManage && event.status === "draft";
+  if (canViewPage || canPreviewDraft) {
+    view.push({
+      label: "Preview",
+      icon: "open-outline",
+      systemImage: "safari",
+      onPress: () => (canViewPage ? actions.onOpenPage(event) : actions.onPreview(event)),
+    });
+  }
+  // A cancelled event's page can be opened, but its link isn't handed out, as on the web.
+  if (canShare || canPreviewDraft) {
+    view.push({
+      label: "Copy link",
+      icon: "link-outline",
+      systemImage: "link",
+      onPress: () => actions.onCopyLink(event),
+    });
   }
   if (canShare) {
     view.push({

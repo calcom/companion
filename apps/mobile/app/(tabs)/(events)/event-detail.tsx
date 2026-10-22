@@ -304,8 +304,9 @@ export default function CalEventDetailScreen() {
               canManage && event.status === "draft"
                 ? { label: "Preview", icon: "eye-outline", onPress: () => actions.onPreview(event) }
                 : null,
-              // The address Preview and Open event page open, as the link editor's Copy link.
-              canViewPage || (canManage && event.status === "draft")
+              // The address Preview and Open event page open, as the link editor's Copy link. A
+              // cancelled event's page can be opened, but its link isn't handed out, as on the web.
+              canShare || (canManage && event.status === "draft")
                 ? {
                     label: "Copy link",
                     icon: "link-outline",
