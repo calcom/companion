@@ -20,6 +20,10 @@ describe("getCalEventLiveStreamError", () => {
     "https://youtube.com:443/watch?v=abc",
     "https://youtube.com:65535/watch?v=abc",
     "https://youtube.com:/watch?v=abc",
+    "https://www.youtube.com/watch?feature=share&v=abc&t=42",
+    // The first v counts, as URLSearchParams.get reads it, and an escaped name still matches.
+    "https://www.youtube.com/watch?v=abc&v=not+an+id",
+    "https://www.youtube.com/watch?%76=abc",
   ])("accepts %s, as the web does", (url) => {
     expect(getCalEventLiveStreamError(url)).toBeNull();
   });
@@ -38,6 +42,12 @@ describe("getCalEventLiveStreamError", () => {
     // Past the highest port, which the browser's URL turns down.
     "https://youtube.com:65536/watch?v=abc",
     "https://youtu.be:99999/abc",
+    // The whole value after the first "=", as URLSearchParams reads it.
+    "https://www.youtube.com/watch?v=abc=not-a-video-id",
+    "https://www.youtube.com/watch?v=",
+    "https://www.youtube.com/watch?vv=abc",
+    "https://www.youtube.com/watch?v",
+    "https://youtu.be",
   ])("rejects %s", (url) => {
     expect(getCalEventLiveStreamError(url)).toBe(CAL_EVENT_LIVE_STREAM_INVALID);
   });

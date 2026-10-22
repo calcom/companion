@@ -45,16 +45,23 @@ function parseHttpUrl(input: string): ParsedUrl | null {
   };
 }
 
+function decodeQueryPart(part: string): string | null {
+  try {
+    return decodeURIComponent(part.replace(/\+/g, " "));
+  } catch {
+    // A malformed escape. The browser keeps it as typed, and no id has a "%" either way.
+    return null;
+  }
+}
+
+/** The first value of `name`, read as URLSearchParams.get reads it. */
 function queryParam(query: string, name: string): string | null {
   for (const pair of query.replace(/^\?/, "").split("&")) {
-    const [key, value = ""] = pair.split("=");
-    if (key !== name) continue;
-    try {
-      return decodeURIComponent(value.replace(/\+/g, " "));
-    } catch {
-      // A malformed escape, which the browser's URL turns down too.
-      return null;
-    }
+    // Only the first "=" splits: the value is everything after it, other "=" included.
+    const split = pair.indexOf("=");
+    const key = split === -1 ? pair : pair.slice(0, split);
+    if (decodeQueryPart(key) !== name) continue;
+    return decodeQueryPart(split === -1 ? "" : pair.slice(split + 1));
   }
   return null;
 }
