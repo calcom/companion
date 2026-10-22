@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
-import { ActivityIndicator, Text, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Text, useColorScheme } from "react-native";
 import { AppPressable } from "@/components/AppPressable";
 
 /** A round icon button, such as back or "⋯". */
@@ -24,19 +24,17 @@ export function HeaderBackButton({
 }) {
   const isDark = useColorScheme() === "dark";
   return (
-    // Dimmed from outside: AppPressable's press animation sets its own opacity.
-    <View className="mr-2" style={{ opacity: disabled ? 0.4 : 1 }}>
-      <AppPressable
-        onPress={onPress}
-        disabled={disabled}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        aria-disabled={disabled}
-        className={HEADER_ICON_BUTTON_CLASS}
-      >
-        <Ionicons name="chevron-back" size={20} color={isDark ? "#FFFFFF" : "#000000"} />
-      </AppPressable>
-    </View>
+    <AppPressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+      accessibilityState={{ disabled }}
+      className={`mr-2 ${HEADER_ICON_BUTTON_CLASS}`}
+      style={{ opacity: disabled ? 0.4 : 1 }}
+    >
+      <Ionicons name="chevron-back" size={20} color={isDark ? "#FFFFFF" : "#000000"} />
+    </AppPressable>
   );
 }
 
