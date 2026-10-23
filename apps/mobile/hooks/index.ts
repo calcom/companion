@@ -71,6 +71,7 @@ export {
   useCreateCalEvent,
   useDeleteCalEvent,
   useInvalidateCalEvents,
+  useIsPublishingCalEvent,
   usePublishCalEvent,
   useRemoveCalEventLocation,
   useRestartCalEvents,
