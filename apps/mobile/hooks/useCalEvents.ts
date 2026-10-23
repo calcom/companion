@@ -13,6 +13,7 @@ import {
   type QueryKey,
   useInfiniteQuery,
   useMutation,
+  useMutationState,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -462,10 +463,13 @@ export function useChangeCalEventCoHosts() {
   });
 }
 
+const PUBLISH_CAL_EVENT_KEY = [...queryKeys.calEvents.all, "publish"] as const;
+
 /** Hook to publish a draft (hosts only). */
 export function usePublishCalEvent() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: PUBLISH_CAL_EVENT_KEY,
     mutationFn: (uuid: string) => CalComAPIService.publishCalEvent(uuid),
     onSuccess: (event) => {
       setCalEventDetail(queryClient, event);
@@ -482,6 +486,22 @@ export function usePublishCalEvent() {
       queryClient.invalidateQueries({ queryKey: queryKeys.calEvents.all });
     },
   });
+}
+
+/**
+ * Whether this event's publish is still in flight, from wherever it started (the page's button
+ * or a "⋯" menu), so the page can show it until the event comes back published.
+ */
+export function useIsPublishingCalEvent(uuid: string): boolean {
+  return (
+    useMutationState({
+      filters: {
+        mutationKey: PUBLISH_CAL_EVENT_KEY,
+        status: "pending",
+        predicate: (mutation) => mutation.state.variables === uuid,
+      },
+    }).length > 0
+  );
 }
 
 /** Hook to cancel an event, notifying its guests (hosts only). */

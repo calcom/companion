@@ -2,7 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { Linking, ScrollView, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import {
+  ActivityIndicator,
+  Linking,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  useColorScheme,
+  View,
+} from "react-native";
 import { CalEventListItemSkeleton } from "@/components/cal-event-list-item/CalEventListItemSkeleton";
 import { getCalEventHeaderMenu } from "@/components/cal-events/calEventHeaderMenu";
 import { useCalEventActions } from "@/components/cal-events/useCalEventActions";
@@ -10,7 +18,13 @@ import { useCalEventHeaderOptions } from "@/components/cal-events/useCalEventHea
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { SectionHeader } from "@/components/event-type-detail/SettingsUI";
 import { getColors, getGroupedSurfaces } from "@/constants/colors";
-import { isForbiddenError, useCalEvent, useHour12, useUserProfile } from "@/hooks";
+import {
+  isForbiddenError,
+  useCalEvent,
+  useHour12,
+  useIsPublishingCalEvent,
+  useUserProfile,
+} from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 import { canEditCalEvent } from "@/utils/cal-event-edit";
@@ -44,6 +58,7 @@ export default function CalEventDetailScreen() {
   const { data: me } = useUserProfile();
   const hour12 = useHour12();
   const actions = useCalEventActions({ afterDelete: () => router.back() });
+  const publishing = useIsPublishingCalEvent(uuid);
 
   const headerTitle = truncateCalEventTitle(event?.title ?? title ?? "Event");
   // Edit sits in the header with the editor's "⋯" menu to its left. Co-hosts can't edit
@@ -297,7 +312,11 @@ export default function CalEventDetailScreen() {
 
           {/* A draft's next step, so the one button on the page; the rest is in the "⋯" menu. */}
           {canPreviewDraft ? (
-            <PublishButton isDark={isDark} onPress={() => actions.onPublish(event)} />
+            <PublishButton
+              isDark={isDark}
+              publishing={publishing}
+              onPress={() => actions.onPublish(event)}
+            />
           ) : null}
 
           {/* The link editor's danger zone; Cancel event is in the "⋯" menu. */}
@@ -396,15 +415,29 @@ function Row({
   );
 }
 
-/** A draft's Publish: full width and filled, in the editor Save pill's black. */
-function PublishButton({ isDark, onPress }: { isDark: boolean; onPress: () => void }) {
+/**
+ * A draft's Publish: full width and filled, in the editor Save pill's black. While the publish is
+ * in flight it spins and can't be pressed again, until the event comes back published.
+ */
+function PublishButton({
+  isDark,
+  publishing,
+  onPress,
+}: {
+  isDark: boolean;
+  publishing: boolean;
+  onPress: () => void;
+}) {
   const fill = isDark ? "#FFFFFF" : "#000000";
   const color = isDark ? "#000000" : "#FFFFFF";
   return (
     <TouchableOpacity
       onPress={onPress}
+      disabled={publishing}
       accessibilityRole="button"
       accessibilityLabel="Publish"
+      aria-busy={publishing}
+      aria-disabled={publishing}
       style={{
         flexDirection: "row",
         alignItems: "center",
@@ -415,8 +448,14 @@ function PublishButton({ isDark, onPress }: { isDark: boolean; onPress: () => vo
         backgroundColor: fill,
       }}
     >
-      <Ionicons name="rocket-outline" size={18} color={color} style={{ marginRight: 8 }} />
-      <Text style={{ color, fontSize: 16, fontWeight: "600" }}>Publish</Text>
+      {publishing ? (
+        <ActivityIndicator size="small" color={color} style={{ marginRight: 8 }} />
+      ) : (
+        <Ionicons name="rocket-outline" size={18} color={color} style={{ marginRight: 8 }} />
+      )}
+      <Text style={{ color, fontSize: 16, fontWeight: "600" }}>
+        {publishing ? "Publishing…" : "Publish"}
+      </Text>
     </TouchableOpacity>
   );
 }
