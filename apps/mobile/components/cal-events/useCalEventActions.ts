@@ -127,8 +127,15 @@ export function useCalEventActions(options: { afterDelete?: () => void } = {}): 
   }, []);
 
   const onShare = useCallback(async (event: CalEvent) => {
+    // iOS shares `url` as its own item, so a link in the message too reaches WhatsApp twice.
+    // Android ignores `url`, so there the message carries the link. Built outside the try: the
+    // React Compiler can't take a conditional inside one.
+    const content =
+      Platform.OS === "ios"
+        ? { message: event.title, url: event.publicUrl }
+        : { message: `${event.title}: ${event.publicUrl}` };
     try {
-      await Share.share({ message: `${event.title}: ${event.publicUrl}`, url: event.publicUrl });
+      await Share.share(content);
     } catch {
       showErrorAlert("Error", "Failed to share the event. Please try again.");
     }
