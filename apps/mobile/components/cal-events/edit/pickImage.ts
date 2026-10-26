@@ -13,7 +13,8 @@ const ACCEPTED_TYPES = new Set(Object.values(TYPES_BY_EXTENSION));
 /**
  * Lets the user pick a photo from their library for an event's cover or a person's avatar.
  * Resolves to null when they cancel, or (after saying so) when the picker fails or the photo is
- * too big or not a JPEG, PNG or WebP. HEIC photos come back as JPEG, which the picker converts.
+ * too big or not a JPEG, PNG or WebP. iPhone HEIC photos come back as JPEG: the picker asks iOS
+ * for the compatible form.
  */
 export async function pickCalEventImage({
   maxBytes,
@@ -33,6 +34,10 @@ export async function pickCalEventImage({
     allowsEditing: aspect !== undefined,
     aspect,
     quality: 0.85,
+    // The picker otherwise keeps a photo's own format, which for an iPhone's is HEIC (the API
+    // turns it away). Cropping goes through another picker, which saves JPEG either way.
+    preferredAssetRepresentationMode:
+      ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
   }).catch(() => null);
   if (!result) {
     showInfoAlert("Error", "Couldn't load the photo. Please try again.");
