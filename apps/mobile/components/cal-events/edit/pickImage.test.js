@@ -3,6 +3,7 @@ import { describe, expect, jest, test } from "@jest/globals";
 const mockLaunchImageLibraryAsync = jest.fn();
 jest.mock("expo-image-picker", () => ({
   launchImageLibraryAsync: (...args) => mockLaunchImageLibraryAsync(...args),
+  UIImagePickerPreferredAssetRepresentationMode: { Compatible: "compatible" },
 }));
 
 const mockShowInfoAlert = jest.fn();
@@ -21,6 +22,13 @@ function pick(asset) {
 }
 
 describe("pickCalEventImage", () => {
+  test("asks iOS for a photo's compatible form, so an iPhone's HEIC comes back as JPEG", async () => {
+    await pick({ fileName: "IMG_0001.jpg", mimeType: "image/jpeg" });
+    expect(mockLaunchImageLibraryAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ preferredAssetRepresentationMode: "compatible" })
+    );
+  });
+
   test("uses the picker's MIME type", async () => {
     await expect(pick({ fileName: "photo.png", mimeType: "image/png" })).resolves.toEqual({
       uri: "file:///cache/photo",
