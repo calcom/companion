@@ -563,7 +563,7 @@ export function getEditCalEventErrors(
   }
 
   if (values.description.length > CAL_EVENT_DESCRIPTION_MAX_LENGTH) {
-    errors.description = `Use at most ${CAL_EVENT_DESCRIPTION_MAX_LENGTH} characters`;
+    errors.description = `Use at most ${CAL_EVENT_DESCRIPTION_MAX_LENGTH} characters including formatting (${values.description.length} used)`;
   }
 
   const slug = values.slug.trim();

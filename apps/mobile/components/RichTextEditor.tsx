@@ -7,7 +7,7 @@ import {
   type OnChangeStateEvent,
 } from "react-native-enriched-html";
 import { getColors } from "@/constants/colors";
-import { richTextToHtml, sanitizeRichTextHtml } from "@/utils/rich-text";
+import { richTextToHtml, richTextToPlainText, sanitizeRichTextHtml } from "@/utils/rich-text";
 
 const formats = [
   { label: "Bold", icon: "text", state: "bold", command: "toggleBold" },
@@ -93,8 +93,9 @@ export function RichTextEditor({
           // Initialization/focus can emit canonical HTML without the user editing anything.
           if (
             !hasFocused.current ||
-            (!hasEdited.current && previousHtml === null) ||
-            html === previousHtml
+            html === previousHtml ||
+            (!hasEdited.current &&
+              richTextToPlainText(html) === richTextToPlainText(lastValue.current))
           )
             return;
           lastValue.current = html;

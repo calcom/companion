@@ -36,6 +36,20 @@ const props = {
 };
 
 describe("rich-text description editor", () => {
+  test("persists the first edit even when HTML arrives before onChangeText", async () => {
+    const onChangeText = jest.fn();
+    const screen = await render(React.createElement(RichTextEditor, { ...props, onChangeText }));
+    const input = screen.getByLabelText("Description");
+    await fireEvent(input, "focus");
+    await fireEvent(input, "changeHtml", { nativeEvent: { value: "<p><b>Original</b></p>" } });
+    expect(onChangeText).not.toHaveBeenCalled();
+
+    await fireEvent(input, "changeHtml", { nativeEvent: { value: "<p><b>Origina</b></p>" } });
+    expect(onChangeText).toHaveBeenLastCalledWith("<p><b>Origina</b></p>");
+    await fireEvent(input, "changeHtml", { nativeEvent: { value: "<p><br></p>" } });
+    expect(onChangeText).toHaveBeenLastCalledWith("");
+  });
+
   test("ignores initialization and focus, but emits sanitized HTML after editing", async () => {
     const onChangeText = jest.fn();
     const screen = await render(React.createElement(RichTextEditor, { ...props, onChangeText }));
