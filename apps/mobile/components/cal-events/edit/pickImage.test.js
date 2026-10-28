@@ -19,6 +19,7 @@ const mockShrunk = {
   resizes: [],
   formats: [],
   sizes: new Map(),
+  deleted: [],
   bytesPerPixel: 1000,
   fail: false,
   failSave: false,
@@ -74,7 +75,11 @@ jest.mock("expo-image-manipulator", () => ({
 jest.mock("expo-file-system", () => ({
   File: class {
     constructor(uri) {
+      this.uri = uri;
       this.size = mockShrunk.sizes.get(uri) ?? 0;
+    }
+    delete() {
+      mockShrunk.deleted.push(this.uri);
     }
   },
 }));
@@ -88,6 +93,7 @@ beforeEach(() => {
   mockShrunk.resizes = [];
   mockShrunk.formats = [];
   mockShrunk.sizes = new Map();
+  mockShrunk.deleted = [];
   mockShrunk.bytesPerPixel = 1000;
   mockShrunk.fail = false;
   mockShrunk.failSave = false;
@@ -203,6 +209,16 @@ describe("pickCalEventImage keeps uploads under 1 MB", () => {
     expect([count("source"), count("context"), count("image")]).toEqual([1, 5, 5]);
   });
 
+  test("deletes each copy that came out too heavy, and keeps the one it returns", async () => {
+    await pick(IPHONE_PHOTO);
+    expect(mockShrunk.deleted).toEqual([
+      "file:///cache/shrunk-2048.jpeg",
+      "file:///cache/shrunk-1638.jpeg",
+      "file:///cache/shrunk-1310.jpeg",
+      "file:///cache/shrunk-1048.jpeg",
+    ]);
+  });
+
   test("holds a portrait photo to its height", async () => {
     await pick({ ...IPHONE_PHOTO, width: 3024, height: 4032 });
     expect(mockShrunk.resizes[0]).toEqual({ height: 2048 });
@@ -236,14 +252,24 @@ describe("pickCalEventImage keeps uploads under 1 MB", () => {
     global.fetch = async (uri) => ({
       blob: async () => new Blob([new Uint8Array(mockShrunk.sizes.get(uri))]),
     });
+    const revokeObjectURL = jest.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
     try {
       const file = new File(["jpeg"], "IMG_0001.jpg", { type: "image/jpeg" });
       const picked = await pick({ ...IPHONE_PHOTO, file });
       expect(picked.file).toBeInstanceOf(File);
       expect(picked.file).toMatchObject({ name: "IMG_0001.jpg", type: "image/jpeg" });
       expect(picked.file.size).toBe(838_000);
+      // The copies that came out too heavy are object URLs there, not files.
+      expect(revokeObjectURL.mock.calls.map(([uri]) => uri)).toEqual([
+        "file:///cache/shrunk-2048.jpeg",
+        "file:///cache/shrunk-1638.jpeg",
+        "file:///cache/shrunk-1310.jpeg",
+        "file:///cache/shrunk-1048.jpeg",
+      ]);
+      expect(mockShrunk.deleted).toEqual([]);
     } finally {
       global.fetch = realFetch;
+      revokeObjectURL.mockRestore();
     }
   });
 
@@ -251,6 +277,7 @@ describe("pickCalEventImage keeps uploads under 1 MB", () => {
     mockShrunk.bytesPerPixel = 10_000;
     await expect(pick(IPHONE_PHOTO)).resolves.toBeNull();
     expect(mockShrunk.resizes).toHaveLength(6);
+    expect(mockShrunk.deleted).toHaveLength(6);
     expect(mockShowInfoAlert).toHaveBeenCalledWith("Photo too large", "Pick a smaller photo.");
   });
 

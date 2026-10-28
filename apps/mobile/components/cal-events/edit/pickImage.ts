@@ -128,6 +128,7 @@ async function fitImage(
         copy.file = new File([await (await fetch(saved.uri)).blob()], name, { type });
       }
       if (byteSize(copy) <= maxBytes) return copy;
+      discard(copy);
       side = Math.floor(side * SHRINK_STEP);
     }
     return null;
@@ -158,6 +159,12 @@ async function saveResized(
 /** On the web, its File's size; elsewhere, the size of the file the picker or manipulator wrote. */
 function byteSize(photo: CalEventImageFile): number {
   return photo.file ? photo.file.size : new StoredFile(photo.uri).size;
+}
+
+/** Drops a copy that came out too heavy: on the web its object URL, elsewhere its cached file. */
+function discard(copy: CalEventImageFile) {
+  if (copy.file) URL.revokeObjectURL(copy.uri);
+  else new StoredFile(copy.uri).delete();
 }
 
 export const CAL_EVENT_COVER_MAX_BYTES = 10 * 1024 * 1024;
