@@ -37,7 +37,13 @@ export function RichText({
   const source = useMemo(() => ({ html: richTextToHtml(children) }), [children]);
   const baseStyle = useMemo(() => ({ color: theme.text, ...style }), [theme.text, style]);
   const tagsStyles = useMemo(
-    () => ({ a: { color: theme.link }, p: { marginTop: 0, marginBottom: 8 } }),
+    () => ({
+      a: { color: theme.link },
+      p: { marginTop: 0, marginBottom: 8 },
+      // Match paragraph spacing; the renderer's default list margins leave a blank line around lists.
+      ul: { marginTop: 0, marginBottom: 8 },
+      ol: { marginTop: 0, marginBottom: 8 },
+    }),
     [theme.link]
   );
   if (!source.html) return null;
