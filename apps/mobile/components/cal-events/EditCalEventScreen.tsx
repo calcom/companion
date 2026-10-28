@@ -23,6 +23,7 @@ import {
   HeaderBackButton,
   HeaderSaveButton,
 } from "@/components/HeaderButtons";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,7 +52,6 @@ import {
   buildCalEventUpdateInput,
   buildEditFormValues,
   CAL_EVENT_CATEGORIES,
-  CAL_EVENT_DESCRIPTION_MAX_LENGTH,
   CAL_EVENT_GUEST_LISTS,
   CAL_EVENT_MAX_CAPACITY,
   CAL_EVENT_SLUG_MAX_LENGTH,
@@ -418,15 +418,16 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
             value={values.isPrivate}
             onValueChange={(isPrivate) => update({ isPrivate })}
           />
-          <EditTextField
-            label="About the event"
-            value={values.description}
-            onChangeText={(description) => update({ description })}
-            placeholder="Tell guests what your event is about"
-            multiline
-            maxLength={CAL_EVENT_DESCRIPTION_MAX_LENGTH}
-            error={errors.description}
-          />
+          <View style={{ gap: 6 }}>
+            <FieldLabel label="About the event" />
+            <RichTextEditor
+              value={values.description}
+              onChangeText={(description) => update({ description })}
+              placeholder="Tell guests what your event is about"
+              accessibilityLabel="About the event"
+            />
+            <ErrorText message={errors.description} />
+          </View>
           <View style={{ gap: 6 }}>
             <EditTextField
               label="URL"

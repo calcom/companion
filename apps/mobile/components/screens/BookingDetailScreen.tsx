@@ -20,6 +20,7 @@ import { AppPressable } from "@/components/AppPressable";
 import { BookingActionsModal } from "@/components/BookingActionsModal";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
+import { RichText } from "@/components/RichText";
 import { BookingDetailRequestActions } from "@/components/screens/BookingDetailRequestActions";
 import {
   AlertDialog,
@@ -52,6 +53,7 @@ import {
   isBookingRequestPending,
 } from "@/utils/booking-request-actions";
 import { openInAppBrowser } from "@/utils/browser";
+import { richTextToPlainText } from "@/utils/rich-text";
 
 const CopyButton = ({
   text,
@@ -1068,10 +1070,18 @@ export function BookingDetailScreen({
                   Notes
                 </Text>
                 <View className="flex-row items-start justify-between">
-                  <Text className="text-[17px] leading-6 flex-1 mr-2" style={{ color: theme.text }}>
+                  <RichText
+                    style={{
+                      fontSize: 17,
+                      lineHeight: 24,
+                      flex: 1,
+                      marginRight: 8,
+                      color: theme.text,
+                    }}
+                  >
                     {booking.description}
-                  </Text>
-                  <CopyButton text={booking.description} />
+                  </RichText>
+                  <CopyButton text={richTextToPlainText(booking.description)} />
                 </View>
               </View>
             </View>

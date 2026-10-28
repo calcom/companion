@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppPressable } from "@/components/AppPressable";
+import { RichText } from "@/components/RichText";
 import { BookingDetailRequestActions } from "@/components/screens/BookingDetailRequestActions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCancelBooking, useConfirmBooking, useDeclineBooking } from "@/hooks/useBookings";
@@ -23,6 +24,7 @@ import {
   BOOKING_REQUEST_BADGE_LABEL,
   isBookingRequestPending,
 } from "@/utils/booking-request-actions";
+import { richTextToPlainText } from "@/utils/rich-text";
 
 const CopyButton = ({
   text,
@@ -798,10 +800,18 @@ export function BookingDetailScreen({
                 Notes
               </Text>
               <View className="flex-row items-start justify-between">
-                <Text className="text-[17px] leading-6 flex-1 mr-2" style={{ color: colors.text }}>
+                <RichText
+                  style={{
+                    fontSize: 17,
+                    lineHeight: 24,
+                    flex: 1,
+                    marginRight: 8,
+                    color: colors.text,
+                  }}
+                >
                   {booking.description}
-                </Text>
-                <CopyButton text={booking.description} />
+                </RichText>
+                <CopyButton text={richTextToPlainText(booking.description)} />
               </View>
             </View>
           </View>
