@@ -57,6 +57,20 @@ describe("read-only rich-text previews", () => {
     expect(openURL).not.toHaveBeenCalled();
   });
 
+  test("gives headings a line height that fits their size", async () => {
+    const screen = await render(
+      React.createElement(
+        RichText,
+        { style: { fontSize: 16, lineHeight: 22 } },
+        "<h1>Title</h1><h2>Subtitle</h2><p>Body</p>"
+      )
+    );
+    const styleOf = (text) => StyleSheet.flatten(screen.getByText(text).props.style);
+    expect(styleOf("Title")).toMatchObject({ fontSize: 32, lineHeight: 44 });
+    expect(styleOf("Subtitle")).toMatchObject({ fontSize: 24, lineHeight: 33 });
+    expect(styleOf("Body")).toMatchObject({ fontSize: 16, lineHeight: 22 });
+  });
+
   test("styles only links that keep a safe target as links", async () => {
     const screen = await render(
       React.createElement(

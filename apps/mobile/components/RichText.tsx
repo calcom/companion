@@ -23,6 +23,9 @@ const domVisitors: DomVisitorCallbacks = {
   },
 };
 
+// The renderer's default heading sizes, relative to the body text.
+const HEADING_SCALES = { h1: 2, h2: 1.5, h3: 1.17, h4: 1, h5: 0.83, h6: 0.67 };
+
 export function RichText({
   children,
   style,
@@ -36,6 +39,8 @@ export function RichText({
   const { width } = useWindowDimensions();
   const source = useMemo(() => ({ html: richTextToHtml(children) }), [children]);
   const baseStyle = useMemo(() => ({ color: theme.text, ...style }), [theme.text, style]);
+  const fontSize = typeof style?.fontSize === "number" ? style.fontSize : 14;
+  const lineHeight = typeof style?.lineHeight === "number" ? style.lineHeight : undefined;
   const tagsStyles = useMemo(
     () => ({
       a: { color: theme.link },
@@ -43,8 +48,17 @@ export function RichText({
       // Match paragraph spacing; the renderer's default list margins leave a blank line around lists.
       ul: { marginTop: 0, marginBottom: 8 },
       ol: { marginTop: 0, marginBottom: 8 },
+      // Headings inherit a fixed line height, which clips their larger glyphs; scale it with them.
+      ...(lineHeight === undefined
+        ? {}
+        : Object.fromEntries(
+            Object.entries(HEADING_SCALES).map(([tag, scale]) => [
+              tag,
+              { fontSize: fontSize * scale, lineHeight: Math.round(lineHeight * scale) },
+            ])
+          )),
     }),
-    [theme.link]
+    [theme.link, fontSize, lineHeight]
   );
   if (!source.html) return null;
 
