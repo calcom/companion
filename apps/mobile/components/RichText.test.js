@@ -1,7 +1,8 @@
 import { describe, expect, jest, test } from "@jest/globals";
 import { fireEvent, render } from "@testing-library/react-native";
 import React from "react";
-import { Linking } from "react-native";
+import { Linking, StyleSheet } from "react-native";
+import { getColors } from "@/constants/colors";
 import { RichText } from "./RichText";
 
 jest.mock("react-native", () => ({
@@ -54,6 +55,19 @@ describe("read-only rich-text previews", () => {
     jest.clearAllMocks();
     fireEvent.press(screen.getByText("Unsafe"));
     expect(openURL).not.toHaveBeenCalled();
+  });
+
+  test("styles only links that keep a safe target as links", async () => {
+    const screen = await render(
+      React.createElement(
+        RichText,
+        null,
+        '<p><a href="https://example.com">Example</a> <a href="javascript:alert(1)">Unsafe</a></p>'
+      )
+    );
+    const colorOf = (text) => StyleSheet.flatten(screen.getByText(text).props.style).color;
+    expect([getColors(false).link, getColors(true).link]).toContain(colorOf("Example"));
+    expect(colorOf("Unsafe")).not.toBe(colorOf("Example"));
   });
 
   test("removes executable content and remote media before rendering", async () => {

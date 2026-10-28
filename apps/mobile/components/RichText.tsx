@@ -1,4 +1,8 @@
-import RenderHtml, { type MixedStyleDeclaration, type RenderersProps } from "@native-html/render";
+import RenderHtml, {
+  type DomVisitorCallbacks,
+  type MixedStyleDeclaration,
+  type RenderersProps,
+} from "@native-html/render";
 import { useMemo } from "react";
 import { Linking, useColorScheme, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { getColors } from "@/constants/colors";
@@ -9,6 +13,13 @@ const renderersProps: Partial<RenderersProps> = {
     onPress: (_event, url) => {
       if (isSafeRichTextUrl(url)) void Linking.openURL(url).catch(() => {});
     },
+  },
+};
+
+// The sanitizer drops unsafe hrefs; show those links as plain text instead of links that do nothing.
+const domVisitors: DomVisitorCallbacks = {
+  onElement: (element) => {
+    if (element.name === "a" && !element.attribs.href) element.name = "span";
   },
 };
 
@@ -39,6 +50,7 @@ export function RichText({
         baseStyle={baseStyle}
         tagsStyles={tagsStyles}
         renderersProps={renderersProps}
+        domVisitors={domVisitors}
         enableCSSInlineProcessing={false}
       />
     </View>
