@@ -3,6 +3,7 @@ import { normalizeMarkdown } from "./normalizeMarkdown";
 import {
   isSafeRichTextUrl,
   richTextToHtml,
+  richTextToNativeHtml,
   richTextToPlainText,
   sanitizeRichTextHtml,
 } from "./rich-text";
@@ -23,6 +24,18 @@ describe("rich-text descriptions", () => {
     expect(richTextToHtml("**Markdown** with <em>HTML</em>")).toBe(
       "<p><strong>Markdown</strong> with <em>HTML</em></p>"
     );
+  });
+
+  test("prepares iOS native input without changing the saved HTML", () => {
+    const lines = "First & second\nNext line";
+    expect(richTextToNativeHtml(lines)).toBe("<p>First &amp; second\nNext line</p>");
+    expect(richTextToNativeHtml("<p>Hello <strong>world</strong><br>Next</p>")).toBe(
+      "<p>Hello <strong>world</strong>\nNext</p>"
+    );
+    expect(richTextToNativeHtml("hello")).toBe("<html><p>hello</p></html>");
+    expect(richTextToNativeHtml("<h1>x</h1>")).toBe("<html><h1>x</h1></html>");
+    expect(richTextToHtml("hello")).toBe("<p>hello</p>");
+    expect(richTextToNativeHtml("<p><br></p>")).toBe("");
   });
 
   test("drops executable markup, attributes and remote media but keeps safe text", () => {

@@ -83,4 +83,29 @@ describe("rich-text description editor", () => {
     );
     expect(mockSetValue).toHaveBeenLastCalledWith("<p>New <em>description</em></p>");
   });
+
+  test("loads short and multiline descriptions without emitting wrapper HTML on edit", async () => {
+    const onChangeText = jest.fn();
+    const screen = await render(
+      React.createElement(RichTextEditor, { ...props, value: "hello", onChangeText })
+    );
+    const input = screen.getByLabelText("Description");
+    expect(input.props.defaultValue).toBe("<html><p>hello</p></html>");
+    await fireEvent(input, "focus");
+    await fireEvent(input, "changeHtml", { nativeEvent: { value: "<html><p>hello</p></html>" } });
+    expect(onChangeText).not.toHaveBeenCalled();
+    await fireEvent(input, "changeHtml", { nativeEvent: { value: "<p>helloX</p>" } });
+    expect(onChangeText).toHaveBeenLastCalledWith("<p>helloX</p>");
+    await fireEvent(input, "changeHtml", { nativeEvent: { value: "<p>helloXY</p>" } });
+    expect(onChangeText).toHaveBeenLastCalledWith("<p>helloXY</p>");
+
+    await screen.rerender(
+      React.createElement(RichTextEditor, {
+        ...props,
+        value: "First line\nSecond line",
+        onChangeText,
+      })
+    );
+    expect(mockSetValue).toHaveBeenLastCalledWith("<p>First line\nSecond line</p>");
+  });
 });

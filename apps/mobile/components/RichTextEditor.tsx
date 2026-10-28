@@ -7,7 +7,7 @@ import {
   type OnChangeStateEvent,
 } from "react-native-enriched-html";
 import { getColors } from "@/constants/colors";
-import { richTextToHtml, richTextToPlainText, sanitizeRichTextHtml } from "@/utils/rich-text";
+import { richTextToNativeHtml, richTextToPlainText, sanitizeRichTextHtml } from "@/utils/rich-text";
 
 const formats = [
   { label: "Bold", icon: "text", state: "bold", command: "toggleBold" },
@@ -38,7 +38,7 @@ export function RichTextEditor({
   const hasFocused = useRef(false);
   const lastNativeHtml = useRef<string | null>(null);
   const hasEdited = useRef(false);
-  const [initialHtml] = useState(() => richTextToHtml(value));
+  const [initialHtml] = useState(() => richTextToNativeHtml(value));
   const [formatState, setFormatState] = useState<OnChangeStateEvent>();
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export function RichTextEditor({
       lastValue.current = value;
       lastNativeHtml.current = null;
       hasEdited.current = false;
-      editor.current?.setValue(richTextToHtml(value));
+      editor.current?.setValue(richTextToNativeHtml(value));
     }
   }, [value]);
 
@@ -80,6 +80,11 @@ export function RichTextEditor({
         accessibilityLabel={accessibilityLabel}
         placeholder={placeholder}
         placeholderTextColor={theme.textMuted}
+        htmlStyle={{
+          a: { color: theme.link },
+          ul: { bulletColor: theme.text },
+          ol: { markerColor: theme.text },
+        }}
         onFocus={() => {
           hasFocused.current = true;
         }}
