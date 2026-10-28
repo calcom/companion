@@ -216,6 +216,7 @@ describe("pickCalEventImage keeps uploads under 1 MB", () => {
     await expect(
       pick({ ...IPHONE_PHOTO, fileName: "photo.webp", mimeType: "image/webp" })
     ).resolves.toMatchObject({ name: "photo.jpg", type: "image/jpeg" });
+    expect(new Set(mockShrunk.formats)).toEqual(new Set(["jpeg"]));
   });
 
   test("hands the web a File of the scaled-down copy", async () => {
