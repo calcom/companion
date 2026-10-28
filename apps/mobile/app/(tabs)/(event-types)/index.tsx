@@ -20,6 +20,7 @@ import { EventTypeListItem } from "@/components/event-type-list-item/EventTypeLi
 import { EventTypeListSkeleton } from "@/components/event-type-list-item/EventTypeListItemSkeleton";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import { Header } from "@/components/Header";
+import { RichText } from "@/components/RichText";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,7 +46,6 @@ import { openInAppBrowser } from "@/utils/browser";
 import { getDisplayError } from "@/utils/error";
 import { getEventDuration } from "@/utils/getEventDuration";
 import { offlineAwareRefresh } from "@/utils/network";
-import { normalizeMarkdown } from "@/utils/normalizeMarkdown";
 import { shadows } from "@/utils/shadows";
 import { slugify } from "@/utils/slugify";
 
@@ -826,9 +826,9 @@ export default function EventTypes() {
                     {selectedEventType.title}
                   </Text>
                   {selectedEventType.description ? (
-                    <Text className="text-sm text-gray-600 dark:text-gray-400">
-                      {normalizeMarkdown(selectedEventType.description)}
-                    </Text>
+                    <RichText style={{ fontSize: 14, color: theme.textSecondary }}>
+                      {selectedEventType.description}
+                    </RichText>
                   ) : null}
                 </View>
 

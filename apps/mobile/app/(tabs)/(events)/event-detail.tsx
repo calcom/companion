@@ -17,6 +17,7 @@ import { useCalEventActions } from "@/components/cal-events/useCalEventActions";
 import { useCalEventHeaderOptions } from "@/components/cal-events/useCalEventHeaderOptions";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { SectionHeader } from "@/components/event-type-detail/SettingsUI";
+import { RichText } from "@/components/RichText";
 import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import {
   isForbiddenError,
@@ -245,9 +246,9 @@ export default function CalEventDetailScreen() {
 
           {event.description ? (
             <Card isDark={isDark} header="About the event">
-              <Text style={{ color: theme.text, fontSize: 16, lineHeight: 22 }}>
+              <RichText style={{ color: theme.text, fontSize: 16, lineHeight: 22 }}>
                 {event.description}
-              </Text>
+              </RichText>
             </Card>
           ) : null}
 

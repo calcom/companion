@@ -32,6 +32,7 @@ export const colors = {
 
     // Accent colors
     accent: "#007AFF",
+    link: "#005FCC",
     success: "#34C759",
     warning: "#FF9500",
     error: "#FF3B30",
@@ -57,6 +58,7 @@ export const colors = {
 
     // Accent colors
     accent: "#007AFF",
+    link: "#4DA3FF",
     success: "#34C759",
     warning: "#FF9500",
     error: "#FF3B30",
