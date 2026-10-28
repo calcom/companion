@@ -1071,11 +1071,10 @@ export function BookingDetailScreen({
                 </Text>
                 <View className="flex-row items-start justify-between">
                   <RichText
+                    containerStyle={{ flex: 1, marginRight: 8 }}
                     style={{
                       fontSize: 17,
                       lineHeight: 24,
-                      flex: 1,
-                      marginRight: 8,
                       color: theme.text,
                     }}
                   >

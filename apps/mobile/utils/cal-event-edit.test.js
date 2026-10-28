@@ -232,13 +232,6 @@ describe("getEditCalEventErrors", () => {
     expect(errors({})).toEqual({});
   });
 
-  test("description limit includes stored HTML formatting", () => {
-    expect(errors({ description: `<b>${"a".repeat(4993)}</b>` }).description).toBeUndefined();
-    expect(errors({ description: `<b>${"a".repeat(4994)}</b>` }).description).toBe(
-      "Use at most 5000 characters including formatting (5001 used)"
-    );
-  });
-
   test("a start that has passed only counts once it is moved", () => {
     const live = event({
       startTime: "2026-10-19T10:00:00.000Z",

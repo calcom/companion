@@ -72,31 +72,6 @@
     "browserslist": "4.28.8",
     "ip-address": "10.3.1",
     "nanoid": "3.3.18",
-    "image-size": "npm:image-size-next@1.2.2",
-    "@tiptap/core": "3.30.5",
-    "@tiptap/extension-blockquote": "3.30.5",
-    "@tiptap/extension-bold": "3.30.5",
-    "@tiptap/extension-bubble-menu": "3.30.5",
-    "@tiptap/extension-code": "3.30.5",
-    "@tiptap/extension-document": "3.30.5",
-    "@tiptap/extension-floating-menu": "3.30.5",
-    "@tiptap/extension-heading": "3.30.5",
-    "@tiptap/extension-history": "3.30.5",
-    "@tiptap/extension-image": "3.30.5",
-    "@tiptap/extension-italic": "3.30.5",
-    "@tiptap/extension-link": "3.30.5",
-    "@tiptap/extension-list": "3.30.5",
-    "@tiptap/extension-paragraph": "3.30.5",
-    "@tiptap/extension-strike": "3.30.5",
-    "@tiptap/extension-text": "3.30.5",
-    "@tiptap/extension-text-align": "3.30.5",
-    "@tiptap/extension-underline": "3.30.5",
-    "@tiptap/extensions": "3.30.5",
-    "@tiptap/pm": "3.30.5",
-    "@tiptap/react": "3.30.5",
-    "dompurify": "3.4.17"
-  },
-  "patchedDependencies": {
-    "react-native-enriched-html@1.1.1": "patches/react-native-enriched-html@1.1.1.patch"
+    "image-size": "npm:image-size-next@1.2.2"
   }
 }

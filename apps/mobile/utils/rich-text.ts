@@ -61,12 +61,6 @@ export function richTextToHtml(source: string): string {
   return sanitizeRichTextHtml(marked.parse(source, { async: false, breaks: true }));
 }
 
-export function richTextToNativeHtml(source: string): string {
-  // The iOS parser ignores inline <br> and HTML shorter than 13 characters.
-  const html = richTextToHtml(source).replace(/<br\s*\/?>/gi, "\n");
-  return html && html.length < 13 ? `<html>${html}</html>` : html;
-}
-
 export function richTextToPlainText(source: string): string {
   // Ignore HTML indentation between blocks, not line breaks inside their text.
   const html = richTextToHtml(source).replace(

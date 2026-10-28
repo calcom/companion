@@ -8,7 +8,6 @@ import type React from "react";
 import { useState } from "react";
 import { Text, TextInput, useColorScheme, View } from "react-native";
 import { AddLocationTrigger, LocationsList } from "@/components/LocationsList";
-import { RichTextEditor } from "@/components/RichTextEditor";
 import { getColors } from "@/constants/colors";
 import type { LocationItem, LocationOptionGroup } from "@/types/locations";
 import { createLocationItemFromOption } from "@/utils/locationHelpers";
@@ -124,17 +123,14 @@ export const BasicsTab: React.FC<BasicsTabProps> = (props) => {
           onChangeText={props.setEventTitle}
           placeholder="Enter event title"
         />
-        <View style={{ padding: 16, borderBottomWidth: 1, borderColor: theme.borderSubtle }}>
-          <Text className="mb-2 text-[13px]" style={{ color: theme.textSecondary }}>
-            Description
-          </Text>
-          <RichTextEditor
-            value={props.eventDescription}
-            onChangeText={props.setEventDescription}
-            placeholder="Enter event description"
-            accessibilityLabel="Description"
-          />
-        </View>
+        <InputRow
+          label="Description"
+          value={props.eventDescription}
+          onChangeText={props.setEventDescription}
+          placeholder="Enter event description"
+          multiline
+          numberOfLines={4}
+        />
         {/* URL Input */}
         <View className="bg-white pl-4" style={{ backgroundColor: theme.backgroundSecondary }}>
           <View className="pr-4 pt-3 pb-4">
