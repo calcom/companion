@@ -2,6 +2,7 @@ import { describe, expect, test } from "@jest/globals";
 import { normalizeMarkdown } from "./normalizeMarkdown";
 import {
   isSafeRichTextUrl,
+  richTextToClipboardText,
   richTextToHtml,
   richTextToPlainText,
   sanitizeRichTextHtml,
@@ -100,5 +101,29 @@ describe("rich-text descriptions", () => {
     expect(richTextToPlainText("<p>First\n\nSecond</p>")).toBe("First\n\nSecond");
     expect(richTextToPlainText("<p>First</p><p></p><p>Second</p>")).toBe("First\n\nSecond");
     expect(richTextToPlainText("<p><b>First</b> <i>Second</i></p>")).toBe("First Second");
+  });
+
+  test("copies notes with blank lines between blocks, list markers and link targets", () => {
+    expect(
+      richTextToClipboardText(
+        "First **bold** line.\n\nSee [docs](https://example.com/?a=1&b=2).\n\n- One\n- Two"
+      )
+    ).toBe("First bold line.\n\nSee docs (https://example.com/?a=1&b=2).\n\n• One\n• Two");
+    expect(
+      richTextToClipboardText(
+        '<p>A<br>B</p><ol start="3"><li>Three</li><li>Four<ul><li>Nested</li></ul></li><li>Five</li></ol><p>End</p>'
+      )
+    ).toBe("A\nB\n\n3. Three\n4. Four\n  • Nested\n5. Five\n\nEnd");
+    expect(richTextToClipboardText("First & second\nNext line")).toBe("First & second\nNext line");
+  });
+
+  test("copies a link target once and leaves stripped targets out", () => {
+    expect(richTextToClipboardText("<https://example.com>")).toBe("https://example.com");
+    expect(richTextToClipboardText('<a href="mailto:a@example.com">a@example.com</a>')).toBe(
+      "a@example.com"
+    );
+    expect(richTextToClipboardText('<a href="javascript:alert(1)">Unsafe</a> text')).toBe(
+      "Unsafe text"
+    );
   });
 });

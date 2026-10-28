@@ -61,11 +61,68 @@ export function richTextToHtml(source: string): string {
   return sanitizeRichTextHtml(marked.parse(source, { async: false, breaks: true }));
 }
 
-export function richTextToPlainText(source: string): string {
+function richTextToBlockHtml(source: string): string {
   // Ignore HTML indentation between blocks, not line breaks inside their text.
-  const html = richTextToHtml(source).replace(
+  return richTextToHtml(source).replace(
     /(<\/(?:p|div|li|blockquote|h[1-6]|pre)>|<\/?(?:ul|ol)>)[ \t\r\n]+(?=<\/?(?:p|div|li|blockquote|h[1-6]|pre|ul|ol)\b)/gi,
     "$1"
   );
-  return decodeHTML(textFilter.process(html)).trim();
+}
+
+export function richTextToPlainText(source: string): string {
+  return decodeHTML(textFilter.process(richTextToBlockHtml(source))).trim();
+}
+
+export function richTextToClipboardText(source: string): string {
+  // Plain text that keeps what a reader needs after pasting: blank lines between blocks,
+  // list markers and link targets.
+  const lists: (number | null)[] = [];
+  let link: { href: string; text: string } | null = null;
+  let atLineStart = true;
+  const emit = (text: string) => {
+    if (text) atLineStart = text.endsWith("\n");
+    return text;
+  };
+  const filter = new FilterXSS({
+    whiteList: {},
+    stripIgnoreTag: true,
+    escapeHtml: (text) => {
+      if (link) link.text += text;
+      return emit(text);
+    },
+    onTag: (tag, html, { isClosing }) => {
+      if (tag === "ul" || tag === "ol") {
+        if (!isClosing) {
+          lists.push(tag === "ol" ? Number(/\bstart="(\d+)"/.exec(html)?.[1] ?? 1) - 1 : null);
+          return emit(atLineStart ? "" : "\n");
+        }
+        lists.pop();
+        return emit(lists.length ? "" : "\n");
+      }
+      if (tag === "li") {
+        if (isClosing) return emit(atLineStart ? "" : "\n");
+        const count = lists[lists.length - 1];
+        const indent = "  ".repeat(Math.max(lists.length - 1, 0));
+        if (count === null || count === undefined) return emit(`${indent}• `);
+        lists[lists.length - 1] = count + 1;
+        return emit(`${indent}${count + 1}. `);
+      }
+      if (tag === "a") {
+        if (!isClosing) {
+          link = { href: decodeHTML(/\bhref="([^"]*)"/.exec(html)?.[1] ?? ""), text: "" };
+          return "";
+        }
+        const { href = "", text = "" } = link ?? {};
+        link = null;
+        const label = decodeHTML(text).trim();
+        const repeatsLabel = [href, href.replace(/^(mailto|tel):/i, "")].includes(label);
+        return emit(!href || repeatsLabel ? "" : ` (${href})`);
+      }
+      if (tag === "br") return emit("\n");
+      return emit(isClosing && /^(p|div|blockquote|h[1-6]|pre)$/.test(tag) ? "\n\n" : "");
+    },
+  });
+  return decodeHTML(filter.process(richTextToBlockHtml(source)))
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }

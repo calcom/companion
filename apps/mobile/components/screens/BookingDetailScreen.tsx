@@ -53,7 +53,7 @@ import {
   isBookingRequestPending,
 } from "@/utils/booking-request-actions";
 import { openInAppBrowser } from "@/utils/browser";
-import { richTextToPlainText } from "@/utils/rich-text";
+import { richTextToClipboardText } from "@/utils/rich-text";
 
 const CopyButton = ({
   text,
@@ -1080,7 +1080,7 @@ export function BookingDetailScreen({
                   >
                     {booking.description}
                   </RichText>
-                  <CopyButton text={richTextToPlainText(booking.description)} />
+                  <CopyButton text={richTextToClipboardText(booking.description)} />
                 </View>
               </View>
             </View>
