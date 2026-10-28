@@ -59,11 +59,22 @@ export function RichTextEditor({
             accessibilityRole="button"
             accessibilityLabel={label}
             accessibilityState={{ selected: formatState?.[state].isActive ?? false }}
-            onPress={() => {
-              hasEdited.current = true;
+            onPress={async () => {
+              const input = editor.current;
+              if (!input) return;
               hasFocused.current = true;
-              editor.current?.focus();
-              editor.current?.[command]();
+              input.focus();
+              // Compare against native HTML so a no-op cannot persist focus canonicalization.
+              let before: string;
+              try {
+                before = await input.getHTML();
+              } catch {
+                return;
+              }
+              if (editor.current !== input) return;
+              lastNativeHtml.current = sanitizeRichTextHtml(before);
+              hasEdited.current = true;
+              input[command]();
             }}
             style={{
               padding: 12,

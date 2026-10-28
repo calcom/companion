@@ -68,5 +68,10 @@ export function richTextToNativeHtml(source: string): string {
 }
 
 export function richTextToPlainText(source: string): string {
-  return decodeHTML(textFilter.process(richTextToHtml(source))).trim();
+  // Ignore HTML indentation between blocks, not line breaks inside their text.
+  const html = richTextToHtml(source).replace(
+    /(<\/(?:p|div|li|blockquote|h[1-6]|pre)>|<\/?(?:ul|ol)>)[ \t\r\n]+(?=<\/?(?:p|div|li|blockquote|h[1-6]|pre|ul|ol)\b)/gi,
+    "$1"
+  );
+  return decodeHTML(textFilter.process(html)).trim();
 }

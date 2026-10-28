@@ -97,4 +97,16 @@ describe("rich-text descriptions", () => {
       "Bold link One Two"
     );
   });
+
+  test("ignores inter-block HTML indentation but keeps text whitespace and empty paragraphs", () => {
+    expect(richTextToPlainText("**First**\n\nSecond")).toBe(
+      richTextToPlainText("<p><b>First</b></p><p>Second</p>")
+    );
+    expect(richTextToPlainText("- One\n- Two")).toBe(
+      richTextToPlainText("<ul><li>One</li><li>Two</li></ul>")
+    );
+    expect(richTextToPlainText("<p>First\n\nSecond</p>")).toBe("First\n\nSecond");
+    expect(richTextToPlainText("<p>First</p><p></p><p>Second</p>")).toBe("First\n\nSecond");
+    expect(richTextToPlainText("<p><b>First</b> <i>Second</i></p>")).toBe("First Second");
+  });
 });

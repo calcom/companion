@@ -426,7 +426,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
               placeholder="Tell guests what your event is about"
               accessibilityLabel="About the event"
             />
-            <ErrorText message={errors.description} />
+            <ErrorText message={allErrors.description} />
           </View>
           <View style={{ gap: 6 }}>
             <EditTextField

@@ -95,5 +95,8 @@
     "@tiptap/pm": "3.30.5",
     "@tiptap/react": "3.30.5",
     "dompurify": "3.4.17"
+  },
+  "patchedDependencies": {
+    "react-native-enriched-html@1.1.1": "patches/react-native-enriched-html@1.1.1.patch"
   }
 }

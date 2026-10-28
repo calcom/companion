@@ -5,6 +5,7 @@ import { RichTextEditor } from "./RichTextEditor";
 
 const mockSetValue = jest.fn();
 const mockToggleBold = jest.fn();
+const mockGetHTML = jest.fn();
 jest.mock("react-native", () => ({
   ...jest.requireActual("react-native"),
   useColorScheme: () => "light",
@@ -20,6 +21,7 @@ jest.mock("react-native-enriched-html", () => {
     EnrichedTextInput: React.forwardRef((props, ref) => {
       React.useImperativeHandle(ref, () => ({
         setValue: mockSetValue,
+        getHTML: mockGetHTML,
         toggleBold: mockToggleBold,
         focus: () => props.onFocus(),
       }));
@@ -70,18 +72,52 @@ describe("rich-text description editor", () => {
 
   test("applies formatting and loads externally changed descriptions without stale content", async () => {
     const onChangeText = jest.fn();
-    const screen = await render(React.createElement(RichTextEditor, { ...props, onChangeText }));
+    mockGetHTML.mockResolvedValueOnce("<p>Original</p>");
+    const screen = await render(
+      React.createElement(RichTextEditor, { ...props, value: "Original", onChangeText })
+    );
     await fireEvent.press(screen.getByLabelText("Bold"));
     expect(mockToggleBold).toHaveBeenCalledTimes(1);
     await fireEvent(screen.getByLabelText("Description"), "changeHtml", {
-      nativeEvent: { value: "<p><b>Edited</b></p>" },
+      nativeEvent: { value: "<p><b>Original</b></p>" },
     });
-    expect(onChangeText).toHaveBeenLastCalledWith("<p><b>Edited</b></p>");
+    expect(onChangeText).toHaveBeenLastCalledWith("<p><b>Original</b></p>");
 
     await screen.rerender(
       React.createElement(RichTextEditor, { ...props, value: "New *description*", onChangeText })
     );
     expect(mockSetValue).toHaveBeenLastCalledWith("<p>New <em>description</em></p>");
+  });
+
+  test("does not persist canonical HTML after a no-op toolbar command", async () => {
+    const onChangeText = jest.fn();
+    mockGetHTML.mockResolvedValueOnce("<p><b>Original</b></p>");
+    const screen = await render(React.createElement(RichTextEditor, { ...props, onChangeText }));
+    await fireEvent.press(screen.getByLabelText("Bold"));
+    await fireEvent(screen.getByLabelText("Description"), "changeHtml", {
+      nativeEvent: { value: "<p><b>Original</b></p>" },
+    });
+    expect(onChangeText).not.toHaveBeenCalled();
+  });
+
+  test("ignores block indentation on focus without discarding a first blank-line edit", async () => {
+    const onChangeText = jest.fn();
+    const screen = await render(
+      React.createElement(RichTextEditor, {
+        ...props,
+        value: "**First paragraph**\n\nSecond paragraph",
+        onChangeText,
+      })
+    );
+    const input = screen.getByLabelText("Description");
+    await fireEvent(input, "focus");
+    await fireEvent(input, "changeHtml", {
+      nativeEvent: { value: "<p><b>First paragraph</b></p><p>Second paragraph</p>" },
+    });
+    expect(onChangeText).not.toHaveBeenCalled();
+    const changed = "<p><b>First paragraph</b></p><p></p><p>Second paragraph</p>";
+    await fireEvent(input, "changeHtml", { nativeEvent: { value: changed } });
+    expect(onChangeText).toHaveBeenLastCalledWith(changed);
   });
 
   test("loads short and multiline descriptions without emitting wrapper HTML on edit", async () => {
@@ -107,5 +143,15 @@ describe("rich-text description editor", () => {
       })
     );
     expect(mockSetValue).toHaveBeenLastCalledWith("<p>First line\nSecond line</p>");
+    onChangeText.mockClear();
+    await fireEvent(input, "focus");
+    await fireEvent(input, "changeHtml", {
+      nativeEvent: { value: "<p>First line\nSecond line</p>" },
+    });
+    expect(onChangeText).not.toHaveBeenCalled();
+    await fireEvent(input, "changeHtml", {
+      nativeEvent: { value: "<p>First line\nSecond lineX</p>" },
+    });
+    expect(onChangeText).toHaveBeenLastCalledWith("<p>First line\nSecond lineX</p>");
   });
 });
