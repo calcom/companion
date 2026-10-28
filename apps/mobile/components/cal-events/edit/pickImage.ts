@@ -1,5 +1,5 @@
 import { File as StoredFile } from "expo-file-system";
-import { Image } from "expo-image";
+import { Image, type ImageRef } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import type { CalEventImageFile } from "@/services/calcom";
@@ -117,16 +117,11 @@ async function fitImage(
   try {
     for (let tries = 0; tries < SHRINK_TRIES; tries++) {
       // Given one side, the manipulator works out the other from the photo's proportions.
-      const context = ImageManipulator.manipulate(source).resize(
-        width >= height ? { width: side } : { height: side }
+      const saved = await saveResized(
+        source,
+        width >= height ? { width: side } : { height: side },
+        png ? SaveFormat.PNG : SaveFormat.JPEG
       );
-      const image = await context.renderAsync();
-      const saved = await image.saveAsync({
-        format: png ? SaveFormat.PNG : SaveFormat.JPEG,
-        compress: SHRINK_QUALITY,
-      });
-      image.release();
-      context.release();
       const copy: CalEventImageFile = { uri: saved.uri, name, type };
       if (photo.file) {
         // The web uploads a File, so the copy needs one too.
@@ -138,6 +133,25 @@ async function fitImage(
     return null;
   } finally {
     source.release();
+  }
+}
+
+/** Saves `source` at `size` as a new file, and frees the native images that took, even on failure. */
+async function saveResized(
+  source: ImageRef,
+  size: { width: number } | { height: number },
+  format: SaveFormat
+) {
+  const context = ImageManipulator.manipulate(source).resize(size);
+  try {
+    const image = await context.renderAsync();
+    try {
+      return await image.saveAsync({ format, compress: SHRINK_QUALITY });
+    } finally {
+      image.release();
+    }
+  } finally {
+    context.release();
   }
 }
 

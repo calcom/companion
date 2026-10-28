@@ -14,13 +14,14 @@ jest.mock("@/utils/alerts", () => ({
 // The manipulator's copies weigh mockShrunk.bytesPerPixel for each pixel of their longest side.
 const mockShrunk = {
   loads: [],
-  released: 0,
+  released: [],
   sources: [],
   resizes: [],
   formats: [],
   sizes: new Map(),
   bytesPerPixel: 1000,
   fail: false,
+  failSave: false,
 };
 jest.mock("expo-image", () => ({
   Image: {
@@ -29,7 +30,7 @@ jest.mock("expo-image", () => ({
       return {
         loadedFrom: uri,
         release: () => {
-          mockShrunk.released++;
+          mockShrunk.released.push("source");
         },
       };
     },
@@ -50,15 +51,20 @@ jest.mock("expo-image-manipulator", () => ({
           if (mockShrunk.fail) throw new Error("Could not render the image");
           return {
             saveAsync: async ({ format }) => {
+              if (mockShrunk.failSave) throw new Error("Could not save the image");
               mockShrunk.formats.push(format);
               const uri = `file:///cache/shrunk-${context.side}.${format}`;
               mockShrunk.sizes.set(uri, context.side * mockShrunk.bytesPerPixel);
               return { uri };
             },
-            release: () => {},
+            release: () => {
+              mockShrunk.released.push("image");
+            },
           };
         },
-        release: () => {},
+        release: () => {
+          mockShrunk.released.push("context");
+        },
       };
       return context;
     },
@@ -77,13 +83,14 @@ const { pickCalEventImage } = require("./pickImage");
 
 beforeEach(() => {
   mockShrunk.loads = [];
-  mockShrunk.released = 0;
+  mockShrunk.released = [];
   mockShrunk.sources = [];
   mockShrunk.resizes = [];
   mockShrunk.formats = [];
   mockShrunk.sizes = new Map();
   mockShrunk.bytesPerPixel = 1000;
   mockShrunk.fail = false;
+  mockShrunk.failSave = false;
 });
 
 function pick(asset, options = {}) {
@@ -188,7 +195,12 @@ describe("pickCalEventImage keeps uploads under 1 MB", () => {
     for (const source of mockShrunk.sources) {
       expect(source).toMatchObject({ loadedFrom: "file:///cache/photo" });
     }
-    expect(mockShrunk.released).toBe(1);
+  });
+
+  test("frees each native image it made", async () => {
+    await pick(IPHONE_PHOTO);
+    const count = (kind) => mockShrunk.released.filter((released) => released === kind).length;
+    expect([count("source"), count("context"), count("image")]).toEqual([1, 5, 5]);
   });
 
   test("holds a portrait photo to its height", async () => {
@@ -256,7 +268,18 @@ describe("pickCalEventImage keeps uploads under 1 MB", () => {
         "Failed to scale the photo down",
         new Error("Could not render the image")
       );
-      expect(mockShrunk.released).toBe(1);
+      expect(mockShrunk.released).toEqual(["context", "source"]);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  test("frees the native images when saving a copy fails", async () => {
+    mockShrunk.failSave = true;
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await expect(pick(IPHONE_PHOTO)).resolves.toBeNull();
+      expect(mockShrunk.released).toEqual(["image", "context", "source"]);
     } finally {
       consoleError.mockRestore();
     }
