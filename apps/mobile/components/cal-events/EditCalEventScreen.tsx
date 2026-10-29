@@ -169,6 +169,7 @@ type SFSymbol = Extract<ComponentProps<typeof Stack.Header.MenuAction>["icon"], 
 interface EditCalEventScreenProps {
   /** The event as `GET /v2/events/{uuid}` returns it; the form prefills from it once. */
   event: CalEvent;
+  initialTab?: "basics" | "guests";
   onClose: () => void;
   onSaved: (event: CalEvent | null) => void;
 }
@@ -182,7 +183,12 @@ type FormUpdate =
  * One Save sends only what changed; locations and co-hosts have their own endpoints and apply as
  * soon as they're added.
  */
-export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScreenProps) {
+export function EditCalEventScreen({
+  event,
+  initialTab = "basics",
+  onClose,
+  onSaved,
+}: EditCalEventScreenProps) {
   const theme = useEditTheme();
   const surfaces = useEditSurfaces();
   const isDark = useColorScheme() === "dark";
@@ -197,7 +203,7 @@ export function EditCalEventScreen({ event, onClose, onSaved }: EditCalEventScre
   const [initial, setInitial] = useState(() => buildEditFormValues(event));
   const [values, setValues] = useState(initial);
   const [cover, setCover] = useState<CoverChange>({ kind: "keep" });
-  const [tab, setTab] = useState<TabId>("basics");
+  const [tab, setTab] = useState<TabId>(initialTab);
   const [openPicker, setOpenPicker] = useState<"start" | "end" | "timeZone" | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
