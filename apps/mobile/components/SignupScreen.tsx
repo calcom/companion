@@ -115,9 +115,8 @@ export function SignupScreen({ region, onBack }: SignupScreenProps) {
       setFieldErrors({});
     } catch (error) {
       showError(error);
-    } finally {
-      setPending(null);
     }
+    setPending(null);
   };
 
   const createAccount = async () => {
@@ -131,9 +130,8 @@ export function SignupScreen({ region, onBack }: SignupScreenProps) {
       await completeNativeSignup(normalizeNativeSignupAccount(account), code);
     } catch (error) {
       showError(error);
-    } finally {
-      setPending(null);
     }
+    setPending(null);
   };
 
   const continueWithProvider = async (provider: "google" | "microsoft") => {
@@ -143,9 +141,8 @@ export function SignupScreen({ region, onBack }: SignupScreenProps) {
       await loginWithOAuth(provider);
     } catch (error) {
       showError(error);
-    } finally {
-      setPending(null);
     }
+    setPending(null);
   };
 
   const colors = {
