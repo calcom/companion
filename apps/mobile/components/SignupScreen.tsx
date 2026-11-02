@@ -236,6 +236,8 @@ export function SignupScreen({ region, onBack }: SignupScreenProps) {
               colors={colors}
               autoCapitalize="none"
               autoComplete="email"
+              autoCorrect={false}
+              spellCheck={false}
               keyboardType="email-address"
               textContentType="emailAddress"
             />
