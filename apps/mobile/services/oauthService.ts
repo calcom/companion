@@ -5,7 +5,13 @@ import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 
+import {
+  type NativeSignupAccount,
+  NativeSignupError,
+  SignupUnderReviewError,
+} from "@/utils/native-signup";
 import { fetchWithTimeout } from "@/utils/network";
+import { type AuthorizationEntry, buildAuthorizationEntryUrl } from "@/utils/oauth-entry-url";
 import { type CalRegion, getCalAppUrl, getRegion } from "@/utils/region";
 import { safeLogWarn } from "@/utils/safeLogger";
 
@@ -82,6 +88,19 @@ async function getExtensionSessionToken(): Promise<string | null> {
 
   return sessionTokenPromise;
 }
+
+/** The person closed the browser before finishing; not a failure worth an alert. */
+export class OAuthCancelledError extends Error {
+  constructor() {
+    super("OAuth flow cancelled");
+    this.name = "OAuthCancelledError";
+  }
+}
+
+type AuthorizationResult =
+  | { type: "success"; params: Record<string, string> }
+  | { type: "cancel" }
+  | { type: "error" };
 
 export interface OAuthTokens {
   accessToken: string;
@@ -170,7 +189,7 @@ export class CalComOAuthService {
     return Platform.OS === "web" && typeof window !== "undefined" && window.parent !== window;
   }
 
-  async startAuthorizationFlow(): Promise<OAuthTokens> {
+  async startAuthorizationFlow(entry: AuthorizationEntry = "signin"): Promise<OAuthTokens> {
     const { codeChallenge, state } = await this.generatePKCEParams();
 
     if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -180,8 +199,11 @@ export class CalComOAuthService {
       }
     }
 
-    const result = await this.getAuthorizationResult(codeChallenge, state);
+    const result = await this.getAuthorizationResult(codeChallenge, state, entry);
 
+    if (result.type === "cancel") {
+      throw new OAuthCancelledError();
+    }
     if (result.type !== "success") {
       throw new Error("OAuth flow failed");
     }
@@ -219,9 +241,13 @@ export class CalComOAuthService {
 
   private async getAuthorizationResult(
     codeChallenge: string,
-    state: string
-  ): Promise<{ type: "success"; params: Record<string, string> } | { type: "error" }> {
-    const authUrl = this.buildAuthorizationUrl(codeChallenge, state);
+    state: string,
+    entry: AuthorizationEntry
+  ): Promise<AuthorizationResult> {
+    const authUrl = buildAuthorizationEntryUrl(
+      this.buildAuthorizationUrl(codeChallenge, state),
+      entry
+    );
 
     if (this.isMobileApp()) {
       return this.getMobileAuthResult(authUrl);
@@ -230,9 +256,7 @@ export class CalComOAuthService {
     return this.getExtensionAuthResult(authUrl);
   }
 
-  private async getMobileAuthResult(
-    authUrl: string
-  ): Promise<{ type: "success"; params: Record<string, string> } | { type: "error" }> {
+  private async getMobileAuthResult(authUrl: string): Promise<AuthorizationResult> {
     const result = await WebBrowser.openAuthSessionAsync(authUrl, this.config.redirectUri, {
       preferEphemeralSession: true,
     });
@@ -240,13 +264,14 @@ export class CalComOAuthService {
     if (result.type === "success") {
       return { type: "success", params: this.parseCallbackUrl(result.url) };
     }
+    if (result.type === "cancel" || result.type === "dismiss") {
+      return { type: "cancel" };
+    }
 
     return { type: "error" };
   }
 
-  private async getExtensionAuthResult(
-    authUrl: string
-  ): Promise<{ type: "success"; params: Record<string, string> } | { type: "error" }> {
+  private async getExtensionAuthResult(authUrl: string): Promise<AuthorizationResult> {
     try {
       const responseUrl = await this.launchExtensionAuthFlow(authUrl);
       return { type: "success", params: this.parseCallbackUrl(responseUrl) };
@@ -432,6 +457,73 @@ export class CalComOAuthService {
         "*"
       );
     });
+  }
+
+  /** Step 1 of native signup: checks the account can be created and emails a 6-digit code. */
+  async requestSignupVerificationCode(account: NativeSignupAccount): Promise<void> {
+    await this.postNativeSignup("/api/auth/oauth/signup/verification-code", {
+      client_id: this.config.clientId,
+      ...account,
+    });
+  }
+
+  /**
+   * Step 2 of native signup: creates the account and receives a PKCE-bound authorization code,
+   * exchanged like any other so the new account is signed in without a browser.
+   */
+  async completeNativeSignup(
+    account: NativeSignupAccount,
+    verificationCode: string
+  ): Promise<OAuthTokens> {
+    const { codeChallenge, state } = await this.generatePKCEParams();
+    const data = await this.postNativeSignup("/api/auth/oauth/signup", {
+      client_id: this.config.clientId,
+      ...account,
+      verification_code: verificationCode.trim(),
+      redirect_uri: this.config.redirectUri,
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+      state,
+      time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      ...(this.config.scope && { scope: this.config.scope }),
+    });
+
+    if (data.status === "under_review") {
+      throw new SignupUnderReviewError();
+    }
+    if (!data.code || data.state !== state) {
+      throw new NativeSignupError("invalid_server_response");
+    }
+
+    return this.exchangeCodeForTokens(data.code, data.state);
+  }
+
+  private async postNativeSignup(
+    path: string,
+    body: Record<string, string>
+  ): Promise<{ status?: string; code?: string; state?: string }> {
+    const response = await fetchWithTimeout(
+      `${this.config.calcomBaseUrl}${path}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(body),
+      },
+      TOKEN_EXCHANGE_TIMEOUT_MS
+    );
+    const data = await response.json().catch(() => ({}));
+
+    if (response.ok) {
+      return data;
+    }
+    if (response.status === 429) {
+      throw new NativeSignupError("rate_limited");
+    }
+    // Signup turned off for the instance (or cal.eu) answers 403 without an error code.
+    if (response.status === 403 && !data.error) {
+      throw new NativeSignupError("signup_unavailable");
+    }
+    throw new NativeSignupError(data.error ?? "unknown", data.suggestion);
   }
 
   getDiscoveryEndpoints(): AuthSession.DiscoveryDocument {

@@ -18,6 +18,8 @@ import {
 } from "@/services/oauthService";
 import type { UserProfile } from "@/services/types/users.types";
 import { WebAuthService } from "@/services/webAuth";
+import type { NativeSignupAccount } from "@/utils/native-signup";
+import type { AuthorizationEntry } from "@/utils/oauth-entry-url";
 import { clearQueryCache } from "@/utils/queryPersister";
 import { clearRegion, getRegion, preloadRegion, subscribeRegion } from "@/utils/region";
 import { safeLogWarn } from "@/utils/safeLogger";
@@ -46,7 +48,12 @@ interface AuthContextType {
   userInfo: AuthUserInfo | null;
   isWebSession: boolean;
   loginFromWebSession: (userInfo: UserProfile) => Promise<void>;
-  loginWithOAuth: () => Promise<void>;
+  /** Runs the OAuth browser flow from `entry` (Cal.com sign-in by default, or Google/Microsoft/web signup). */
+  loginWithOAuth: (entry?: AuthorizationEntry) => Promise<void>;
+  /** Native signup, step 1: emails a verification code to the account's address. */
+  requestSignupVerificationCode: (account: NativeSignupAccount) => Promise<void>;
+  /** Native signup, step 2: creates the account and signs it in. */
+  completeNativeSignup: (account: NativeSignupAccount, verificationCode: string) => Promise<void>;
   logout: () => Promise<void>;
   registerPreLogoutCallback: (callback: PreLogoutCallback) => () => void;
   loading: boolean;
@@ -762,7 +769,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const loginWithOAuth = async (): Promise<void> => {
+  const resolveOAuthService = (): CalComOAuthService => {
     // Build from current region at call time — oauthService state can lag behind a region change.
     let currentService: CalComOAuthService | null;
     try {
@@ -777,7 +784,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!currentService) {
       throw new Error("OAuth service not available. Please check your configuration.");
     }
+    return currentService;
+  };
 
+  const loginWithOAuth = async (entry: AuthorizationEntry = "signin"): Promise<void> => {
+    if (entry === "signin") {
+      return authenticateWithOAuth((service) => service.startAuthorizationFlow());
+    }
+    // `loading` swaps the login tree for a splash, so signup entries get their tokens first:
+    // a cancel or error then leaves the person on the signup screen with what they typed.
+    const service = resolveOAuthService();
+    const tokens = await service.startAuthorizationFlow(entry);
+    await authenticateWithOAuth(async () => tokens, service);
+  };
+
+  const requestSignupVerificationCode = (account: NativeSignupAccount): Promise<void> =>
+    resolveOAuthService().requestSignupVerificationCode(account);
+
+  const completeNativeSignup = async (
+    account: NativeSignupAccount,
+    verificationCode: string
+  ): Promise<void> => {
+    const service = resolveOAuthService();
+    const tokens = await service.completeNativeSignup(account, verificationCode);
+    await authenticateWithOAuth(async () => tokens, service);
+  };
+
+  const authenticateWithOAuth = async (
+    obtainTokens: (service: CalComOAuthService) => Promise<OAuthTokens>,
+    currentService: CalComOAuthService = resolveOAuthService()
+  ): Promise<void> => {
     setLoading(true);
     try {
       // Start a new auth session generation so any in-flight request/refresh
@@ -810,7 +846,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } catch (idError) {
         safeLogWarn("Failed to clear previous auth user id before login:", idError);
       }
-      const tokens = await currentService.startAuthorizationFlow();
+      const tokens = await obtainTokens(currentService);
       if (CalComAPIService.getAuthGeneration() !== generationAtStart) {
         setLoading(false);
         return;
@@ -875,6 +911,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isWebSession,
     loginFromWebSession,
     loginWithOAuth,
+    requestSignupVerificationCode,
+    completeNativeSignup,
     logout,
     registerPreLogoutCallback,
     loading,
