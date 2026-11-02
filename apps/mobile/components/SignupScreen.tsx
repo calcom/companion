@@ -153,6 +153,9 @@ export function SignupScreen({ region, onBack }: SignupScreenProps) {
     error: isDark ? "#F87171" : "#DC2626",
   };
   const busy = pending !== null;
+  // App Store 4.8: native Google/Microsoft buttons would require Sign in with Apple. On iOS they
+  // stay on Cal.com's web login (behind Sign in), like other scheduling apps.
+  const showSocialSignup = Platform.OS !== "ios";
 
   return (
     <KeyboardAvoidingView
@@ -198,28 +201,32 @@ export function SignupScreen({ region, onBack }: SignupScreenProps) {
           </Text>
         ) : step === "details" ? (
           <>
-            <ProviderButton
-              icon="logo-google"
-              label="Continue with Google"
-              onPress={() => continueWithProvider("google")}
-              disabled={busy}
-              colors={colors}
-            />
-            <ProviderButton
-              icon="logo-microsoft"
-              label="Continue with Microsoft"
-              onPress={() => continueWithProvider("microsoft")}
-              disabled={busy}
-              colors={colors}
-            />
+            {showSocialSignup ? (
+              <>
+                <ProviderButton
+                  icon="logo-google"
+                  label="Continue with Google"
+                  onPress={() => continueWithProvider("google")}
+                  disabled={busy}
+                  colors={colors}
+                />
+                <ProviderButton
+                  icon="logo-microsoft"
+                  label="Continue with Microsoft"
+                  onPress={() => continueWithProvider("microsoft")}
+                  disabled={busy}
+                  colors={colors}
+                />
 
-            <View className="my-5 flex-row items-center">
-              <View className="h-px flex-1" style={{ backgroundColor: colors.border }} />
-              <Text className="mx-3 text-[13px]" style={{ color: colors.muted }}>
-                or sign up with email
-              </Text>
-              <View className="h-px flex-1" style={{ backgroundColor: colors.border }} />
-            </View>
+                <View className="my-5 flex-row items-center">
+                  <View className="h-px flex-1" style={{ backgroundColor: colors.border }} />
+                  <Text className="mx-3 text-[13px]" style={{ color: colors.muted }}>
+                    or sign up with email
+                  </Text>
+                  <View className="h-px flex-1" style={{ backgroundColor: colors.border }} />
+                </View>
+              </>
+            ) : null}
 
             <Field
               label="Email"
