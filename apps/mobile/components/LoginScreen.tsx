@@ -227,7 +227,7 @@ export function LoginScreen() {
             className="text-[17px] font-semibold"
             style={{ color: isDark ? "#000000" : "#FFFFFF" }}
           >
-            Continue with Cal.com
+            Sign in
           </Text>
         </TouchableOpacity>
 
