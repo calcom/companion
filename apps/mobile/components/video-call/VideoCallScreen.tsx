@@ -13,6 +13,7 @@ import { useRoomAccess } from "@/hooks/useRoomAccess";
 import { useWaitingList } from "@/hooks/useWaitingList";
 import { type RoomRef, setRecording } from "@/services/cal-video/api";
 import { toCalChatParticipantId } from "@/services/cal-video/cal-chat/participant-id";
+import { loadGuestName, saveGuestName } from "@/services/cal-video/guest-name";
 import { type LayoutChoice, resolveStage } from "@/services/cal-video/layout";
 import { NativeCallSession } from "@/services/cal-video/native-call";
 import { resolveRoomScreen } from "@/services/cal-video/room-screen";
@@ -26,6 +27,7 @@ import {
   type CallDriverOptions,
   type CallParticipant,
   isCallOver,
+  type ReactionEmoji,
 } from "@/services/cal-video/types";
 import { showActionSheet } from "@/utils/action-sheet";
 import { openInDefaultBrowser } from "@/utils/browser";
@@ -98,6 +100,17 @@ export function VideoCallScreen({
   const grant = room.grant;
   const controlToken = grant?.controlToken ?? null;
   const isHost = grant?.role === "host";
+  // A guest's last name, so a rejoin does not start from an empty field.
+  const [rememberedName, setRememberedName] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void loadGuestName().then((name) => {
+      if (!cancelled) setRememberedName(name);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const joinOptions = useMemo(
     () => ({ startAudioMuted: !microphoneOn, startVideoMuted: !cameraOn }),
@@ -387,11 +400,13 @@ export function VideoCallScreen({
       if (!person) return;
       // Your own tile drops "pin": pinning yourself on your own screen changes nothing worth a tap.
       const actions = actionsFor(person).filter(
-        (action) => !(person.isYou && (action === "pin-for-me" || action === "unpin-for-me"))
+        (action) =>
+          !(person.isYou && (action === "pin-for-me" || action === "unpin-for-me")) &&
+          !(action === "stop-screen-share" && !driver?.stopParticipantScreenShare)
       );
       showParticipantActions(person, actions);
     },
-    [here, actionsFor, showParticipantActions]
+    [here, actionsFor, showParticipantActions, driver]
   );
 
   const showAccessMenu = useCallback(() => {
@@ -462,6 +477,36 @@ export function VideoCallScreen({
       ],
     });
   }, [state, driver, layoutChoice]);
+
+  const localHandUp = state.participants.some((p) => p.isLocal && p.handRaisedAt !== null);
+  const reactionControls = useMemo(() => {
+    if (!driver?.signals.reactions && !driver?.signals.handRaise) return null;
+    const sendReaction = driver.sendReaction;
+    const setHandRaised = driver.setHandRaised;
+    return {
+      onReact: (emoji: ReactionEmoji) =>
+        void sendReaction?.(emoji).catch(() => failedToast("Couldn't send the reaction")),
+      hand: setHandRaised
+        ? {
+            raised: localHandUp,
+            onToggle: () =>
+              void setHandRaised(!localHandUp).catch(() =>
+                failedToast(localHandUp ? "Couldn't lower your hand" : "Couldn't raise your hand")
+              ),
+          }
+        : null,
+    };
+  }, [driver, localHandUp]);
+
+  // A host lowering your hand is worth a word, since nothing else on screen says who did it.
+  const loweredAt = state.handLoweredByHostAt;
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (loweredAt === null) return;
+    setNotice("A host lowered your hand");
+    const timer = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [loweredAt]);
 
   // --- The header's buttons -----------------------------------------------------------------
   const flipCamera = useCallback(
@@ -538,13 +583,16 @@ export function VideoCallScreen({
       content = (
         <PreJoinScreen
           address={address}
-          viewerName={viewerName}
+          viewerName={viewerName ?? rememberedName}
           viewerAvatarUrl={viewerAvatarUrl}
           microphoneOn={microphoneOn}
           cameraOn={cameraOn}
           onMicrophoneChange={setMicrophoneOn}
           onCameraChange={setCameraOn}
-          onJoin={(name) => void room.join(name)}
+          onJoin={(name) => {
+            if (viewerName === null) void saveGuestName(name);
+            void room.join(name);
+          }}
           onClose={onClose}
           onSignIn={viewerName === null && accessToken === null ? onClose : undefined}
           joining={room.joining}
@@ -579,6 +627,8 @@ export function VideoCallScreen({
             chat={
               chatOffered ? { unread: chat?.unread ?? 0, onPress: () => setPanel("chat") } : null
             }
+            reactions={reactionControls}
+            notice={notice}
             onFlipCamera={flipCamera}
             onSpeaker={showSpeakerMenu}
             onInfo={showInfoMenu}

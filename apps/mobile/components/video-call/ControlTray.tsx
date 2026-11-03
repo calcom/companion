@@ -4,6 +4,7 @@ import {
   MicOff,
   MoreHorizontal,
   PhoneOff,
+  SmilePlus,
   Video,
   VideoOff,
 } from "lucide-react-native";
@@ -12,8 +13,8 @@ import type { CallDriver, CallState } from "@/services/cal-video/types";
 import { TrayButton } from "./TrayButton";
 
 /**
- * The controls that are always within thumb's reach: microphone, camera, chat, everything else,
- * leave. Every control is gated the same way as on the web: the grant says whether it may be
+ * The controls that are always within thumb's reach: microphone, camera, reactions, chat,
+ * everything else, leave. Every control is gated the same way as on the web: the grant says whether it may be
  * offered here, the driver says whether the transport can carry it, the state says what it is
  * set to. Leave is deliberately outside the `disabled` guard: while stuck reconnecting, leaving is
  * the one thing you certainly still want to do.
@@ -22,6 +23,7 @@ export function ControlTray({
   driver,
   state,
   chat,
+  reactions,
   onToggleMicrophone,
   onToggleCamera,
   onMore,
@@ -31,6 +33,8 @@ export function ControlTray({
   state: CallState;
   /** `null` where chat is not on offer, decided by the shell from the grant and the driver. */
   chat: { unread: number; onPress: () => void } | null;
+  /** `null` where neither reactions nor hands can travel. `open` is the bar showing. */
+  reactions: { open: boolean; onPress: () => void } | null;
   onToggleMicrophone: () => void;
   onToggleCamera: () => void;
   onMore: () => void;
@@ -40,14 +44,20 @@ export function ControlTray({
   const inCall = driver !== null && (state.status === "joined" || state.status === "reconnecting");
   const microphoneOn = Boolean(local?.hasAudio);
   const cameraOn = Boolean(local?.hasVideo);
+  const count =
+    3 + (state.capabilities.canPublishVideo ? 1 : 0) + (chat ? 1 : 0) + (reactions ? 1 : 0);
+  // Six discs at full size overrun a phone; they shrink together rather than scroll.
+  const size = count >= 6 ? 50 : 56;
+  const gap = count >= 6 ? 10 : 14;
 
   return (
-    <View style={styles.tray}>
+    <View style={[styles.tray, { gap }]}>
       <TrayButton
         icon={microphoneOn ? Mic : MicOff}
         label={microphoneOn ? "Mute" : "Unmute"}
         active={!microphoneOn}
         disabled={!inCall}
+        size={size}
         onPress={onToggleMicrophone}
       />
       {state.capabilities.canPublishVideo && (
@@ -56,7 +66,18 @@ export function ControlTray({
           label={cameraOn ? "Turn camera off" : "Turn camera on"}
           active={!cameraOn}
           disabled={!inCall}
+          size={size}
           onPress={onToggleCamera}
+        />
+      )}
+      {reactions && (
+        <TrayButton
+          icon={SmilePlus}
+          label="React"
+          active={reactions.open}
+          disabled={!inCall}
+          size={size}
+          onPress={reactions.onPress}
         />
       )}
       {chat && (
@@ -65,11 +86,18 @@ export function ControlTray({
           label="Chat"
           badge={chat.unread}
           disabled={!inCall}
+          size={size}
           onPress={chat.onPress}
         />
       )}
-      <TrayButton icon={MoreHorizontal} label="More options" disabled={!inCall} onPress={onMore} />
-      <TrayButton icon={PhoneOff} label="Leave" tone="destructive" onPress={onLeave} />
+      <TrayButton
+        icon={MoreHorizontal}
+        label="More options"
+        disabled={!inCall}
+        size={size}
+        onPress={onMore}
+      />
+      <TrayButton icon={PhoneOff} label="Leave" tone="destructive" size={size} onPress={onLeave} />
     </View>
   );
 }
@@ -79,7 +107,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 14,
     paddingHorizontal: 16,
   },
 });

@@ -1,8 +1,9 @@
 import { MonitorUp } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type LayoutChangeEvent, ScrollView, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import type { StageLayout } from "@/services/cal-video/layout";
+import { nextBadgeExpiry, reactionBadges } from "@/services/cal-video/reactions";
 import type { CallDriver, CallParticipant, CallState } from "@/services/cal-video/types";
 import { DraggablePip } from "./DraggablePip";
 import { GlassSurface } from "./GlassSurface";
@@ -55,6 +56,7 @@ export function ParticipantGrid({
   const local = state.participants.find((p) => p.isLocal) ?? null;
   const remote = state.participants.filter((p) => !p.isLocal);
   const featuredId = state.dominantSpeakerId;
+  const badges = useReactionBadges(state.reactions);
 
   const tile = (participant: CallParticipant, style: object, compact = false) => (
     <ParticipantTile
@@ -64,6 +66,7 @@ export function ParticipantGrid({
       avatarUrl={participant.isLocal ? localAvatarUrl : null}
       featured={featuredId === participant.id && remote.length > 1}
       pinned={pinnedIds.includes(participant.id)}
+      reaction={badges.get(participant.id) ?? null}
       compact={compact}
       style={style}
       onPress={onTilePress}
@@ -166,6 +169,22 @@ export function ParticipantGrid({
         (scrolls ? <ScrollView showsVerticalScrollIndicator={false}>{grid}</ScrollView> : grid)}
     </View>
   );
+}
+
+/** Each participant's fresh reaction; re-renders once when the next badge is due to go. */
+function useReactionBadges(reactions: CallState["reactions"]) {
+  const [now, setNow] = useState(() => Date.now());
+  const badges = reactionBadges(reactions, now);
+  const expiry = nextBadgeExpiry(badges);
+  useEffect(() => {
+    setNow(Date.now());
+  }, [reactions]);
+  useEffect(() => {
+    if (expiry === null) return;
+    const timer = setTimeout(() => setNow(Date.now()), Math.max(0, expiry - Date.now()) + 20);
+    return () => clearTimeout(timer);
+  }, [expiry]);
+  return badges;
 }
 
 const styles = StyleSheet.create({

@@ -1,13 +1,20 @@
-import { Ellipsis, SwitchCamera, Volume2, Wifi, WifiOff } from "lucide-react-native";
+import { Ellipsis, Hand, SwitchCamera, Volume2, Wifi, WifiOff } from "lucide-react-native";
+import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { StageLayout } from "@/services/cal-video/layout";
-import type { CallDriver, CallParticipant, CallState } from "@/services/cal-video/types";
+import type {
+  CallDriver,
+  CallParticipant,
+  CallState,
+  ReactionEmoji,
+} from "@/services/cal-video/types";
 import { CaptionsStrip } from "./CaptionsStrip";
 import { ControlTray } from "./ControlTray";
 import { GlassSurface } from "./GlassSurface";
 import { HeaderButton, HeaderButtonGroup } from "./HeaderButton";
 import { ParticipantGrid } from "./ParticipantGrid";
+import { ReactionBar } from "./ReactionBar";
 import { RecordingPill } from "./RecordingPill";
 
 const TRAY_HEIGHT = 56 + 24;
@@ -26,6 +33,8 @@ export function CallScreen({
   localAvatarUrl,
   waitingCount,
   chat,
+  reactions,
+  notice = null,
   onFlipCamera,
   onSpeaker,
   onInfo,
@@ -43,6 +52,13 @@ export function CallScreen({
   /** People at the door, for a host; a badge on the details button says so. */
   waitingCount: number;
   chat: { unread: number; onPress: () => void } | null;
+  /** Reactions and the hand, or `null` where the call cannot carry them. */
+  reactions: {
+    onReact: (emoji: ReactionEmoji) => void;
+    hand: { raised: boolean; onToggle: () => void } | null;
+  } | null;
+  /** A short line worth a glance, such as a host lowering your hand. */
+  notice?: string | null;
   onFlipCamera: () => void;
   onSpeaker: () => void;
   /** The meeting's details: link, people, who can join. */
@@ -55,6 +71,7 @@ export function CallScreen({
 }) {
   const insets = useSafeAreaInsets();
   const local = state.participants.find((participant) => participant.isLocal);
+  const [reactionsOpen, setReactionsOpen] = useState(false);
   const connecting = state.status === "joining" || state.status === "idle";
   const reconnecting = state.status === "reconnecting";
   const poorNetwork = state.localConnection === "poor" || state.localConnection === "bad";
@@ -98,20 +115,26 @@ export function CallScreen({
         </HeaderButtonGroup>
       </View>
 
-      {(connecting || reconnecting || poorNetwork) && (
+      {(connecting || reconnecting || poorNetwork || notice) && (
         <View style={[styles.banner, { top: insets.top + 56 }]} pointerEvents="none">
           <GlassSurface style={styles.bannerPill}>
-            {reconnecting || poorNetwork ? (
-              <WifiOff size={13} color="#FFD60A" />
+            {connecting || reconnecting || poorNetwork ? (
+              reconnecting || poorNetwork ? (
+                <WifiOff size={13} color="#FFD60A" />
+              ) : (
+                <Wifi size={13} color="#FFFFFF" />
+              )
             ) : (
-              <Wifi size={13} color="#FFFFFF" />
+              <Hand size={13} color="#FFD60A" />
             )}
             <Text style={styles.bannerText}>
               {connecting
                 ? "Connecting…"
                 : reconnecting
                   ? "Reconnecting… Your audio and video are paused."
-                  : "Poor connection"}
+                  : poorNetwork
+                    ? "Poor connection"
+                    : notice}
             </Text>
           </GlassSurface>
         </View>
@@ -126,11 +149,28 @@ export function CallScreen({
         </View>
       )}
 
+      {reactions && reactionsOpen && (
+        <View style={[styles.reactions, { bottom: TRAY_HEIGHT + insets.bottom + 8 }]}>
+          <ReactionBar
+            onReact={(emoji) => {
+              reactions.onReact(emoji);
+              setReactionsOpen(false);
+            }}
+            hand={reactions.hand}
+          />
+        </View>
+      )}
+
       <View style={[styles.trayWrap, { paddingBottom: insets.bottom + 12 }]}>
         <ControlTray
           driver={driver}
           state={state}
           chat={chat}
+          reactions={
+            reactions
+              ? { open: reactionsOpen, onPress: () => setReactionsOpen((open) => !open) }
+              : null
+          }
           onToggleMicrophone={onToggleMicrophone}
           onToggleCamera={onToggleCamera}
           onMore={onMore}
@@ -165,5 +205,6 @@ const styles = StyleSheet.create({
   },
   bannerText: { color: "#FFFFFF", fontSize: 12, fontWeight: "500", flexShrink: 1 },
   captions: { position: "absolute", left: 0, right: 0 },
+  reactions: { position: "absolute", left: 16, right: 16 },
   trayWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 12 },
 });

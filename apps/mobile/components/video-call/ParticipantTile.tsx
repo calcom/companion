@@ -1,5 +1,6 @@
-import { MicOff, MonitorUp, Pin, WifiOff } from "lucide-react-native";
+import { Hand, MicOff, MonitorUp, Pin, WifiOff } from "lucide-react-native";
 import { Pressable, type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import type { ReactionBadge } from "@/services/cal-video/reactions";
 import type { CallDriver, CallParticipant } from "@/services/cal-video/types";
 import { CallAvatar } from "./Avatar";
 import { GlassSurface } from "./GlassSurface";
@@ -15,6 +16,7 @@ export function ParticipantTile({
   avatarUrl,
   featured,
   pinned = false,
+  reaction = null,
   compact = false,
   style,
   onPress,
@@ -25,6 +27,8 @@ export function ParticipantTile({
   avatarUrl: string | null;
   featured: boolean;
   pinned?: boolean;
+  /** Their latest reaction while it is still fresh. */
+  reaction?: ReactionBadge | null;
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
   onPress?: (participant: CallParticipant) => void;
@@ -55,7 +59,22 @@ export function ParticipantTile({
           <Text style={styles.interruptedText}>Reconnecting</Text>
         </View>
       )}
+      {reaction && (
+        <GlassSurface
+          key={reaction.key}
+          style={[styles.reaction, compact && styles.reactionCompact]}
+        >
+          <Text
+            style={[styles.reactionEmoji, compact && styles.reactionEmojiCompact]}
+            accessibilityLabel={`${label} reacted ${reaction.emoji}`}
+          >
+            {reaction.emoji}
+          </Text>
+          {reaction.count > 1 && <Text style={styles.reactionCount}>{reaction.count}</Text>}
+        </GlassSurface>
+      )}
       <GlassSurface style={[styles.pill, compact && styles.pillCompact]}>
+        {participant.handRaisedAt !== null && <Hand size={iconSize} color="#FFD60A" />}
         {pinned && <Pin size={iconSize} color="#FFFFFF" />}
         {participant.isScreenSharing && <MonitorUp size={iconSize} color="#FFFFFF" />}
         {!participant.hasAudio && <MicOff size={iconSize} color="#FF453A" />}
@@ -90,6 +109,21 @@ const styles = StyleSheet.create({
     maxWidth: "80%",
   },
   pillCompact: { left: 6, bottom: 6, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 10 },
+  reaction: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+  reactionCompact: { top: 6, right: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  reactionEmoji: { fontSize: 20 },
+  reactionEmojiCompact: { fontSize: 15 },
+  reactionCount: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
   name: { color: "#FFFFFF", fontSize: 13, fontWeight: "500" },
   nameCompact: { fontSize: 11 },
   interrupted: {

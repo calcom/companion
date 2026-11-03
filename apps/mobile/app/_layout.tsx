@@ -4,7 +4,6 @@ import "../global.css";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { PortalHost } from "@rn-primitives/portal";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { useLinkingURL } from "expo-linking";
 import { Stack } from "expo-router";
 import { useState } from "react";
 import { Platform, StatusBar, useColorScheme, View } from "react-native";
@@ -20,6 +19,7 @@ import { getColors, colors as semanticColors } from "@/constants/colors";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { QueryProvider } from "@/contexts/QueryContext";
 import { ToastProvider } from "@/contexts/ToastContext";
+import { useIncomingLink } from "@/hooks/useIncomingLink";
 import { parseCalVideoLink } from "@/utils/cal-video-links";
 
 function RootLayoutContent() {
@@ -28,11 +28,11 @@ function RootLayoutContent() {
   const isDark = colorScheme === "dark";
   const colors = getColors(isDark);
   // A Cal Video link opened while signed out joins as a guest: a meeting must not need an account.
-  const linkingUrl = useLinkingURL();
-  const [dismissedGuestUrl, setDismissedGuestUrl] = useState<string | null>(null);
+  const incoming = useIncomingLink();
+  const [dismissedSeq, setDismissedSeq] = useState<number | null>(null);
   const guestLink =
-    !isAuthenticated && linkingUrl && linkingUrl !== dismissedGuestUrl
-      ? parseCalVideoLink(linkingUrl)
+    !isAuthenticated && incoming && incoming.seq !== dismissedSeq
+      ? parseCalVideoLink(incoming.url)
       : null;
 
   // Show Cal.com logo while checking auth state to prevent login flash
@@ -556,7 +556,7 @@ function RootLayoutContent() {
       viewerName={null}
       viewerAvatarUrl={null}
       accessToken={null}
-      onClose={() => setDismissedGuestUrl(linkingUrl)}
+      onClose={() => setDismissedSeq(incoming?.seq ?? null)}
     />
   ) : (
     <LoginScreenComponent />

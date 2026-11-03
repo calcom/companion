@@ -63,6 +63,10 @@ export function PreJoinScreen({
 }) {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(viewerName?.trim() ?? "");
+  // A remembered name arrives after mount; it fills an untouched field and never overwrites typing.
+  useEffect(() => {
+    if (viewerName) setName((current) => current || viewerName.trim());
+  }, [viewerName]);
   const preview = useLocalPreview({ active: true, cameraOn });
   useEffect(() => {
     onPreviewRelease(preview.release);

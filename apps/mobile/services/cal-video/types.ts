@@ -227,7 +227,7 @@ export interface CallDriverSignals {
   readonly transcription: boolean;
   /** Whether `setScreenShareEnabled` can publish this device's screen. */
   readonly screenShare: boolean;
-  /** Whether `muteParticipant`, `stopParticipantScreenShare` and `setSharedPin` exist. */
+  /** Whether `muteParticipant` and `setSharedPin` exist (and maybe `stopParticipantScreenShare`). */
   readonly participantControls: boolean;
   /** Whether `sendReaction` exists. */
   readonly reactions: boolean;
@@ -282,7 +282,10 @@ export interface CallDriver {
   startTranscription?(): Promise<void>;
   stopTranscription?(): Promise<void>;
 
-  /** Present as a trio exactly when `signals.participantControls` is true. Host only. */
+  /**
+   * Present when `signals.participantControls` is true. Host only. A provider without a way to
+   * end another's share leaves `stopParticipantScreenShare` out, and the menu drops that item.
+   */
   muteParticipant?(participantId: string): Promise<void>;
   stopParticipantScreenShare?(participantId: string): Promise<void>;
   setSharedPin?(participantId: string, pinned: boolean): Promise<void>;
