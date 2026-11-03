@@ -1,0 +1,29 @@
+diff --git a/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m b/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m
+index ab0e25e75feee78b6fda25aa81202b9d88262eb9..7bed8e0766a9138b8f4bdf942c2e11b0018d9c0d 100644
+--- a/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m
++++ b/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m
+@@ -277,9 +277,12 @@ - (RTKRTCVideoTrack *)createScreenCaptureVideoTrack {
+         if (device.localizedName != nil) {
+             label = device.localizedName;
+         }
++        // The iOS Simulator reports devices without a uniqueID; a nil value here raised
++        // NSInvalidArgumentException from the dictionary literal and aborted the app.
++        NSString *videoDeviceId = device.uniqueID ?: @"default";
+         [devices addObject:@{
+             @"facing" : position,
+-            @"deviceId" : device.uniqueID,
++            @"deviceId" : videoDeviceId,
+             @"groupId" : @"",
+             @"label" : label,
+             @"kind" : @"videoinput",
+@@ -294,8 +297,9 @@ - (RTKRTCVideoTrack *)createScreenCaptureVideoTrack {
+         if (device.localizedName != nil) {
+             label = device.localizedName;
+         }
++        NSString *audioDeviceId = device.uniqueID ?: @"default";
+         [devices addObject:@{
+-            @"deviceId" : device.uniqueID,
++            @"deviceId" : audioDeviceId,
+             @"groupId" : @"",
+             @"label" : label,
+             @"kind" : @"audioinput",

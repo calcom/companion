@@ -24,13 +24,17 @@
       "bundleIdentifier": "com.cal.companion",
       "userInterfaceStyle": "automatic",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["audio", "voip"],
+        "RTCAppGroupIdentifier": "group.com.cal.companion",
+        "RTCAppScreenSharingExtension": "com.cal.companion.screenshare"
       },
       "entitlements": {
         "com.apple.developer.default-data-protection": "NSFileProtectionComplete",
         "com.apple.security.application-groups": ["group.com.cal.companion"]
       },
-      "icon": "./assets/cal-logo.icon"
+      "icon": "./assets/cal-logo.icon",
+      "associatedDomains": ["applinks:cal.video", "applinks:*.cal.video"]
     },
     "android": {
       "adaptiveIcon": {
@@ -41,7 +45,33 @@
       "package": "com.calcom.companion",
       "softwareKeyboardLayoutMode": "pan",
       "usesCleartextTraffic": false,
-      "userInterfaceStyle": "automatic"
+      "userInterfaceStyle": "automatic",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "cal.video",
+              "pathPattern": "/.*"
+            },
+            {
+              "scheme": "https",
+              "host": "*.cal.video",
+              "pathPattern": "/.*"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.MANAGE_OWN_CALLS",
+        "android.permission.FOREGROUND_SERVICE_PHONE_CALL"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -70,18 +100,34 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow Cal.com to access your photos to add a cover or speaker photos to your events.",
-          "cameraPermission": "Allow $(PRODUCT_NAME) to use your camera to scan guests' QR tickets at check-in.",
-          "microphonePermission": false
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use your camera for Cal Video calls and to scan guests' QR tickets at check-in.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to use your microphone for Cal Video calls."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to use your camera to scan guests' QR tickets at check-in.",
-          "microphonePermission": false,
-          "recordAudioAndroid": false
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use your camera for Cal Video calls and to scan guests' QR tickets at check-in.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to use your microphone for Cal Video calls.",
+          "recordAudioAndroid": true
         }
       ],
+      [
+        "@cloudflare/react-native-webrtc",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use your camera for Cal Video calls and to scan guests' QR tickets at check-in.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to use your microphone for Cal Video calls."
+        }
+      ],
+      [
+        "@cloudflare/realtimekit-react-native",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use your camera for Cal Video calls and to scan guests' QR tickets at check-in.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to use your microphone for Cal Video calls.",
+          "libraryPermission": false
+        }
+      ],
+      "@config-plugins/react-native-callkeep",
       [
         "expo-splash-screen",
         {

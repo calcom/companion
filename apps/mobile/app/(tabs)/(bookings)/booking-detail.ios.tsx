@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { type Href, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef } from "react";
 import { useColorScheme } from "react-native";
 import { BookingDetailScreen } from "@/components/screens/BookingDetailScreen";
@@ -13,6 +13,7 @@ import { getMeetingUrl } from "@/utils/booking";
 import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
 import { getBookingForCacheUpdate, updateBookingCaches } from "@/utils/booking-cache";
 import { openInDefaultBrowser } from "@/utils/browser";
+import { buildVideoCallHref, parseCalVideoLink } from "@/utils/cal-video-links";
 
 // Empty actions result for when no booking is loaded
 const EMPTY_ACTIONS: BookingActionsResult = {
@@ -93,10 +94,15 @@ export default function BookingDetailIOS() {
 
   // Handle join meeting
   const handleJoinMeeting = useCallback(() => {
-    if (meetingUrl) {
-      openInDefaultBrowser(meetingUrl, "meeting link");
+    if (!meetingUrl) return;
+    // Cal Video rooms open natively; every other provider opens in the browser.
+    const calVideoLink = parseCalVideoLink(meetingUrl);
+    if (calVideoLink) {
+      router.push(buildVideoCallHref(calVideoLink) as Href);
+      return;
     }
-  }, [meetingUrl]);
+    openInDefaultBrowser(meetingUrl, "meeting link");
+  }, [meetingUrl, router]);
 
   const handleBackToBookings = useCallback(() => {
     const bookingForCacheUpdate = getBookingForCacheUpdate(queryClient, uid, enrichedBooking);

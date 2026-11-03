@@ -73,5 +73,8 @@
     "ip-address": "10.3.1",
     "nanoid": "3.3.18",
     "image-size": "npm:image-size-next@1.2.2"
+  },
+  "patchedDependencies": {
+    "@cloudflare/react-native-webrtc@125.0.1": "patches/@cloudflare%2Freact-native-webrtc@125.0.1.patch"
   }
 }
