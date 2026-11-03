@@ -14,7 +14,7 @@ import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { PushNotificationProvider } from "@/components/PushNotificationProvider";
 import { GlobalConfirmDialog } from "@/components/ui/GlobalConfirmDialog";
 import { GlobalToast } from "@/components/ui/GlobalToast";
-import { VideoCallScreen } from "@/components/video-call/VideoCallScreen";
+import { CalVideoEntry } from "@/components/video-call/CalVideoEntry";
 import { WidgetSyncProvider } from "@/components/WidgetSyncProvider";
 import { getColors, colors as semanticColors } from "@/constants/colors";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -551,7 +551,7 @@ function RootLayoutContent() {
       />
     </Stack>
   ) : guestLink ? (
-    <VideoCallScreen
+    <CalVideoEntry
       link={guestLink}
       viewerName={null}
       viewerAvatarUrl={null}

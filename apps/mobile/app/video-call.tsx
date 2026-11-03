@@ -2,15 +2,16 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { VideoCallScreen } from "@/components/video-call/VideoCallScreen";
+import { CalVideoEntry } from "@/components/video-call/CalVideoEntry";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { parseCalVideoLink } from "@/utils/cal-video-links";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 
 /**
- * `/video-call?url=<room url>` — where every Cal Video link lands, whether it arrived as a
- * universal link (`https://i.cal.video/peer`), the app scheme, or a booking's Join button.
+ * `/video-call?url=<room or booking url>` — where every Cal Video link lands, whether it arrived
+ * as a universal link (`https://i.cal.video/peer`, `https://app.cal.com/video/<uid>`), the app
+ * scheme, or a booking's Join button.
  */
 export default function VideoCallRoute() {
   const { url } = useLocalSearchParams<{ url?: string }>();
@@ -39,7 +40,7 @@ export default function VideoCallRoute() {
         }}
       />
       {link ? (
-        <VideoCallScreen
+        <CalVideoEntry
           link={link}
           viewerName={viewerName}
           viewerAvatarUrl={viewerAvatarUrl}

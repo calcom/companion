@@ -63,6 +63,33 @@
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "app.cal.com",
+              "pathPrefix": "/video/"
+            },
+            {
+              "scheme": "https",
+              "host": "cal.com",
+              "pathPrefix": "/video/"
+            },
+            {
+              "scheme": "https",
+              "host": "app.cal.eu",
+              "pathPrefix": "/video/"
+            },
+            {
+              "scheme": "https",
+              "host": "cal.eu",
+              "pathPrefix": "/video/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
       "permissions": [
