@@ -1,0 +1,13 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 7887fe45eb33c2c19bb363e901bbbf9561352180..6f99c06356e9aade482a9d979cb4f07fce3f27ba 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -24,6 +24,8 @@ android {
+         targetSdkVersion safeExtGet('targetSdkVersion', 36)
+         versionCode 1
+         versionName "1.0"
++        // The app overrides this through the config plugin; the library's own resource check needs a value.
++        resValue "string", "blob_provider_authority", "com.cloudflare.realtimekit.blobs"
+     }
+ 
+     buildTypes {

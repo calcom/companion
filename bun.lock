@@ -32,6 +32,7 @@
         "@babel/runtime": "7.28.6",
         "@bacons/apple-targets": "^5.0.0",
         "@cloudflare/react-native-webrtc": "125.0.1",
+        "@cloudflare/realtimekit": "1.5.1",
         "@cloudflare/realtimekit-react-native": "1.1.0",
         "@config-plugins/react-native-callkeep": "13.0.0",
         "@expo/ui": "0.2.0-canary-20251230-fc48ddc",
@@ -141,6 +142,7 @@
   },
   "patchedDependencies": {
     "@cloudflare/react-native-webrtc@125.0.1": "patches/@cloudflare%2Freact-native-webrtc@125.0.1.patch",
+    "@cloudflare/realtimekit-react-native@1.1.0": "patches/@cloudflare%2Frealtimekit-react-native@1.1.0.patch",
   },
   "overrides": {
     "@xmldom/xmldom": "0.8.15",
