@@ -5,7 +5,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native
 import { PortalHost } from "@rn-primitives/portal";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Platform, StatusBar, useColorScheme, View } from "react-native";
 import { CalComLogo } from "@/components/CalComLogo";
 import LoginScreenComponent from "@/components/LoginScreen";
@@ -30,10 +30,14 @@ function RootLayoutContent() {
   // A Cal Video link opened while signed out joins as a guest: a meeting must not need an account.
   const incoming = useIncomingLink();
   const [dismissedSeq, setDismissedSeq] = useState<number | null>(null);
+  // A new link object each render restarts the booking-link lookup, which loops on Android.
+  const incomingUrl = incoming?.url;
+  const parsedLink = useMemo(
+    () => (incomingUrl ? parseCalVideoLink(incomingUrl) : null),
+    [incomingUrl]
+  );
   const guestLink =
-    !isAuthenticated && incoming && incoming.seq !== dismissedSeq
-      ? parseCalVideoLink(incoming.url)
-      : null;
+    !isAuthenticated && incoming && incoming.seq !== dismissedSeq ? parsedLink : null;
 
   // Show Cal.com logo while checking auth state to prevent login flash
   if (loading) {
