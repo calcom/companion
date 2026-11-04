@@ -35,8 +35,6 @@ export function DraggablePip({
   style?: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
-  // Gesture worklets write shared values the compiler treats as frozen; Reanimated owns them.
-  "use no memo";
   const corner = useSharedValue<PipCorner>("bottom-right");
   const initial = cornerPosition("bottom-right", bounds);
   const x = useSharedValue(initial.x);
@@ -46,7 +44,7 @@ export function DraggablePip({
 
   const { width, height, pipWidth, pipHeight, top, bottom, side } = bounds;
   useEffect(() => {
-    const target = cornerPosition(corner.value, {
+    const target = cornerPosition(corner.get(), {
       width,
       height,
       pipWidth,
@@ -55,35 +53,35 @@ export function DraggablePip({
       bottom,
       side,
     });
-    x.value = withSpring(target.x, SPRING);
-    y.value = withSpring(target.y, SPRING);
+    x.set(withSpring(target.x, SPRING));
+    y.set(withSpring(target.y, SPRING));
   }, [corner, x, y, width, height, pipWidth, pipHeight, top, bottom, side]);
 
   const pan = Gesture.Pan()
     .minDistance(6)
     .onStart(() => {
-      startX.value = x.value;
-      startY.value = y.value;
+      startX.set(x.get());
+      startY.set(y.get());
     })
     .onUpdate((event) => {
-      x.value = startX.value + event.translationX;
-      y.value = startY.value + event.translationY;
+      x.set(startX.get() + event.translationX);
+      y.set(startY.get() + event.translationY);
     })
     .onEnd((event) => {
       const next = nearestCorner(
-        { x: x.value, y: y.value },
+        { x: x.get(), y: y.get() },
         { x: event.velocityX, y: event.velocityY },
         bounds
       );
-      corner.value = next;
+      corner.set(next);
       const target = cornerPosition(next, bounds);
-      x.value = withSpring(target.x, { ...SPRING, velocity: event.velocityX });
-      y.value = withSpring(target.y, { ...SPRING, velocity: event.velocityY });
+      x.set(withSpring(target.x, { ...SPRING, velocity: event.velocityX }));
+      y.set(withSpring(target.y, { ...SPRING, velocity: event.velocityY }));
       runOnJS(park)();
     });
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: x.value }, { translateY: y.value }],
+    transform: [{ translateX: x.get() }, { translateY: y.get() }],
   }));
 
   return (
