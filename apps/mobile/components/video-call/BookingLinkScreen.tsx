@@ -60,6 +60,7 @@ export function BookingLinkScreen({
   const [phase, setPhase] = useState<Phase>({ kind: "resolving" });
   const [attempt, setAttempt] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` is the retry trigger
   useEffect(() => {
     let cancelled = false;
     setPhase({ kind: "resolving" });

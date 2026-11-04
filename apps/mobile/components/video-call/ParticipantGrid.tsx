@@ -176,6 +176,7 @@ function useReactionBadges(reactions: CallState["reactions"]) {
   const [now, setNow] = useState(() => Date.now());
   const badges = reactionBadges(reactions, now);
   const expiry = nextBadgeExpiry(badges);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new reaction restarts the clock
   useEffect(() => {
     setNow(Date.now());
   }, [reactions]);
