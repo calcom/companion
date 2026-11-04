@@ -32,6 +32,7 @@ import {
 import { showActionSheet } from "@/utils/action-sheet";
 import { openInDefaultBrowser } from "@/utils/browser";
 import { type CalVideoRoomLink, roomAddress } from "@/utils/cal-video-links";
+import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
 import { safeLogWarn } from "@/utils/safeLogger";
 import { CallScreen } from "./CallScreen";
 import { ChatSheet } from "./ChatSheet";
@@ -56,7 +57,7 @@ const ACTION_LABEL: Record<ParticipantAction, string> = {
 const failedToast = (title: string) => Alert.alert(title, "Try again in a moment.");
 
 /** Avatars from these origins are rendered; a peer's own URL anywhere else is initials. */
-const CAL_AVATAR_ORIGINS = ["https://app.cal.com", "https://cal.com", "https://app.cal.eu"];
+const CAL_AVATAR_ORIGINS = [getCalAppUrl("us"), getCalWebUrl("us"), getCalAppUrl("eu")];
 
 /**
  * A Cal Video room, end to end: pre-join, the door, the call, and how it ended.

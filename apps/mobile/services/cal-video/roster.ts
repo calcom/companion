@@ -26,7 +26,9 @@ export function trustedAvatarUrl(
   try {
     const url = new URL(value);
     if (url.protocol !== "https:") return null;
-    return calOrigins.some((origin) => url.origin === origin || url.hostname.endsWith(".cal.com"))
+    return calOrigins.some(
+      (origin) => url.origin === origin || url.hostname.endsWith(`.${new URL(origin).hostname}`)
+    )
       ? value
       : null;
   } catch {
