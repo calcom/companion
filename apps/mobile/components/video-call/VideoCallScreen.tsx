@@ -265,9 +265,13 @@ export function VideoCallScreen({
     },
     [driver, state.status]
   );
+  // setMutedCall echoes back as didPerformSetMutedCallAction; acting on the echo would loop.
   useEffect(() => {
-    muteRef.current = (muted) => setMicrophone(!muted);
-  }, [setMicrophone]);
+    muteRef.current = (muted) => {
+      if (muted !== microphoneOn) return;
+      setMicrophone(!muted);
+    };
+  }, [setMicrophone, microphoneOn]);
 
   const setCamera = useCallback(
     (on: boolean) => {

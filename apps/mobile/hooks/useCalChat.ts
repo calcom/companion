@@ -343,12 +343,16 @@ export function useCalChat(input: {
   useEffect(() => {
     if (!open || newest === 0) return;
     setLastSeenSeq(newest);
-    const now = Date.now();
-    const sent = ackSent.current;
-    if (newest <= sent.readSeq || now - sent.at < ACK_INTERVAL_MS) return;
-    if (socketRef.current?.send({ type: "ack", deliveredSeq: newest, readSeq: newest })) {
-      ackSent.current = { deliveredSeq: newest, readSeq: newest, at: now };
-    }
+    if (newest <= ackSent.current.readSeq) return;
+    const send = () => {
+      if (socketRef.current?.send({ type: "ack", deliveredSeq: newest, readSeq: newest })) {
+        ackSent.current = { deliveredSeq: newest, readSeq: newest, at: Date.now() };
+      }
+    };
+    const wait = ACK_INTERVAL_MS - (Date.now() - ackSent.current.at);
+    if (wait <= 0) return send();
+    const timer = setTimeout(send, wait);
+    return () => clearTimeout(timer);
   }, [open, newest]);
 
   // --- Actions -------------------------------------------------------------------------------
@@ -413,9 +417,12 @@ export function useCalChat(input: {
 
   const markSeen = useCallback(() => setLastSeenSeq(newestSeq(roomRef.current)), []);
 
+  const loadingOlder = useRef(false);
   const loadOlder = useCallback(() => {
     const oldest = roomRef.current.messages[0];
-    if (!api || !oldest || roomRef.current.messages.length >= CAL_CHAT_HELD_LIMIT) return;
+    if (!api || !oldest || loadingOlder.current) return;
+    if (roomRef.current.messages.length >= CAL_CHAT_HELD_LIMIT) return;
+    loadingOlder.current = true;
     void api
       .getHistory({ beforeSeq: oldest.seq })
       .then((page) =>
@@ -424,7 +431,10 @@ export function useCalChat(input: {
           hasOlder: page.hasOlder,
         }))
       )
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        loadingOlder.current = false;
+      });
   }, [api]);
 
   const react = useCallback(

@@ -143,6 +143,10 @@ export function ChatSheet({
   const list = useRef<FlatList<ChatRow>>(null);
   const input = useRef<TextInput>(null);
   const rows = chat?.rows ?? [];
+  // Follow new messages only; a page of older history prepended above must not jump to the end.
+  const atBottom = useRef(true);
+  const followedRowId = useRef<string | undefined>(undefined);
+  const newestRowId = rows[rows.length - 1]?.id;
 
   // Everything on screen counts as read while the sheet is open, so each arrival re-marks.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `rows.length` is the arrival trigger
@@ -300,9 +304,16 @@ export function ChatSheet({
             ) : null
           }
           contentContainerStyle={styles.list}
-          onContentSizeChange={() => list.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() => {
+            if (!atBottom.current && newestRowId === followedRowId.current) return;
+            followedRowId.current = newestRowId;
+            list.current?.scrollToEnd({ animated: true });
+          }}
           onScroll={(event) => {
-            if (event.nativeEvent.contentOffset.y < 40 && chat?.hasOlder) chat.loadOlder?.();
+            const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+            atBottom.current =
+              contentOffset.y + layoutMeasurement.height >= contentSize.height - 40;
+            if (contentOffset.y < 40 && chat?.hasOlder) chat.loadOlder?.();
           }}
           scrollEventThrottle={200}
           ListEmptyComponent={
