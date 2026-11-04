@@ -1,8 +1,21 @@
+diff --git a/android/src/main/java/com/cloudflare/realtimekit/WebRTCModule/WebRTCModule.java b/android/src/main/java/com/cloudflare/realtimekit/WebRTCModule/WebRTCModule.java
+index 6c50657cb27cc5b753a1e9390f6f8f788d647095..4139c7d4db033db8b60964a08d76cb2817591d6c 100644
+--- a/android/src/main/java/com/cloudflare/realtimekit/WebRTCModule/WebRTCModule.java
++++ b/android/src/main/java/com/cloudflare/realtimekit/WebRTCModule/WebRTCModule.java
+@@ -728,7 +728,7 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
+         });
+     }
+ 
+-    @ReactMethod(isBlockingSynchronousMethod = true)
++    @ReactMethod
+     public void transceiverSetCodecPreferences(int id, String senderId, ReadableArray codecPreferences) {
+         ThreadUtils.runOnExecutor(() -> {
+             WritableMap identifier = Arguments.createMap();
 diff --git a/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m b/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m
 index ab0e25e75feee78b6fda25aa81202b9d88262eb9..7bed8e0766a9138b8f4bdf942c2e11b0018d9c0d 100644
 --- a/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m
 +++ b/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m
-@@ -277,9 +277,12 @@ - (RTKRTCVideoTrack *)createScreenCaptureVideoTrack {
+@@ -277,9 +277,12 @@ RCT_EXPORT_METHOD(enumerateDevices : (RCTResponseSenderBlock)callback) {
          if (device.localizedName != nil) {
              label = device.localizedName;
          }
@@ -16,7 +29,7 @@ index ab0e25e75feee78b6fda25aa81202b9d88262eb9..7bed8e0766a9138b8f4bdf942c2e11b0
              @"groupId" : @"",
              @"label" : label,
              @"kind" : @"videoinput",
-@@ -294,8 +297,9 @@ - (RTKRTCVideoTrack *)createScreenCaptureVideoTrack {
+@@ -294,8 +297,9 @@ RCT_EXPORT_METHOD(enumerateDevices : (RCTResponseSenderBlock)callback) {
          if (device.localizedName != nil) {
              label = device.localizedName;
          }
