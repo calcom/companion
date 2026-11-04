@@ -6,7 +6,7 @@ Pod::Spec.new do |s|
   s.author         = 'Cal.com'
   s.homepage       = 'https://cal.com'
   s.license        = { :type => 'MIT' }
-  s.platforms      = { :ios => '18.0' }
+  s.platforms      = { :ios => '15.1' }
   s.source         = { :git => '' }
   s.static_framework = true
 
