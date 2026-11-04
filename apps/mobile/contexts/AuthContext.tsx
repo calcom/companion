@@ -11,6 +11,7 @@ import {
 import { queryKeys } from "@/config/cache.config";
 import { USER_PREFERENCES_KEY } from "@/hooks/useUserPreferences";
 import { CalComAPIService } from "@/services/calcom";
+import { clearNextCallLiveActivity } from "@/services/nextCallLiveActivity";
 import {
   type CalComOAuthService,
   createCalComOAuthService,
@@ -386,6 +387,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await clearWidgetBookings();
     } catch (widgetError) {
       console.warn("Failed to clear widget bookings during logout:", widgetError);
+    }
+    try {
+      await clearNextCallLiveActivity();
+    } catch (activityError) {
+      console.warn("Failed to end next-call Live Activity during logout:", activityError);
     }
     resetAuthState();
   }, [clearAuth, resetAuthState, queryClient]);

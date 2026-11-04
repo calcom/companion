@@ -5,6 +5,10 @@ import { queryKeys } from "@/config/cache.config";
 import { useAuth } from "@/contexts/AuthContext";
 import { type Booking, CalComAPIService } from "@/services/calcom";
 import {
+  setupNextCallLiveActivityRefresh,
+  syncNextCallLiveActivity,
+} from "@/services/nextCallLiveActivity";
+import {
   clearWidgetBookings,
   setupWidgetRefreshOnAppStateChange,
   updateWidgetBookings,
@@ -58,6 +62,7 @@ export function useWidgetSync() {
           });
 
         await updateWidgetBookings(upcomingBookings);
+        await syncNextCallLiveActivity(upcomingBookings);
       } catch (error) {
         console.warn("Failed to sync cached bookings to widget:", error);
       }
@@ -78,6 +83,7 @@ export function useWidgetSync() {
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
         await updateWidgetBookings(upcomingBookings);
+        await syncNextCallLiveActivity(upcomingBookings);
       } catch (error) {
         console.warn("Failed to fetch and sync bookings to widget:", error);
       }
@@ -97,9 +103,14 @@ export function useWidgetSync() {
 
     syncBookingsToWidget();
 
-    const cleanup = setupWidgetRefreshOnAppStateChange(syncBookingsToWidget);
+    const cleanupWidget = setupWidgetRefreshOnAppStateChange(syncBookingsToWidget);
+    // Live Activities can only start in the foreground, so re-sync when the app comes back.
+    const cleanupLiveActivity = setupNextCallLiveActivityRefresh(syncBookingsToWidget);
 
-    return cleanup;
+    return () => {
+      cleanupWidget();
+      cleanupLiveActivity();
+    };
   }, [syncBookingsToWidget, isAuthenticated]);
 
   return {

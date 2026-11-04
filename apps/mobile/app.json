@@ -24,7 +24,8 @@
       "bundleIdentifier": "com.cal.companion",
       "userInterfaceStyle": "automatic",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true
       },
       "entitlements": {
         "com.apple.developer.default-data-protection": "NSFileProtectionComplete",
