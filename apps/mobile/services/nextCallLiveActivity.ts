@@ -5,6 +5,11 @@
  * starts it on sync when the next call is within the lead window, and otherwise arms a timer
  * for the moment the window opens in case the app is still open then. Ending and updating
  * work from the background too, so a running activity is cleaned up on the next sync.
+ *
+ * Known limitation: no timer (JS here, or the native one in NextCallLiveActivityModule) runs
+ * while iOS has the app suspended, and there is no push-to-start/end server support. If the
+ * phone stays locked through the end of a call, the activity lingers as "happening now" until
+ * the app next runs or iOS retires it (8 hours).
  */
 import { AppState, type AppStateStatus, Platform } from "react-native";
 import { endLiveActivity, startOrUpdateLiveActivity } from "@/modules/next-call-live-activity";
@@ -35,16 +40,28 @@ function armTimer(delayMs: number, run: () => void): void {
   );
 }
 
+export interface SyncNextCallLiveActivityOptions {
+  /**
+   * Called when an armed timer fires, so the plan is rebuilt from fresh bookings (a cancelled
+   * or rescheduled call must not start an activity). Falls back to re-planning the snapshot.
+   */
+  resync?: () => Promise<void>;
+  now?: Date;
+}
+
 export async function syncNextCallLiveActivity(
   bookings: readonly Booking[],
-  now: Date = new Date()
+  options: SyncNextCallLiveActivityOptions = {}
 ): Promise<void> {
   if (Platform.OS !== "ios") return;
   clearTimer();
 
+  const now = options.now ?? new Date();
   const plan = planNextCallLiveActivity(bookings, now);
   const resync = () => {
-    syncNextCallLiveActivity(bookings).catch((error) => {
+    const run =
+      options.resync ?? (() => syncNextCallLiveActivity(bookings, { resync: options.resync }));
+    run().catch((error) => {
       console.warn("Failed to refresh next-call Live Activity:", error);
     });
   };
@@ -56,7 +73,8 @@ export async function syncNextCallLiveActivity(
       // Expected when called from the background; the next foreground sync retries.
       console.warn("Failed to start next-call Live Activity:", error);
     }
-    // Re-plan once the call ends so the activity is dismissed and the next one queued.
+    // Re-plan once the call ends so the next one is queued. The native module ends the
+    // activity itself at that time when the app is alive.
     armTimer(plan.endsAt.getTime() - now.getTime() + 1000, resync);
     return;
   }

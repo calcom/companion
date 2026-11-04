@@ -38,9 +38,31 @@ private func parseISODate(_ value: String) throws -> Date {
 
 // The pod's deployment target follows the app's (15.1), so ActivityKit use is gated here.
 @available(iOS 16.2, *)
+@MainActor
 private enum NextCallActivities {
     static var all: [Activity<NextCallAttributes>] {
         Activity<NextCallAttributes>.activities
+    }
+
+    // Native end timers keyed by booking uid. They outlive JS reloads, but like any timer
+    // they do not run while iOS has the app suspended; see services/nextCallLiveActivity.ts.
+    private static var endTasks: [String: Task<Void, Never>] = [:]
+
+    private static func scheduleEnd(uid: String, at endDate: Date) {
+        endTasks[uid]?.cancel()
+        let delay = endDate.timeIntervalSinceNow
+        endTasks[uid] = Task {
+            if delay > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
+            guard !Task.isCancelled else { return }
+            await end(uid: uid)
+        }
+    }
+
+    private static func cancelEnd(uid: String) {
+        endTasks[uid]?.cancel()
+        endTasks[uid] = nil
     }
 
     // Starts a Live Activity for the booking, or updates the one already running for it.
@@ -68,17 +90,20 @@ private enum NextCallActivities {
             if activity.attributes.uid == payload.uid, existing == nil {
                 existing = activity
             } else {
+                cancelEnd(uid: activity.attributes.uid)
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
         }
 
         if let existing {
             await existing.update(content)
+            scheduleEnd(uid: payload.uid, at: state.endDate)
             return existing.id
         }
 
         let attributes = NextCallAttributes(uid: payload.uid, deepLinkUrl: payload.deepLinkUrl)
         let activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
+        scheduleEnd(uid: payload.uid, at: state.endDate)
         return activity.id
     }
 
@@ -86,6 +111,7 @@ private enum NextCallActivities {
     static func end(uid: String?) async {
         for activity in all {
             if let uid, activity.attributes.uid != uid { continue }
+            cancelEnd(uid: activity.attributes.uid)
             await activity.end(nil, dismissalPolicy: .immediate)
         }
     }
@@ -102,7 +128,7 @@ public class NextCallLiveActivityModule: Module {
 
         Function("getActiveUids") { () -> [String] in
             guard #available(iOS 16.2, *) else { return [] }
-            return NextCallActivities.all.map { $0.attributes.uid }
+            return Activity<NextCallAttributes>.activities.map { $0.attributes.uid }
         }
 
         AsyncFunction("startOrUpdate") { (payload: NextCallPayload) async throws -> String in

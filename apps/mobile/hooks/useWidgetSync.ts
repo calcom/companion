@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { queryKeys } from "@/config/cache.config";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +17,11 @@ import {
 export function useWidgetSync() {
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
+
+  // Live Activity timers call back into the latest sync so they re-read the query cache
+  // instead of the bookings snapshot they were armed with.
+  const resyncRef = useRef<() => Promise<void>>(async () => {});
+  const liveActivityOptions = useRef({ resync: () => resyncRef.current() }).current;
 
   const syncBookingsToWidget = useCallback(async () => {
     if (Platform.OS === "web") {
@@ -62,7 +67,7 @@ export function useWidgetSync() {
           });
 
         await updateWidgetBookings(upcomingBookings);
-        await syncNextCallLiveActivity(upcomingBookings);
+        await syncNextCallLiveActivity(upcomingBookings, liveActivityOptions);
       } catch (error) {
         console.warn("Failed to sync cached bookings to widget:", error);
       }
@@ -83,12 +88,16 @@ export function useWidgetSync() {
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
         await updateWidgetBookings(upcomingBookings);
-        await syncNextCallLiveActivity(upcomingBookings);
+        await syncNextCallLiveActivity(upcomingBookings, liveActivityOptions);
       } catch (error) {
         console.warn("Failed to fetch and sync bookings to widget:", error);
       }
     }
-  }, [queryClient]);
+  }, [queryClient, liveActivityOptions]);
+
+  useEffect(() => {
+    resyncRef.current = syncBookingsToWidget;
+  }, [syncBookingsToWidget]);
 
   useEffect(() => {
     if (Platform.OS === "web") {
