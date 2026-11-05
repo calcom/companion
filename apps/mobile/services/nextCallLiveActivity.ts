@@ -75,9 +75,9 @@ export async function syncNextCallLiveActivity(
       // Expected when called from the background; the next foreground sync retries.
       console.warn("Failed to start next-call Live Activity:", error);
     }
-    // Re-plan once the call ends so the next one is queued. The native module ends the
-    // activity itself at that time when the app is alive.
-    armTimer(plan.endsAt.getTime() - now.getTime() + 1000, resync);
+    // Re-plan once the call ends (or the next call's lead window opens) so the next one is
+    // queued. The native module ends the activity itself at the end when the app is alive.
+    armTimer(plan.replanAt.getTime() - now.getTime() + 1000, resync);
     return;
   }
 

@@ -58,6 +58,26 @@ describe("pickNextCall", () => {
     expect(pickNextCall([next, inProgress], now)?.uid).toBe("now");
   });
 
+  test("hands over to a call starting within the lead window", () => {
+    const allDay = booking({
+      uid: "all-day",
+      startTime: iso(-minutes(300)),
+      endTime: iso(minutes(180)),
+    });
+    const overlapping = booking({
+      uid: "overlap",
+      startTime: iso(minutes(4)),
+      endTime: iso(minutes(34)),
+    });
+    expect(pickNextCall([allDay, overlapping], now)?.uid).toBe("overlap");
+    const later = booking({ uid: "later", startTime: iso(minutes(6)), endTime: iso(minutes(36)) });
+    expect(pickNextCall([allDay, later], now)?.uid).toBe("all-day");
+    // Once the short call is over the long one shows again.
+    expect(pickNextCall([allDay, overlapping], new Date(now.getTime() + minutes(35)))?.uid).toBe(
+      "all-day"
+    );
+  });
+
   test("reads start/end when startTime/endTime are missing", () => {
     const legacy = booking({
       startTime: undefined,
@@ -136,6 +156,23 @@ describe("planNextCallLiveActivity", () => {
 
     const running = planNextCallLiveActivity([booking({ startTime: iso(-minutes(3)) })], now);
     expect(running.action).toBe("show");
+  });
+
+  test("re-plans when the next call's lead window opens before the current call ends", () => {
+    const current = booking({
+      uid: "current",
+      startTime: iso(-minutes(10)),
+      endTime: iso(minutes(50)),
+    });
+    const next = booking({ uid: "next", startTime: iso(minutes(20)), endTime: iso(minutes(40)) });
+    const plan = planNextCallLiveActivity([current, next], now);
+    expect(plan.action).toBe("show");
+    expect(plan.payload.uid).toBe("current");
+    expect(plan.endsAt.toISOString()).toBe(iso(minutes(50)));
+    expect(plan.replanAt.toISOString()).toBe(iso(minutes(20) - NEXT_CALL_LEAD_TIME_MS));
+
+    const alone = planNextCallLiveActivity([current], now);
+    expect(alone.replanAt.toISOString()).toBe(iso(minutes(50)));
   });
 
   test("does nothing without a confirmed upcoming booking", () => {

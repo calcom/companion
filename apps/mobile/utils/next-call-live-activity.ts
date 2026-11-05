@@ -16,8 +16,11 @@ export type NextCallPlan =
   | { action: "none" }
   /** Nothing to show yet; start the activity at `startAt`. */
   | { action: "wait"; startAt: Date; payload: NextCallLiveActivityPayload }
-  /** Show (or keep showing) the activity until `endsAt`. */
-  | { action: "show"; endsAt: Date; payload: NextCallLiveActivityPayload };
+  /**
+   * Show (or keep showing) the activity until `endsAt`. Re-plan at `replanAt`: the call's end,
+   * or earlier when another call's lead window opens and it takes over.
+   */
+  | { action: "show"; endsAt: Date; replanAt: Date; payload: NextCallLiveActivityPayload };
 
 function parseDate(value: string | undefined): Date | null {
   if (!value) return null;
@@ -33,22 +36,37 @@ export function getBookingEnd(booking: Booking): Date | null {
   return parseDate(booking.endTime || booking.end);
 }
 
-/**
- * The confirmed booking that ends next, i.e. the one in progress or the soonest upcoming one.
- * Pending (unconfirmed), cancelled and rejected bookings never get a reminder.
- */
-export function pickNextCall(bookings: readonly Booking[], now: Date): Booking | null {
-  let next: { booking: Booking; start: number } | null = null;
+interface ConfirmedCall {
+  booking: Booking;
+  start: number;
+  end: number;
+}
+
+function getConfirmedCalls(bookings: readonly Booking[], now: Date): ConfirmedCall[] {
+  const calls: ConfirmedCall[] = [];
   for (const booking of bookings) {
     if (booking.status && booking.status !== "accepted") continue;
     const start = getBookingStart(booking);
     const end = getBookingEnd(booking);
     if (!start || !end || end.getTime() <= now.getTime()) continue;
-    if (!next || start.getTime() < next.start) {
-      next = { booking, start: start.getTime() };
-    }
+    calls.push({ booking, start: start.getTime(), end: end.getTime() });
   }
-  return next?.booking ?? null;
+  return calls.sort((a, b) => a.start - b.start);
+}
+
+/**
+ * The confirmed booking to show: a call starting within the lead window takes over from one
+ * already in progress (so a long block or a back-to-back call does not hide it); otherwise the
+ * one in progress, or else the soonest upcoming one.
+ * Pending (unconfirmed), cancelled and rejected bookings never get a reminder.
+ */
+export function pickNextCall(bookings: readonly Booking[], now: Date): Booking | null {
+  const calls = getConfirmedCalls(bookings, now);
+  const nowMs = now.getTime();
+  const startingSoon = calls.find(
+    (call) => call.start > nowMs && call.start - NEXT_CALL_LEAD_TIME_MS <= nowMs
+  );
+  return startingSoon?.booking ?? calls[0]?.booking ?? null;
 }
 
 function getLocationLabel(booking: Booking, meetingUrl: string | null): string | null {
@@ -111,5 +129,11 @@ export function planNextCallLiveActivity(
   if (showAt.getTime() > now.getTime()) {
     return { action: "wait", startAt: showAt, payload };
   }
-  return { action: "show", endsAt: new Date(payload.endTime), payload };
+  const endsAt = new Date(payload.endTime);
+  let replanAt = endsAt.getTime();
+  for (const call of getConfirmedCalls(bookings, now)) {
+    const opensAt = call.start - NEXT_CALL_LEAD_TIME_MS;
+    if (opensAt > now.getTime() && opensAt < replanAt) replanAt = opensAt;
+  }
+  return { action: "show", endsAt, replanAt: new Date(replanAt), payload };
 }
