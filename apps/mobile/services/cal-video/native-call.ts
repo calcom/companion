@@ -96,14 +96,24 @@ export type NativeCallEndReason = "local" | "remote" | "failed";
  * One call as the OS sees it. Lives from the moment we have a grant until the call is over,
  * whichever side ended it.
  */
-/** How long after `startCall` a system-initiated end is read as "CallKit refused" rather than a hang-up. */
+/** How long after accepting a call CallKit may still back out of it; an end this soon is not a hang-up. */
 const REFUSAL_WINDOW_MS = 2000;
+
+/** Whether the system ending a call means CallKit backed out, rather than the person hanging up. */
+export function isCallKitBackingOut(input: {
+  mediaConnected: boolean;
+  acceptedAt: number;
+  now: number;
+}): boolean {
+  return !input.mediaConnected || input.now - input.acceptedAt < REFUSAL_WINDOW_MS;
+}
 
 export class NativeCallSession {
   readonly uuid = randomUUID();
   private listeners: CallKeepListener[] = [];
   private started = false;
   private startedAt = 0;
+  private acceptedAt = 0;
   private connectedReported = false;
   private mediaConnected = false;
   private ended = false;
@@ -120,6 +130,7 @@ export class NativeCallSession {
         // the Simulator), so the system timer starts a moment before media flows. Acceptable.
         module.addEventListener("didReceiveStartCallAction", ({ callUUID }) => {
           if (!this.matches(callUUID) || this.connectedReported || Platform.OS !== "ios") return;
+          this.acceptedAt = Date.now();
           try {
             module.reportConnectedOutgoingCallWithUUID(this.uuid);
             this.connectedReported = true;
@@ -129,9 +140,17 @@ export class NativeCallSession {
         }),
         module.addEventListener("endCall", ({ callUUID }) => {
           if (!this.matches(callUUID)) return;
-          // The system ending a call before media flows is CallKit backing out, not a hang-up; iOS
-          // reports connected on the start action, so that flag cannot tell. Keep the in-app call.
-          if (!this.mediaConnected && Date.now() - this.startedAt < REFUSAL_WINDOW_MS) {
+          // The system ending a call before media flows, or just after accepting it, is CallKit
+          // backing out, not a hang-up; iOS reports connected on the start action, so that flag
+          // cannot tell. CallKit can answer seconds late, so the window runs from its acceptance.
+          const acceptedAt = this.acceptedAt || this.startedAt;
+          if (
+            isCallKitBackingOut({
+              mediaConnected: this.mediaConnected,
+              acceptedAt,
+              now: Date.now(),
+            })
+          ) {
             safeLogWarn("[CalVideo] CallKit ended the call before it connected; continuing in-app");
             this.started = false;
             this.detach();
@@ -167,13 +186,13 @@ export class NativeCallSession {
 
   /** The media is flowing: the system stops showing "connecting". */
   connected(): void {
+    this.mediaConnected = true;
     const module = loadCallKeep();
     if (!module || !this.started || this.ended) return;
     try {
       if (Platform.OS === "ios") module.reportConnectedOutgoingCallWithUUID(this.uuid);
       else module.setCurrentCallActive(this.uuid);
       this.connectedReported = true;
-      this.mediaConnected = true;
     } catch (error) {
       safeLogWarn("[CalVideo] CallKeep connected failed", { error: String(error) });
     }
