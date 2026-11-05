@@ -27,7 +27,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": ["audio", "voip"],
         "RTCAppGroupIdentifier": "group.com.cal.companion",
-        "RTCAppScreenSharingExtension": "com.cal.companion.screenshare"
+        "RTCAppScreenSharingExtension": "com.cal.companion.screenshare",
+        "NSSupportsLiveActivities": true
       },
       "entitlements": {
         "com.apple.developer.default-data-protection": "NSFileProtectionComplete",

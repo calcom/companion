@@ -15,7 +15,7 @@ export default function EditCalEvent() {
   const isDark = useColorScheme() === "dark";
   const theme = getColors(isDark);
   const surfaces = getGroupedSurfaces(isDark);
-  const { uuid } = useLocalSearchParams<{ uuid: string }>();
+  const { uuid, initialTab } = useLocalSearchParams<{ uuid: string; initialTab?: string }>();
   const { data: event, isLoading, isPlaceholderData, error, refetch } = useCalEvent(uuid);
 
   const {
@@ -147,6 +147,7 @@ export default function EditCalEvent() {
   return (
     <EditCalEventScreen
       event={event}
+      initialTab={initialTab === "guests" ? "guests" : "basics"}
       onClose={close}
       onSaved={() => {
         showSilentSuccessAlert("Event updated", "Your changes were saved");

@@ -1,0 +1,153 @@
+import ActivityKit
+import ExpoModulesCore
+
+struct NextCallPayload: Record {
+    @Field var uid: String = ""
+    @Field var title: String = ""
+    @Field var startTime: String = ""
+    @Field var endTime: String = ""
+    @Field var attendeeName: String? = nil
+    @Field var attendeeCount: Int = 0
+    @Field var locationLabel: String? = nil
+    @Field var isVideo: Bool = false
+    @Field var deepLinkUrl: String = ""
+}
+
+private enum NextCallLiveActivityError: Error, LocalizedError {
+    case invalidDate(String)
+    case notEnabled
+    case unavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidDate(let value): return "Invalid ISO 8601 date: \(value)"
+        case .notEnabled: return "Live Activities are disabled for this app"
+        case .unavailable: return "Live Activities need iOS 16.2 or later"
+        }
+    }
+}
+
+private func parseISODate(_ value: String) throws -> Date {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = formatter.date(from: value) { return date }
+    formatter.formatOptions = [.withInternetDateTime]
+    if let date = formatter.date(from: value) { return date }
+    throw NextCallLiveActivityError.invalidDate(value)
+}
+
+// The pod's deployment target follows the app's (15.1), so ActivityKit use is gated here.
+@available(iOS 16.2, *)
+@MainActor
+private enum NextCallActivities {
+    static var all: [Activity<NextCallAttributes>] {
+        Activity<NextCallAttributes>.activities
+    }
+
+    // Native timers keyed by booking uid. They outlive JS reloads, but like any timer
+    // they do not run while iOS has the app suspended; see services/nextCallLiveActivity.ts.
+    private static var endTasks: [String: Task<Void, Never>] = [:]
+
+    // Stale at start time re-renders the activity as "happening now"; once the call has
+    // started, stale at end time re-renders it as "ended" even if the app is suspended then.
+    private static func content(for state: NextCallAttributes.ContentState) -> ActivityContent<NextCallAttributes.ContentState> {
+        let staleDate = state.startDate > Date() ? state.startDate : state.endDate
+        return ActivityContent(state: state, staleDate: staleDate, relevanceScore: 100)
+    }
+
+    private static func waitUntil(_ date: Date) async {
+        let delay = date.timeIntervalSinceNow
+        if delay > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        }
+    }
+
+    // At start time, moves the stale date to the end (when the app is still running then),
+    // and ends the activity once the call is over.
+    private static func scheduleEnd(uid: String, state: NextCallAttributes.ContentState) {
+        endTasks[uid]?.cancel()
+        endTasks[uid] = Task {
+            if state.startDate > Date() {
+                await waitUntil(state.startDate)
+                guard !Task.isCancelled else { return }
+                for activity in all where activity.attributes.uid == uid {
+                    await activity.update(content(for: state))
+                }
+            }
+            await waitUntil(state.endDate)
+            guard !Task.isCancelled else { return }
+            await end(uid: uid)
+        }
+    }
+
+    private static func cancelEnd(uid: String) {
+        endTasks[uid]?.cancel()
+        endTasks[uid] = nil
+    }
+
+    // Starts a Live Activity for the booking, or updates the one already running for it.
+    // Any activity for a different booking is ended first so only the next call is shown.
+    // iOS only allows Activity.request while the app is in the foreground; the JS side
+    // schedules the call for that window and treats a failure here as non-fatal.
+    static func startOrUpdate(_ payload: NextCallPayload) async throws -> String {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            throw NextCallLiveActivityError.notEnabled
+        }
+        let state = NextCallAttributes.ContentState(
+            title: payload.title,
+            startDate: try parseISODate(payload.startTime),
+            endDate: try parseISODate(payload.endTime),
+            attendeeName: payload.attendeeName,
+            attendeeCount: payload.attendeeCount,
+            locationLabel: payload.locationLabel,
+            isVideo: payload.isVideo
+        )
+        let activityContent = content(for: state)
+
+        var existing: Activity<NextCallAttributes>? = nil
+        for activity in all {
+            if activity.attributes.uid == payload.uid, existing == nil {
+                existing = activity
+            } else {
+                cancelEnd(uid: activity.attributes.uid)
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+        }
+
+        if let existing {
+            await existing.update(activityContent)
+            scheduleEnd(uid: payload.uid, state: state)
+            return existing.id
+        }
+
+        let attributes = NextCallAttributes(uid: payload.uid, deepLinkUrl: payload.deepLinkUrl)
+        let activity = try Activity.request(attributes: attributes, content: activityContent, pushType: nil)
+        scheduleEnd(uid: payload.uid, state: state)
+        return activity.id
+    }
+
+    // Ends the activity for one booking, or every next-call activity when uid is nil.
+    static func end(uid: String?) async {
+        for activity in all {
+            if let uid, activity.attributes.uid != uid { continue }
+            cancelEnd(uid: activity.attributes.uid)
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+}
+
+public class NextCallLiveActivityModule: Module {
+    public func definition() -> ModuleDefinition {
+        Name("NextCallLiveActivity")
+
+        AsyncFunction("startOrUpdate") { (payload: NextCallPayload) async throws -> String in
+            guard #available(iOS 16.2, *) else { throw NextCallLiveActivityError.unavailable }
+            return try await NextCallActivities.startOrUpdate(payload)
+        }
+
+        AsyncFunction("end") { (uid: String?) async in
+            guard #available(iOS 16.2, *) else { return }
+            await NextCallActivities.end(uid: uid)
+        }
+    }
+}
