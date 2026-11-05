@@ -105,6 +105,7 @@ export class NativeCallSession {
   private started = false;
   private startedAt = 0;
   private connectedReported = false;
+  private mediaConnected = false;
   private ended = false;
 
   constructor(private readonly handlers: NativeCallHandlers) {}
@@ -128,9 +129,9 @@ export class NativeCallSession {
         }),
         module.addEventListener("endCall", ({ callUUID }) => {
           if (!this.matches(callUUID)) return;
-          // The system ending a call it only just accepted, before any media, is CallKit backing
-          // out, not the person hanging up. Keep the in-app call and drop the system one.
-          if (!this.connectedReported && Date.now() - this.startedAt < REFUSAL_WINDOW_MS) {
+          // The system ending a call before media flows is CallKit backing out, not a hang-up; iOS
+          // reports connected on the start action, so that flag cannot tell. Keep the in-app call.
+          if (!this.mediaConnected && Date.now() - this.startedAt < REFUSAL_WINDOW_MS) {
             safeLogWarn("[CalVideo] CallKit ended the call before it connected; continuing in-app");
             this.started = false;
             this.detach();
@@ -172,6 +173,7 @@ export class NativeCallSession {
       if (Platform.OS === "ios") module.reportConnectedOutgoingCallWithUUID(this.uuid);
       else module.setCurrentCallActive(this.uuid);
       this.connectedReported = true;
+      this.mediaConnected = true;
     } catch (error) {
       safeLogWarn("[CalVideo] CallKeep connected failed", { error: String(error) });
     }
