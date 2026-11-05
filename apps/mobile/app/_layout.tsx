@@ -5,6 +5,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native
 import { PortalHost } from "@rn-primitives/portal";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack } from "expo-router";
+import { useMemo, useState } from "react";
 import { Platform, StatusBar, useColorScheme, View } from "react-native";
 import { CalComLogo } from "@/components/CalComLogo";
 import LoginScreenComponent from "@/components/LoginScreen";
@@ -12,17 +13,31 @@ import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { PushNotificationProvider } from "@/components/PushNotificationProvider";
 import { GlobalConfirmDialog } from "@/components/ui/GlobalConfirmDialog";
 import { GlobalToast } from "@/components/ui/GlobalToast";
+import { CalVideoEntry } from "@/components/video-call/CalVideoEntry";
 import { WidgetSyncProvider } from "@/components/WidgetSyncProvider";
 import { getColors, colors as semanticColors } from "@/constants/colors";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { QueryProvider } from "@/contexts/QueryContext";
 import { ToastProvider } from "@/contexts/ToastContext";
+import { useIncomingLink } from "@/hooks/useIncomingLink";
+import { parseCalVideoLink } from "@/utils/cal-video-links";
 
 function RootLayoutContent() {
   const { isAuthenticated, loading } = useAuth();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = getColors(isDark);
+  // A Cal Video link opened while signed out joins as a guest: a meeting must not need an account.
+  const incoming = useIncomingLink();
+  const [dismissedSeq, setDismissedSeq] = useState<number | null>(null);
+  // A new link object each render restarts the booking-link lookup, which loops on Android.
+  const incomingUrl = incoming?.url;
+  const parsedLink = useMemo(
+    () => (incomingUrl ? parseCalVideoLink(incomingUrl) : null),
+    [incomingUrl]
+  );
+  const guestLink =
+    !isAuthenticated && incoming && incoming.seq !== dismissedSeq ? parsedLink : null;
 
   // Show Cal.com logo while checking auth state to prevent login flash
   if (loading) {
@@ -51,6 +66,17 @@ function RootLayoutContent() {
   const content = isAuthenticated ? (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {/* A Cal Video call: edge to edge, no header, no swipe-to-dismiss mid-call. A plain push, as
+          a fullScreenModal stays on screen on iOS after closing, swallowing every tap. */}
+      <Stack.Screen
+        name="video-call"
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+          animation: "fade",
+          contentStyle: { backgroundColor: "#000000" },
+        }}
+      />
       {/* A sheet over the tab bar, like the app's other modals. As a fullScreenModal, iOS kept
           it on screen after Done, swallowing every tap. */}
       <Stack.Screen
@@ -528,6 +554,14 @@ function RootLayoutContent() {
         }}
       />
     </Stack>
+  ) : guestLink ? (
+    <CalVideoEntry
+      link={guestLink}
+      viewerName={null}
+      viewerAvatarUrl={null}
+      accessToken={null}
+      onClose={() => setDismissedSeq(incoming?.seq ?? null)}
+    />
   ) : (
     <LoginScreenComponent />
   );

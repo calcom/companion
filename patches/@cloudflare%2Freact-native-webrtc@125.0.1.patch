@@ -1,0 +1,57 @@
+diff --git a/android/src/main/java/com/cloudflare/realtimekit/WebRTCModule/WebRTCModule.java b/android/src/main/java/com/cloudflare/realtimekit/WebRTCModule/WebRTCModule.java
+index 6c50657cb27cc5b753a1e9390f6f8f788d647095..2228724946e55da3922ff5bafb7df4702c3cfe6e 100644
+--- a/android/src/main/java/com/cloudflare/realtimekit/WebRTCModule/WebRTCModule.java
++++ b/android/src/main/java/com/cloudflare/realtimekit/WebRTCModule/WebRTCModule.java
+@@ -728,7 +728,7 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
+         });
+     }
+ 
+-    @ReactMethod(isBlockingSynchronousMethod = true)
++    @ReactMethod
+     public void transceiverSetCodecPreferences(int id, String senderId, ReadableArray codecPreferences) {
+         ThreadUtils.runOnExecutor(() -> {
+             WritableMap identifier = Arguments.createMap();
+@@ -883,6 +883,14 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
+                 return;
+             }
+             track.setEnabled(false);
++            // A stream still holding a disposed track throws from MediaStream.dispose().
++            for (MediaStream stream : localStreams.values()) {
++                if (track instanceof VideoTrack && stream.videoTracks.contains(track)) {
++                    stream.removeTrack((VideoTrack) track);
++                } else if (track instanceof AudioTrack && stream.audioTracks.contains(track)) {
++                    stream.removeTrack((AudioTrack) track);
++                }
++            }
+             getUserMediaImpl.disposeTrack(id);
+         });
+     }
+diff --git a/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m b/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m
+index ab0e25e75feee78b6fda25aa81202b9d88262eb9..7bed8e0766a9138b8f4bdf942c2e11b0018d9c0d 100644
+--- a/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m
++++ b/ios/RCTWebRTC/WebRTCModule+RTCMediaStream.m
+@@ -277,9 +277,12 @@ RCT_EXPORT_METHOD(enumerateDevices : (RCTResponseSenderBlock)callback) {
+         if (device.localizedName != nil) {
+             label = device.localizedName;
+         }
++        // The iOS Simulator reports devices without a uniqueID; a nil value here raised
++        // NSInvalidArgumentException from the dictionary literal and aborted the app.
++        NSString *videoDeviceId = device.uniqueID ?: @"default";
+         [devices addObject:@{
+             @"facing" : position,
+-            @"deviceId" : device.uniqueID,
++            @"deviceId" : videoDeviceId,
+             @"groupId" : @"",
+             @"label" : label,
+             @"kind" : @"videoinput",
+@@ -294,8 +297,9 @@ RCT_EXPORT_METHOD(enumerateDevices : (RCTResponseSenderBlock)callback) {
+         if (device.localizedName != nil) {
+             label = device.localizedName;
+         }
++        NSString *audioDeviceId = device.uniqueID ?: @"default";
+         [devices addObject:@{
+-            @"deviceId" : device.uniqueID,
++            @"deviceId" : audioDeviceId,
+             @"groupId" : @"",
+             @"label" : label,
+             @"kind" : @"audioinput",

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { Stack, useRouter } from "expo-router";
+import { type Href, Stack, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -53,6 +53,7 @@ import {
   isBookingRequestPending,
 } from "@/utils/booking-request-actions";
 import { openInAppBrowser } from "@/utils/browser";
+import { buildVideoCallHref, parseCalVideoLink } from "@/utils/cal-video-links";
 import { richTextToClipboardText } from "@/utils/rich-text";
 
 const CopyButton = ({
@@ -459,10 +460,15 @@ export function BookingDetailScreen({
   const meetingUrl = useMemo(() => getMeetingUrl(booking ?? null), [booking]);
 
   const handleJoinMeeting = useCallback(() => {
-    if (meetingUrl) {
-      openInAppBrowser(meetingUrl, "meeting link");
+    if (!meetingUrl) return;
+    // Cal Video rooms open natively; every other provider opens in the browser.
+    const calVideoLink = parseCalVideoLink(meetingUrl);
+    if (calVideoLink) {
+      router.push(buildVideoCallHref(calVideoLink) as Href);
+      return;
     }
-  }, [meetingUrl]);
+    openInAppBrowser(meetingUrl, "meeting link");
+  }, [meetingUrl, router]);
 
   // Expose action handlers to parent component (for iOS header menu)
   useEffect(() => {

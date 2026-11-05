@@ -186,7 +186,7 @@ jobs:
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             mkdir -p apps/mobile/maestro-results/android
-            maestro test -e APP_ID=com.calcom.companion --exclude-tags=ios-only --format JUNIT --output apps/mobile/maestro-results/android/report.xml --test-output-dir apps/mobile/maestro-results/android/artifacts --debug-output apps/mobile/maestro-results/android/debug --flatten-debug-output apps/mobile/maestro
+            maestro test -e APP_ID=com.calcom.companion --exclude-tags=ios-only --format JUNIT --output apps/mobile/maestro-results/android/report.xml --test-output-dir apps/mobile/maestro-results/android/artifacts --debug-output apps/mobile/maestro-results/android/debug --flatten-debug-output apps/mobile/maestro || { status=$?; L=apps/mobile/maestro-results/android; adb logcat -d -b crash > $L/logcat-crash.txt || true; adb logcat -d AndroidRuntime:V ReactNative:V ReactNativeJS:V '*:E' > $L/logcat.txt || true; cat $L/logcat-crash.txt || true; tail -n 400 $L/logcat.txt || true; exit $status; }
       - name: Upload Maestro artifacts
         if: always()
         uses: actions/upload-artifact@v4

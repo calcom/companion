@@ -3,13 +3,13 @@ import { buttonStyle, frame } from "@expo/ui/swift-ui/modifiers";
 import { Ionicons } from "@expo/vector-icons";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import React from "react";
-import { Linking, Pressable, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { Pressable, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import type { SFSymbols7_0 } from "sf-symbols-typescript";
 import { SvgImage } from "@/components/SvgImage";
 import { getColors } from "@/constants/colors";
 import { useHour12 } from "@/hooks";
+import { useOpenMeetingLink } from "@/hooks/useOpenMeetingLink";
 import type { Booking } from "@/services/calcom";
-import { showErrorAlert } from "@/utils/alerts";
 import { getBookingActions } from "@/utils/booking-actions";
 import {
   BOOKING_REQUEST_BADGE_LABEL,
@@ -75,6 +75,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
 
   const hostAndAttendeesDisplay = getHostAndAttendeesDisplay(booking, userEmail);
   const meetingInfo = getMeetingInfo(booking.location);
+  const openMeetingLink = useOpenMeetingLink();
   const formattedDate = formatDate(startTime, isUpcoming);
   const hour12 = useHour12();
   const formattedTimeRange = `${formatTime(startTime, hour12)}${RANGE_SEPARATOR}${formatTime(endTime, hour12)}`;
@@ -283,13 +284,9 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
               className="flex-row items-center"
               style={{ alignSelf: "flex-start" }}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-              onPress={async (e) => {
+              onPress={(e) => {
                 e.stopPropagation();
-                try {
-                  await Linking.openURL(meetingInfo.cleanUrl);
-                } catch {
-                  showErrorAlert("Error", "Failed to open meeting link. Please try again.");
-                }
+                openMeetingLink(meetingInfo.cleanUrl);
               }}
             >
               {meetingInfo.iconUrl ? (
