@@ -22,7 +22,6 @@ export interface RoomRef {
 export interface JoinRequest extends RoomRef {
   displayName: string;
   inviteToken?: string | null;
-  admissionTicket?: string | null;
   /**
    * The signed-in user's Cal.com OAuth access token. cal.video today identifies a viewer only by
    * its own browser cookie, so this is forwarded for the server to adopt (`Authorization: Bearer`)
@@ -37,7 +36,8 @@ export type JoinResult =
   | { kind: "failure"; failure: JoinFailure };
 
 export type KnockResult =
-  | { outcome: "waiting"; receipt: string; expiresInSeconds: number }
+  | { outcome: "waiting"; expiresInSeconds: number }
+  | { outcome: "admitted" }
   | { outcome: "open" }
   | { outcome: "unavailable" }
   | { outcome: "lobby-full" }
@@ -47,7 +47,7 @@ export type KnockResult =
 
 export type KnockStatusResult =
   | { state: "pending" | "denied" | "expired" | "invalid" | "open" }
-  | { state: "admitted"; ticket: string }
+  | { state: "admitted" }
   | { state: "gone" }
   | { state: "error" };
 
@@ -82,7 +82,6 @@ export async function joinRoom(request: JoinRequest): Promise<JoinResult> {
       body: JSON.stringify({
         displayName: request.displayName,
         inviteToken: request.inviteToken || undefined,
-        admissionTicket: request.admissionTicket || undefined,
       }),
     },
     JOIN_TIMEOUT_MS
@@ -114,13 +113,11 @@ export async function knockRoom(room: RoomRef, displayName: string): Promise<Kno
   );
   const body = await readJson(response);
   if (response.status === 429 && body.outcome !== "lobby-full") return { outcome: "rate-limited" };
-  if (
-    body.outcome === "waiting" &&
-    typeof body.receipt === "string" &&
-    typeof body.expiresInSeconds === "number"
-  ) {
-    return { outcome: "waiting", receipt: body.receipt, expiresInSeconds: body.expiresInSeconds };
+  // The `cvi` cookie this response sets is what identifies the knock on every later poll.
+  if (body.outcome === "waiting" && typeof body.expiresInSeconds === "number") {
+    return { outcome: "waiting", expiresInSeconds: body.expiresInSeconds };
   }
+  if (body.outcome === "admitted") return { outcome: "admitted" };
   if (body.outcome === "open") return { outcome: "open" };
   if (body.outcome === "unavailable") return { outcome: "unavailable" };
   if (body.outcome === "lobby-full") return { outcome: "lobby-full" };
@@ -128,19 +125,17 @@ export async function knockRoom(room: RoomRef, displayName: string): Promise<Kno
   return { outcome: "error" };
 }
 
-export async function knockStatus(room: RoomRef, receipt: string): Promise<KnockStatusResult> {
+export async function knockStatus(room: RoomRef): Promise<KnockStatusResult> {
   const response = await fetchWithTimeout(
     roomUrl(room, "knock/status"),
-    { method: "POST", headers: headersFor(), body: JSON.stringify({ receipt }) },
+    { method: "POST", headers: headersFor() },
     POLL_TIMEOUT_MS
   );
   // The meeting ended and took its lobby with it.
   if (response.status === 404) return { state: "gone" };
   const body = await readJson(response);
-  if (body.state === "admitted" && typeof body.ticket === "string") {
-    return { state: "admitted", ticket: body.ticket };
-  }
   if (
+    body.state === "admitted" ||
     body.state === "pending" ||
     body.state === "denied" ||
     body.state === "expired" ||

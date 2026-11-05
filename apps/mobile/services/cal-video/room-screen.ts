@@ -8,7 +8,7 @@ export type SessionEnd = "left" | "removed" | "ended";
 export type KnockState =
   | { status: "idle" }
   | { status: "waiting"; until: number }
-  | { status: "admitted"; ticket: string }
+  | { status: "admitted" }
   | { status: "denied" }
   | { status: "unanswered" }
   | { status: "open" }

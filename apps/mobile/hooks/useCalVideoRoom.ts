@@ -29,7 +29,6 @@ export function useCalVideoRoom({
   const [joining, setJoining] = useState(false);
   const [sessionEnd, setSessionEnd] = useState<SessionEnd | null>(null);
   const [knock, setKnock] = useState<KnockState>({ status: "idle" });
-  const receipt = useRef<string | null>(null);
   const knockedAs = useRef<string | null>(null);
   const joinedAs = useRef<string | null>(null);
   const actedOn = useRef<string | null>(null);
@@ -45,7 +44,6 @@ export function useCalVideoRoom({
   }, [beforeGrant, room, accessToken, link.inviteToken]);
 
   const resetKnock = useCallback(() => {
-    receipt.current = null;
     setKnock({ status: "idle" });
   }, []);
 
@@ -54,9 +52,10 @@ export function useCalVideoRoom({
       const result = await knockRoom(roomRef.current, displayName);
       switch (result.outcome) {
         case "waiting":
-          receipt.current = result.receipt;
           setKnock({ status: "waiting", until: Date.now() + result.expiresInSeconds * 1000 });
           return;
+        case "admitted":
+          return setKnock({ status: "admitted" });
         case "open":
           return setKnock({ status: "open" });
         case "unavailable":
@@ -81,17 +80,14 @@ export function useCalVideoRoom({
     const until = knock.until;
 
     const poll = async () => {
-      const token = receipt.current;
-      if (!token) return;
-      const status = await knockStatus(roomRef.current, token).catch(() => null);
+      const status = await knockStatus(roomRef.current).catch(() => null);
       if (cancelled) return;
       if (status === null) {
         // Network hiccup: keep polling until the knock itself expires.
         if (Date.now() >= until) return setKnock({ status: "unanswered" });
       } else {
         if (status.state === "gone") return setKnock({ status: "unanswered" });
-        if (status.state === "admitted")
-          return setKnock({ status: "admitted", ticket: status.ticket });
+        if (status.state === "admitted") return setKnock({ status: "admitted" });
         if (status.state === "denied") return setKnock({ status: "denied" });
         if (status.state === "open") return setKnock({ status: "open" });
         if (status.state === "expired" || status.state === "invalid" || Date.now() >= until) {
@@ -109,7 +105,7 @@ export function useCalVideoRoom({
   }, [knock]);
 
   const join = useCallback(
-    async (name: string, admissionTicket?: string) => {
+    async (name: string) => {
       setJoining(true);
       setFailure(null);
       joinedAs.current = name;
@@ -117,7 +113,6 @@ export function useCalVideoRoom({
         ...roomRef.current,
         displayName: name,
         inviteToken: inviteTokenRef.current,
-        admissionTicket,
         accessToken: accessTokenRef.current,
       }).catch(() => null);
       if (result === null) {
@@ -147,17 +142,14 @@ export function useCalVideoRoom({
   useEffect(() => {
     const name = knockedAs.current;
     if (!name) return;
-    if (knock.status === "open" && actedOn.current !== "open") {
-      actedOn.current = "open";
-      void join(name);
-      return;
-    }
-    if (knock.status !== "admitted" || actedOn.current === knock.ticket) return;
-    actedOn.current = knock.ticket;
-    void join(name, knock.ticket);
+    if (knock.status !== "open" && knock.status !== "admitted") return;
+    if (actedOn.current === knock.status) return;
+    actedOn.current = knock.status;
+    void join(name);
   }, [knock, join]);
 
   const retryKnock = useCallback(() => {
+    actedOn.current = null;
     if (knockedAs.current) void join(knockedAs.current);
   }, [join]);
 
