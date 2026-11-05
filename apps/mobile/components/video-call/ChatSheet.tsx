@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -144,8 +145,8 @@ export function ChatSheet({
   const input = useRef<TextInput>(null);
   // KeyboardAvoidingView compares its frame with the keyboard's screen position; a pageSheet
   // starts below the screen top, so without this offset the keyboard covers the composer.
-  const header = useRef<View>(null);
-  const [sheetTop, setSheetTop] = useState(0);
+  const { height: windowHeight } = useWindowDimensions();
+  const [sheetHeight, setSheetHeight] = useState(windowHeight);
   const rows = chat?.rows ?? [];
   // Follow new messages only; a page of older history prepended above must not jump to the end.
   const atBottom = useRef(true);
@@ -241,14 +242,14 @@ export function ChatSheet({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
-      onShow={() => header.current?.measureInWindow((_x, y) => setSheetTop(y))}
     >
       <KeyboardAvoidingView
         style={styles.root}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={sheetTop}
+        keyboardVerticalOffset={windowHeight - sheetHeight}
+        onLayout={(event) => setSheetHeight(event.nativeEvent.layout.height)}
       >
-        <View ref={header} style={styles.header}>
+        <View style={styles.header}>
           <Text style={styles.title}>Chat</Text>
           <View style={styles.headerActions}>
             {chat?.capabilities.lock && (
