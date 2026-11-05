@@ -29,14 +29,6 @@ import { z } from "zod";
 import { safeLogWarn } from "@/utils/safeLogger";
 import { appendCaption } from "../captions";
 import { appendChatMessage, outgoingChatText } from "../chat-message";
-import { appendReaction } from "../reactions";
-import {
-  decodeSignal,
-  encodeSignal,
-  type OutgoingSignal,
-  RTK_SIGNAL_TYPE,
-  type RtkSignal,
-} from "../rtk-signals";
 import { canPublishScreen } from "../screen-share-support";
 import type {
   CallDriver,
@@ -49,7 +41,6 @@ import type {
   InputDevice,
   InputDeviceKind,
   JoinOptions,
-  ReactionEmoji,
   SfuJoinGrant,
   ToggleStatus,
 } from "../types";
@@ -101,10 +92,9 @@ function statusForLeave(state: LeaveRoomState): CallStatus {
  * the WebRTC globals and the native media handler the core client looks for on `navigator`.
  * The core client (`@cloudflare/realtimekit`) is only ever reached through that default export.
  *
- * Signals mirror the web driver's: chat and recording are real; reactions, hands and shared pins
- * ride the broadcast channel with the sender named in the payload (see `rtk-signals`), since the
- * SDK delivers a broadcast without one. Shared pins and host mutes are the SDK's own. Screen
- * share publishing needs the app's broadcast extension; viewing a share always works.
+ * Signals mirror the web driver's: chat and recording are real; reactions and hands are not,
+ * because a RealtimeKit broadcast names no sender connection. Shared pins and host mutes are the
+ * SDK's own. Screen share publishing needs the app's broadcast extension; viewing a share works.
  */
 export class RealtimeKitCallDriver implements CallDriver {
   readonly provider = "realtimekit";
@@ -116,9 +106,6 @@ export class RealtimeKitCallDriver implements CallDriver {
   private readonly cleanup: Array<() => void> = [];
   private destroyed = false;
   private leaving: Promise<void> | null = null;
-  /** Raised hands by peer id, as announced on the broadcast channel. */
-  private hands = new Map<string, number>();
-  private reactionSeq = 0;
 
   constructor(
     private readonly grant: RealtimeKitGrant,
@@ -189,8 +176,8 @@ export class RealtimeKitCallDriver implements CallDriver {
         }),
       // Pins, mutes and removal are host preset rights; the SDK refuses them for anyone else.
       participantControls: this.grant.role === "host",
-      reactions: true,
-      handRaise: true,
+      reactions: false,
+      handRaise: false,
       inputDeviceSwitching: true,
     };
   }
@@ -248,7 +235,7 @@ export class RealtimeKitCallDriver implements CallDriver {
       isScreenSharing,
       isSpeaking: null,
       connection: null,
-      handRaisedAt: this.hands.get(peer.id) ?? null,
+      handRaisedAt: null,
       // Dated when this device first saw the share: the SDK publishes no start of its own.
       screenShareStartedAt: isScreenSharing ? (previous?.screenShareStartedAt ?? Date.now()) : null,
     };
@@ -258,8 +245,6 @@ export class RealtimeKitCallDriver implements CallDriver {
     if (!this.meeting || this.destroyed) return;
     const peers = this.peers();
     const ids = new Set(peers.map((peer) => peer.id));
-    // A hand leaves with its owner; the channel never says so itself.
-    for (const id of [...this.hands.keys()]) if (!ids.has(id)) this.hands.delete(id);
     const participants = peers.map((peer) => this.toParticipant(peer));
     this.set({
       participants,
@@ -303,7 +288,6 @@ export class RealtimeKitCallDriver implements CallDriver {
     meeting.self.on("roomJoined", this.onRoomJoined);
     meeting.meta.on("socketConnectionUpdate", this.onSocketState);
     meeting.participants.on("activeSpeaker", this.onActiveSpeaker);
-    meeting.participants.on("broadcastedMessage", this.onBroadcast);
     meeting.chat.on("chatUpdate", this.onChatUpdate);
     meeting.recording.on("recordingUpdate", this.onRecordingUpdate);
     meeting.ai.on("transcript", this.onTranscript);
@@ -313,7 +297,6 @@ export class RealtimeKitCallDriver implements CallDriver {
       () => meeting.self.off("roomJoined", this.onRoomJoined),
       () => meeting.meta.off("socketConnectionUpdate", this.onSocketState),
       () => meeting.participants.off("activeSpeaker", this.onActiveSpeaker),
-      () => meeting.participants.off("broadcastedMessage", this.onBroadcast),
       () => meeting.chat.off("chatUpdate", this.onChatUpdate),
       () => meeting.recording.off("recordingUpdate", this.onRecordingUpdate)
     );
@@ -377,116 +360,6 @@ export class RealtimeKitCallDriver implements CallDriver {
       dominantSpeakerId: this.state.participants.some((p) => p.id === peerId) ? peerId : null,
     });
   };
-
-  // --- Hands and reactions over the broadcast channel ----------------------------------------
-
-  private broadcast(signal: OutgoingSignal): Promise<void> {
-    const meeting = this.meeting;
-    if (!meeting) return Promise.reject(new Error("Not in a call"));
-    const payload = encodeSignal({ ...signal, from: meeting.self.id } as RtkSignal);
-    return meeting.participants.broadcastMessage(RTK_SIGNAL_TYPE, payload).catch((error) => {
-      safeLogWarn("[CalVideo] broadcast failed", { kind: signal.kind, error: String(error) });
-      throw error;
-    });
-  }
-
-  private onBroadcast = ({ type, payload }: { type: string; payload: unknown }): void => {
-    const meeting = this.meeting;
-    if (!meeting || this.destroyed) return;
-    const knownIds = new Set(this.peers().map((peer) => peer.id));
-    const signal = decodeSignal({ type, payload, knownIds });
-    if (!signal) return;
-    switch (signal.kind) {
-      case "hand":
-        if (signal.raisedAt === null) this.hands.delete(signal.from);
-        else this.hands.set(signal.from, signal.raisedAt);
-        this.syncParticipants();
-        return;
-      case "reaction":
-        this.reactionSeq += 1;
-        this.set({
-          reactions: appendReaction(this.state.reactions, {
-            id: `${signal.from}:${this.reactionSeq}`,
-            participantId: signal.from,
-            emoji: signal.emoji,
-            count: signal.count,
-            at: Date.now(),
-          }),
-        });
-        return;
-      case "lower-hand": {
-        // Only a host's word lowers hands; anyone can claim to be one, so the roster decides.
-        const sender = this.state.participants.find((p) => p.id === signal.from);
-        if (sender?.role !== "host" || sender.isLocal) return;
-        const selfId = meeting.self.id;
-        const mine = signal.target === "all" || signal.target === selfId;
-        if (mine && this.hands.has(selfId)) {
-          this.hands.delete(selfId);
-          this.set({ handLoweredByHostAt: Date.now() });
-          void this.broadcast({ kind: "hand", raisedAt: null }).catch(() => undefined);
-        } else if (signal.target !== "all") {
-          this.hands.delete(signal.target);
-        } else {
-          this.hands.clear();
-        }
-        this.syncParticipants();
-        return;
-      }
-      case "sync": {
-        // A newcomer asks; those with a hand up say so again.
-        const raisedAt = this.hands.get(meeting.self.id);
-        if (raisedAt !== undefined) {
-          void this.broadcast({ kind: "hand", raisedAt }).catch(() => undefined);
-        }
-        return;
-      }
-    }
-  };
-
-  async sendReaction(emoji: ReactionEmoji): Promise<void> {
-    const meeting = this.meeting;
-    if (!meeting) throw new Error("Not in a call");
-    this.reactionSeq += 1;
-    this.set({
-      reactions: appendReaction(this.state.reactions, {
-        id: `${meeting.self.id}:${this.reactionSeq}`,
-        participantId: meeting.self.id,
-        emoji,
-        count: 1,
-        at: Date.now(),
-      }),
-    });
-    await this.broadcast({ kind: "reaction", emoji, count: 1 });
-  }
-
-  async setHandRaised(raised: boolean): Promise<void> {
-    const meeting = this.meeting;
-    if (!meeting) throw new Error("Not in a call");
-    const selfId = meeting.self.id;
-    const previous = this.hands.get(selfId);
-    const raisedAt = raised ? Date.now() : null;
-    if (raisedAt === null) this.hands.delete(selfId);
-    else this.hands.set(selfId, raisedAt);
-    this.syncParticipants();
-    try {
-      await this.broadcast({ kind: "hand", raisedAt });
-    } catch (error) {
-      // Nobody heard it, so the tile must not claim otherwise.
-      if (previous === undefined) this.hands.delete(selfId);
-      else this.hands.set(selfId, previous);
-      this.syncParticipants();
-      throw error;
-    }
-  }
-
-  async lowerHand(participantId: string | "all"): Promise<void> {
-    const meeting = this.meeting;
-    if (!meeting) throw new Error("Not in a call");
-    if (participantId === "all") this.hands.clear();
-    else this.hands.delete(participantId);
-    this.syncParticipants();
-    await this.broadcast({ kind: "lower-hand", target: participantId });
-  }
 
   async setSharedPin(participantId: string, pinned: boolean): Promise<void> {
     const peer = this.peerById(participantId);
@@ -606,7 +479,6 @@ export class RealtimeKitCallDriver implements CallDriver {
       if (this.state.status === "joining") this.set({ status: "joined" });
       this.syncParticipants();
       this.onRecordingUpdate(meeting.recording.recordingState);
-      void this.broadcast({ kind: "sync" }).catch(() => undefined);
     } catch (error) {
       safeLogWarn("[CalVideo] RealtimeKit join failed", {
         error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),

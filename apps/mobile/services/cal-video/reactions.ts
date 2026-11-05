@@ -4,20 +4,6 @@ import type { Reaction } from "./types";
 export const REACTION_BADGE_MS = 4_000;
 /** Another reaction with the same emoji within this long of the last one extends the run. */
 const REACTION_RUN_WINDOW_MS = 3_000;
-/** Reactions kept in call state; older ones can no longer show on anything. */
-const REACTION_BUFFER = 60;
-
-/** Each arrival appends; anything too old to badge is dropped so the list stays small. */
-export function appendReaction(
-  reactions: readonly Reaction[],
-  reaction: Reaction,
-  now: number = reaction.at
-): Reaction[] {
-  const fresh = reactions.filter((r) => r.at + REACTION_BADGE_MS > now);
-  const next = [...fresh, reaction];
-  return next.length > REACTION_BUFFER ? next.slice(next.length - REACTION_BUFFER) : next;
-}
-
 /**
  * What a reactor's badge shows: their latest reaction and how many sends of that emoji the
  * current run has reached. `key` is the id of the reaction that started the run, so a badge pops

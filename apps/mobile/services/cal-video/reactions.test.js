@@ -1,9 +1,4 @@
-const {
-  appendReaction,
-  nextBadgeExpiry,
-  REACTION_BADGE_MS,
-  reactionBadges,
-} = require("./reactions");
+const { nextBadgeExpiry, REACTION_BADGE_MS, reactionBadges } = require("./reactions");
 
 const reaction = (id, participantId, emoji, at, count = 1) => ({
   id,
@@ -11,16 +6,6 @@ const reaction = (id, participantId, emoji, at, count = 1) => ({
   emoji,
   count,
   at,
-});
-
-describe("appendReaction", () => {
-  test("appends and drops what can no longer show", () => {
-    let list = appendReaction([], reaction("1", "a", "👍", 0));
-    list = appendReaction(list, reaction("2", "b", "❤️", 1000));
-    expect(list.map((r) => r.id)).toEqual(["1", "2"]);
-    list = appendReaction(list, reaction("3", "a", "👍", REACTION_BADGE_MS + 1));
-    expect(list.map((r) => r.id)).toEqual(["2", "3"]);
-  });
 });
 
 describe("reactionBadges", () => {
