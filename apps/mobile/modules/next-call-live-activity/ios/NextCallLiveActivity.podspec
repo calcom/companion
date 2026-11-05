@@ -4,7 +4,7 @@ Pod::Spec.new do |s|
   s.summary        = 'Live Activity for the next Cal.com call'
   s.description    = 'Starts, updates and ends the iOS Live Activity shown before the next booking.'
   s.author         = 'Cal.com'
-  s.homepage       = 'https://cal.com'
+  s.homepage       = 'https://github.com/calcom/companion'
   s.license        = { :type => 'MIT' }
   s.platforms      = { :ios => '15.1' }
   s.source         = { :git => '' }

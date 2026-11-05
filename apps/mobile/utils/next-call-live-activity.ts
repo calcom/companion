@@ -12,8 +12,6 @@ import { getMeetingUrl, isCalVideoMeetingUrl } from "./booking";
 /** How long before the call the Live Activity appears. */
 export const NEXT_CALL_LEAD_TIME_MS = 5 * 60 * 1000;
 
-const VIDEO_LOCATION_KEYWORDS = ["zoom", "meet", "teams", "webex", "cal video", "daily"];
-
 export type NextCallPlan =
   | { action: "none" }
   /** Nothing to show yet; start the activity at `startAt`. */
@@ -66,7 +64,7 @@ function getLocationLabel(booking: Booking, meetingUrl: string | null): string |
   if (!location) return null;
   if (location.startsWith("integrations:")) {
     const app = location.slice("integrations:".length);
-    return app === "daily" ? "Cal Video" : app.replace(/[_-]/g, " ");
+    return app === "daily" || app === "cal-video" ? "Cal Video" : app.replace(/[_-]/g, " ");
   }
   return location;
 }
@@ -83,9 +81,9 @@ export function buildNextCallPayload(booking: Booking): NextCallLiveActivityPayl
   const uid = booking.uid || String(booking.id);
   const attendees = booking.attendees ?? [];
   const meetingUrl = getMeetingUrl(booking);
-  const locationLower = (booking.location ?? "").toLowerCase();
+  // Free text is never treated as video: words like "meet" or "teams" also name rooms.
   const isVideo =
-    meetingUrl !== null || VIDEO_LOCATION_KEYWORDS.some((word) => locationLower.includes(word));
+    meetingUrl !== null || (booking.location?.trim().startsWith("integrations:") ?? false);
 
   return {
     uid,

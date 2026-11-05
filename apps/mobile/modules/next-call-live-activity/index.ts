@@ -5,30 +5,12 @@ import type { NextCallLiveActivityPayload } from "./types";
 export type { NextCallLiveActivityPayload } from "./types";
 
 interface NativeModule {
-  isSupported(): boolean;
-  getActiveUids(): string[];
   startOrUpdate(payload: NextCallLiveActivityPayload): Promise<string>;
   end(uid: string | null): Promise<void>;
 }
 
 const native =
   Platform.OS === "ios" ? requireOptionalNativeModule<NativeModule>("NextCallLiveActivity") : null;
-
-export function isLiveActivitySupported(): boolean {
-  try {
-    return native?.isSupported() ?? false;
-  } catch {
-    return false;
-  }
-}
-
-export function getActiveLiveActivityUids(): string[] {
-  try {
-    return native?.getActiveUids() ?? [];
-  } catch {
-    return [];
-  }
-}
 
 /** Resolves with the activity id, or null when Live Activities are unavailable on this build. */
 export async function startOrUpdateLiveActivity(

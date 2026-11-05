@@ -7,6 +7,7 @@ import {
   pickNextCall,
   planNextCallLiveActivity,
 } from "@/utils/next-call-live-activity";
+import { getCalAppUrl } from "@/utils/region";
 
 const now = new Date("2026-11-04T10:00:00.000Z");
 const minutes = (count) => count * 60 * 1000;
@@ -76,7 +77,7 @@ describe("buildNextCallPayload", () => {
           { name: "Jane Smith", email: "jane@example.com", timeZone: "UTC" },
           { name: "John Doe", email: "john@example.com", timeZone: "UTC" },
         ],
-        location: "https://app.cal.com/video/abc123",
+        location: `${getCalAppUrl("us")}/video/abc123`,
       })
     );
     expect(payload).toEqual({
@@ -107,6 +108,16 @@ describe("buildNextCallPayload", () => {
       "Cal Video"
     );
     expect(buildNextCallPayload(booking({ location: "integrations:daily" }))?.isVideo).toBe(true);
+  });
+
+  test("only treats meeting links and conferencing integrations as video", () => {
+    expect(buildNextCallPayload(booking({ location: "Meeting room 3" }))?.isVideo).toBe(false);
+    expect(buildNextCallPayload(booking({ location: "Teams offsite" }))?.isVideo).toBe(false);
+    expect(buildNextCallPayload(booking({ location: "integrations:zoom" }))?.isVideo).toBe(true);
+    expect(buildNextCallPayload(booking({ location: "https://zoom.us/j/1" }))?.isVideo).toBe(true);
+    expect(
+      buildNextCallPayload(booking({ location: "integrations:cal-video" }))?.locationLabel
+    ).toBe("Cal Video");
   });
 });
 

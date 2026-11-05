@@ -8,8 +8,10 @@
  *
  * Known limitation: no timer (JS here, or the native one in NextCallLiveActivityModule) runs
  * while iOS has the app suspended, and there is no push-to-start/end server support. If the
- * phone stays locked through the end of a call, the activity lingers as "happening now" until
- * the app next runs or iOS retires it (8 hours).
+ * phone stays locked through the end of a call, the activity stays on the Lock Screen until
+ * the app next runs or iOS retires it (8 hours). It reads "ended" when the app was running at
+ * some point after the call started (the stale date then moves to the end time), otherwise
+ * "happening now".
  */
 import { AppState, type AppStateStatus, Platform } from "react-native";
 import { endLiveActivity, startOrUpdateLiveActivity } from "@/modules/next-call-live-activity";

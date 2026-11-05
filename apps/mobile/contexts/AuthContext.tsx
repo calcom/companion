@@ -445,6 +445,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // and clearing would wipe that newer session's auth.
           if (CalComAPIService.getAuthGeneration() === generationAtStart) {
             await clearAuth();
+            try {
+              await clearNextCallLiveActivity();
+            } catch (activityError) {
+              console.warn(
+                "Failed to end next-call Live Activity after failed refresh:",
+                activityError
+              );
+            }
           }
           return;
         }

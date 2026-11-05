@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useWidgetSync } from "@/hooks/useWidgetSync";
 import { syncNextCallLiveActivity } from "@/services/nextCallLiveActivity";
+import { getCalAppUrl } from "@/utils/region";
 
 // Dev-only: `EXPO_PUBLIC_DEMO_LIVE_ACTIVITY=1 expo start` fakes a booking four minutes out so
 // the iOS Live Activity can be exercised on a simulator, where signing in is not possible.
@@ -20,7 +21,7 @@ export function WidgetSyncProvider({ children }: { children: React.ReactNode }) 
         startTime: start.toISOString(),
         endTime: end.toISOString(),
         status: "accepted",
-        location: "https://app.cal.com/video/demo",
+        location: `${getCalAppUrl()}/video/demo`,
         attendees: [
           { name: "Jane Smith", email: "jane@example.com", timeZone: "UTC" },
           { name: "John Doe", email: "john@example.com", timeZone: "UTC" },

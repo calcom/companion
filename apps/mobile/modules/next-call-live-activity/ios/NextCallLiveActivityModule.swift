@@ -44,17 +44,37 @@ private enum NextCallActivities {
         Activity<NextCallAttributes>.activities
     }
 
-    // Native end timers keyed by booking uid. They outlive JS reloads, but like any timer
+    // Native timers keyed by booking uid. They outlive JS reloads, but like any timer
     // they do not run while iOS has the app suspended; see services/nextCallLiveActivity.ts.
     private static var endTasks: [String: Task<Void, Never>] = [:]
 
-    private static func scheduleEnd(uid: String, at endDate: Date) {
+    // Stale at start time re-renders the activity as "happening now"; once the call has
+    // started, stale at end time re-renders it as "ended" even if the app is suspended then.
+    private static func content(for state: NextCallAttributes.ContentState) -> ActivityContent<NextCallAttributes.ContentState> {
+        let staleDate = state.startDate > Date() ? state.startDate : state.endDate
+        return ActivityContent(state: state, staleDate: staleDate, relevanceScore: 100)
+    }
+
+    private static func waitUntil(_ date: Date) async {
+        let delay = date.timeIntervalSinceNow
+        if delay > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        }
+    }
+
+    // At start time, moves the stale date to the end (when the app is still running then),
+    // and ends the activity once the call is over.
+    private static func scheduleEnd(uid: String, state: NextCallAttributes.ContentState) {
         endTasks[uid]?.cancel()
-        let delay = endDate.timeIntervalSinceNow
         endTasks[uid] = Task {
-            if delay > 0 {
-                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            if state.startDate > Date() {
+                await waitUntil(state.startDate)
+                guard !Task.isCancelled else { return }
+                for activity in all where activity.attributes.uid == uid {
+                    await activity.update(content(for: state))
+                }
             }
+            await waitUntil(state.endDate)
             guard !Task.isCancelled else { return }
             await end(uid: uid)
         }
@@ -82,8 +102,7 @@ private enum NextCallActivities {
             locationLabel: payload.locationLabel,
             isVideo: payload.isVideo
         )
-        // Stale at start time re-renders the activity as "happening now" without an app update.
-        let content = ActivityContent(state: state, staleDate: state.startDate, relevanceScore: 100)
+        let activityContent = content(for: state)
 
         var existing: Activity<NextCallAttributes>? = nil
         for activity in all {
@@ -96,14 +115,14 @@ private enum NextCallActivities {
         }
 
         if let existing {
-            await existing.update(content)
-            scheduleEnd(uid: payload.uid, at: state.endDate)
+            await existing.update(activityContent)
+            scheduleEnd(uid: payload.uid, state: state)
             return existing.id
         }
 
         let attributes = NextCallAttributes(uid: payload.uid, deepLinkUrl: payload.deepLinkUrl)
-        let activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
-        scheduleEnd(uid: payload.uid, at: state.endDate)
+        let activity = try Activity.request(attributes: attributes, content: activityContent, pushType: nil)
+        scheduleEnd(uid: payload.uid, state: state)
         return activity.id
     }
 
@@ -120,16 +139,6 @@ private enum NextCallActivities {
 public class NextCallLiveActivityModule: Module {
     public func definition() -> ModuleDefinition {
         Name("NextCallLiveActivity")
-
-        Function("isSupported") { () -> Bool in
-            guard #available(iOS 16.2, *) else { return false }
-            return ActivityAuthorizationInfo().areActivitiesEnabled
-        }
-
-        Function("getActiveUids") { () -> [String] in
-            guard #available(iOS 16.2, *) else { return [] }
-            return Activity<NextCallAttributes>.activities.map { $0.attributes.uid }
-        }
 
         AsyncFunction("startOrUpdate") { (payload: NextCallPayload) async throws -> String in
             guard #available(iOS 16.2, *) else { throw NextCallLiveActivityError.unavailable }
