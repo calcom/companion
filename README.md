@@ -69,8 +69,8 @@ A cross-browser extension built with [WXT](https://wxt.dev) that brings Cal.com 
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+)
-- [Bun](https://bun.sh/) (recommended) or npm
+- [Node.js](https://nodejs.org/) (v20.19.4+ for the current mobile toolchain)
+- [Bun](https://bun.sh/) (the workspace scripts below use Bun)
 - For mobile development: Xcode (iOS) or Android Studio (Android)
 
 ### Install dependencies
@@ -81,13 +81,23 @@ bun install
 
 ### Environment
 
-Copy the example env file and fill in your Cal.com OAuth credentials:
+For the mobile app, follow [Running the iOS app in the Simulator](apps/mobile/docs/local-development.md)
+to pull the production OAuth configuration into `apps/mobile/.env.local`, or
+configure a local Cal.com instance. The root `.env` alone does not configure Expo.
+
+For browser-extension configuration, copy the example env file and fill in your
+Cal.com OAuth credentials:
 
 ```sh
 cp .env.example .env
 ```
 
 ### Run the mobile app
+
+For iOS prerequisites (including CocoaPods), production sign-in, and optional
+local-backend setup, see [Running the iOS app in the Simulator](apps/mobile/docs/local-development.md).
+Use `bun run mobile:ios` to build and install the iOS dev client first;
+`bun run mobile` only starts Metro for an already-installed app.
 
 ```sh
 # Expo dev server
