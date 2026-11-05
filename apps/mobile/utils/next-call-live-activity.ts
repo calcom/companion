@@ -57,7 +57,7 @@ function getConfirmedCalls(bookings: readonly Booking[], now: Date): ConfirmedCa
 /**
  * The confirmed booking to show: a call starting within the lead window takes over from one
  * already in progress (so a long block or a back-to-back call does not hide it); otherwise the
- * one in progress, or else the soonest upcoming one.
+ * most recently started call in progress, or else the soonest upcoming one.
  * Pending (unconfirmed), cancelled and rejected bookings never get a reminder.
  */
 export function pickNextCall(bookings: readonly Booking[], now: Date): Booking | null {
@@ -66,7 +66,10 @@ export function pickNextCall(bookings: readonly Booking[], now: Date): Booking |
   const startingSoon = calls.find(
     (call) => call.start > nowMs && call.start - NEXT_CALL_LEAD_TIME_MS <= nowMs
   );
-  return startingSoon?.booking ?? calls[0]?.booking ?? null;
+  // Sorted by start, so the last started call is the most recent one: a call that took over
+  // keeps the activity until it ends.
+  const inProgress = calls.filter((call) => call.start <= nowMs).at(-1);
+  return (startingSoon ?? inProgress ?? calls[0])?.booking ?? null;
 }
 
 function getLocationLabel(booking: Booking, meetingUrl: string | null): string | null {

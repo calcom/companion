@@ -72,6 +72,10 @@ describe("pickNextCall", () => {
     expect(pickNextCall([allDay, overlapping], now)?.uid).toBe("overlap");
     const later = booking({ uid: "later", startTime: iso(minutes(6)), endTime: iso(minutes(36)) });
     expect(pickNextCall([allDay, later], now)?.uid).toBe("all-day");
+    // The short call keeps it while it runs.
+    expect(pickNextCall([allDay, overlapping], new Date(now.getTime() + minutes(14)))?.uid).toBe(
+      "overlap"
+    );
     // Once the short call is over the long one shows again.
     expect(pickNextCall([allDay, overlapping], new Date(now.getTime() + minutes(35)))?.uid).toBe(
       "all-day"
