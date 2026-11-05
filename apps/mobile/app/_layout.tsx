@@ -66,12 +66,12 @@ function RootLayoutContent() {
   const content = isAuthenticated ? (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      {/* A Cal Video call: edge to edge, no header, no swipe-to-dismiss mid-call. */}
+      {/* A Cal Video call: edge to edge, no header, no swipe-to-dismiss mid-call. A plain push, as
+          a fullScreenModal stays on screen on iOS after closing, swallowing every tap. */}
       <Stack.Screen
         name="video-call"
         options={{
           headerShown: false,
-          presentation: "fullScreenModal",
           gestureEnabled: false,
           animation: "fade",
           contentStyle: { backgroundColor: "#000000" },

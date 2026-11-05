@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Linking, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { SvgImage } from "@/components/SvgImage";
 import { getColors } from "@/constants/colors";
+import { useOpenMeetingLink } from "@/hooks/useOpenMeetingLink";
 import type { Booking } from "@/services/calcom";
-import { showErrorAlert } from "@/utils/alerts";
 import { BOOKING_REQUEST_BADGE_LABEL } from "@/utils/booking-request-actions";
 import type { BookingListItemData } from "./useBookingListItemData";
 
@@ -111,6 +111,7 @@ interface MeetingLinkProps {
 }
 
 export function MeetingLink({ meetingInfo }: MeetingLinkProps) {
+  const openMeetingLink = useOpenMeetingLink();
   if (!meetingInfo) return null;
   return (
     <View className="mb-1 flex-row">
@@ -118,13 +119,9 @@ export function MeetingLink({ meetingInfo }: MeetingLinkProps) {
         className="flex-row items-center"
         style={{ alignSelf: "flex-start" }}
         hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-        onPress={async (e) => {
+        onPress={(e) => {
           e.stopPropagation();
-          try {
-            await Linking.openURL(meetingInfo.cleanUrl);
-          } catch {
-            showErrorAlert("Error", "Failed to open meeting link. Please try again.");
-          }
+          openMeetingLink(meetingInfo.cleanUrl);
         }}
       >
         {meetingInfo.iconUrl ? (

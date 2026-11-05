@@ -33,7 +33,6 @@ export default function VideoCallRoute() {
       <Stack.Screen
         options={{
           headerShown: false,
-          presentation: "fullScreenModal",
           gestureEnabled: false,
           animation: "fade",
           contentStyle: { backgroundColor: "#000000" },
