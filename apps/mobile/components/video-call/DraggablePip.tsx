@@ -28,15 +28,20 @@ function park() {
  */
 export function DraggablePip({
   bounds,
+  initialCorner = "bottom-right",
+  onCornerChange,
   style,
   children,
 }: {
   bounds: PipBounds;
+  /** Where to start; the tile unmounts when the other person drops, so its owner keeps this. */
+  initialCorner?: PipCorner;
+  onCornerChange?: (corner: PipCorner) => void;
   style?: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
-  const corner = useSharedValue<PipCorner>("bottom-right");
-  const initial = cornerPosition("bottom-right", bounds);
+  const corner = useSharedValue<PipCorner>(initialCorner);
+  const initial = cornerPosition(initialCorner, bounds);
   const x = useSharedValue(initial.x);
   const y = useSharedValue(initial.y);
   const startX = useSharedValue(0);
@@ -78,6 +83,7 @@ export function DraggablePip({
       x.set(withSpring(target.x, { ...SPRING, velocity: event.velocityX }));
       y.set(withSpring(target.y, { ...SPRING, velocity: event.velocityY }));
       runOnJS(park)();
+      if (onCornerChange) runOnJS(onCornerChange)(next);
     });
 
   const animatedStyle = useAnimatedStyle(() => ({

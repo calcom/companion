@@ -281,6 +281,12 @@ export function VideoCallScreen({
         driver.setCameraEnabled(on).catch((error: unknown) => {
           safeLogWarn("[CalVideo] camera toggle failed", { error: String(error) });
           setCameraOn(false);
+          if (on) {
+            Alert.alert(
+              "Couldn't turn on your camera",
+              "Check that Cal.com has camera access and no other app is using the camera."
+            );
+          }
         });
       }
     },
@@ -483,6 +489,8 @@ export function VideoCallScreen({
     });
   }, [state, driver, layoutChoice]);
 
+  // What the tray shows, not `cameraOn`: a camera that failed to start leaves the two apart.
+  const localVideoOn = state.participants.some((p) => p.isLocal && p.hasVideo);
   const localHandUp = state.participants.some((p) => p.isLocal && p.handRaisedAt !== null);
   const reactionControls = useMemo(() => {
     if (!driver?.signals.reactions && !driver?.signals.handRaise) return null;
@@ -595,7 +603,10 @@ export function VideoCallScreen({
           onMicrophoneChange={setMicrophoneOn}
           onCameraChange={setCameraOn}
           onJoin={(name) => {
-            if (viewerName === null) void saveGuestName(name);
+            if (viewerName === null) {
+              setRememberedName(name);
+              void saveGuestName(name);
+            }
             void room.join(name);
           }}
           onClose={onClose}
@@ -640,7 +651,7 @@ export function VideoCallScreen({
             onMore={showMoreMenu}
             onTilePress={onTilePress}
             onToggleMicrophone={() => setMicrophone(!microphoneOn)}
-            onToggleCamera={() => setCamera(!cameraOn)}
+            onToggleCamera={() => setCamera(!localVideoOn)}
             onLeave={confirmLeave}
           />
           <ChatSheet

@@ -18,6 +18,7 @@ export function ParticipantTile({
   pinned = false,
   reaction = null,
   compact = false,
+  labelBottom,
   style,
   onPress,
 }: {
@@ -30,6 +31,8 @@ export function ParticipantTile({
   /** Their latest reaction while it is still fresh. */
   reaction?: ReactionBadge | null;
   compact?: boolean;
+  /** Lifts the name clear of whatever floats over the tile's bottom edge. */
+  labelBottom?: number;
   style?: StyleProp<ViewStyle>;
   onPress?: (participant: CallParticipant) => void;
 }) {
@@ -73,7 +76,13 @@ export function ParticipantTile({
           {reaction.count > 1 && <Text style={styles.reactionCount}>{reaction.count}</Text>}
         </GlassSurface>
       )}
-      <GlassSurface style={[styles.pill, compact && styles.pillCompact]}>
+      <GlassSurface
+        style={[
+          styles.pill,
+          compact && styles.pillCompact,
+          labelBottom !== undefined && { bottom: labelBottom },
+        ]}
+      >
         {participant.handRaisedAt !== null && <Hand size={iconSize} color="#FFD60A" />}
         {pinned && <Pin size={iconSize} color="#FFFFFF" />}
         {participant.isScreenSharing && <MonitorUp size={iconSize} color="#FFFFFF" />}

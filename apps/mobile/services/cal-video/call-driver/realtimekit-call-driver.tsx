@@ -538,8 +538,13 @@ export class RealtimeKitCallDriver implements CallDriver {
       throw new Error("This participant may not publish video");
     }
     const meeting = this.guard();
-    if (enabled) await meeting.self.enableVideo();
-    else await meeting.self.disableVideo();
+    if (enabled) {
+      await meeting.self.enableVideo();
+      // The SDK swallows a camera that won't start, so a missing track is the only sign of it.
+      if (!liveTrack(meeting.self.videoTrack)) throw new Error("The camera did not start");
+    } else {
+      await meeting.self.disableVideo();
+    }
     this.syncParticipants();
   }
 

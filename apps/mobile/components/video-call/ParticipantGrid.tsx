@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { type LayoutChangeEvent, ScrollView, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import type { StageLayout } from "@/services/cal-video/layout";
+import type { PipCorner } from "@/services/cal-video/pip-snap";
 import { nextBadgeExpiry, reactionBadges } from "@/services/cal-video/reactions";
 import type { CallDriver, CallParticipant, CallState } from "@/services/cal-video/types";
 import { DraggablePip } from "./DraggablePip";
@@ -48,6 +49,7 @@ export function ParticipantGrid({
   onTilePress?: (participant: CallParticipant) => void;
 }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const [pipCorner, setPipCorner] = useState<PipCorner>("bottom-right");
   const onLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     if (width !== size.width || height !== size.height) setSize({ width, height });
@@ -58,7 +60,12 @@ export function ParticipantGrid({
   const featuredId = state.dominantSpeakerId;
   const badges = useReactionBadges(state.reactions);
 
-  const tile = (participant: CallParticipant, style: object, compact = false) => (
+  const tile = (
+    participant: CallParticipant,
+    style: object,
+    compact = false,
+    labelBottom?: number
+  ) => (
     <ParticipantTile
       key={participant.id}
       participant={participant}
@@ -68,6 +75,7 @@ export function ParticipantGrid({
       pinned={pinnedIds.includes(participant.id)}
       reaction={badges.get(participant.id) ?? null}
       compact={compact}
+      labelBottom={labelBottom}
       style={style}
       onPress={onTilePress}
     />
@@ -123,10 +131,12 @@ export function ParticipantGrid({
     const main = remote[0] ?? local;
     return (
       <GestureHandlerRootView style={styles.fill} onLayout={onLayout}>
-        {main && tile(main, [StyleSheet.absoluteFill, styles.fullBleed])}
+        {main && tile(main, [StyleSheet.absoluteFill, styles.fullBleed], false, bottomInset)}
         {remote.length === 1 && local && size.width > 0 && (
           <DraggablePip
             style={styles.pip}
+            initialCorner={pipCorner}
+            onCornerChange={setPipCorner}
             bounds={{
               width: size.width,
               height: size.height,
