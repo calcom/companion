@@ -91,7 +91,7 @@ extension RTKSocketConnection: StreamDelegate {
                 streamHasSpaceAvailable?()
             }
         case .errorOccurred:
-            print("[RTK][ERROR] client stream error occured: \(String(describing: aStream.streamError))")
+            print("[RTK][ERROR] client stream error occurred: \(String(describing: aStream.streamError))")
             close()
             notifyDidClose(error: aStream.streamError)
 
