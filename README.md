@@ -167,6 +167,10 @@ bun run ext:zip:prod
 | `bun run check` | Run Biome checks and apply safe fixes |
 | `bun run check:ci` | Run Biome CI checks |
 
+## Releasing
+
+- **iOS** — Step-by-step guide to building, testing, and shipping a new version to the App Store: [Releasing the iOS app](apps/mobile/docs/releasing-ios.md)
+
 ## Contributing
 
 This repo uses [Biome](https://biomejs.dev/) for linting and formatting, enforced via Husky pre-commit hooks. Before submitting a PR, make sure your changes pass:
