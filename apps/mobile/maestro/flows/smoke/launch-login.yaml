@@ -5,8 +5,8 @@ tags:
 ---
 - runFlow: ../../helpers/launch-app.yaml
 - extendedWaitUntil:
-    visible: "Continue with Cal.com"
+    visible: "Sign in"
     timeout: 15000
 - assertVisible: "Data region"
 - assertVisible: "United States"
-- assertVisible: "Continue with Cal.com"
+- assertVisible: "Sign in"

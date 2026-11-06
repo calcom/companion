@@ -1,20 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { LayoutChangeEvent } from "react-native";
 import { Platform, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
+import { OAuthCancelledError } from "@/services/oauthService";
 import { showErrorAlert } from "@/utils/alerts";
-import { openInAppBrowser } from "@/utils/browser";
 import {
   type CalRegion,
-  getCalAppUrl,
   getRegion,
   preloadRegion,
   setRegion,
   subscribeRegion,
 } from "@/utils/region";
 import { CalComLogo } from "./CalComLogo";
+import { SignupScreen } from "./SignupScreen";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +42,8 @@ export function LoginScreen() {
   // user's saved preference is still in flight.
   const [regionPreloadPending, setRegionPreloadPending] = useState(true);
   const [regionTriggerWidth, setRegionTriggerWidth] = useState(0);
+  const [showSignup, setShowSignup] = useState(false);
+  const closeSignup = useCallback(() => setShowSignup(false), []);
 
   useEffect(() => {
     preloadRegion().then((loaded) => {
@@ -56,6 +58,7 @@ export function LoginScreen() {
     try {
       await loginWithOAuth();
     } catch (error) {
+      if (error instanceof OAuthCancelledError) return;
       console.error("OAuth login error");
       showErrorAlert(
         "Login Failed",
@@ -67,7 +70,22 @@ export function LoginScreen() {
   };
 
   const handleSignUp = async () => {
-    await openInAppBrowser(`${getCalAppUrl(region)}/signup`, "Sign up page");
+    if (regionPreloadPending) return;
+    // The web build (and the extension iframe) can't call the signup API cross-origin,
+    // so it signs up on Cal.com in a popup that continues straight into sign-in.
+    if (Platform.OS !== "web") {
+      setShowSignup(true);
+      return;
+    }
+    try {
+      await loginWithOAuth("signup");
+    } catch (error) {
+      if (error instanceof OAuthCancelledError) return;
+      showErrorAlert(
+        "Sign Up Failed",
+        error instanceof Error ? error.message : "Failed to sign up. Please try again."
+      );
+    }
   };
 
   const handleRegionChange = async (next: CalRegion) => {
@@ -77,6 +95,10 @@ export function LoginScreen() {
   const onRegionTriggerLayout = (event: LayoutChangeEvent) => {
     setRegionTriggerWidth(event.nativeEvent.layout.width);
   };
+
+  if (showSignup) {
+    return <SignupScreen region={region} onBack={closeSignup} />;
+  }
 
   return (
     <View className="flex-1 bg-white dark:bg-black">
@@ -205,27 +227,32 @@ export function LoginScreen() {
             className="text-[17px] font-semibold"
             style={{ color: isDark ? "#000000" : "#FFFFFF" }}
           >
-            Continue with Cal.com
+            Sign in
           </Text>
         </TouchableOpacity>
 
-        {/* Sign up link - hidden on iOS */}
-        {Platform.OS !== "ios" && (
-          <TouchableOpacity
-            onPress={handleSignUp}
-            className="mt-3 items-center justify-center py-1"
-            style={Platform.OS === "web" ? { cursor: "pointer" } : undefined}
-            activeOpacity={0.7}
+        {/* Secondary CTA: create an account */}
+        <TouchableOpacity
+          onPress={handleSignUp}
+          disabled={loading || regionPreloadPending}
+          accessibilityRole="button"
+          className="mt-3 flex-row items-center justify-center rounded-2xl border py-[17px]"
+          style={[
+            {
+              borderColor: isDark ? "#4D4D4D" : "#E5E7EB",
+              backgroundColor: isDark ? "#171717" : "#FFFFFF",
+            },
+            Platform.OS === "web" ? { cursor: "pointer" } : undefined,
+          ]}
+          activeOpacity={0.8}
+        >
+          <Text
+            className="text-[17px] font-semibold"
+            style={{ color: isDark ? "#FFFFFF" : "#111827" }}
           >
-            <View>
-              <Text className="text-[15px] text-gray-500 dark:text-[#A3A3A3]">
-                Don't have an account?{" "}
-                <Text className="font-semibold text-gray-900 dark:text-white">Sign up</Text>
-              </Text>
-              <View className="h-px bg-gray-400 dark:bg-[#4D4D4D]" style={{ marginTop: 2 }} />
-            </View>
-          </TouchableOpacity>
-        )}
+            Create an account
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
