@@ -97,30 +97,29 @@ export default function EditAvailabilityOverrideIOS() {
         }}
       />
 
-      <Stack.Header>
-        <Stack.Header.Left>
-          <Stack.Header.Button
-            onPress={() => router.back()}
-            tintColor={theme.backgroundEmphasis}
-            variant="prominent"
-          >
-            <Stack.Header.Icon sf="xmark" />
-          </Stack.Header.Button>
-        </Stack.Header.Left>
+      <Stack.Header />
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button
+          onPress={() => router.back()}
+          tintColor={theme.backgroundEmphasis}
+          variant="prominent"
+        >
+          <Stack.Toolbar.Icon sf="xmark" />
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
 
-        <Stack.Header.Title>{isEditing ? "Edit Override" : "Add Override"}</Stack.Header.Title>
+      <Stack.Title>{isEditing ? "Edit Override" : "Add Override"}</Stack.Title>
 
-        <Stack.Header.Right>
-          <Stack.Header.Button
-            onPress={handleSave}
-            disabled={isSaving}
-            variant="prominent"
-            tintColor={theme.text}
-          >
-            <Stack.Header.Icon sf="checkmark" />
-          </Stack.Header.Button>
-        </Stack.Header.Right>
-      </Stack.Header>
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          onPress={handleSave}
+          disabled={isSaving}
+          variant="prominent"
+          tintColor={theme.text}
+        >
+          <Stack.Toolbar.Icon sf="checkmark" />
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
 
       <View
         style={{

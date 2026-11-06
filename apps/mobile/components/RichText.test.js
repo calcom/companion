@@ -5,9 +5,30 @@ import { Linking, StyleSheet } from "react-native";
 import { getColors } from "@/constants/colors";
 import { RichText } from "./RichText";
 
+// React Native 0.86 can't load under Node, so this stands in for the parts these tests reach.
 jest.mock("react-native", () => ({
-  ...jest.requireActual("react-native"),
+  ActivityIndicator: "ActivityIndicator",
+  Dimensions: {
+    addEventListener: () => ({ remove: () => {} }),
+    get: () => ({ width: 390, height: 844, scale: 1, fontScale: 1 }),
+  },
+  I18nManager: { isRTL: false },
+  Image: Object.assign(() => null, { getSize: () => {} }),
+  Linking: { openURL: jest.fn(() => Promise.resolve()) },
+  Modal: "Modal",
+  Platform: { OS: "ios", select: (options) => options.ios ?? options.default },
+  Pressable: "Pressable",
+  ScrollView: "ScrollView",
+  StyleSheet: {
+    create: (styles) => styles,
+    flatten: (style) =>
+      Array.isArray(style) ? Object.assign({}, ...style.flat(Infinity)) : (style ?? {}),
+    hairlineWidth: 1,
+  },
+  Switch: "Switch",
   Text: "Text",
+  TextInput: "TextInput",
+  TouchableOpacity: "TouchableOpacity",
   View: "View",
   useColorScheme: () => "dark",
   useWindowDimensions: () => ({ width: 390, height: 844, scale: 1, fontScale: 1 }),

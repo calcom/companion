@@ -72,19 +72,18 @@ export default function EditAvailabilityHoursIOS() {
         }}
       />
 
-      <Stack.Header>
-        <Stack.Header.Left>
-          <Stack.Header.Button
-            onPress={() => router.back()}
-            tintColor={theme.backgroundEmphasis}
-            variant="prominent"
-          >
-            <Stack.Header.Icon sf="xmark" />
-          </Stack.Header.Button>
-        </Stack.Header.Left>
+      <Stack.Header />
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button
+          onPress={() => router.back()}
+          tintColor={theme.backgroundEmphasis}
+          variant="prominent"
+        >
+          <Stack.Toolbar.Icon sf="xmark" />
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
 
-        <Stack.Header.Title>Working Hours</Stack.Header.Title>
-      </Stack.Header>
+      <Stack.Title>Working Hours</Stack.Title>
 
       <View
         style={{

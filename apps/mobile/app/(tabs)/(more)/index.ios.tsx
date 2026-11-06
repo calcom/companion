@@ -130,25 +130,24 @@ export default function More() {
       <Stack.Header
         style={{ backgroundColor: "transparent", shadowColor: "transparent" }}
         blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
-      >
-        <Stack.Header.Title large>More</Stack.Header.Title>
-        <Stack.Header.Right>
-          {userProfile?.avatarUrl ? (
-            <Stack.Header.View>
-              <Pressable onPress={() => router.push("/profile-sheet")}>
-                <Image
-                  source={{ uri: getAvatarUrl(userProfile.avatarUrl) }}
-                  style={{ width: 32, height: 32, borderRadius: 16 }}
-                />
-              </Pressable>
-            </Stack.Header.View>
-          ) : (
-            <Stack.Header.Button onPress={() => router.push("/profile-sheet")}>
-              <Stack.Header.Icon sf="person.circle.fill" />
-            </Stack.Header.Button>
-          )}
-        </Stack.Header.Right>
-      </Stack.Header>
+      />
+      <Stack.Title large>More</Stack.Title>
+      <Stack.Toolbar placement="right">
+        {userProfile?.avatarUrl ? (
+          <Stack.Toolbar.View>
+            <Pressable onPress={() => router.push("/profile-sheet")}>
+              <Image
+                source={{ uri: getAvatarUrl(userProfile.avatarUrl) }}
+                style={{ width: 32, height: 32, borderRadius: 16 }}
+              />
+            </Pressable>
+          </Stack.Toolbar.View>
+        ) : (
+          <Stack.Toolbar.Button onPress={() => router.push("/profile-sheet")}>
+            <Stack.Toolbar.Icon sf="person.circle.fill" />
+          </Stack.Toolbar.Button>
+        )}
+      </Stack.Toolbar>
 
       {/* Content */}
       <ScrollView

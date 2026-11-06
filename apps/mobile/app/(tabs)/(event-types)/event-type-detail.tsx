@@ -1383,16 +1383,17 @@ export default function EventTypeDetail() {
       />
 
       {Platform.OS === "ios" && (
-        <Stack.Header
-          blurEffect={isLiquidGlassAvailable() ? undefined : isDarkMode ? "dark" : "light"}
-        >
-          <Stack.Header.Right>
-            <Stack.Header.Menu>
-              <Stack.Header.Label>
+        <>
+          <Stack.Header
+            blurEffect={isLiquidGlassAvailable() ? undefined : isDarkMode ? "dark" : "light"}
+          />
+          <Stack.Toolbar placement="right">
+            <Stack.Toolbar.Menu>
+              <Stack.Toolbar.Label>
                 {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-              </Stack.Header.Label>
+              </Stack.Toolbar.Label>
               {tabs.map((tab) => (
-                <Stack.Header.MenuAction
+                <Stack.Toolbar.MenuAction
                   key={tab.id}
                   icon={
                     activeTab === tab.id
@@ -1412,19 +1413,19 @@ export default function EventTypeDetail() {
                   onPress={() => setActiveTab(tab.id)}
                 >
                   {tab.label}
-                </Stack.Header.MenuAction>
+                </Stack.Toolbar.MenuAction>
               ))}
-            </Stack.Header.Menu>
-            <Stack.Header.Button
+            </Stack.Toolbar.Menu>
+            <Stack.Toolbar.Button
               onPress={handleSave}
               disabled={isSaving || !isDirty}
               variant="prominent"
               tintColor={isDarkMode ? "#FFF" : "#000"}
             >
               {saveButtonText}
-            </Stack.Header.Button>
-          </Stack.Header.Right>
-        </Stack.Header>
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
+        </>
       )}
 
       <View className="flex-1 bg-[#f8f9fa] dark:bg-black">

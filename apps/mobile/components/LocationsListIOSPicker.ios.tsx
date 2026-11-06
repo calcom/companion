@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host } from "@expo/ui/swift-ui";
+import { Button, Host, Menu } from "@expo/ui/swift-ui";
 import { buttonStyle } from "@expo/ui/swift-ui/modifiers";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import type React from "react";
@@ -46,26 +46,23 @@ export function LocationsListIOSPicker({
 }: LocationsListIOSPickerProps) {
   return (
     <Host matchContents>
-      <ContextMenu
+      <Menu
         modifiers={!isHeader ? [buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")] : []}
-        activationMethod="singlePress"
+        label={trigger}
       >
-        <ContextMenu.Items>
-          {locationOptions.flatMap((group) =>
-            group.options
-              .filter((opt) => !isLocationAlreadyAdded(locations, opt.value))
-              .map((option) => (
-                <Button
-                  key={option.value}
-                  onPress={() => onSelectOption(option.value, option.label)}
-                  label={option.label}
-                  systemImage={getSFSymbolForType(option.value)}
-                />
-              ))
-          )}
-        </ContextMenu.Items>
-        <ContextMenu.Trigger>{trigger}</ContextMenu.Trigger>
-      </ContextMenu>
+        {locationOptions.flatMap((group) =>
+          group.options
+            .filter((opt) => !isLocationAlreadyAdded(locations, opt.value))
+            .map((option) => (
+              <Button
+                key={option.value}
+                onPress={() => onSelectOption(option.value, option.label)}
+                label={option.label}
+                systemImage={getSFSymbolForType(option.value)}
+              />
+            ))
+        )}
+      </Menu>
     </Host>
   );
 }

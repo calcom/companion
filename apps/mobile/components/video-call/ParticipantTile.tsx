@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   featured: { borderColor: "#34C759" },
-  avatarWrap: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  avatarWrap: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
   pill: {
     position: "absolute",
     left: 10,
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   name: { color: "#FFFFFF", fontSize: 13, fontWeight: "500" },
   nameCompact: { fontSize: 11 },
   interrupted: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.55)",
     alignItems: "center",
     justifyContent: "center",

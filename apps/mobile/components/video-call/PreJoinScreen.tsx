@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1C1C1E",
   },
   viewfinderEmpty: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     gap: 14,
