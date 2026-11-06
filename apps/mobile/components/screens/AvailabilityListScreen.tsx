@@ -91,7 +91,7 @@ export function AvailabilityListScreen({
     if (searchQuery.trim() === "") {
       return schedules;
     }
-    const searchLower = searchQuery.toLowerCase();
+    const searchLower = searchQuery.trim().toLowerCase();
     return schedules.filter((schedule) => schedule.name.toLowerCase().includes(searchLower));
   }, [schedules, searchQuery]);
 
