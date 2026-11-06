@@ -532,20 +532,24 @@ export default function EventTypes() {
         style={{ backgroundColor: "transparent", shadowColor: "transparent" }}
         blurEffect={isLiquidGlassAvailable() ? undefined : "light"} // Only looks cool on iOS 18 and below
         hidden={Platform.OS === "android" || Platform.OS === "web"}
-      >
-        <Stack.Header.Title large>Links</Stack.Header.Title>
-        <Stack.Header.Right>
-          <Stack.Header.Button onPress={handleCreateNew} tintColor="#000" variant="prominent">
-            New
-          </Stack.Header.Button>
-        </Stack.Header.Right>
-        <Stack.Header.SearchBar
-          placeholder="Search links"
-          onChangeText={(e) => handleSearch(e.nativeEvent.text)}
-          obscureBackground={false}
-          barTintColor="#fff"
-        />
-      </Stack.Header>
+      />
+      <Stack.Title large>Links</Stack.Title>
+      {Platform.OS === "ios" && (
+        <>
+          <Stack.Toolbar placement="right">
+            <Stack.Toolbar.Button onPress={handleCreateNew} tintColor="#000" variant="prominent">
+              New
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
+          <Stack.SearchBar
+            placeholder="Search links"
+            onChangeText={(e) => handleSearch(e.nativeEvent.text)}
+            obscureBackground={false}
+            barTintColor="#fff"
+          />
+        </>
+      )}
+
       {(Platform.OS === "web" || Platform.OS === "android") && (
         <>
           <Header

@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host, Image, Rectangle, Text } from "@expo/ui/swift-ui";
+import { Button, Host, Image, Menu, Rectangle, Text } from "@expo/ui/swift-ui";
 import { accessibilityLabel, foregroundStyle, opacity } from "@expo/ui/swift-ui/modifiers";
 import { StyleSheet, View } from "react-native";
 import { useEditTheme } from "./EditControls";
@@ -48,38 +48,39 @@ export function SelectField<T extends string | null>({
           <SelectBox text={text} swatches={swatches ?? selected?.swatches} />
         </View>
         <Host style={StyleSheet.absoluteFill}>
-          <ContextMenu activationMethod="singlePress">
-            <ContextMenu.Items>
-              {options.map((option) =>
-                option.hint ? (
-                  // A menu item reads a second text as its subtitle.
-                  <Button key={String(option.value)} onPress={() => onChange(option.value)}>
-                    {option.value === value ? <Image systemName="checkmark" /> : null}
-                    <Text>{option.label}</Text>
-                    <Text>{option.hint}</Text>
-                  </Button>
-                ) : (
-                  <Button
-                    key={String(option.value)}
-                    systemImage={option.value === value ? "checkmark" : undefined}
-                    onPress={() => onChange(option.value)}
-                    label={option.label}
-                  />
-                )
-              )}
-            </ContextMenu.Items>
-            <ContextMenu.Trigger>
-              {/* A shape fills the host. Nearly transparent, as SwiftUI doesn't hit-test a fully
+          <Menu
+            label={
+              <>
+                {/* A shape fills the host. Nearly transparent, as SwiftUI doesn't hit-test a fully
                   transparent view. */}
-              <Rectangle
-                modifiers={[
-                  foregroundStyle(theme.background),
-                  opacity(0.01),
-                  accessibilityLabel(`${name}, ${text}`),
-                ]}
-              />
-            </ContextMenu.Trigger>
-          </ContextMenu>
+                <Rectangle
+                  modifiers={[
+                    foregroundStyle(theme.background),
+                    opacity(0.01),
+                    accessibilityLabel(`${name}, ${text}`),
+                  ]}
+                />
+              </>
+            }
+          >
+            {options.map((option) =>
+              option.hint ? (
+                // A menu item reads a second text as its subtitle.
+                <Button key={String(option.value)} onPress={() => onChange(option.value)}>
+                  {option.value === value ? <Image systemName="checkmark" /> : <></>}
+                  <Text>{option.label}</Text>
+                  <Text>{option.hint}</Text>
+                </Button>
+              ) : (
+                <Button
+                  key={String(option.value)}
+                  systemImage={option.value === value ? "checkmark" : undefined}
+                  onPress={() => onChange(option.value)}
+                  label={option.label}
+                />
+              )
+            )}
+          </Menu>
         </Host>
       </View>
     </SelectFieldFrame>

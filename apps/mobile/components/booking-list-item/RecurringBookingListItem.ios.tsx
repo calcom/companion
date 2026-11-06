@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host, HStack, Image } from "@expo/ui/swift-ui";
+import { Button, Host, HStack, Image, Menu } from "@expo/ui/swift-ui";
 import { buttonStyle, frame } from "@expo/ui/swift-ui/modifiers";
 import { Ionicons } from "@expo/vector-icons";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
@@ -376,22 +376,9 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
 
         {/* iOS Context Menu */}
         <Host matchContents>
-          <ContextMenu
+          <Menu
             modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-            activationMethod="singlePress"
-          >
-            <ContextMenu.Items>
-              {contextMenuActions.map((action) => (
-                <Button
-                  key={action.label}
-                  systemImage={action.icon}
-                  onPress={action.onPress}
-                  role={action.role}
-                  label={action.label}
-                />
-              ))}
-            </ContextMenu.Items>
-            <ContextMenu.Trigger>
+            label={
               <HStack>
                 <Image
                   systemName="ellipsis"
@@ -400,8 +387,18 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
                   modifiers={[frame({ height: 24, width: 17 })]}
                 />
               </HStack>
-            </ContextMenu.Trigger>
-          </ContextMenu>
+            }
+          >
+            {contextMenuActions.map((action) => (
+              <Button
+                key={action.label}
+                systemImage={action.icon}
+                onPress={action.onPress}
+                role={action.role}
+                label={action.label}
+              />
+            ))}
+          </Menu>
         </Host>
       </View>
     </View>

@@ -5,7 +5,7 @@
  * Uses @expo/ui/swift-ui ContextMenu for the glass UI feel.
  */
 
-import { Button, ContextMenu, Host, HStack, Image } from "@expo/ui/swift-ui";
+import { Button, Host, HStack, Image, Menu } from "@expo/ui/swift-ui";
 import { buttonStyle, frame, padding } from "@expo/ui/swift-ui/modifiers";
 import { Ionicons } from "@expo/vector-icons";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
@@ -266,31 +266,12 @@ export const EditLocationScreen = forwardRef<EditLocationScreenHandle, EditLocat
 
                 {/* Native iOS Context Menu Button */}
                 <Host matchContents>
-                  <ContextMenu
+                  <Menu
                     modifiers={[
                       buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered"),
                       padding(),
                     ]}
-                    activationMethod="singlePress"
-                  >
-                    <ContextMenu.Items>
-                      <Button
-                        systemImage={LOCATION_TYPES.link.sfSymbol}
-                        onPress={() => handleTypeSelect("link")}
-                        label={LOCATION_TYPES.link.label}
-                      />
-                      <Button
-                        systemImage={LOCATION_TYPES.phone.sfSymbol}
-                        onPress={() => handleTypeSelect("phone")}
-                        label={LOCATION_TYPES.phone.label}
-                      />
-                      <Button
-                        systemImage={LOCATION_TYPES.address.sfSymbol}
-                        onPress={() => handleTypeSelect("address")}
-                        label={LOCATION_TYPES.address.label}
-                      />
-                    </ContextMenu.Items>
-                    <ContextMenu.Trigger>
+                    label={
                       <HStack>
                         <Image
                           systemName="ellipsis"
@@ -299,8 +280,24 @@ export const EditLocationScreen = forwardRef<EditLocationScreenHandle, EditLocat
                           modifiers={[frame({ height: 18, width: 18 })]}
                         />
                       </HStack>
-                    </ContextMenu.Trigger>
-                  </ContextMenu>
+                    }
+                  >
+                    <Button
+                      systemImage={LOCATION_TYPES.link.sfSymbol}
+                      onPress={() => handleTypeSelect("link")}
+                      label={LOCATION_TYPES.link.label}
+                    />
+                    <Button
+                      systemImage={LOCATION_TYPES.phone.sfSymbol}
+                      onPress={() => handleTypeSelect("phone")}
+                      label={LOCATION_TYPES.phone.label}
+                    />
+                    <Button
+                      systemImage={LOCATION_TYPES.address.sfSymbol}
+                      onPress={() => handleTypeSelect("address")}
+                      label={LOCATION_TYPES.address.label}
+                    />
+                  </Menu>
                 </Host>
               </View>
 
@@ -395,31 +392,12 @@ export const EditLocationScreen = forwardRef<EditLocationScreenHandle, EditLocat
 
                 {/* Native iOS Context Menu Button */}
                 <Host matchContents>
-                  <ContextMenu
+                  <Menu
                     modifiers={[
                       buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered"),
                       padding(),
                     ]}
-                    activationMethod="singlePress"
-                  >
-                    <ContextMenu.Items>
-                      <Button
-                        systemImage={LOCATION_TYPES.link.sfSymbol}
-                        onPress={() => handleTypeSelect("link")}
-                        label={LOCATION_TYPES.link.label}
-                      />
-                      <Button
-                        systemImage={LOCATION_TYPES.phone.sfSymbol}
-                        onPress={() => handleTypeSelect("phone")}
-                        label={LOCATION_TYPES.phone.label}
-                      />
-                      <Button
-                        systemImage={LOCATION_TYPES.address.sfSymbol}
-                        onPress={() => handleTypeSelect("address")}
-                        label={LOCATION_TYPES.address.label}
-                      />
-                    </ContextMenu.Items>
-                    <ContextMenu.Trigger>
+                    label={
                       <HStack>
                         <Image
                           systemName="ellipsis"
@@ -428,8 +406,24 @@ export const EditLocationScreen = forwardRef<EditLocationScreenHandle, EditLocat
                           modifiers={[frame({ height: 18, width: 18 })]}
                         />
                       </HStack>
-                    </ContextMenu.Trigger>
-                  </ContextMenu>
+                    }
+                  >
+                    <Button
+                      systemImage={LOCATION_TYPES.link.sfSymbol}
+                      onPress={() => handleTypeSelect("link")}
+                      label={LOCATION_TYPES.link.label}
+                    />
+                    <Button
+                      systemImage={LOCATION_TYPES.phone.sfSymbol}
+                      onPress={() => handleTypeSelect("phone")}
+                      label={LOCATION_TYPES.phone.label}
+                    />
+                    <Button
+                      systemImage={LOCATION_TYPES.address.sfSymbol}
+                      onPress={() => handleTypeSelect("address")}
+                      label={LOCATION_TYPES.address.label}
+                    />
+                  </Menu>
                 </Host>
               </View>
 

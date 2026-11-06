@@ -68,9 +68,10 @@ export default function ViewRecordings() {
         />
 
         {Platform.OS === "ios" && (
-          <Stack.Header>
-            <Stack.Header.Title>Recordings</Stack.Header.Title>
-          </Stack.Header>
+          <>
+            <Stack.Header />
+            <Stack.Title>Recordings</Stack.Title>
+          </>
         )}
 
         <View
@@ -94,15 +95,16 @@ export default function ViewRecordings() {
       />
 
       {Platform.OS === "ios" && (
-        <Stack.Header>
-          <Stack.Header.Left>
-            <Stack.Header.Button onPress={() => router.back()}>
-              <Stack.Header.Icon sf="xmark" />
-            </Stack.Header.Button>
-          </Stack.Header.Left>
+        <>
+          <Stack.Header />
+          <Stack.Toolbar placement="left">
+            <Stack.Toolbar.Button onPress={() => router.back()}>
+              <Stack.Toolbar.Icon sf="xmark" />
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
 
-          <Stack.Header.Title>Recordings</Stack.Header.Title>
-        </Stack.Header>
+          <Stack.Title>Recordings</Stack.Title>
+        </>
       )}
 
       <ViewRecordingsScreenComponent recordings={recordings} />

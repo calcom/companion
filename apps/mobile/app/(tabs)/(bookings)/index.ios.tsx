@@ -1,6 +1,5 @@
-import type { NativeStackHeaderItemMenuAction } from "@react-navigation/native-stack";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { type NativeStackHeaderItemMenuAction, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useColorScheme } from "react-native";
 

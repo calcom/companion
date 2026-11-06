@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Divider, Host, HStack, Image } from "@expo/ui/swift-ui";
+import { Button, Divider, Host, HStack, Image, Menu } from "@expo/ui/swift-ui";
 import { accessibilityLabel as a11yLabel, buttonStyle, frame } from "@expo/ui/swift-ui/modifiers";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Fragment } from "react";
@@ -10,27 +10,9 @@ export function CalEventMenu({ groups, accessibilityLabel }: CalEventMenuProps) 
 
   return (
     <Host matchContents>
-      <ContextMenu
+      <Menu
         modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-        activationMethod="singlePress"
-      >
-        <ContextMenu.Items>
-          {shown.map((group, index) => (
-            <Fragment key={group[0].label}>
-              {index > 0 ? <Divider /> : null}
-              {group.map((item) => (
-                <Button
-                  key={item.label}
-                  systemImage={item.systemImage}
-                  onPress={item.onPress}
-                  role={item.destructive ? "destructive" : "default"}
-                  label={item.label}
-                />
-              ))}
-            </Fragment>
-          ))}
-        </ContextMenu.Items>
-        <ContextMenu.Trigger>
+        label={
           <HStack>
             <Image
               systemName="ellipsis"
@@ -39,8 +21,23 @@ export function CalEventMenu({ groups, accessibilityLabel }: CalEventMenuProps) 
               modifiers={[frame({ height: 24, width: 17 }), a11yLabel(accessibilityLabel)]}
             />
           </HStack>
-        </ContextMenu.Trigger>
-      </ContextMenu>
+        }
+      >
+        {shown.map((group, index) => (
+          <Fragment key={group[0].label}>
+            {index > 0 ? <Divider /> : null}
+            {group.map((item) => (
+              <Button
+                key={item.label}
+                systemImage={item.systemImage}
+                onPress={item.onPress}
+                role={item.destructive ? "destructive" : "default"}
+                label={item.label}
+              />
+            ))}
+          </Fragment>
+        ))}
+      </Menu>
     </Host>
   );
 }

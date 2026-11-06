@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host, HStack, Image } from "@expo/ui/swift-ui";
+import { Button, ContextMenu, Host, HStack, Image, Menu } from "@expo/ui/swift-ui";
 import { buttonStyle, frame } from "@expo/ui/swift-ui/modifiers";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Pressable, useColorScheme, View } from "react-native";
@@ -56,10 +56,7 @@ export const AvailabilityListItem = ({
     >
       {/* Native iOS Context Menu for long-press */}
       <Host matchContents>
-        <ContextMenu
-          modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-          activationMethod="longPress"
-        >
+        <ContextMenu modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}>
           <ContextMenu.Items>
             {scheduleActions.map((scheduleAction) => (
               <Button
@@ -98,22 +95,9 @@ export const AvailabilityListItem = ({
                 style={{ width: 32, height: 32, flexShrink: 0 }}
               >
                 <Host matchContents>
-                  <ContextMenu
+                  <Menu
                     modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-                    activationMethod="singlePress"
-                  >
-                    <ContextMenu.Items>
-                      {scheduleActions.map((scheduleAction) => (
-                        <Button
-                          key={scheduleAction.label}
-                          systemImage={scheduleAction.icon}
-                          onPress={scheduleAction.onPress}
-                          role={scheduleAction.role}
-                          label={scheduleAction.label}
-                        />
-                      ))}
-                    </ContextMenu.Items>
-                    <ContextMenu.Trigger>
+                    label={
                       <HStack>
                         <Image
                           systemName="ellipsis"
@@ -122,8 +106,18 @@ export const AvailabilityListItem = ({
                           modifiers={[frame({ height: 24, width: 17 })]}
                         />
                       </HStack>
-                    </ContextMenu.Trigger>
-                  </ContextMenu>
+                    }
+                  >
+                    {scheduleActions.map((scheduleAction) => (
+                      <Button
+                        key={scheduleAction.label}
+                        systemImage={scheduleAction.icon}
+                        onPress={scheduleAction.onPress}
+                        role={scheduleAction.role}
+                        label={scheduleAction.label}
+                      />
+                    ))}
+                  </Menu>
                 </Host>
               </View>
             </View>

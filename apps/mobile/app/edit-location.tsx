@@ -98,9 +98,10 @@ export default function EditLocation() {
         />
 
         {Platform.OS === "ios" && (
-          <Stack.Header>
-            <Stack.Header.Title>Edit Location</Stack.Header.Title>
-          </Stack.Header>
+          <>
+            <Stack.Header />
+            <Stack.Title>Edit Location</Stack.Title>
+          </>
         )}
 
         <View
@@ -134,21 +135,22 @@ export default function EditLocation() {
       />
 
       {Platform.OS === "ios" && (
-        <Stack.Header>
-          <Stack.Header.Left>
-            <Stack.Header.Button onPress={() => router.back()}>
-              <Stack.Header.Icon sf="xmark" />
-            </Stack.Header.Button>
-          </Stack.Header.Left>
+        <>
+          <Stack.Header />
+          <Stack.Toolbar placement="left">
+            <Stack.Toolbar.Button onPress={() => router.back()}>
+              <Stack.Toolbar.Icon sf="xmark" />
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
 
-          <Stack.Header.Title>Edit Location</Stack.Header.Title>
+          <Stack.Title>Edit Location</Stack.Title>
 
-          <Stack.Header.Right>
-            <Stack.Header.Button onPress={handleSave} disabled={isSaving}>
-              <Stack.Header.Icon sf="checkmark" />
-            </Stack.Header.Button>
-          </Stack.Header.Right>
-        </Stack.Header>
+          <Stack.Toolbar placement="right">
+            <Stack.Toolbar.Button onPress={handleSave} disabled={isSaving}>
+              <Stack.Toolbar.Icon sf="checkmark" />
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
+        </>
       )}
 
       <EditLocationScreenComponent

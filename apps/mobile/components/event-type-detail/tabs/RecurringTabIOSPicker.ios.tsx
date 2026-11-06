@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host, HStack, Image } from "@expo/ui/swift-ui";
+import { Button, Host, HStack, Image, Menu } from "@expo/ui/swift-ui";
 import { buttonStyle } from "@expo/ui/swift-ui/modifiers";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 
@@ -15,26 +15,23 @@ export function RecurringTabIOSPicker({
 }: RecurringTabIOSPickerProps) {
   return (
     <Host matchContents>
-      <ContextMenu
+      <Menu
         modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-        activationMethod="singlePress"
-      >
-        <ContextMenu.Items>
-          {options.map((opt) => (
-            <Button
-              key={opt.value}
-              systemImage={selectedValue === opt.label ? "checkmark" : undefined}
-              onPress={() => onSelect(opt.value)}
-              label={opt.label}
-            />
-          ))}
-        </ContextMenu.Items>
-        <ContextMenu.Trigger>
+        label={
           <HStack>
             <Image systemName="chevron.up.chevron.down" color="primary" size={13} />
           </HStack>
-        </ContextMenu.Trigger>
-      </ContextMenu>
+        }
+      >
+        {options.map((opt) => (
+          <Button
+            key={opt.value}
+            systemImage={selectedValue === opt.label ? "checkmark" : undefined}
+            onPress={() => onSelect(opt.value)}
+            label={opt.label}
+          />
+        ))}
+      </Menu>
     </Host>
   );
 }

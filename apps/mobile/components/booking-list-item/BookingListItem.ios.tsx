@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host, HStack, Image } from "@expo/ui/swift-ui";
+import { Button, ContextMenu, Host, HStack, Image, Menu } from "@expo/ui/swift-ui";
 import { buttonStyle, frame } from "@expo/ui/swift-ui/modifiers";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import React from "react";
@@ -161,10 +161,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
     >
       {/* Native iOS Context Menu for long-press */}
       <Host matchContents>
-        <ContextMenu
-          modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-          activationMethod="longPress"
-        >
+        <ContextMenu modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}>
           <ContextMenu.Items>
             {contextMenuActions.map((action) => (
               <Button
@@ -222,22 +219,9 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
 
         {/* iOS Context Menu */}
         <Host matchContents>
-          <ContextMenu
+          <Menu
             modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-            activationMethod="singlePress"
-          >
-            <ContextMenu.Items>
-              {contextMenuActions.map((action) => (
-                <Button
-                  key={action.label}
-                  systemImage={action.icon}
-                  onPress={action.onPress}
-                  role={action.role}
-                  label={action.label}
-                />
-              ))}
-            </ContextMenu.Items>
-            <ContextMenu.Trigger>
+            label={
               <HStack>
                 <Image
                   systemName="ellipsis"
@@ -246,8 +230,18 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
                   modifiers={[frame({ height: 24, width: 17 })]}
                 />
               </HStack>
-            </ContextMenu.Trigger>
-          </ContextMenu>
+            }
+          >
+            {contextMenuActions.map((action) => (
+              <Button
+                key={action.label}
+                systemImage={action.icon}
+                onPress={action.onPress}
+                role={action.role}
+                label={action.label}
+              />
+            ))}
+          </Menu>
         </Host>
       </View>
     </View>

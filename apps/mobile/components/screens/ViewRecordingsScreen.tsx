@@ -80,7 +80,10 @@ export function ViewRecordingsScreen({
       activeOpacity={0.7}
     >
       <View className="flex-row items-center p-4">
-        <View className="mr-3 h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: pillBg }}>
+        <View
+          className="mr-3 h-10 w-10 items-center justify-center rounded-full"
+          style={{ backgroundColor: pillBg }}
+        >
           <Ionicons name="videocam" size={20} color={isDark ? "#A3A3A3" : "#6B7280"} />
         </View>
         <View className="flex-1">
@@ -104,7 +107,10 @@ export function ViewRecordingsScreen({
   if (recordings.length === 0) {
     return (
       <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor }}>
-        <View className="mb-4 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: pillBg }}>
+        <View
+          className="mb-4 h-16 w-16 items-center justify-center rounded-full"
+          style={{ backgroundColor: pillBg }}
+        >
           <Ionicons name="videocam-off" size={32} color="#A3A3A3" />
         </View>
         <Text
