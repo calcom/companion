@@ -72,12 +72,14 @@ export function VideoCallScreen({
   viewerName,
   viewerAvatarUrl,
   accessToken,
+  getAccessToken,
   onClose,
 }: {
   link: CalVideoRoomLink;
   viewerName: string | null;
   viewerAvatarUrl: string | null;
   accessToken: string | null;
+  getAccessToken: () => Promise<string | null>;
   onClose: () => void;
 }) {
   useKeepAwake();
@@ -94,7 +96,7 @@ export function VideoCallScreen({
   const releasePreviewRef = useRef<() => void>(() => undefined);
   const room = useCalVideoRoom({
     link,
-    accessToken,
+    getAccessToken,
     beforeGrant: () => releasePreviewRef.current(),
   });
   const { leave: leaveRoom, end: endRoom, noteDriverEnd, setFailure } = room;

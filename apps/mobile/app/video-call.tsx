@@ -16,7 +16,7 @@ import { getAvatarUrl } from "@/utils/getAvatarUrl";
 export default function VideoCallRoute() {
   const { url } = useLocalSearchParams<{ url?: string }>();
   const router = useRouter();
-  const { userInfo, accessToken } = useAuth();
+  const { userInfo, accessToken, getFreshAccessToken } = useAuth();
   const { data: profile } = useUserProfile();
   const link = useMemo(() => parseCalVideoLink(url), [url]);
 
@@ -44,6 +44,7 @@ export default function VideoCallRoute() {
           viewerName={viewerName}
           viewerAvatarUrl={viewerAvatarUrl}
           accessToken={accessToken}
+          getAccessToken={getFreshAccessToken}
           onClose={close}
         />
       ) : (

@@ -23,7 +23,7 @@ import { useIncomingLink } from "@/hooks/useIncomingLink";
 import { parseCalVideoLink } from "@/utils/cal-video-links";
 
 function RootLayoutContent() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, getFreshAccessToken } = useAuth();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = getColors(isDark);
@@ -560,6 +560,7 @@ function RootLayoutContent() {
       viewerName={null}
       viewerAvatarUrl={null}
       accessToken={null}
+      getAccessToken={getFreshAccessToken}
       onClose={() => setDismissedSeq(incoming?.seq ?? null)}
     />
   ) : (

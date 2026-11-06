@@ -14,11 +14,12 @@ const KNOCK_POLL_MS = 2_000;
  */
 export function useCalVideoRoom({
   link,
-  accessToken,
+  getAccessToken,
   beforeGrant,
 }: {
   link: CalVideoRoomLink;
-  accessToken: string | null;
+  /** Resolves when the join needs it, so a token that expired while the screen sat open is renewed. */
+  getAccessToken: () => Promise<string | null>;
   /** Runs just before a grant is stored, to release anything the driver is about to need. */
   beforeGrant?: () => void;
 }) {
@@ -34,14 +35,14 @@ export function useCalVideoRoom({
   const actedOn = useRef<string | null>(null);
   const beforeGrantRef = useRef(beforeGrant);
   const roomRef = useRef(room);
-  const accessTokenRef = useRef(accessToken);
+  const getAccessTokenRef = useRef(getAccessToken);
   const inviteTokenRef = useRef(link.inviteToken);
   useEffect(() => {
     beforeGrantRef.current = beforeGrant;
     roomRef.current = room;
-    accessTokenRef.current = accessToken;
+    getAccessTokenRef.current = getAccessToken;
     inviteTokenRef.current = link.inviteToken;
-  }, [beforeGrant, room, accessToken, link.inviteToken]);
+  }, [beforeGrant, room, getAccessToken, link.inviteToken]);
 
   const resetKnock = useCallback(() => {
     setKnock({ status: "idle" });
@@ -109,11 +110,12 @@ export function useCalVideoRoom({
       setJoining(true);
       setFailure(null);
       joinedAs.current = name;
+      const accessToken = await getAccessTokenRef.current().catch(() => null);
       const result = await joinRoom({
         ...roomRef.current,
         displayName: name,
         inviteToken: inviteTokenRef.current,
-        accessToken: accessTokenRef.current,
+        accessToken,
       }).catch(() => null);
       if (result === null) {
         setFailure("error");
