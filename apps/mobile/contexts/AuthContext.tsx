@@ -883,15 +883,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const getFreshAccessToken = useCallback(async () => {
-    const stored = await storage.get(OAUTH_TOKENS_KEY);
-    if (!stored || !oauthService) return null;
-    return freshAccessToken({
-      tokens: JSON.parse(stored) as OAuthTokens,
-      isExpired: (tokens) => oauthService.isTokenExpired(tokens),
-      refresh: CalComAPIService.refreshAuthTokensSingleFlight,
-    });
-  }, [oauthService]);
+  const getFreshAccessToken = useCallback(
+    () =>
+      freshAccessToken<OAuthTokens>({
+        readStoredTokens: () => storage.get(OAUTH_TOKENS_KEY),
+        currentAuth: CalComAPIService.getAuthConfig,
+        isExpired: (tokens) => oauthService?.isTokenExpired(tokens) ?? false,
+        refresh: CalComAPIService.refreshAuthTokensSingleFlight,
+      }),
+    [oauthService]
+  );
 
   const value: AuthContextType = {
     isAuthenticated,
