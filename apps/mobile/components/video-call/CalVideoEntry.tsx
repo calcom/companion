@@ -16,12 +16,14 @@ export function CalVideoEntry({
   viewerName,
   viewerAvatarUrl,
   accessToken,
+  getAccessToken,
   onClose,
 }: {
   link: CalVideoLink;
   viewerName: string | null;
   viewerAvatarUrl: string | null;
   accessToken: string | null;
+  getAccessToken: () => Promise<string | null>;
   onClose: () => void;
 }) {
   const [resolvedRoom, setResolvedRoom] = useState<CalVideoRoomLink | null>(null);
@@ -41,6 +43,7 @@ export function CalVideoEntry({
       viewerName={viewerName}
       viewerAvatarUrl={viewerAvatarUrl}
       accessToken={accessToken}
+      getAccessToken={getAccessToken}
       onClose={onClose}
     />
   );

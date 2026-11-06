@@ -10,6 +10,7 @@ import {
 } from "react";
 import { queryKeys } from "@/config/cache.config";
 import { USER_PREFERENCES_KEY } from "@/hooks/useUserPreferences";
+import { freshAccessToken } from "@/services/cal-video/fresh-access-token";
 import { CalComAPIService } from "@/services/calcom";
 import { clearNextCallLiveActivity } from "@/services/nextCallLiveActivity";
 import {
@@ -41,6 +42,8 @@ type PreLogoutCallback = () => Promise<void>;
 interface AuthContextType {
   isAuthenticated: boolean;
   accessToken: string | null;
+  /** For calls outside the Cal.com API client, which get no refresh on a 401. */
+  getFreshAccessToken: () => Promise<string | null>;
   refreshToken: string | null;
   /** The OAuth token's space-separated scopes; null when unrecorded or not an OAuth session. */
   oauthScope: string | null;
@@ -880,9 +883,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const getFreshAccessToken = useCallback(async () => {
+    const stored = await storage.get(OAUTH_TOKENS_KEY);
+    if (!stored || !oauthService) return null;
+    return freshAccessToken({
+      tokens: JSON.parse(stored) as OAuthTokens,
+      isExpired: (tokens) => oauthService.isTokenExpired(tokens),
+      refresh: CalComAPIService.refreshAuthTokensSingleFlight,
+    });
+  }, [oauthService]);
+
   const value: AuthContextType = {
     isAuthenticated,
     accessToken,
+    getFreshAccessToken,
     refreshToken,
     oauthScope,
     userInfo,

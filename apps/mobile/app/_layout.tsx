@@ -22,6 +22,8 @@ import { ToastProvider } from "@/contexts/ToastContext";
 import { useIncomingLink } from "@/hooks/useIncomingLink";
 import { parseCalVideoLink } from "@/utils/cal-video-links";
 
+const noAccessToken = async () => null;
+
 function RootLayoutContent() {
   const { isAuthenticated, loading } = useAuth();
   const colorScheme = useColorScheme();
@@ -560,6 +562,7 @@ function RootLayoutContent() {
       viewerName={null}
       viewerAvatarUrl={null}
       accessToken={null}
+      getAccessToken={noAccessToken}
       onClose={() => setDismissedSeq(incoming?.seq ?? null)}
     />
   ) : (

@@ -87,6 +87,7 @@ import {
   clearAuthCallbacks,
   getAuthGeneration,
   invalidateAuthSession,
+  refreshAuthTokensSingleFlight,
   runAuthTransition,
   setAccessToken,
   setAuthFailureCallback,
@@ -205,6 +206,7 @@ export const CalComAPIService = {
   beginAuthGeneration,
   getAuthGeneration,
   invalidateAuthSession,
+  refreshAuthTokensSingleFlight,
   runAuthTransition,
 
   // User
