@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import {
   Alert,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,16 +15,15 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppPressable } from "@/components/AppPressable";
 import { FullScreenModal } from "@/components/FullScreenModal";
-import { TIMEZONES as ALL_TIMEZONES } from "@/constants/timezones";
 import { type Schedule, useUpdateSchedule } from "@/hooks/useSchedules";
 import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { shadows } from "@/utils/shadows";
-
-// Format timezones for display
-const TIMEZONES = ALL_TIMEZONES.map((tz) => ({
-  id: tz,
-  label: tz.replace(/_/g, " "),
-}));
+import {
+  filterTimezones,
+  getDeviceTimezone,
+  getTimezoneLabel,
+  resolveTimezoneId,
+} from "@/utils/timezones";
 
 export interface EditAvailabilityNameScreenProps {
   schedule: Schedule | null;
@@ -47,6 +47,9 @@ export const EditAvailabilityNameScreen = forwardRef<
   const [name, setName] = useState("");
   const [timezone, setTimezone] = useState("UTC");
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
+  const [timezoneSearch, setTimezoneSearch] = useState("");
+
+  const deviceTimezone = useMemo(() => getDeviceTimezone(), []);
 
   // Use the mutation hook for updating schedules with optimistic updates
   const { mutate: updateSchedule, isPending: isSaving } = useUpdateSchedule();
@@ -63,6 +66,11 @@ export const EditAvailabilityNameScreen = forwardRef<
   useEffect(() => {
     onSavingChange?.(isSaving);
   }, [isSaving, onSavingChange]);
+
+  const closeTimezoneModal = useCallback(() => {
+    setShowTimezoneModal(false);
+    setTimezoneSearch("");
+  }, []);
 
   const handleSubmit = useCallback(() => {
     if (!schedule || isSaving) return;
@@ -102,7 +110,12 @@ export const EditAvailabilityNameScreen = forwardRef<
     [handleSubmit]
   );
 
-  const selectedTimezoneLabel = TIMEZONES.find((tz) => tz.id === timezone)?.label || timezone;
+  const selectedTimezoneId = resolveTimezoneId(timezone) ?? timezone;
+  const selectedTimezoneLabel = getTimezoneLabel(timezone);
+  const filteredTimezones = useMemo(
+    () => filterTimezones(timezoneSearch, timezone, deviceTimezone),
+    [timezoneSearch, timezone, deviceTimezone]
+  );
 
   // Render timezone list content
   const renderTimezoneContent = () => (
@@ -111,22 +124,57 @@ export const EditAvailabilityNameScreen = forwardRef<
         <Text className="text-[17px] font-semibold text-black dark:text-white">
           Select Timezone
         </Text>
-        <AppPressable onPress={() => setShowTimezoneModal(false)}>
+        <AppPressable
+          onPress={closeTimezoneModal}
+          accessibilityLabel="Close timezone picker"
+          accessibilityRole="button"
+        >
           <Ionicons name="close" size={24} color={isDark ? "#FFFFFF" : "#A3A3A3"} />
         </AppPressable>
       </View>
-      <ScrollView className="px-4 py-3">
-        {TIMEZONES.map((tz) => (
+      <View className="border-b border-gray-200 px-4 py-3 dark:border-[#4D4D4D]">
+        <View style={{ position: "relative", justifyContent: "center" }}>
+          <TextInput
+            className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-[16px] text-black dark:border-[#4D4D4D] dark:bg-[#262626] dark:text-white"
+            style={{ paddingRight: timezoneSearch.length > 0 ? 32 : 12 }}
+            placeholder="Search city or timezone"
+            placeholderTextColor={isDark ? "#A3A3A3" : "#9CA3AF"}
+            value={timezoneSearch}
+            onChangeText={setTimezoneSearch}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {timezoneSearch.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setTimezoneSearch("")}
+              accessibilityLabel="Clear search"
+              accessibilityRole="button"
+              style={{ position: "absolute", right: 8 }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color={isDark ? "#A3A3A3" : "#9CA3AF"} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+      <FlatList
+        data={filteredTimezones}
+        keyExtractor={(tz) => tz.id}
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={15}
+        maxToRenderPerBatch={20}
+        windowSize={7}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }}
+        renderItem={({ item: tz }) => (
           <AppPressable
-            key={tz.id}
             onPress={() => {
               setTimezone(tz.id);
-              setShowTimezoneModal(false);
+              closeTimezoneModal();
             }}
           >
             <View
               className={`mb-2.5 rounded-xl border-2 px-4 py-4 ${
-                tz.id === timezone
+                tz.id === selectedTimezoneId
                   ? "border-[#007AFF] bg-blue-50 shadow-md dark:bg-[#0A84FF]/20"
                   : "border-gray-200 bg-gray-50 dark:border-[#4D4D4D] dark:bg-[#171717]"
               }`}
@@ -135,7 +183,7 @@ export const EditAvailabilityNameScreen = forwardRef<
                 <View className="flex-1">
                   <Text
                     className={`text-[17px] ${
-                      tz.id === timezone
+                      tz.id === selectedTimezoneId
                         ? "font-semibold text-[#007AFF]"
                         : "font-medium text-gray-900 dark:text-white"
                     }`}
@@ -146,7 +194,7 @@ export const EditAvailabilityNameScreen = forwardRef<
                     {tz.id}
                   </Text>
                 </View>
-                {tz.id === timezone && (
+                {tz.id === selectedTimezoneId && (
                   <View className="rounded-full bg-[#007AFF] p-1.5">
                     <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                   </View>
@@ -154,8 +202,15 @@ export const EditAvailabilityNameScreen = forwardRef<
               </View>
             </View>
           </AppPressable>
-        ))}
-      </ScrollView>
+        )}
+        ListEmptyComponent={
+          <View className="items-center py-8">
+            <Text className="text-[15px] text-gray-500 dark:text-[#A3A3A3]">
+              No matching timezones
+            </Text>
+          </View>
+        }
+      />
     </>
   );
 
@@ -219,13 +274,13 @@ export const EditAvailabilityNameScreen = forwardRef<
       <FullScreenModal
         visible={showTimezoneModal}
         animationType={Platform.OS === "web" ? "fade" : "slide"}
-        onRequestClose={() => setShowTimezoneModal(false)}
+        onRequestClose={closeTimezoneModal}
       >
         {Platform.OS === "web" ? (
           <TouchableOpacity
             className="flex-1 items-center justify-center bg-black/50 p-4"
             activeOpacity={1}
-            onPress={() => setShowTimezoneModal(false)}
+            onPress={closeTimezoneModal}
           >
             <TouchableOpacity
               className="max-h-[80%] w-full max-w-[500px] overflow-hidden rounded-2xl bg-white p-2 dark:bg-[#171717]"
