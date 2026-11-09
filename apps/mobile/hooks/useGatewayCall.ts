@@ -67,10 +67,13 @@ export function useGatewayCall({
   const onFrame = useCallback(
     (frame: CalChatCallFrame) => {
       if (frame.type === "transcription.state") return receiveState(frame.state);
-      const index = speakers.current;
       const epoch = latest.current?.epoch;
-      void speakersReady.current.then(() => {
-        if (speakers.current !== index) return;
+      void (async () => {
+        let ready: Promise<void>;
+        do {
+          ready = speakersReady.current;
+          await ready;
+        } while (ready !== speakersReady.current);
         if (frame.type === "reaction") {
           if (providerReactions) return;
           const person = speakers.current.get(frame.participantId);
@@ -104,7 +107,7 @@ export function useGatewayCall({
             at: Date.now(),
           });
         });
-      });
+      })();
     },
     [providerReactions, receiveState]
   );

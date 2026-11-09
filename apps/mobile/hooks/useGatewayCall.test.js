@@ -1,8 +1,9 @@
-import { afterEach, expect, jest, test } from "@jest/globals";
+import { afterEach, beforeEach, expect, jest, test } from "@jest/globals";
 
+const mockToChatId = jest.fn();
 jest.mock("expo-crypto", () => ({ randomUUID: () => "reaction-id" }));
 jest.mock("@/services/cal-video/cal-chat/participant-id", () => ({
-  toCalChatParticipantId: async (id) => `chat-${id}`,
+  toCalChatParticipantId: (id) => mockToChatId(id),
 }));
 const { act, renderHook } = require("@testing-library/react-native");
 const { useGatewayCall } = require("./useGatewayCall");
@@ -12,7 +13,70 @@ const participants = [
   { id: "remote", identityId: "them", isLocal: false, displayName: "Ana" },
 ];
 const input = { sessionId: "session", participants, providerReactions: false };
+beforeEach(() => mockToChatId.mockImplementation(async (id) => `chat-${id}`));
 afterEach(() => jest.useRealTimers());
+
+test("delivers pending reactions and captions using the newest participant index after repeated rebuilds", async () => {
+  const pending = [];
+  mockToChatId.mockImplementation(
+    (id) => new Promise((resolve) => pending.push(() => resolve(`chat-${id}`)))
+  );
+  const { result, rerender } = await renderHook((props) => useGatewayCall(props), {
+    initialProps: input,
+  });
+  const first = pending.splice(0);
+  await act(async () => {
+    result.current.receiveState({ on: true, epoch: 1, version: 1 });
+    result.current.onFrame({
+      type: "reaction",
+      participantId: "chat-them",
+      emoji: "👏",
+      count: 3,
+    });
+    result.current.onFrame({
+      type: "caption",
+      caption: { participantId: "chat-them", seq: 1, text: "Hello", final: true },
+    });
+  });
+  await rerender({
+    ...input,
+    participants: participants.map((person) => ({ ...person, hasAudio: false })),
+  });
+  const second = pending.splice(0);
+  await act(async () => {
+    for (const resolve of first) resolve();
+  });
+  expect(result.current.reactions).toEqual([]);
+  expect(result.current.lines).toEqual([]);
+  await rerender({
+    ...input,
+    participants: participants.map((person) => ({
+      ...person,
+      id: `new-${person.id}`,
+      displayName: `Updated ${person.displayName}`,
+      hasVideo: false,
+    })),
+  });
+  const third = pending.splice(0);
+  await act(async () => {
+    for (const resolve of second) resolve();
+  });
+  expect(result.current.reactions).toEqual([]);
+  expect(result.current.lines).toEqual([]);
+  await act(async () => {
+    for (const resolve of third) resolve();
+  });
+  expect(result.current.reactions).toEqual([
+    expect.objectContaining({ participantId: "new-remote", emoji: "👏", count: 3 }),
+  ]);
+  expect(result.current.lines).toEqual([
+    expect.objectContaining({
+      participantId: "new-remote",
+      participantName: "Updated Ana",
+      text: "Hello",
+    }),
+  ]);
+});
 
 test("maps gateway senders and ignores own, unknown and provider reactions", async () => {
   const { result, rerender } = await renderHook((props) => useGatewayCall(props), {
