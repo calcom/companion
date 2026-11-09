@@ -1,4 +1,4 @@
-import type { ReactionEmoji } from "./types";
+import type { CalChatReactionEmoji } from "./cal-chat/types";
 
 /** A message as the chat sheet draws it, whichever chat it came from. */
 export interface ChatRow {
@@ -17,7 +17,7 @@ export interface ChatRow {
   deleted: boolean;
   /** "pin"/"unpin" are the "{name} pinned a message" lines; `replyTo` quotes the message. */
   kind: "text" | "pin" | "unpin";
-  reactions: { emoji: ReactionEmoji; count: number; mine: boolean }[];
+  reactions: { emoji: CalChatReactionEmoji; count: number; mine: boolean }[];
   replyTo: { speakerName: string | null; excerpt: string; deleted: boolean } | null;
 }
 
@@ -63,7 +63,7 @@ export interface ChatController {
   /** The panel is open: everything shown now counts as seen. */
   markSeen: () => void;
   loadOlder?: () => void;
-  react?: (rowId: string, emoji: ReactionEmoji) => void;
+  react?: (rowId: string, emoji: CalChatReactionEmoji) => void;
   pinMessage?: (rowId: string) => Promise<void>;
   unpin?: () => Promise<void>;
   setLocked?: (locked: boolean) => Promise<void>;

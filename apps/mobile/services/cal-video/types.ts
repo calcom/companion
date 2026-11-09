@@ -140,8 +140,7 @@ export interface ChatMessage {
 /** UTF-16 units, the same cap as the web so a message legible there is legible here. */
 export const CHAT_MESSAGE_MAX_LENGTH = 1000;
 
-/** The six reactions a participant can send; the same set chat message reactions use. */
-export const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🎉"] as const;
+export const REACTION_EMOJIS = ["❤️", "👍", "🎉", "👏", "😂", "😮", "😢", "👎"] as const;
 export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
 
 export function isReactionEmoji(value: string): value is ReactionEmoji {

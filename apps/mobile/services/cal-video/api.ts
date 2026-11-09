@@ -6,6 +6,7 @@
  * identity) persist in the native cookie jar, so a re-join is recognised as the same person.
  */
 import { fetchWithTimeout } from "@/utils/network";
+import { transcriptionStateSchema, type TranscriptionState } from "./cal-chat/types";
 import { joinGrantSchema } from "./join-grant-schema";
 import type { JoinFailure } from "./room-screen";
 import type { JoinGrant } from "./types";
@@ -244,6 +245,16 @@ export async function setRecording(
 ): Promise<void> {
   const response = await hostPost(room, "recording", input, JOIN_TIMEOUT_MS);
   if (!response.ok) throw new Error(`Recording could not be updated (${response.status})`);
+}
+
+export async function setTranscription(
+  room: RoomRef,
+  input: { controlToken: string; action: "start" | "stop" }
+): Promise<TranscriptionState> {
+  const response = await hostPost(room, "transcription", input, JOIN_TIMEOUT_MS);
+  if (!response.ok) throw new Error(`Captions could not be updated (${response.status})`);
+  const body = await readJson(response);
+  return transcriptionStateSchema.parse(body.state);
 }
 
 /** Switches the room between knocking and walking in. Returns the mode the room is actually in. */

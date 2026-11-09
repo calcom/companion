@@ -1,4 +1,17 @@
-import type { Reaction } from "./types";
+import type { Reaction, ReactionEmoji } from "./types";
+
+export const REACTION_FLUSH_MS = 250;
+
+export function queueReaction(
+  pending: readonly { emoji: ReactionEmoji; count: number }[],
+  emoji: ReactionEmoji
+): { emoji: ReactionEmoji; count: number }[] {
+  const last = pending.at(-1);
+  if (last?.emoji === emoji && last.count < 20) {
+    return [...pending.slice(0, -1), { emoji, count: last.count + 1 }];
+  }
+  return [...pending, { emoji, count: 1 }];
+}
 
 /** A badge goes this long after the last reaction in its run. */
 export const REACTION_BADGE_MS = 4_000;

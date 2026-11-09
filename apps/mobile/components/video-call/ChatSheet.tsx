@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatController, ChatRow } from "@/services/cal-video/chat-controller";
-import { REACTION_EMOJIS } from "@/services/cal-video/types";
+import { CHAT_REACTION_EMOJIS } from "@/services/cal-video/cal-chat/types";
 import { showActionSheet } from "@/utils/action-sheet";
 
 function timeOf(at: number): string {
@@ -199,7 +199,7 @@ export function ChatSheet({
       !chat.muted &&
       !chat.locked
     ) {
-      for (const emoji of REACTION_EMOJIS) {
+      for (const emoji of CHAT_REACTION_EMOJIS) {
         items.push({ label: `React ${emoji}`, onPress: () => chat.react?.(row.id, emoji) });
       }
     }
