@@ -156,6 +156,7 @@
         }
       ],
       "@config-plugins/react-native-callkeep",
+      "./plugins/with-optional-android-features",
       [
         "expo-splash-screen",
         {
