@@ -1,7 +1,8 @@
-import { Button, Host, Menu } from "@expo/ui/swift-ui";
+import { Button, Host, Menu, RNHostView } from "@expo/ui/swift-ui";
 import { buttonStyle } from "@expo/ui/swift-ui/modifiers";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import type React from "react";
+import { View } from "react-native";
 import type { LocationItem, LocationOptionGroup } from "@/types/locations";
 
 const getSFSymbolForType = (type: string) => {
@@ -48,7 +49,12 @@ export function LocationsListIOSPicker({
     <Host matchContents>
       <Menu
         modifiers={!isHeader ? [buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")] : []}
-        label={trigger}
+        label={
+          // The menu opens on tap, so the React Native trigger only draws and takes no touches.
+          <RNHostView matchContents>
+            <View pointerEvents="none">{trigger}</View>
+          </RNHostView>
+        }
       >
         {locationOptions.flatMap((group) =>
           group.options
