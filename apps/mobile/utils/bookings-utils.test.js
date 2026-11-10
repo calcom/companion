@@ -1,5 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
-import { groupRecurringBookings } from "./bookings-utils";
+import { getGuestsNotInAttendees, groupRecurringBookings } from "./bookings-utils";
 
 function createRecurringBooking(overrides = {}) {
   return {
@@ -33,5 +33,20 @@ describe("groupRecurringBookings", () => {
     ]);
 
     expect(groups[0]?.hasUnconfirmed).toBe(true);
+  });
+});
+
+describe("getGuestsNotInAttendees", () => {
+  test("leaves out a guest who is also an attendee, whatever the case", () => {
+    const guests = getGuestsNotInAttendees({
+      attendees: [{ email: "Guest@Mailinator.com", name: "Guest" }],
+      guests: ["guest@mailinator.com", "other@mailinator.com"],
+    });
+
+    expect(guests).toEqual(["other@mailinator.com"]);
+  });
+
+  test("returns no guests when the booking has none", () => {
+    expect(getGuestsNotInAttendees({ attendees: [{ email: "a@mailinator.com" }] })).toEqual([]);
   });
 });

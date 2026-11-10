@@ -423,6 +423,19 @@ export const formatStatusText = (status: string): string => {
  * @param currentUserEmail Current user's email (optional)
  * @returns Formatted string or null if no host/attendees
  */
+/**
+ * The booking's guest emails that aren't already attendees. API v2 lists a guest added after
+ * booking both as an attendee and in `guests`, so showing both would list them twice.
+ */
+export const getGuestsNotInAttendees = (
+  booking: Pick<Booking, "attendees" | "guests">
+): string[] => {
+  const attendeeEmails = new Set(
+    (booking.attendees ?? []).map((attendee) => attendee.email.toLowerCase())
+  );
+  return (booking.guests ?? []).filter((email) => !attendeeEmails.has(email.toLowerCase()));
+};
+
 export const getHostAndAttendeesDisplay = (
   booking: Booking,
   currentUserEmail?: string
