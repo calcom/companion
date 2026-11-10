@@ -16,10 +16,17 @@
 const { AndroidConfig, withAndroidManifest } = require("expo/config-plugins");
 
 const OPTIONAL_FEATURES = [
+  // CAMERA (expo-camera, expo-image-picker, RealtimeKit, which also declares the feature itself).
+  // Used by the QR check-in scanner (app/event-check-in-scanner.tsx) and Cal Video's camera.
   "android.hardware.camera",
+  // Implied by CAMERA alongside the camera. Only the QR check-in scanner needs focus.
   "android.hardware.camera.autofocus",
+  // RECORD_AUDIO (expo-camera, RealtimeKit). Used for Cal Video audio.
   "android.hardware.microphone",
+  // CALL_PHONE (react-native-callkeep). Used only to show Cal Video in the system call UI;
+  // calls are self-managed VoIP (services/cal-video/native-call.ts), never the phone line.
   "android.hardware.telephony",
+  // BLUETOOTH (react-native-webrtc, RealtimeKit). Used to route Cal Video audio to a headset.
   "android.hardware.bluetooth",
 ];
 
@@ -30,7 +37,8 @@ const withOptionalAndroidFeatures = (config) =>
     manifest["uses-feature"] ??= [];
     const declared = new Set(manifest["uses-feature"].map((feature) => feature.$["android:name"]));
     for (const name of OPTIONAL_FEATURES) {
-      // Another plugin already decided about this feature: leave its entry alone.
+      // Another plugin already decided about this feature: leave its entry alone. Mods run in
+      // reverse plugin order, so this is listed first in app.json to see every other entry.
       if (declared.has(name)) continue;
       manifest["uses-feature"].push({
         $: {

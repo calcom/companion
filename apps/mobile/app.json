@@ -112,6 +112,7 @@
     },
     "owner": "calcoms-organization",
     "plugins": [
+      "./plugins/with-optional-android-features",
       "expo-router",
       [
         "expo-notifications",
@@ -156,7 +157,6 @@
         }
       ],
       "@config-plugins/react-native-callkeep",
-      "./plugins/with-optional-android-features",
       [
         "expo-splash-screen",
         {
