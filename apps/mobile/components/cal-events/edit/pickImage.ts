@@ -2,6 +2,7 @@ import { File as StoredFile } from "expo-file-system";
 import { Image, type ImageRef } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
+import { Platform } from "react-native";
 import type { CalEventImageFile } from "@/services/calcom";
 import { showInfoAlert } from "@/utils/alerts";
 
@@ -12,6 +13,9 @@ const TYPES_BY_EXTENSION: Record<string, string> = {
   webp: "image/webp",
 };
 const ACCEPTED_TYPES = new Set(Object.values(TYPES_BY_EXTENSION));
+// The API takes neither, and Android's picker has no setting to convert them, so the app redraws
+// them as JPEG.
+const REDRAWN_TYPES = new Set(["image/heic", "image/heif"]);
 
 /**
  * The most an upload may weigh, whatever the API's own limit. Vercel, in front of API v2, turns
@@ -30,7 +34,7 @@ const SHRINK_QUALITY = 0.8;
  * Lets the user pick a photo from their library for an event's cover or a person's avatar.
  * Resolves to null when they cancel, or (after saying so) when the picker fails or the photo is
  * not a JPEG, PNG or WebP. iPhone HEIC photos come back as JPEG: the picker asks iOS for the
- * compatible form. A photo over the upload limit or `maxDimension` comes back scaled down to fit,
+ * compatible form. On Android a HEIC or HEIF photo is redrawn as a JPEG. A photo over the upload limit or `maxDimension` comes back scaled down to fit,
  * in the same proportions.
  */
 export async function pickCalEventImage({
@@ -66,7 +70,8 @@ export async function pickCalEventImage({
   // Trust the picker's MIME type; the file extension only fills in when it reports none.
   const extension = (asset.fileName ?? asset.uri).split(".").pop()?.toLowerCase() ?? "";
   const type = asset.mimeType || TYPES_BY_EXTENSION[extension];
-  if (!type || !ACCEPTED_TYPES.has(type)) {
+  const redraw = Platform.OS !== "web" && type !== undefined && REDRAWN_TYPES.has(type);
+  if (!type || (!ACCEPTED_TYPES.has(type) && !redraw)) {
     showInfoAlert("Unsupported photo", "Pick a JPEG, PNG or WebP photo.");
     return null;
   }
@@ -78,6 +83,7 @@ export async function pickCalEventImage({
   const fitted = await fitImage(photo, asset, {
     maxBytes: Math.min(maxBytes, CAL_EVENT_UPLOAD_MAX_BYTES),
     maxDimension,
+    redraw,
   }).catch((error: unknown) => {
     console.error("Failed to scale the photo down", error);
     return "failed" as const;
@@ -94,16 +100,22 @@ export async function pickCalEventImage({
 }
 
 /**
- * The photo itself when it's within the limits, else a scaled-down copy in the same proportions,
- * smaller on each try until it is. Null when even the last try weighs too much.
+ * The photo itself when it's within the limits (and needn't be redrawn), else a scaled-down copy
+ * in the same proportions, smaller on each try until it is. Null when even the last try weighs
+ * too much.
  */
 async function fitImage(
   photo: CalEventImageFile,
   { width, height, fileSize }: { width: number; height: number; fileSize?: number },
-  { maxBytes, maxDimension = Number.POSITIVE_INFINITY }: { maxBytes: number; maxDimension?: number }
+  {
+    maxBytes,
+    maxDimension = Number.POSITIVE_INFINITY,
+    redraw = false,
+  }: { maxBytes: number; maxDimension?: number; redraw?: boolean }
 ): Promise<CalEventImageFile | null> {
   const longSide = Math.max(width, height);
-  if (longSide <= maxDimension && (fileSize ?? byteSize(photo)) <= maxBytes) return photo;
+  const fits = longSide <= maxDimension && (fileSize ?? byteSize(photo)) <= maxBytes;
+  if (fits && !redraw) return photo;
 
   // A PNG stays a PNG so it keeps any transparency; anything else becomes a JPEG.
   const png = photo.type === "image/png";

@@ -6,6 +6,13 @@ jest.mock("expo-image-picker", () => ({
   UIImagePickerPreferredAssetRepresentationMode: { Compatible: "compatible" },
 }));
 
+// Android: HEIC photos are redrawn there. The web turns them away.
+const mockPlatform = { OS: "android" };
+jest.mock("react-native-web/dist/exports/Platform", () => ({
+  __esModule: true,
+  default: mockPlatform,
+}));
+
 const mockShowInfoAlert = jest.fn();
 jest.mock("@/utils/alerts", () => ({
   showInfoAlert: (...args) => mockShowInfoAlert(...args),
@@ -245,6 +252,28 @@ describe("pickCalEventImage keeps uploads under 1 MB", () => {
       pick({ ...IPHONE_PHOTO, fileName: "photo.webp", mimeType: "image/webp" })
     ).resolves.toMatchObject({ name: "photo.jpg", type: "image/jpeg" });
     expect(new Set(mockShrunk.formats)).toEqual(new Set(["jpeg"]));
+  });
+
+  test("redraws a HEIC photo (Android's picker keeps them) as a JPEG, even a light one", async () => {
+    mockShowInfoAlert.mockClear();
+    await expect(
+      pick({ fileName: "PXL_0001.heic", mimeType: "image/heic", fileSize: 300_000 })
+    ).resolves.toMatchObject({ name: "PXL_0001.jpg", type: "image/jpeg" });
+    expect(new Set(mockShrunk.formats)).toEqual(new Set(["jpeg"]));
+    expect(mockShowInfoAlert).not.toHaveBeenCalled();
+  });
+
+  test("turns a HEIC photo away on the web", async () => {
+    mockPlatform.OS = "web";
+    try {
+      await expect(pick({ fileName: "photo.heic", mimeType: "image/heic" })).resolves.toBeNull();
+      expect(mockShowInfoAlert).toHaveBeenCalledWith(
+        "Unsupported photo",
+        "Pick a JPEG, PNG or WebP photo."
+      );
+    } finally {
+      mockPlatform.OS = "android";
+    }
   });
 
   test("hands the web a File of the scaled-down copy", async () => {
