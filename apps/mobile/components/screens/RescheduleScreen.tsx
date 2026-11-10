@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRescheduleBooking } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
+import { getBookingStartTime } from "@/utils/bookings-utils";
 import { safeLogError, safeLogInfo } from "@/utils/safeLogger";
 
 const isWeb = Platform.OS === "web";
@@ -73,15 +74,17 @@ export const RescheduleScreen = forwardRef<RescheduleScreenHandle, RescheduleScr
     const { mutate: rescheduleBooking, isPending: isSaving } = useRescheduleBooking();
 
     // Pre-fill with current booking date/time
+    const bookingStart = booking ? getBookingStartTime(booking) : "";
+
     useEffect(() => {
-      if (booking?.startTime) {
-        const bookingDate = new Date(booking.startTime);
+      if (bookingStart) {
+        const bookingDate = new Date(bookingStart);
         if (!Number.isNaN(bookingDate.getTime())) {
           setSelectedDateTime(bookingDate);
           setReason("");
         }
       }
-    }, [booking?.startTime]);
+    }, [bookingStart]);
 
     // Notify parent of saving state changes
     useEffect(() => {
