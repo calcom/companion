@@ -1,7 +1,11 @@
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack } from "expo-router";
 import { View } from "react-native";
-import { useEditSurfaces, useEditTheme } from "@/components/cal-events/edit/EditControls";
+import {
+  OnCardFields,
+  useEditSurfaces,
+  useEditTheme,
+} from "@/components/cal-events/edit/EditControls";
 import type { CalEventSheetProps } from "./CalEventSheet";
 
 /**
@@ -51,7 +55,7 @@ export function CalEventSheet({
           backgroundColor: glass ? "transparent" : surfaces.screen,
         }}
       >
-        {children}
+        {glass ? <OnCardFields>{children}</OnCardFields> : children}
       </View>
     </>
   );
