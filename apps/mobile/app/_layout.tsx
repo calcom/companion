@@ -11,6 +11,7 @@ import { CalComLogo } from "@/components/CalComLogo";
 import LoginScreenComponent from "@/components/LoginScreen";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { PushNotificationProvider } from "@/components/PushNotificationProvider";
+import { GlobalActionSheet } from "@/components/ui/GlobalActionSheet";
 import { GlobalConfirmDialog } from "@/components/ui/GlobalConfirmDialog";
 import { GlobalToast } from "@/components/ui/GlobalToast";
 import { CalVideoEntry } from "@/components/video-call/CalVideoEntry";
@@ -612,6 +613,7 @@ export default function RootLayout() {
           </PushNotificationProvider>
           <GlobalToast />
           <GlobalConfirmDialog />
+          <GlobalActionSheet />
         </ToastProvider>
       </AuthProvider>
     </QueryProvider>

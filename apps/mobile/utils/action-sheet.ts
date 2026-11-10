@@ -7,15 +7,25 @@ export interface ActionSheetItem {
   disabled?: boolean;
 }
 
-/**
- * A list of choices in the platform's own idiom: the iOS action sheet, an Android alert.
- * Disabled items are left out rather than greyed, since neither surface greys reliably.
- */
-export function showActionSheet(input: {
+export interface ActionSheetRequest {
   title?: string;
   message?: string;
   items: ActionSheetItem[];
-}) {
+}
+
+/** Opens GlobalActionSheet, which sets it on mount (Android only). */
+let presentSheet: ((request: ActionSheetRequest) => void) | null = null;
+
+export function setActionSheetPresenter(present: typeof presentSheet) {
+  presentSheet = present;
+}
+
+/**
+ * A list of choices: the iOS action sheet, or on Android a bottom sheet (GlobalActionSheet). An
+ * Android alert keeps only three buttons, so a longer menu lost its last items and Cancel.
+ * Disabled items are left out rather than greyed, since the iOS sheet doesn't grey reliably.
+ */
+export function showActionSheet(input: ActionSheetRequest) {
   const items = input.items.filter((item) => !item.disabled);
   if (items.length === 0) return;
   if (Platform.OS === "ios") {
@@ -34,6 +44,10 @@ export function showActionSheet(input: {
         items[index]?.onPress();
       }
     );
+    return;
+  }
+  if (presentSheet) {
+    presentSheet({ title: input.title, message: input.message, items });
     return;
   }
   Alert.alert(input.title ?? "", input.message, [
