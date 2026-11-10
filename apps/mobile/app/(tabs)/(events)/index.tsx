@@ -14,6 +14,7 @@ export default function Events() {
   const isDark = colorScheme === "dark";
   const theme = getColors(isDark);
   const { startCreate: handleCreate, picker } = useCreateCalEventFlow();
+  const placeholder = profileName ? `Search ${profileName} events` : "Search events";
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
@@ -28,7 +29,11 @@ export default function Events() {
         className="flex-row items-center gap-3 px-4 py-2"
       >
         <View style={{ flex: 1, position: "relative", justifyContent: "center" }}>
+          {/* The name arrives after mount and can be wider than the field. Android lays out a
+              changed placeholder at the field's width, so a long one wraps to a hidden second line
+              and is drawn too high until the user types. A new input keeps it on one line. */}
           <TextInput
+            key={placeholder}
             style={{
               backgroundColor: isDark ? "#171717" : "#FFFFFF",
               borderColor: theme.border,
@@ -36,7 +41,7 @@ export default function Events() {
               paddingRight: searchQuery.length > 0 ? 32 : 12,
             }}
             className="rounded-lg border px-3 py-2 text-[17px]"
-            placeholder={profileName ? `Search ${profileName} events` : "Search events"}
+            placeholder={placeholder}
             placeholderTextColor={theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
