@@ -2,6 +2,7 @@
  * Cal Events functions for Cal.com API (`/v2/events`)
  */
 
+import { File as StoredFile } from "expo-file-system";
 import { deriveCalEventStatus, getCalEventPublicUrl } from "@/utils/cal-events";
 
 import type {
@@ -258,7 +259,7 @@ export async function removeCalEventLocation(
   return response.data;
 }
 
-/** A picked image, as React Native's FormData takes a file. */
+/** A picked image: on iOS and Android a file on disk, on the web the picked File. */
 export interface CalEventImageFile {
   uri: string;
   name: string;
@@ -273,8 +274,10 @@ function imageFormData(file: CalEventImageFile): FormData {
   if (file.file) {
     body.append("file", file.file, file.name);
   } else {
-    // React Native reads { uri, name, type } as a file part.
-    body.append("file", file as unknown as Blob);
+    // The app's fetch (expo/fetch since Expo 57) can't send React Native's { uri, name, type }
+    // part. It sends an expo-file-system File, reading its bytes, and its name and type from the
+    // file's path.
+    body.append("file", new StoredFile(file.uri));
   }
   return body;
 }
