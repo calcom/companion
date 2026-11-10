@@ -208,6 +208,26 @@ export type ListItem =
   | { type: "booking"; booking: Booking; key: string }
   | { type: "recurringGroup"; group: RecurringBookingGroup; key: string };
 
+/** When the booking starts. API v2 sends `start`; `startTime` is the older field name. */
+export const getBookingStartTime = (booking: Pick<Booking, "start" | "startTime">): string =>
+  booking.start || booking.startTime || "";
+
+/**
+ * Bookings in start order: "asc" for upcoming (soonest first), "desc" for past (latest first).
+ * Month grouping relies on it, as an unsorted list repeats a month header.
+ */
+export const sortBookingsByStart = <T extends Pick<Booking, "start" | "startTime">>(
+  bookings: T[],
+  direction: "asc" | "desc"
+): T[] => {
+  const sign = direction === "asc" ? 1 : -1;
+  return [...bookings].sort(
+    (a, b) =>
+      sign *
+      (new Date(getBookingStartTime(a)).getTime() - new Date(getBookingStartTime(b)).getTime())
+  );
+};
+
 /**
  * Group bookings by month for display in a sectioned list
  * @param bookings Array of bookings to group
@@ -218,7 +238,7 @@ export const groupBookingsByMonth = (bookings: Booking[]): ListItem[] => {
   let currentMonthYear: string | null = null;
 
   bookings.forEach((booking) => {
-    const startTime = booking.start || booking.startTime || "";
+    const startTime = getBookingStartTime(booking);
     if (!startTime) return;
 
     const monthYearKey = getMonthYearKey(startTime);
@@ -423,6 +443,19 @@ export const formatStatusText = (status: string): string => {
  * @param currentUserEmail Current user's email (optional)
  * @returns Formatted string or null if no host/attendees
  */
+/**
+ * The booking's guest emails that aren't already attendees. API v2 lists a guest added after
+ * booking both as an attendee and in `guests`, so showing both would list them twice.
+ */
+export const getGuestsNotInAttendees = (
+  booking: Pick<Booking, "attendees" | "guests">
+): string[] => {
+  const attendeeEmails = new Set(
+    (booking.attendees ?? []).map((attendee) => attendee.email.toLowerCase())
+  );
+  return (booking.guests ?? []).filter((email) => !attendeeEmails.has(email.toLowerCase()));
+};
+
 export const getHostAndAttendeesDisplay = (
   booking: Booking,
   currentUserEmail?: string

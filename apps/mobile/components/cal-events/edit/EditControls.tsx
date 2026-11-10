@@ -46,6 +46,14 @@ export function useFieldBackground() {
   return useContext(OnCardContext) ? theme.backgroundMuted : surfaces.card;
 }
 
+/**
+ * Gives the fields inside the gray fill they use on a card. For a liquid glass sheet, which turns
+ * opaque white at full height and would hide a card-colored field.
+ */
+export function OnCardFields({ children }: { children: ReactNode }) {
+  return <OnCardContext.Provider value={true}>{children}</OnCardContext.Provider>;
+}
+
 export function EditSection({
   title,
   description,
