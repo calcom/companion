@@ -7,11 +7,11 @@ import { buildVideoCallHref, parseCalVideoLink } from "@/utils/cal-video-links";
  * room slug — so it is folded into the video-call screen with the room URL as a parameter.
  * Everything else passes through untouched.
  */
-export function redirectSystemPath({ path }: { path: string; initial: boolean }): string | null {
+export function redirectSystemPath({ path }: { path: string; initial: boolean }): string {
   try {
     const link = parseCalVideoLink(path);
-    return link ? buildVideoCallHref(link) : null;
+    return link ? buildVideoCallHref(link) : path;
   } catch {
-    return null;
+    return path;
   }
 }
