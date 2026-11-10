@@ -8,6 +8,7 @@ import {
   setupNextCallLiveActivityRefresh,
   syncNextCallLiveActivity,
 } from "@/services/nextCallLiveActivity";
+import { getBookingsNotEnded } from "@/utils/bookings-utils";
 import {
   clearWidgetBookings,
   setupWidgetRefreshOnAppStateChange,
@@ -53,23 +54,7 @@ export function useWidgetSync() {
 
     if (cachedBookings !== undefined && cachedBookings.length > 0) {
       try {
-        // Filter bookings that haven't ended yet (includes ongoing meetings)
-        // Sort by start time to show soonest first
-        // Note: API may return either start/end or startTime/endTime
-        const upcomingBookings = cachedBookings
-          .filter((booking) => {
-            const endTimeStr = booking.endTime || booking.end;
-            if (!endTimeStr) {
-              return false;
-            }
-            const endTime = new Date(endTimeStr);
-            return endTime > new Date();
-          })
-          .sort((a, b) => {
-            const aStart = new Date(a.startTime || a.start || "").getTime();
-            const bStart = new Date(b.startTime || b.start || "").getTime();
-            return aStart - bStart;
-          });
+        const upcomingBookings = getBookingsNotEnded(cachedBookings);
 
         await updateWidgetBookings(upcomingBookings);
         await syncNextCallLiveActivity(upcomingBookings, liveActivityOptions);
@@ -84,13 +69,7 @@ export function useWidgetSync() {
           limit: 10,
         });
 
-        // Filter bookings that haven't ended yet (includes ongoing meetings)
-        const upcomingBookings = bookings
-          .filter((booking) => {
-            const endTime = new Date(booking.endTime);
-            return endTime > new Date();
-          })
-          .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+        const upcomingBookings = getBookingsNotEnded(bookings);
 
         await updateWidgetBookings(upcomingBookings);
         await syncNextCallLiveActivity(upcomingBookings, liveActivityOptions);

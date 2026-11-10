@@ -1,6 +1,7 @@
 import { describe, expect, test } from "@jest/globals";
 import {
   getBookingStartTime,
+  getBookingsNotEnded,
   getGuestsNotInAttendees,
   groupBookingsByMonth,
   groupRecurringBookings,
@@ -86,5 +87,27 @@ describe("sortBookingsByStart", () => {
 
     expect(new Set(keys).size).toBe(keys.length);
     expect(items.filter((item) => item.type === "monthHeader")).toHaveLength(2);
+  });
+});
+
+describe("getBookingsNotEnded", () => {
+  const now = new Date("2026-11-10T12:00:00.000Z").getTime();
+
+  test("keeps API v2 bookings (start/end) that haven't ended, soonest first", () => {
+    const bookings = [
+      { id: 1, start: "2026-11-12T10:00:00.000Z", end: "2026-11-12T10:30:00.000Z" },
+      { id: 2, start: "2026-11-09T10:00:00.000Z", end: "2026-11-09T10:30:00.000Z" },
+      { id: 3, start: "2026-11-10T11:45:00.000Z", end: "2026-11-10T12:15:00.000Z" },
+      { id: 4, start: "2026-11-11T09:00:00.000Z", end: "2026-11-11T09:30:00.000Z" },
+    ];
+    expect(getBookingsNotEnded(bookings, now).map((b) => b.id)).toEqual([3, 4, 1]);
+  });
+
+  test("still reads the older startTime/endTime names, and drops a booking with no end", () => {
+    const bookings = [
+      { id: 1, startTime: "2026-11-12T10:00:00.000Z", endTime: "2026-11-12T10:30:00.000Z" },
+      { id: 2, start: "2026-11-13T10:00:00.000Z" },
+    ];
+    expect(getBookingsNotEnded(bookings, now).map((b) => b.id)).toEqual([1]);
   });
 });

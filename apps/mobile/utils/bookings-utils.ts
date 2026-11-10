@@ -212,6 +212,20 @@ export type ListItem =
 export const getBookingStartTime = (booking: Pick<Booking, "start" | "startTime">): string =>
   booking.start || booking.startTime || "";
 
+/** When the booking ends. API v2 sends `end`; `endTime` is the older field name. */
+export const getBookingEndTime = (booking: Pick<Booking, "end" | "endTime">): string =>
+  booking.end || booking.endTime || "";
+
+/** Bookings that haven't ended yet (calls in progress included), soonest first. */
+export const getBookingsNotEnded = <T extends Booking>(bookings: T[], now = Date.now()): T[] =>
+  sortBookingsByStart(
+    bookings.filter((booking) => {
+      const end = getBookingEndTime(booking);
+      return end !== "" && new Date(end).getTime() > now;
+    }),
+    "asc"
+  );
+
 /**
  * Bookings in start order: "asc" for upcoming (soonest first), "desc" for past (latest first).
  * Month grouping relies on it, as an unsorted list repeats a month header.
