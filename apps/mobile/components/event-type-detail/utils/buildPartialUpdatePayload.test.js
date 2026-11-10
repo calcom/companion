@@ -139,6 +139,24 @@ describe("buildPartialUpdatePayload", () => {
     expect(hasChanges(formState, original)).toBe(false);
   });
 
+  test("treats the form's month-view default as unchanged on a link with no saved layouts", () => {
+    const payload = buildPayload({ selectedLayouts: ["MONTH_VIEW"], defaultLayout: "MONTH_VIEW" });
+
+    expect(payload).toEqual({});
+  });
+
+  test("sends layouts picked on a link with no saved layouts", () => {
+    const payload = buildPayload({
+      selectedLayouts: ["MONTH_VIEW", "WEEK_VIEW"],
+      defaultLayout: "WEEK_VIEW",
+    });
+
+    expect(payload.bookerLayouts).toEqual({
+      enabledLayouts: ["month", "week"],
+      defaultLayout: "week",
+    });
+  });
+
   test("includes only changed basic fields and schedule id", () => {
     expect(
       buildPayload({
