@@ -237,7 +237,13 @@ export const EditAvailabilityNameScreen = forwardRef<
             </TouchableOpacity>
           </TouchableOpacity>
         ) : (
-          <View className="flex-1 bg-white p-2 dark:bg-[#171717]">{renderTimezoneContent()}</View>
+          <View
+            className="flex-1 bg-white p-2 dark:bg-[#171717]"
+            // On Android the modal covers the status bar, so the header starts below it.
+            style={{ paddingTop: insets.top + 8 }}
+          >
+            {renderTimezoneContent()}
+          </View>
         )}
       </FullScreenModal>
     </KeyboardAvoidingView>

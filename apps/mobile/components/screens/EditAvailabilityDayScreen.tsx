@@ -543,7 +543,13 @@ export const EditAvailabilityDayScreen = forwardRef<
             </TouchableOpacity>
           </TouchableOpacity>
         ) : (
-          <View className="flex-1 bg-white p-2 dark:bg-[#171717]">{renderTimePickerContent()}</View>
+          <View
+            className="flex-1 bg-white p-2 dark:bg-[#171717]"
+            // On Android the modal covers the status bar, so the header starts below it.
+            style={{ paddingTop: insets.top + 8 }}
+          >
+            {renderTimePickerContent()}
+          </View>
         )}
       </FullScreenModal>
     </ScrollView>
