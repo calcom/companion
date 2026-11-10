@@ -238,6 +238,40 @@ export const EditLocationScreen = forwardRef<EditLocationScreenHandle, EditLocat
         >
           {transparentBackground ? (
             <>
+              {/* Current Location Info - Glass UI */}
+              {booking.location && (
+                <View
+                  className="mb-4 flex-row items-start rounded-xl px-4 py-3"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.inputBorder,
+                    backgroundColor: colors.inputBackground,
+                  }}
+                >
+                  <View
+                    className="mr-3 h-9 w-9 items-center justify-center rounded-full"
+                    style={{ backgroundColor: colors.pill }}
+                  >
+                    <Ionicons name="location" size={18} color={colors.textSecondary} />
+                  </View>
+                  <View className="flex-1">
+                    <Text
+                      className="text-[13px] font-medium"
+                      style={{ color: colors.textSecondary }}
+                    >
+                      Current Location
+                    </Text>
+                    <Text
+                      className="mt-0.5 text-[15px]"
+                      style={{ color: colors.text }}
+                      numberOfLines={2}
+                    >
+                      {booking.location}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               {/* Location Type Selector with Native Context Menu - Glass UI */}
               <View
                 className="mb-4 flex-row items-center rounded-xl px-4 py-3"
