@@ -44,6 +44,21 @@ describe("bookingsToCalendarEvents", () => {
     expect(events.map((e) => e.id)).toEqual(["c"]);
   });
 
+  test("reads the status in any case, and counts requires_confirmation as unconfirmed", () => {
+    const events = bookingsToCalendarEvents([
+      createBooking({ uid: "a", status: "CANCELLED" }),
+      createBooking({ uid: "b", status: "REJECTED" }),
+      createBooking({ uid: "c", status: "PENDING" }),
+      createBooking({ uid: "d", status: "requires_confirmation" }),
+      createBooking({ uid: "e", status: "ACCEPTED" }),
+    ]);
+    expect(events.map((e) => [e.id, e.color])).toEqual([
+      ["c", "amber"],
+      ["d", "amber"],
+      ["e", "blue"],
+    ]);
+  });
+
   test("falls back to start and end, and skips bookings without times", () => {
     const events = bookingsToCalendarEvents([
       createBooking({

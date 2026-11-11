@@ -1,5 +1,6 @@
 import type { CalEvent, KloqController } from "expo-kloq";
 import type { Booking } from "@/services/calcom";
+import { isCancelledOrRejectedBooking, isPendingBooking } from "./booking-cache";
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -35,7 +36,7 @@ export function calendarRange(descriptor: Pick<KloqController["descriptor"], "da
 export function bookingsToCalendarEvents(bookings: Booking[]): CalEvent[] {
   const events: CalEvent[] = [];
   for (const booking of bookings) {
-    if (booking.status === "cancelled" || booking.status === "rejected") continue;
+    if (isCancelledOrRejectedBooking(booking)) continue;
     const start = booking.startTime || booking.start;
     const end = booking.endTime || booking.end;
     if (!start || !end) continue;
@@ -44,7 +45,7 @@ export function bookingsToCalendarEvents(bookings: Booking[]): CalEvent[] {
       title: booking.title,
       start,
       end,
-      color: booking.status === "pending" ? "amber" : "blue",
+      color: isPendingBooking(booking) ? "amber" : "blue",
       location: booking.location,
       meetingUrl: booking.meetingUrl,
       readOnly: true,
