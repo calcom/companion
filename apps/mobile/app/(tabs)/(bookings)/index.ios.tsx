@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useColorScheme } from "react-native";
 
 import { BookingListScreen } from "@/components/booking-list-screen/BookingListScreen";
+import { BookingsCalendar } from "@/components/bookings-calendar/BookingsCalendar";
 import { useEventTypes } from "@/hooks";
 import { type BookingFilter, useActiveBookingFilter } from "@/hooks/useActiveBookingFilter";
 
@@ -23,6 +24,7 @@ export default function Bookings() {
   const { filter, sync } = useLocalSearchParams<{ filter?: string; sync?: string }>();
   const initialFilter = isValidBookingFilter(filter) ? filter : "upcoming";
 
+  const [mode, setMode] = useState<"list" | "calendar">("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEventTypeId, setSelectedEventTypeId] = useState<number | null>(null);
   const { data: eventTypes = [], isLoading: eventTypesLoading } = useEventTypes();
@@ -178,6 +180,18 @@ export default function Bookings() {
     };
   };
 
+  const isCalendar = mode === "calendar";
+  const buildModeToggle = () => ({
+    type: "button" as const,
+    label: "",
+    accessibilityLabel: isCalendar ? "Show as list" : "Show as calendar",
+    icon: {
+      type: "sfSymbol" as const,
+      name: isCalendar ? ("list.bullet" as const) : ("calendar" as const),
+    },
+    onPress: () => setMode(isCalendar ? "list" : "calendar"),
+  });
+
   return (
     <>
       <Stack.Screen
@@ -187,32 +201,42 @@ export default function Bookings() {
           headerStyle: {
             backgroundColor: "transparent",
           },
-          headerLargeTitleEnabled: true,
-          headerSearchBarOptions: {
-            placeholder: "Search bookings",
-            onChangeText: (e) => handleSearch(e.nativeEvent.text),
-            obscureBackground: false,
-            barTintColor: isDark ? "#171717" : "#fff",
-          },
+          // The calendar isn't a scroll view: without a large title or search bar it sits below the
+          // header instead of under it.
+          headerLargeTitleEnabled: !isCalendar,
+          headerSearchBarOptions: isCalendar
+            ? undefined
+            : {
+                placeholder: "Search bookings",
+                onChangeText: (e) => handleSearch(e.nativeEvent.text),
+                obscureBackground: false,
+                barTintColor: isDark ? "#171717" : "#fff",
+              },
           unstable_headerRightItems: () => {
             const eventTypeFilterMenu = buildEventTypeFilterMenu();
+            // The calendar shows every status, so it has no status filter.
+            if (isCalendar) return [eventTypeFilterMenu, buildModeToggle()];
             const statusFilterMenu = buildActiveBookingFilter();
 
-            return [eventTypeFilterMenu, statusFilterMenu];
+            return [eventTypeFilterMenu, statusFilterMenu, buildModeToggle()];
           },
         }}
       />
 
-      <BookingListScreen
-        eventTypes={eventTypes}
-        eventTypesLoading={eventTypesLoading}
-        searchQuery={searchQuery}
-        selectedEventTypeId={selectedEventTypeId}
-        activeFilter={activeFilter}
-        filterParams={filterParams}
-        syncKey={sync}
-        iosStyle={true}
-      />
+      {isCalendar ? (
+        <BookingsCalendar eventTypeId={selectedEventTypeId} />
+      ) : (
+        <BookingListScreen
+          eventTypes={eventTypes}
+          eventTypesLoading={eventTypesLoading}
+          searchQuery={searchQuery}
+          selectedEventTypeId={selectedEventTypeId}
+          activeFilter={activeFilter}
+          filterParams={filterParams}
+          syncKey={sync}
+          iosStyle={true}
+        />
+      )}
     </>
   );
 }

@@ -2,6 +2,7 @@
   "compilerOptions": {
     "types": ["nativewind/types"],
     "strict": true,
+    "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],

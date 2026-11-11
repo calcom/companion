@@ -22,7 +22,9 @@
       "!**/bun.lock",
       "!**/android",
       "!**/ios",
-      "!**/safari-extension"
+      "!**/safari-extension",
+      "!packages/kloq",
+      "!packages/expo-kloq"
     ]
   },
   "formatter": {

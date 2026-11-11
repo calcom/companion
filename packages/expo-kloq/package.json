@@ -1,0 +1,46 @@
+{
+  "name": "expo-kloq",
+  "version": "0.1.0",
+  "description": "kloq for Expo, copied from cosscom/coss until it is published to npm. See README.md.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "kloq": "workspace:*"
+  },
+  "peerDependencies": {
+    "@expo/ui": "~57.0.25",
+    "expo": "~57.0.29",
+    "expo-glass-effect": "~57.0.4",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0"
+  },
+  "peerDependenciesMeta": {
+    "@expo/ui": {
+      "optional": true
+    },
+    "expo": {
+      "optional": true
+    },
+    "expo-glass-effect": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-safe-area-context": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "19.2.10"
+  }
+}

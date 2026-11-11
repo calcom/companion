@@ -28,6 +28,7 @@ export {
   type BookingFilters,
   useBookingByUid,
   useBookings,
+  useBookingsBetween,
   useCancelBooking,
   useConfirmBooking,
   useDeclineBooking,
