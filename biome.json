@@ -23,8 +23,7 @@
       "!**/android",
       "!**/ios",
       "!**/safari-extension",
-      "!packages/kloq",
-      "!packages/expo-kloq"
+      "!apps/mobile/vendor"
     ]
   },
   "formatter": {

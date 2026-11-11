@@ -9,7 +9,7 @@ import {
 import { StyleSheet } from "react-native";
 import { CALENDAR_VIEWS, type CalendarControlsProps } from "./calendar-views";
 
-// Adapted from kloq's own controls (packages/expo-kloq/src/native/controls.android.tsx), without
+// Adapted from kloq's own controls (vendor/expo-kloq/src/native/controls.android.tsx), without
 // the editing actions.
 
 /** Previous, Today and Next as Material 3 outlined buttons. */

@@ -11,7 +11,7 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { StyleSheet } from "react-native";
 import { CALENDAR_VIEWS, type CalendarControlsProps, viewOfTag } from "./calendar-views";
 
-// Adapted from kloq's own controls (packages/expo-kloq/src/native/controls.ios.tsx), without the
+// Adapted from kloq's own controls (vendor/expo-kloq/src/native/controls.ios.tsx), without the
 // editing actions. Liquid Glass on iOS 26+, the bordered style before it.
 const GLASS = isLiquidGlassAvailable();
 const buttonLook = buttonStyle(GLASS ? "glass" : "bordered");
