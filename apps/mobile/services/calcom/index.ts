@@ -103,6 +103,7 @@ import {
   getBookingByUid,
   getBookingParticipation,
   getBookings,
+  getBookingsBetween,
   getConferencingSessions,
   getRecordings,
   getTranscripts,
@@ -278,6 +279,7 @@ export const CalComAPIService = {
   getTranscripts,
   getBookingByUid,
   getBookings,
+  getBookingsBetween,
 
   // Schedules
   getSchedules,

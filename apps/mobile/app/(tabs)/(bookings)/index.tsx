@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Platform, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 import { AppPressable } from "@/components/AppPressable";
 import { BookingListScreen } from "@/components/booking-list-screen/BookingListScreen";
+import { BookingsCalendar } from "@/components/bookings-calendar/BookingsCalendar";
 import { Header } from "@/components/Header";
 import {
   DropdownMenu,
@@ -31,6 +32,8 @@ export default function Bookings() {
   const { filter, sync } = useLocalSearchParams<{ filter?: string; sync?: string }>();
   const initialFilter = isValidBookingFilter(filter) ? filter : "upcoming";
 
+  const [mode, setMode] = useState<"list" | "calendar">("list");
+  const isCalendar = mode === "calendar";
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEventTypeId, setSelectedEventTypeId] = useState<number | null>(null);
   const [selectedEventTypeLabel, setSelectedEventTypeLabel] = useState<string | null>(null);
@@ -93,8 +96,7 @@ export default function Bookings() {
   };
 
   const renderFilterControls = () => {
-    const filterLabel =
-      selectedEventTypeId !== null ? selectedEventTypeLabel || "Link" : "Filter";
+    const filterLabel = selectedEventTypeId !== null ? selectedEventTypeLabel || "Link" : "Filter";
 
     return (
       <View
@@ -177,37 +179,72 @@ export default function Bookings() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <View style={{ flex: 1, position: "relative", justifyContent: "center" }}>
-            <TextInput
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-black"
+          {isCalendar ? (
+            <View style={{ flex: 1 }} />
+          ) : (
+            <View style={{ flex: 1, position: "relative", justifyContent: "center" }}>
+              <TextInput
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-black"
+                style={{
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundSecondary,
+                  color: theme.text,
+                  paddingRight: searchQuery.length > 0 ? 32 : 12,
+                }}
+                placeholder="Search bookings"
+                placeholderTextColor={theme.textSecondary}
+                value={searchQuery}
+                onChangeText={handleSearch}
+                autoCapitalize="none"
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+              />
+              {searchQuery.length > 0 && Platform.OS === "android" && (
+                <TouchableOpacity
+                  onPress={() => setSearchQuery("")}
+                  style={{ position: "absolute", right: 8 }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* The calendar draws with Jetpack Compose and SwiftUI, so the web app has no calendar */}
+          {Platform.OS !== "web" ? (
+            <AppPressable
+              onPress={() => setMode(isCalendar ? "list" : "calendar")}
+              accessibilityRole="button"
+              accessibilityLabel={isCalendar ? "Show as list" : "Show as calendar"}
+              className="rounded-lg border border-gray-200 bg-white"
               style={{
                 borderColor: theme.border,
                 backgroundColor: theme.backgroundSecondary,
-                color: theme.text,
-                paddingRight: searchQuery.length > 0 ? 32 : 12,
+                padding: 7,
               }}
-              placeholder="Search bookings"
-              placeholderTextColor={theme.textSecondary}
-              value={searchQuery}
-              onChangeText={handleSearch}
-              autoCapitalize="none"
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-            />
-            {searchQuery.length > 0 && Platform.OS === "android" && (
-              <TouchableOpacity
-                onPress={() => setSearchQuery("")}
-                style={{ position: "absolute", right: 8 }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            )}
-          </View>
+            >
+              <Ionicons
+                name={isCalendar ? "list-outline" : "calendar-outline"}
+                size={18}
+                color={theme.textSecondary}
+              />
+            </AppPressable>
+          ) : null}
         </View>
       </View>
     );
   };
+
+  if (isCalendar) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.background }}>
+        <Header />
+        {renderFilterControls()}
+        <BookingsCalendar eventTypeId={selectedEventTypeId} />
+      </View>
+    );
+  }
 
   return (
     <BookingListScreen

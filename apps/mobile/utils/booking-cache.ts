@@ -30,12 +30,12 @@ const getBookingEventTypeId = (booking: Booking): number | undefined =>
 
 const getBookingStatus = (booking: Booking): string => booking.status?.toLowerCase() || "";
 
-const isPendingBooking = (booking: Booking): boolean => {
+export const isPendingBooking = (booking: Booking): boolean => {
   const status = getBookingStatus(booking);
   return status === "pending" || status === "requires_confirmation";
 };
 
-const isCancelledOrRejectedBooking = (booking: Booking): boolean => {
+export const isCancelledOrRejectedBooking = (booking: Booking): boolean => {
   const status = getBookingStatus(booking);
   return status === "cancelled" || status === "rejected";
 };

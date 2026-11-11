@@ -22,7 +22,8 @@
       "!**/bun.lock",
       "!**/android",
       "!**/ios",
-      "!**/safari-extension"
+      "!**/safari-extension",
+      "!apps/mobile/vendor"
     ]
   },
   "formatter": {
