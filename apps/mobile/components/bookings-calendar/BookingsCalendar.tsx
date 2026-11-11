@@ -23,6 +23,17 @@ const STEP_WORDS: Record<string, string> = {
   agenda: "30 days",
 };
 
+/**
+ * kloq's scrolling views end in blank space for kloq's own floating buttons: 80 in the time grid
+ * (time-grid.tsx), 96 in the year and schedule views (year-view.tsx, agenda-view.tsx). iOS draws
+ * the tab bar over that space. Android puts the tab bar below the screen, where the space would
+ * show as a gap, so the calendar hides it below its bottom edge.
+ */
+function kloqEndSpace(kind: string): number {
+  if (Platform.OS !== "android" || kind === "month") return 0;
+  return kind === "year" || kind === "agenda" ? 96 : 80;
+}
+
 export interface BookingsCalendarProps {
   /** Only this link's bookings, like the list's link filter. */
   eventTypeId?: number | null;
@@ -105,27 +116,29 @@ export function BookingsCalendar({ eventTypeId }: BookingsCalendarProps) {
       ) : null}
 
       <View style={styles.body}>
-        {kind === "month" ? (
-          <MonthView descriptor={k.descriptor} events={events} {...callbacks} />
-        ) : kind === "agenda" ? (
-          <AgendaView descriptor={k.descriptor} events={events} hour12={hour12} {...callbacks} />
-        ) : kind === "year" ? (
-          <YearView
-            year={k.anchor.getFullYear()}
-            events={events}
-            weekStartsOn={k.weekStartsOn}
-            onShowDay={k.showDay}
-          />
-        ) : (
-          <TimeGrid
-            key={kind}
-            descriptor={k.descriptor}
-            events={events}
-            zones={[]}
-            hour12={hour12}
-            {...callbacks}
-          />
-        )}
+        <View style={[styles.fill, { marginBottom: -kloqEndSpace(kind) }]}>
+          {kind === "month" ? (
+            <MonthView descriptor={k.descriptor} events={events} {...callbacks} />
+          ) : kind === "agenda" ? (
+            <AgendaView descriptor={k.descriptor} events={events} hour12={hour12} {...callbacks} />
+          ) : kind === "year" ? (
+            <YearView
+              year={k.anchor.getFullYear()}
+              events={events}
+              weekStartsOn={k.weekStartsOn}
+              onShowDay={k.showDay}
+            />
+          ) : (
+            <TimeGrid
+              key={kind}
+              descriptor={k.descriptor}
+              events={events}
+              zones={[]}
+              hour12={hour12}
+              {...callbacks}
+            />
+          )}
+        </View>
       </View>
     </View>
   );
@@ -149,5 +162,6 @@ const styles = StyleSheet.create({
   title: { flexShrink: 1, fontSize: 22, fontWeight: "700" },
   picker: { paddingHorizontal: 12, paddingBottom: 8 },
   error: { paddingHorizontal: 12, paddingBottom: 8, fontSize: 13 },
-  body: { flex: 1 },
+  body: { flex: 1, overflow: "hidden" },
+  fill: { flex: 1 },
 });
