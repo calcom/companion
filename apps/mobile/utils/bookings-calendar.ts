@@ -9,16 +9,23 @@ export function weekStartIndex(weekStart: string | undefined): number {
   return index === -1 ? 1 : index;
 }
 
-/** The days a calendar view shows, as the bookings request's `afterStart` and `beforeEnd`. */
+/**
+ * The bookings request's `afterStart` and `beforeEnd` for the days a calendar view shows. The API
+ * only returns bookings that start and end inside that range, so it reaches one day further on
+ * each side: a booking across the first or last midnight still comes back, and kloq draws only
+ * the part on the days shown.
+ */
 export function calendarRange(descriptor: Pick<KloqController["descriptor"], "days">): {
   afterStart: string;
   beforeEnd: string;
 } {
   const first = descriptor.days[0] ?? new Date();
   const last = descriptor.days[descriptor.days.length - 1] ?? first;
+  const start = new Date(first);
+  start.setDate(start.getDate() - 1);
   const end = new Date(last);
-  end.setDate(end.getDate() + 1);
-  return { afterStart: first.toISOString(), beforeEnd: end.toISOString() };
+  end.setDate(end.getDate() + 2);
+  return { afterStart: start.toISOString(), beforeEnd: end.toISOString() };
 }
 
 /**

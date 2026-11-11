@@ -62,11 +62,13 @@ describe("bookingsToCalendarEvents", () => {
 });
 
 describe("calendarRange", () => {
-  test("runs from the first shown day to the day after the last", () => {
+  test("reaches a day past the first and last shown day", () => {
+    // The API only returns bookings that start and end inside the range, so a booking across
+    // the view's first or last midnight needs the extra day on each side.
     const days = [new Date(2026, 10, 9), new Date(2026, 10, 10), new Date(2026, 10, 15)];
     expect(calendarRange({ days })).toEqual({
-      afterStart: new Date(2026, 10, 9).toISOString(),
-      beforeEnd: new Date(2026, 10, 16).toISOString(),
+      afterStart: new Date(2026, 10, 8).toISOString(),
+      beforeEnd: new Date(2026, 10, 17).toISOString(),
     });
   });
 });
