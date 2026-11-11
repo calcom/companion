@@ -154,19 +154,18 @@ export default function ProfileSheet() {
         }}
       />
 
-      <Stack.Header>
-        <Stack.Header.Title>You</Stack.Header.Title>
+      <Stack.Header />
+      <Stack.Title>You</Stack.Title>
 
-        <Stack.Header.Right>
-          <Stack.Header.Button
-            onPress={handleClose}
-            variant="prominent"
-            tintColor={theme.backgroundEmphasis}
-          >
-            <Stack.Header.Icon sf="xmark" />
-          </Stack.Header.Button>
-        </Stack.Header.Right>
-      </Stack.Header>
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          onPress={handleClose}
+          variant="prominent"
+          tintColor={theme.backgroundEmphasis}
+        >
+          <Stack.Toolbar.Icon sf="xmark" />
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
 
       <View
         style={{

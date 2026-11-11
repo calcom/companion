@@ -415,7 +415,13 @@ function hasBookerLayoutsChanged(
   defaultLayout: string,
   original: BookerLayoutsConfig | null | undefined
 ): boolean {
-  if (!original) return selectedLayouts.length > 0;
+  if (!original) {
+    // A link with no saved layouts books in the month view, which is what the form starts with.
+    const selected = selectedLayouts.map(mapLayoutToApi);
+    const isFormDefault =
+      selected.length === 1 && selected[0] === "month" && mapLayoutToApi(defaultLayout) === "month";
+    return selected.length > 0 && !isFormDefault;
+  }
 
   const originalEnabled = original.enabledLayouts || [];
   const originalDefault = original.defaultLayout;

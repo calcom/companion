@@ -249,7 +249,8 @@ export function ChatSheet({
         keyboardVerticalOffset={windowHeight - sheetHeight}
         onLayout={(event) => setSheetHeight(event.nativeEvent.layout.height)}
       >
-        <View style={styles.header}>
+        {/* Android has no page sheet: the modal fills the screen, status bar included. */}
+        <View style={[styles.header, Platform.OS === "android" && { paddingTop: insets.top + 18 }]}>
           <Text style={styles.title}>Chat</Text>
           <View style={styles.headerActions}>
             {chat?.capabilities.lock && (

@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   },
   pipTile: { flex: 1, borderRadius: 16 },
   stage: { position: "absolute", top: 0, left: 0, right: 0 },
-  screen: { ...StyleSheet.absoluteFillObject, backgroundColor: "#000000" },
+  screen: { ...StyleSheet.absoluteFill, backgroundColor: "#000000" },
   screenPill: {
     position: "absolute",
     left: 10,

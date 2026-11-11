@@ -1,5 +1,5 @@
 import { Hand, MicOff, MonitorUp, MoreHorizontal, Pin, VideoOff, X } from "lucide-react-native";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   type ParticipantAction,
@@ -75,7 +75,8 @@ export function PeopleSheet({
       onRequestClose={onClose}
     >
       <View style={styles.root}>
-        <View style={styles.header}>
+        {/* Android has no page sheet: the modal fills the screen, status bar included. */}
+        <View style={[styles.header, Platform.OS === "android" && { paddingTop: insets.top + 18 }]}>
           <Text style={styles.title}>People</Text>
           <Pressable
             accessibilityRole="button"

@@ -1,5 +1,5 @@
-import { getAppIconUrl } from "./getAppIconUrl";
 import { isCalVideoMeetingUrl } from "./booking";
+import { getAppIconUrl } from "./getAppIconUrl";
 
 // Helper to extract clean meeting URL from potentially wrapped URLs
 function extractMeetingUrl(location: string): string {
@@ -91,4 +91,17 @@ export const getMeetingInfo = (
 
   // Not a recognized conferencing app
   return null;
+};
+
+/**
+ * The booking's location as text to show, when it's a place, phone number or note. Null for a
+ * meeting link, which the Join button opens, and for an integration id such as
+ * "integrations:daily" that the API hasn't turned into a link.
+ */
+export const getPlainLocation = (location?: string | null): string | null => {
+  const trimmed = location?.trim();
+  if (!trimmed || /^https?:\/\//i.test(trimmed) || trimmed.startsWith("integrations:")) {
+    return null;
+  }
+  return trimmed;
 };

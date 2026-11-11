@@ -97,37 +97,40 @@ export default function Availability() {
         style={{ backgroundColor: "transparent", shadowColor: "transparent" }}
         blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
         hidden={Platform.OS === "android" || Platform.OS === "web"}
-      >
-        <Stack.Header.Title large>Availability</Stack.Header.Title>
-        <Stack.Header.Right>
-          {/* New Button - directly opens create dialog */}
-          <Stack.Header.Button onPress={handleCreateNew}>
-            <Stack.Header.Icon sf="plus" />
-          </Stack.Header.Button>
+      />
+      <Stack.Title large>Availability</Stack.Title>
+      {Platform.OS === "ios" && (
+        <>
+          <Stack.Toolbar placement="right">
+            {/* New Button - directly opens create dialog */}
+            <Stack.Toolbar.Button onPress={handleCreateNew}>
+              <Stack.Toolbar.Icon sf="plus" />
+            </Stack.Toolbar.Button>
 
-          {/* Profile Button */}
-          {userProfile?.avatarUrl ? (
-            <Stack.Header.View>
-              <Pressable onPress={() => router.push("/profile-sheet")}>
-                <Image
-                  source={{ uri: getAvatarUrl(userProfile.avatarUrl) }}
-                  style={{ width: 32, height: 32, borderRadius: 16 }}
-                />
-              </Pressable>
-            </Stack.Header.View>
-          ) : (
-            <Stack.Header.Button onPress={() => router.push("/profile-sheet")}>
-              <Stack.Header.Icon sf="person.circle.fill" />
-            </Stack.Header.Button>
-          )}
-        </Stack.Header.Right>
-        <Stack.Header.SearchBar
-          placeholder="Search schedules"
-          onChangeText={(e) => setSearchQuery(e.nativeEvent.text)}
-          obscureBackground={false}
-          barTintColor={isDark ? "#000" : "#fff"}
-        />
-      </Stack.Header>
+            {/* Profile Button */}
+            {userProfile?.avatarUrl ? (
+              <Stack.Toolbar.View>
+                <Pressable onPress={() => router.push("/profile-sheet")}>
+                  <Image
+                    source={{ uri: getAvatarUrl(userProfile.avatarUrl) }}
+                    style={{ width: 32, height: 32, borderRadius: 16 }}
+                  />
+                </Pressable>
+              </Stack.Toolbar.View>
+            ) : (
+              <Stack.Toolbar.Button onPress={() => router.push("/profile-sheet")}>
+                <Stack.Toolbar.Icon sf="person.circle.fill" />
+              </Stack.Toolbar.Button>
+            )}
+          </Stack.Toolbar>
+          <Stack.SearchBar
+            placeholder="Search schedules"
+            onChangeText={(e) => setSearchQuery(e.nativeEvent.text)}
+            obscureBackground={false}
+            barTintColor={isDark ? "#000" : "#fff"}
+          />
+        </>
+      )}
 
       <AvailabilityListScreen
         searchQuery={searchQuery}

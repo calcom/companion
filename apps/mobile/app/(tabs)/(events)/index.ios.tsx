@@ -30,9 +30,9 @@ export default function EventsIOS() {
       <Stack.Header
         style={{ backgroundColor: "transparent", shadowColor: "transparent" }}
         blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
-      >
-        <Stack.Header.Title large>Events</Stack.Header.Title>
-      </Stack.Header>
+      />
+      <Stack.Title large>Events</Stack.Title>
+
       <CalEventsList
         searchQuery={searchQuery}
         onCreate={handleCreate}

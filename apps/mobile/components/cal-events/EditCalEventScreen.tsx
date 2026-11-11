@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { usePreventRemove } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack, useNavigation } from "expo-router";
+import { usePreventRemove } from "expo-router/react-navigation";
 import { type ComponentProps, type ReactNode, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
@@ -164,7 +164,7 @@ const ERROR_TABS: Record<CalEventEditErrorKey, TabId> = {
   requiresApproval: "privacy-security",
 };
 
-type SFSymbol = Extract<ComponentProps<typeof Stack.Header.MenuAction>["icon"], string>;
+type SFSymbol = Extract<ComponentProps<typeof Stack.Toolbar.MenuAction>["icon"], string>;
 
 interface EditCalEventScreenProps {
   /** The event as `GET /v2/events/{uuid}` returns it; the form prefills from it once. */
@@ -696,50 +696,49 @@ export function EditCalEventScreen({
           />
           <Stack.Header
             blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
-          >
-            <Stack.Header.Right>
-              {/* Publish and Cancel mutate the event too, so they wait for the save to settle. */}
-              <Stack.Header.Menu disabled={saving} accessibilityLabel="More actions">
-                <Stack.Header.Icon sf="ellipsis" />
-                {menuItems.map((item) => (
-                  <Stack.Header.MenuAction
-                    key={item.label}
-                    icon={item.systemImage}
-                    destructive={item.destructive}
-                    onPress={item.onPress}
-                  >
-                    {item.label}
-                  </Stack.Header.MenuAction>
-                ))}
-              </Stack.Header.Menu>
-              <Stack.Header.Menu
-                accessibilityLabel={`Tab, ${currentTab.label}`}
-                accessibilityHint={
-                  otherTabHasErrors ? "Other tabs have errors" : "Shows the editor's tabs"
-                }
-              >
-                <Stack.Header.Label>{currentTab.label}</Stack.Header.Label>
-                {tabs.map((item) => (
-                  <Stack.Header.MenuAction
-                    key={item.id}
-                    icon={item.id === currentTab.id ? "checkmark.circle.fill" : item.sf}
-                    subtitle={tabsWithErrors.has(item.id) ? "Has errors" : undefined}
-                    onPress={() => showTab(item.id)}
-                  >
-                    {item.label}
-                  </Stack.Header.MenuAction>
-                ))}
-              </Stack.Header.Menu>
-              <Stack.Header.Button
-                onPress={save}
-                disabled={!dirty || saving}
-                variant="prominent"
-                tintColor={isDark ? "#FFF" : "#000"}
-              >
-                Save
-              </Stack.Header.Button>
-            </Stack.Header.Right>
-          </Stack.Header>
+          />
+          <Stack.Toolbar placement="right">
+            {/* Publish and Cancel mutate the event too, so they wait for the save to settle. */}
+            <Stack.Toolbar.Menu disabled={saving} accessibilityLabel="More actions">
+              <Stack.Toolbar.Icon sf="ellipsis" />
+              {menuItems.map((item) => (
+                <Stack.Toolbar.MenuAction
+                  key={item.label}
+                  icon={item.systemImage}
+                  destructive={item.destructive}
+                  onPress={item.onPress}
+                >
+                  {item.label}
+                </Stack.Toolbar.MenuAction>
+              ))}
+            </Stack.Toolbar.Menu>
+            <Stack.Toolbar.Menu
+              accessibilityLabel={`Tab, ${currentTab.label}`}
+              accessibilityHint={
+                otherTabHasErrors ? "Other tabs have errors" : "Shows the editor's tabs"
+              }
+            >
+              <Stack.Toolbar.Label>{currentTab.label}</Stack.Toolbar.Label>
+              {tabs.map((item) => (
+                <Stack.Toolbar.MenuAction
+                  key={item.id}
+                  icon={item.id === currentTab.id ? "checkmark.circle.fill" : item.sf}
+                  subtitle={tabsWithErrors.has(item.id) ? "Has errors" : undefined}
+                  onPress={() => showTab(item.id)}
+                >
+                  {item.label}
+                </Stack.Toolbar.MenuAction>
+              ))}
+            </Stack.Toolbar.Menu>
+            <Stack.Toolbar.Button
+              onPress={save}
+              disabled={!dirty || saving}
+              variant="prominent"
+              tintColor={isDark ? "#FFF" : "#000"}
+            >
+              Save
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
         </>
       ) : (
         // The link editor's round header buttons; the title gets its own row below them.

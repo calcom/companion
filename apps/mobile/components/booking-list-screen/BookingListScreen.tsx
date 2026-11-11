@@ -59,6 +59,7 @@ import {
   groupBookingsByMonth,
   groupRecurringBookings,
   searchBookings,
+  sortBookingsByStart,
 } from "@/utils/bookings-utils";
 import { getDisplayError } from "@/utils/error";
 import { offlineAwareRefresh } from "@/utils/network";
@@ -286,16 +287,10 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
     switch (activeFilter) {
       case "upcoming":
       case "unconfirmed":
-        // Sort by start time ascending
-        return sorted.sort(
-          (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-        );
+        return sortBookingsByStart(sorted, "asc");
       case "past":
       case "cancelled":
-        // Sort by start time descending (latest first)
-        return sorted.sort(
-          (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-        );
+        return sortBookingsByStart(sorted, "desc");
       default:
         return sorted;
     }

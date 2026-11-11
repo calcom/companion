@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host, HStack, Image } from "@expo/ui/swift-ui";
+import { Button, ContextMenu, Host, HStack, Image, Menu, RNHostView } from "@expo/ui/swift-ui";
 import { buttonStyle, frame } from "@expo/ui/swift-ui/modifiers";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Pressable, useColorScheme, View } from "react-native";
@@ -55,11 +55,8 @@ export const AvailabilityListItem = ({
       }}
     >
       {/* Native iOS Context Menu for long-press */}
-      <Host matchContents>
-        <ContextMenu
-          modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-          activationMethod="longPress"
-        >
+      <Host matchContents={{ vertical: true }}>
+        <ContextMenu modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}>
           <ContextMenu.Items>
             {scheduleActions.map((scheduleAction) => (
               <Button
@@ -72,37 +69,46 @@ export const AvailabilityListItem = ({
             ))}
           </ContextMenu.Items>
           <ContextMenu.Trigger>
-            <View
-              className="flex-row items-center"
-              style={{ paddingHorizontal: 16, paddingVertical: 16 }}
-            >
-              <Pressable
-                onPress={() => handleSchedulePress(schedule)}
-                className="mr-4 flex-1"
-                accessibilityRole="button"
-                style={{ minWidth: 0 }}
-              >
-                <View style={{ flex: 1 }}>
-                  <ScheduleName name={schedule.name} isDefault={schedule.isDefault} />
-                  <AvailabilitySlots
-                    availability={schedule.availability}
-                    scheduleId={schedule.id}
-                  />
-                  <TimeZoneRow timeZone={schedule.timeZone} />
-                </View>
-              </Pressable>
-
-              {/* Three dots menu - fixed hit target so it doesn't get squeezed off-screen */}
+            <RNHostView matchContents={{ vertical: true }}>
               <View
-                className="items-center justify-center rounded-lg border border-cal-border"
-                style={{ width: 32, height: 32, flexShrink: 0 }}
+                className="flex-row items-center"
+                style={{ paddingHorizontal: 16, paddingVertical: 16 }}
               >
-                <Host matchContents>
-                  <ContextMenu
-                    modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-                    activationMethod="singlePress"
-                  >
-                    <ContextMenu.Items>
+                <Pressable
+                  onPress={() => handleSchedulePress(schedule)}
+                  className="mr-4 flex-1"
+                  accessibilityRole="button"
+                  style={{ minWidth: 0 }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <ScheduleName name={schedule.name} isDefault={schedule.isDefault} />
+                    <AvailabilitySlots
+                      availability={schedule.availability}
+                      scheduleId={schedule.id}
+                    />
+                    <TimeZoneRow timeZone={schedule.timeZone} />
+                  </View>
+                </Pressable>
+
+                {/* Three dots menu - fixed hit target so it doesn't get squeezed off-screen */}
+                <View
+                  className="items-center justify-center rounded-lg border border-cal-border"
+                  style={{ width: 32, height: 32, flexShrink: 0 }}
+                >
+                  <Host matchContents>
+                    <Menu
+                      modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
+                      label={
+                        <HStack>
+                          <Image
+                            systemName="ellipsis"
+                            color="primary"
+                            size={24}
+                            modifiers={[frame({ height: 24, width: 17 })]}
+                          />
+                        </HStack>
+                      }
+                    >
                       {scheduleActions.map((scheduleAction) => (
                         <Button
                           key={scheduleAction.label}
@@ -112,21 +118,11 @@ export const AvailabilityListItem = ({
                           label={scheduleAction.label}
                         />
                       ))}
-                    </ContextMenu.Items>
-                    <ContextMenu.Trigger>
-                      <HStack>
-                        <Image
-                          systemName="ellipsis"
-                          color="primary"
-                          size={24}
-                          modifiers={[frame({ height: 24, width: 17 })]}
-                        />
-                      </HStack>
-                    </ContextMenu.Trigger>
-                  </ContextMenu>
-                </Host>
+                    </Menu>
+                  </Host>
+                </View>
               </View>
-            </View>
+            </RNHostView>
           </ContextMenu.Trigger>
         </ContextMenu>
       </Host>

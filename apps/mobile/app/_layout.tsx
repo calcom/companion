@@ -1,16 +1,17 @@
 import "../lib/webRuntimeGuards";
 import "../global.css";
 
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { PortalHost } from "@rn-primitives/portal";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack } from "expo-router";
+import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router/react-navigation";
 import { useMemo, useState } from "react";
 import { Platform, StatusBar, useColorScheme, View } from "react-native";
 import { CalComLogo } from "@/components/CalComLogo";
 import LoginScreenComponent from "@/components/LoginScreen";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { PushNotificationProvider } from "@/components/PushNotificationProvider";
+import { GlobalActionSheet } from "@/components/ui/GlobalActionSheet";
 import { GlobalConfirmDialog } from "@/components/ui/GlobalConfirmDialog";
 import { GlobalToast } from "@/components/ui/GlobalToast";
 import { CalVideoEntry } from "@/components/video-call/CalVideoEntry";
@@ -612,6 +613,7 @@ export default function RootLayout() {
           </PushNotificationProvider>
           <GlobalToast />
           <GlobalConfirmDialog />
+          <GlobalActionSheet />
         </ToastProvider>
       </AuthProvider>
     </QueryProvider>

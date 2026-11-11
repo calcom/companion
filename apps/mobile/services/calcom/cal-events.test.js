@@ -5,6 +5,15 @@ jest.mock("@/utils/region", () => ({
   getCalWebUrl: () => "https://example.test",
 }));
 
+// expo-file-system's File, which the upload sends on iOS and Android, without its native module.
+jest.mock("expo-file-system", () => ({
+  File: class StoredFile {
+    constructor(uri) {
+      this.uri = uri;
+    }
+  },
+}));
+
 const mockMakeRequest = jest.fn();
 jest.mock("./request", () => ({
   // Same shape as the real class, without loading request.ts and its native networking.
@@ -247,8 +256,9 @@ describe("updateCalEvent", () => {
 
 describe("event media and locations", () => {
   const file = { uri: "file:///cover.jpg", name: "cover.jpg", type: "image/jpeg" };
-  // Node's FormData stringifies React Native's { uri, name, type } file part, so .get("file")
-  // can't show it. Watch what gets appended instead.
+  const { File: StoredFile } = require("expo-file-system");
+  // Node's FormData stringifies the expo-file-system File, so .get("file") can't show it. Watch
+  // what gets appended instead.
   let appendSpy;
 
   beforeEach(() => {
@@ -313,7 +323,8 @@ describe("event media and locations", () => {
     expect(options.headers).toBeUndefined();
     expect(options.body).toBeInstanceOf(FormData);
     expect(appendSpy).toHaveBeenCalledTimes(1);
-    expect(appendSpy).toHaveBeenCalledWith("file", file);
+    expect(appendSpy).toHaveBeenCalledWith("file", expect.any(StoredFile));
+    expect(appendSpy.mock.calls[0][1].uri).toBe(file.uri);
     expect(appendSpy.mock.contexts[0]).toBe(options.body);
   });
 
@@ -353,7 +364,8 @@ describe("event media and locations", () => {
     expect(options.headers).toBeUndefined();
     expect(options.body).toBeInstanceOf(FormData);
     expect(appendSpy).toHaveBeenCalledTimes(1);
-    expect(appendSpy).toHaveBeenCalledWith("file", file);
+    expect(appendSpy).toHaveBeenCalledWith("file", expect.any(StoredFile));
+    expect(appendSpy.mock.calls[0][1].uri).toBe(file.uri);
     expect(appendSpy.mock.contexts[0]).toBe(options.body);
   });
 

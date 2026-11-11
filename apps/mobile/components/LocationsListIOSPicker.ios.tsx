@@ -1,7 +1,8 @@
-import { Button, ContextMenu, Host } from "@expo/ui/swift-ui";
+import { Button, Host, Menu, RNHostView } from "@expo/ui/swift-ui";
 import { buttonStyle } from "@expo/ui/swift-ui/modifiers";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import type React from "react";
+import { View } from "react-native";
 import type { LocationItem, LocationOptionGroup } from "@/types/locations";
 
 const getSFSymbolForType = (type: string) => {
@@ -46,26 +47,28 @@ export function LocationsListIOSPicker({
 }: LocationsListIOSPickerProps) {
   return (
     <Host matchContents>
-      <ContextMenu
+      <Menu
         modifiers={!isHeader ? [buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")] : []}
-        activationMethod="singlePress"
+        label={
+          // The menu opens on tap, so the React Native trigger only draws and takes no touches.
+          <RNHostView matchContents>
+            <View pointerEvents="none">{trigger}</View>
+          </RNHostView>
+        }
       >
-        <ContextMenu.Items>
-          {locationOptions.flatMap((group) =>
-            group.options
-              .filter((opt) => !isLocationAlreadyAdded(locations, opt.value))
-              .map((option) => (
-                <Button
-                  key={option.value}
-                  onPress={() => onSelectOption(option.value, option.label)}
-                  label={option.label}
-                  systemImage={getSFSymbolForType(option.value)}
-                />
-              ))
-          )}
-        </ContextMenu.Items>
-        <ContextMenu.Trigger>{trigger}</ContextMenu.Trigger>
-      </ContextMenu>
+        {locationOptions.flatMap((group) =>
+          group.options
+            .filter((opt) => !isLocationAlreadyAdded(locations, opt.value))
+            .map((option) => (
+              <Button
+                key={option.value}
+                onPress={() => onSelectOption(option.value, option.label)}
+                label={option.label}
+                systemImage={getSFSymbolForType(option.value)}
+              />
+            ))
+        )}
+      </Menu>
     </Host>
   );
 }

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, Text, View } from "react-native";
+import { useRef } from "react";
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   DropdownMenu,
@@ -33,6 +34,8 @@ export function SelectField<T extends string | null>({
 }: SelectFieldProps<T>) {
   const theme = useEditTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const listRef = useRef<ScrollView>(null);
   const selected = options.find((option) => option.value === value);
   const text = selected?.label ?? placeholder;
   const name = accessibilityLabel ?? label;
@@ -57,36 +60,54 @@ export function SelectField<T extends string | null>({
           className="w-72"
           align="start"
         >
-          {options.map((option) => {
-            const checked = option.value === value;
-            return (
-              <DropdownMenuItem
-                key={String(option.value)}
-                onPress={() => onChange(option.value)}
-                // The checkmark is only drawn; TalkBack announces the current option as selected.
-                accessibilityState={{ selected: checked }}
-              >
-                <View style={{ flex: 1, gap: 2 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    {option.swatches ? <Swatches colors={option.swatches} /> : null}
-                    <Text
-                      style={{
-                        color: theme.text,
-                        fontSize: 15,
-                        fontWeight: checked ? "600" : "400",
-                      }}
-                    >
-                      {option.label}
-                    </Text>
+          {/* A long list (currencies) scrolls instead of running off the screen, and opens on the
+              current option. */}
+          <ScrollView
+            ref={listRef}
+            style={{ maxHeight: (windowHeight - insets.top - insets.bottom) * 0.6 }}
+          >
+            {options.map((option) => {
+              const checked = option.value === value;
+              return (
+                <DropdownMenuItem
+                  key={String(option.value)}
+                  onLayout={
+                    checked
+                      ? (event) =>
+                          listRef.current?.scrollTo({
+                            y: event.nativeEvent.layout.y,
+                            animated: false,
+                          })
+                      : undefined
+                  }
+                  onPress={() => onChange(option.value)}
+                  // The checkmark is only drawn; TalkBack announces the current option as selected.
+                  accessibilityState={{ selected: checked }}
+                >
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      {option.swatches ? <Swatches colors={option.swatches} /> : null}
+                      <Text
+                        style={{
+                          color: theme.text,
+                          fontSize: 15,
+                          fontWeight: checked ? "600" : "400",
+                        }}
+                      >
+                        {option.label}
+                      </Text>
+                    </View>
+                    {option.hint ? (
+                      <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
+                        {option.hint}
+                      </Text>
+                    ) : null}
                   </View>
-                  {option.hint ? (
-                    <Text style={{ color: theme.textSecondary, fontSize: 13 }}>{option.hint}</Text>
-                  ) : null}
-                </View>
-                {checked ? <Ionicons name="checkmark" size={18} color={theme.text} /> : null}
-              </DropdownMenuItem>
-            );
-          })}
+                  {checked ? <Ionicons name="checkmark" size={18} color={theme.text} /> : null}
+                </DropdownMenuItem>
+              );
+            })}
+          </ScrollView>
         </DropdownMenuContent>
       </DropdownMenu>
     </SelectFieldFrame>

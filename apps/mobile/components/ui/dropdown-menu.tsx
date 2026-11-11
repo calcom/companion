@@ -118,7 +118,14 @@ function DropdownMenuContent({
           })}
           className={overlayClassName}
         >
-          <NativeOnlyAnimatedView entering={FadeIn}>
+          {/* Full size but touch-through: with no size of its own (the menu is absolutely
+              positioned), Android hands it no touches natively, so a scrolling menu couldn't
+              scroll. */}
+          <NativeOnlyAnimatedView
+            entering={FadeIn}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="box-none"
+          >
             <TextClassContext.Provider value="text-popover-foreground">
               <DropdownMenuPrimitive.Content
                 className={cn(

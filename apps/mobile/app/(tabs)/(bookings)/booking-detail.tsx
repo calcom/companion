@@ -15,8 +15,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBookingByUid } from "@/hooks/useBookings";
 import { useEventTypeById } from "@/hooks";
+import { useBookingByUid } from "@/hooks/useBookings";
 import { showErrorAlert, showInfoAlert, showSuccessAlert } from "@/utils/alerts";
 import { getMeetingUrl } from "@/utils/booking";
 import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
@@ -480,57 +480,58 @@ export default function BookingDetail() {
       />
 
       {Platform.OS === "ios" && (
-        <Stack.Header style={{ shadowColor: "transparent" }}>
-          <Stack.Header.Title>Booking Details</Stack.Header.Title>
+        <>
+          <Stack.Header style={{ shadowColor: "transparent" }} />
+          <Stack.Title>Booking Details</Stack.Title>
 
           {/* Header right and left API only works on iOS ATM see: https://docs.expo.dev/versions/unversioned/sdk/router/#stackheaderright */}
-          <Stack.Header.Right>
-            <Stack.Header.Menu>
-              <Stack.Header.Label>Actions</Stack.Header.Label>
-              <Stack.Header.Icon sf="ellipsis" />
+          <Stack.Toolbar placement="right">
+            <Stack.Toolbar.Menu>
+              <Stack.Toolbar.Label>Actions</Stack.Toolbar.Label>
+              <Stack.Toolbar.Icon sf="ellipsis" />
 
               {/* Edit Event Section */}
-              <Stack.Header.Menu inline title="Edit Event">
+              <Stack.Toolbar.Menu inline title="Edit Event">
                 {bookingActionsSections.editEvent.map((action) => (
-                  <Stack.Header.MenuAction
+                  <Stack.Toolbar.MenuAction
                     key={action.id}
                     icon={action.icon}
                     onPress={action.onPress}
                   >
                     {action.label}
-                  </Stack.Header.MenuAction>
+                  </Stack.Toolbar.MenuAction>
                 ))}
-              </Stack.Header.Menu>
+              </Stack.Toolbar.Menu>
 
               {/* After Event Section */}
-              <Stack.Header.Menu inline title="After Event">
+              <Stack.Toolbar.Menu inline title="After Event">
                 {bookingActionsSections.afterEvent.map((action) => (
-                  <Stack.Header.MenuAction
+                  <Stack.Toolbar.MenuAction
                     key={action.id}
                     icon={action.icon}
                     onPress={action.onPress}
                   >
                     {action.label}
-                  </Stack.Header.MenuAction>
+                  </Stack.Toolbar.MenuAction>
                 ))}
-              </Stack.Header.Menu>
+              </Stack.Toolbar.Menu>
 
               {/* Danger Zone Submenu */}
-              <Stack.Header.Menu inline title="Danger Zone">
+              <Stack.Toolbar.Menu inline title="Danger Zone">
                 {bookingActionsSections.standalone.map((action) => (
-                  <Stack.Header.MenuAction
+                  <Stack.Toolbar.MenuAction
                     key={action.id}
                     icon={action.icon}
                     onPress={action.onPress}
                     destructive
                   >
                     {action.label}
-                  </Stack.Header.MenuAction>
+                  </Stack.Toolbar.MenuAction>
                 ))}
-              </Stack.Header.Menu>
-            </Stack.Header.Menu>
-          </Stack.Header.Right>
-        </Stack.Header>
+              </Stack.Toolbar.Menu>
+            </Stack.Toolbar.Menu>
+          </Stack.Toolbar>
+        </>
       )}
 
       <BookingDetailScreen

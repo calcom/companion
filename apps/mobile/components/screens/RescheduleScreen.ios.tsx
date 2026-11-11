@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRescheduleBooking } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
+import { getBookingStartTime } from "@/utils/bookings-utils";
 import { safeLogError, safeLogInfo } from "@/utils/safeLogger";
 
 export interface RescheduleScreenProps {
@@ -61,15 +62,17 @@ export const RescheduleScreen = forwardRef<RescheduleScreenHandle, RescheduleScr
     // Use React Query mutation for automatic cache invalidation
     const { mutate: rescheduleBooking, isPending: isSaving } = useRescheduleBooking();
 
+    const bookingStart = booking ? getBookingStartTime(booking) : "";
+
     useEffect(() => {
-      if (booking?.startTime) {
-        const bookingDate = new Date(booking.startTime);
+      if (bookingStart) {
+        const bookingDate = new Date(bookingStart);
         if (!Number.isNaN(bookingDate.getTime())) {
           setSelectedDateTime(bookingDate);
           setReason("");
         }
       }
-    }, [booking?.startTime]);
+    }, [bookingStart]);
 
     useEffect(() => {
       onSavingChange?.(isSaving);

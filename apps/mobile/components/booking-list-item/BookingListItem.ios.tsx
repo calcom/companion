@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host, HStack, Image } from "@expo/ui/swift-ui";
+import { Button, ContextMenu, Host, HStack, Image, Menu, RNHostView } from "@expo/ui/swift-ui";
 import { buttonStyle, frame } from "@expo/ui/swift-ui/modifiers";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import React from "react";
@@ -160,11 +160,8 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
       }}
     >
       {/* Native iOS Context Menu for long-press */}
-      <Host matchContents>
-        <ContextMenu
-          modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-          activationMethod="longPress"
-        >
+      <Host matchContents={{ vertical: true }}>
+        <ContextMenu modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}>
           <ContextMenu.Items>
             {contextMenuActions.map((action) => (
               <Button
@@ -177,32 +174,34 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
             ))}
           </ContextMenu.Items>
           <ContextMenu.Trigger>
-            <Pressable
-              onPress={() => onPress(booking)}
-              style={{
-                paddingHorizontal: 16,
-                paddingTop: 16,
-                paddingBottom: 12,
-              }}
-              className="active:bg-cal-bg-secondary dark:active:bg-[#171717]"
-            >
-              <TimeAndDateRow
-                formattedDate={formattedDate}
-                formattedTimeRange={formattedTimeRange}
-              />
-              <BadgesRow isPending={isPending} isPendingPayment={isPendingPayment} />
-              <BookingTitle
-                title={booking.title}
-                isCancelled={isCancelled}
-                isRejected={isRejected}
-              />
-              <BookingDescription description={booking.description} />
-              <HostAndAttendees
-                hostAndAttendeesDisplay={hostAndAttendeesDisplay}
-                hasNoShowAttendee={hasNoShowAttendee}
-              />
-              <MeetingLink meetingInfo={meetingInfo} />
-            </Pressable>
+            <RNHostView matchContents={{ vertical: true }}>
+              <Pressable
+                onPress={() => onPress(booking)}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingTop: 16,
+                  paddingBottom: 12,
+                }}
+                className="active:bg-cal-bg-secondary dark:active:bg-[#171717]"
+              >
+                <TimeAndDateRow
+                  formattedDate={formattedDate}
+                  formattedTimeRange={formattedTimeRange}
+                />
+                <BadgesRow isPending={isPending} isPendingPayment={isPendingPayment} />
+                <BookingTitle
+                  title={booking.title}
+                  isCancelled={isCancelled}
+                  isRejected={isRejected}
+                />
+                <BookingDescription description={booking.description} />
+                <HostAndAttendees
+                  hostAndAttendeesDisplay={hostAndAttendeesDisplay}
+                  hasNoShowAttendee={hasNoShowAttendee}
+                />
+                <MeetingLink meetingInfo={meetingInfo} />
+              </Pressable>
+            </RNHostView>
           </ContextMenu.Trigger>
         </ContextMenu>
       </Host>
@@ -222,22 +221,9 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
 
         {/* iOS Context Menu */}
         <Host matchContents>
-          <ContextMenu
+          <Menu
             modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-            activationMethod="singlePress"
-          >
-            <ContextMenu.Items>
-              {contextMenuActions.map((action) => (
-                <Button
-                  key={action.label}
-                  systemImage={action.icon}
-                  onPress={action.onPress}
-                  role={action.role}
-                  label={action.label}
-                />
-              ))}
-            </ContextMenu.Items>
-            <ContextMenu.Trigger>
+            label={
               <HStack>
                 <Image
                   systemName="ellipsis"
@@ -246,8 +232,18 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
                   modifiers={[frame({ height: 24, width: 17 })]}
                 />
               </HStack>
-            </ContextMenu.Trigger>
-          </ContextMenu>
+            }
+          >
+            {contextMenuActions.map((action) => (
+              <Button
+                key={action.label}
+                systemImage={action.icon}
+                onPress={action.onPress}
+                role={action.role}
+                label={action.label}
+              />
+            ))}
+          </Menu>
         </Host>
       </View>
     </View>

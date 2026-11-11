@@ -10,8 +10,6 @@ import { getColors } from "@/constants/colors";
 import { type Booking, CalComAPIService } from "@/services/calcom";
 import { showErrorAlert } from "@/utils/alerts";
 
-// Semi-transparent background to prevent black flash while preserving glass effect
-
 function getPresentationStyle(): "formSheet" | "modal" {
   if (isLiquidGlassAvailable() && osName !== "iPadOS") {
     return "formSheet";
@@ -61,8 +59,9 @@ export default function AddGuestsIOS() {
   const presentationStyle = getPresentationStyle();
   const useGlassEffect = isLiquidGlassAvailable();
 
-  // Semi-transparent background to prevent flashes while preserving glass effect
-  const glassBackground = isDark ? "rgba(28, 28, 30, 0.01)" : "rgba(248, 248, 250, 0.01)";
+  // Clear, not barely tinted: a full-height sheet with a 1%-opaque background loses its content
+  // when dragged up or lifted by the keyboard.
+  const glassBackground = "transparent";
 
   const showSaveButton = guestCount > 0;
 
@@ -85,32 +84,31 @@ export default function AddGuestsIOS() {
         }}
       />
 
-      <Stack.Header>
-        <Stack.Header.Left>
-          <Stack.Header.Button
-            onPress={() => router.back()}
-            tintColor={theme.backgroundEmphasis}
+      <Stack.Header />
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button
+          onPress={() => router.back()}
+          tintColor={theme.backgroundEmphasis}
+          variant="prominent"
+        >
+          <Stack.Toolbar.Icon sf="xmark" />
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
+
+      <Stack.Title>Add Guests</Stack.Title>
+
+      <Stack.Toolbar placement="right">
+        {showSaveButton ? (
+          <Stack.Toolbar.Button
+            onPress={handleSave}
+            disabled={isSaving}
             variant="prominent"
+            tintColor={theme.text}
           >
-            <Stack.Header.Icon sf="xmark" />
-          </Stack.Header.Button>
-        </Stack.Header.Left>
-
-        <Stack.Header.Title>Add Guests</Stack.Header.Title>
-
-        <Stack.Header.Right>
-          {showSaveButton ? (
-            <Stack.Header.Button
-              onPress={handleSave}
-              disabled={isSaving}
-              variant="prominent"
-              tintColor={theme.text}
-            >
-              <Stack.Header.Icon sf="checkmark" />
-            </Stack.Header.Button>
-          ) : null}
-        </Stack.Header.Right>
-      </Stack.Header>
+            <Stack.Toolbar.Icon sf="checkmark" />
+          </Stack.Toolbar.Button>
+        ) : null}
+      </Stack.Toolbar>
 
       <View
         style={{

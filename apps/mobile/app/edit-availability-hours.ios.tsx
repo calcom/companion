@@ -9,8 +9,6 @@ import { getColors } from "@/constants/colors";
 import { useScheduleById } from "@/hooks/useSchedules";
 import { showErrorAlert } from "@/utils/alerts";
 
-// Semi-transparent background to prevent black flash while preserving glass effect
-
 function getPresentationStyle(): "formSheet" | "modal" {
   if (isLiquidGlassAvailable() && osName !== "iPadOS") {
     return "formSheet";
@@ -50,8 +48,9 @@ export default function EditAvailabilityHoursIOS() {
   const presentationStyle = getPresentationStyle();
   const useGlassEffect = isLiquidGlassAvailable();
 
-  // Semi-transparent background to prevent flashes while preserving glass effect
-  const glassBackground = isDark ? "rgba(28, 28, 30, 0.01)" : "rgba(248, 248, 250, 0.01)";
+  // Clear, not barely tinted: a full-height sheet with a 1%-opaque background loses its content
+  // when dragged up or lifted by the keyboard.
+  const glassBackground = "transparent";
 
   return (
     <>
@@ -72,19 +71,18 @@ export default function EditAvailabilityHoursIOS() {
         }}
       />
 
-      <Stack.Header>
-        <Stack.Header.Left>
-          <Stack.Header.Button
-            onPress={() => router.back()}
-            tintColor={theme.backgroundEmphasis}
-            variant="prominent"
-          >
-            <Stack.Header.Icon sf="xmark" />
-          </Stack.Header.Button>
-        </Stack.Header.Left>
+      <Stack.Header />
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button
+          onPress={() => router.back()}
+          tintColor={theme.backgroundEmphasis}
+          variant="prominent"
+        >
+          <Stack.Toolbar.Icon sf="xmark" />
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
 
-        <Stack.Header.Title>Working Hours</Stack.Header.Title>
-      </Stack.Header>
+      <Stack.Title>Working Hours</Stack.Title>
 
       <View
         style={{

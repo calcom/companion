@@ -24,6 +24,8 @@ import {
   BOOKING_REQUEST_BADGE_LABEL,
   isBookingRequestPending,
 } from "@/utils/booking-request-actions";
+import { getGuestsNotInAttendees } from "@/utils/bookings-utils";
+import { getPlainLocation } from "@/utils/meetings-utils";
 import { richTextToClipboardText } from "@/utils/rich-text";
 
 const CopyButton = ({
@@ -431,7 +433,9 @@ export function BookingDetailScreen({
 
   const hostsCount = booking.hosts?.length || (booking.user ? 1 : 0);
   const attendeesCount = booking.attendees?.length || 0;
-  const guestsCount = booking.guests?.length || 0;
+  const guests = getGuestsNotInAttendees(booking);
+  const plainLocation = getPlainLocation(booking.location);
+  const guestsCount = guests.length;
   const totalParticipants = hostsCount + attendeesCount + guestsCount;
 
   const isPastBooking = new Date(endTime) < new Date();
@@ -670,7 +674,7 @@ export function BookingDetailScreen({
               })}
 
               {/* Guests */}
-              {booking.guests?.map((guestEmail, index) => (
+              {guests.map((guestEmail, index) => (
                 <View
                   key={guestEmail}
                   className="flex-row items-center py-2"
@@ -695,6 +699,29 @@ export function BookingDetailScreen({
             </View>
           )}
         </View>
+
+        {/* Location Card (a place, not a meeting link) */}
+        {plainLocation ? (
+          <View
+            className="mb-4 overflow-hidden rounded-xl"
+            style={{ backgroundColor: colors.cardBackground }}
+          >
+            <View className="px-4 py-3.5">
+              <Text
+                className="mb-1.5 text-[13px] font-medium uppercase tracking-wide"
+                style={{ color: colors.textSecondary }}
+              >
+                Location
+              </Text>
+              <View className="flex-row items-start justify-between">
+                <Text className="mr-2 flex-1 text-[17px]" style={{ color: colors.text }} selectable>
+                  {plainLocation}
+                </Text>
+                <CopyButton text={plainLocation} />
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {/* Custom Fields Card (if available) */}
         {(() => {
