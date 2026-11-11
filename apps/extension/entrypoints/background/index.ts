@@ -2,6 +2,7 @@
 
 import type { Booking } from "../../types/bookings.types";
 import type { OAuthTokens } from "../../types/oauth";
+import { getAuthorizeUrl } from "../../lib/oauth-auth-url";
 
 const DEV_API_KEY = import.meta.env.EXPO_PUBLIC_CAL_API_KEY as string | undefined;
 const IS_DEV_MODE = Boolean(DEV_API_KEY && DEV_API_KEY.length > 0);
@@ -378,7 +379,7 @@ export default defineBackground(() => {
 
       if (message.action === "start-extension-oauth") {
         const authUrl = message.authUrl as string;
-        const state = new URL(authUrl).searchParams.get("state");
+        const state = getAuthorizeUrl(authUrl).searchParams.get("state");
 
         // Store state before starting OAuth to prevent race conditions
         const storeState = async () => {
@@ -548,7 +549,7 @@ async function handleExtensionOAuth(authUrl: string): Promise<string> {
 
   if (IS_DEV_MODE && identityAPI.getRedirectURL) {
     const expectedRedirectUrl = identityAPI.getRedirectURL();
-    const redirectUri = new URL(authUrl).searchParams.get("redirect_uri");
+    const redirectUri = getAuthorizeUrl(authUrl).searchParams.get("redirect_uri");
 
     devLog.log("Starting OAuth flow");
     devLog.log("Browser:", getBrowserDisplayName());
@@ -620,7 +621,7 @@ async function handleExtensionOAuth(authUrl: string): Promise<string> {
  */
 async function handleSafariTabsOAuth(authUrl: string): Promise<string> {
   // Extract the redirect URI to know what to watch for
-  const redirectUri = new URL(authUrl).searchParams.get("redirect_uri");
+  const redirectUri = getAuthorizeUrl(authUrl).searchParams.get("redirect_uri");
   if (!redirectUri) {
     throw new Error("redirect_uri not found in auth URL");
   }
