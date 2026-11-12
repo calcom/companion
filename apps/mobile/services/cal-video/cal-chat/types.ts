@@ -3,12 +3,13 @@
  * strings, never Cal.com user ids. Mirrors `apps/video/modules/room/chat/cal-video-chat-types.ts`.
  */
 import { z } from "zod";
-import { REACTION_EMOJIS } from "../types";
+import { REACTION_EMOJIS, type ReactionEmoji } from "../types";
 
 export type CalChatRole = "host" | "guest";
 export type CalChatDeletionReason = "sender" | "moderator";
 
-const reactionEmojiSchema = z.enum(REACTION_EMOJIS);
+export const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🎉"] as const;
+const reactionEmojiSchema = z.enum(CHAT_REACTION_EMOJIS);
 export type CalChatReactionEmoji = z.infer<typeof reactionEmojiSchema>;
 
 export const calChatParticipantSchema = z.object({
@@ -108,10 +109,41 @@ export const calChatServerFrameSchema = z.discriminatedUnion("type", [
 export type CalChatServerFrame = z.infer<typeof calChatServerFrameSchema>;
 
 export type CalChatClientFrame =
+  | { type: "reaction"; emoji: ReactionEmoji; count: number }
   | { type: "auth"; token: string }
   | { type: "ping" }
   | { type: "typing"; active: boolean }
   | { type: "ack"; deliveredSeq: number; readSeq: number };
+
+export const transcriptionStateSchema = z.object({
+  on: z.boolean(),
+  epoch: z.number().int().nonnegative(),
+  version: z.number().int().nonnegative(),
+});
+export type TranscriptionState = z.infer<typeof transcriptionStateSchema>;
+export const calChatCallFrameSchema = z.union([
+  z.object({
+    type: z.literal("reaction"),
+    participantId: z.string(),
+    emoji: z.enum(REACTION_EMOJIS),
+    count: z
+      .number()
+      .int()
+      .positive()
+      .transform((count) => Math.min(count, 20)),
+  }),
+  z.object({ type: z.literal("transcription.state"), state: transcriptionStateSchema }),
+  z.object({
+    type: z.literal("caption"),
+    caption: z.object({
+      participantId: z.string(),
+      seq: z.number().int().nonnegative(),
+      text: z.string().max(200),
+      final: z.boolean(),
+    }),
+  }),
+]);
+export type CalChatCallFrame = z.infer<typeof calChatCallFrameSchema>;
 
 /** WebSocket close code for an auth or membership denial. */
 export const CAL_CHAT_DENIED_CLOSE_CODE = 4403;

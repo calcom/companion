@@ -10,10 +10,12 @@ const EMOJI_LABEL: Record<ReactionEmoji, string> = {
   "😮": "Surprised",
   "😢": "Sad",
   "🎉": "Celebrate",
+  "👏": "Clapping",
+  "👎": "Thumbs down",
 };
 
 /**
- * The six reactions and the hand, one tap each, floating above the tray while the React button
+ * The call reactions and the hand, one tap each, floating above the tray while the React button
  * is pressed. Raising a hand stays until you lower it or a host does; a reaction is gone in a
  * few seconds, so the bar closes itself after one.
  */
@@ -66,6 +68,9 @@ const styles = StyleSheet.create({
   wrap: { alignItems: "center" },
   bar: {
     flexDirection: "row",
+    flexWrap: "wrap",
+    maxWidth: "100%",
+    justifyContent: "center",
     alignItems: "center",
     gap: 2,
     paddingHorizontal: 8,
