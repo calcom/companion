@@ -1,6 +1,8 @@
 import {
   CAL_CHAT_DENIED_CLOSE_CODE,
   CAL_CHAT_ROTATE_CLOSE_CODE,
+  calChatCallFrameSchema,
+  type CalChatCallFrame,
   type CalChatClientFrame,
   type CalChatServerFrame,
   parseCalChatServerFrame,
@@ -43,6 +45,7 @@ export type CalChatSocketClientOptions = {
   /** Tokens live 60 s, so every connect asks for a new one. The token rides in the first frame. */
   fetchToken: () => Promise<string>;
   onFrame: (frame: CalChatServerFrame) => void;
+  onCallFrame?: (frame: CalChatCallFrame) => void;
   onConnection: (connection: CalChatConnection) => void;
   /** The gateway refused the caller: chat may be off or membership may have lapsed. */
   onDenied?: () => void;
@@ -140,6 +143,16 @@ export class CalChatSocketClient {
 
   private handleMessage(link: Link, data: string): void {
     if (link.retired) return;
+    try {
+      const json = JSON.parse(data);
+      const callFrame = calChatCallFrameSchema.safeParse(json);
+      if (callFrame.success && !("messageId" in json)) {
+        this.options.onCallFrame?.(callFrame.data);
+        return;
+      }
+    } catch {
+      return;
+    }
     const frame = parseCalChatServerFrame(data);
     if (!frame) return;
     if (frame.type === "reconnect") {

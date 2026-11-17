@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import { useCalChat } from "@/hooks/useCalChat";
+import { useGatewayCall } from "@/hooks/useGatewayCall";
 import { useCallDriver } from "@/hooks/useCallDriver";
 import { useCalVideoRoom } from "@/hooks/useCalVideoRoom";
 import { useChatMutedIds } from "@/hooks/useChatMutedIds";
@@ -11,7 +12,7 @@ import { useInviteLink } from "@/hooks/useInviteLink";
 import { useProviderChat } from "@/hooks/useProviderChat";
 import { useRoomAccess } from "@/hooks/useRoomAccess";
 import { useWaitingList } from "@/hooks/useWaitingList";
-import { type RoomRef, setRecording } from "@/services/cal-video/api";
+import { type RoomRef, setRecording, setTranscription } from "@/services/cal-video/api";
 import { toCalChatParticipantId } from "@/services/cal-video/cal-chat/participant-id";
 import { loadGuestName, saveGuestName } from "@/services/cal-video/guest-name";
 import { type LayoutChoice, resolveStage } from "@/services/cal-video/layout";
@@ -190,6 +191,14 @@ export function VideoCallScreen({
   // The session's chat comes with the grant: Cal Video's own durable chat is not carried by the
   // provider, so the provider panel is only offered when the session runs on the provider's.
   const calChatEnabled = grant?.chat === "cal";
+  const gateway = useGatewayCall({
+    sessionId: calChatEnabled ? (grant?.sessionId ?? null) : null,
+    participants: state.participants,
+    providerReactions: Boolean(driver?.signals.reactions && driver.sendReaction),
+  });
+  const calCaptions =
+    calChatEnabled && grant?.transport === "sfu" && grant.provider === "realtimekit";
+  const [captionsBusy, setCaptionsBusy] = useState(false);
   const calChatViewer = useMemo(
     () =>
       grant
@@ -205,6 +214,7 @@ export function VideoCallScreen({
     sessionId: calChatEnabled && grant ? grant.sessionId : null,
     viewer: calChatViewer,
     open: panel === "chat",
+    onCallFrame: gateway.onFrame,
   });
   const providerChat = useProviderChat({
     driver: calChatEnabled ? null : driver,
@@ -487,20 +497,53 @@ export function VideoCallScreen({
             request?.catch(() => failedToast("Recording could not be updated"));
           },
         },
+        ...(calCaptions && state.capabilities.canTranscribe
+          ? [
+              {
+                label: gateway.transcription?.on ? "Stop captions" : "Start captions",
+                disabled: captionsBusy || calChat?.connection !== "live" || !gateway.transcription,
+                onPress: () => {
+                  if (!controlToken) return;
+                  setCaptionsBusy(true);
+                  void setTranscription(roomRef, {
+                    controlToken,
+                    action: gateway.transcription?.on ? "stop" : "start",
+                  })
+                    .then(gateway.receiveState)
+                    .catch(() => failedToast("Captions could not be updated"))
+                    .finally(() => setCaptionsBusy(false));
+                },
+              },
+            ]
+          : []),
       ],
     });
-  }, [state, driver, layoutChoice]);
+  }, [
+    state,
+    driver,
+    layoutChoice,
+    calCaptions,
+    captionsBusy,
+    calChat,
+    gateway,
+    controlToken,
+    roomRef,
+  ]);
 
   // What the tray shows, not `cameraOn`: a camera that failed to start leaves the two apart.
   const localVideoOn = state.participants.some((p) => p.isLocal && p.hasVideo);
   const localHandUp = state.participants.some((p) => p.isLocal && p.handRaisedAt !== null);
   const reactionControls = useMemo(() => {
-    if (!driver?.signals.reactions && !driver?.signals.handRaise) return null;
-    const sendReaction = driver.sendReaction;
-    const setHandRaised = driver.setHandRaised;
+    const gatewayReactions = calChat?.connection === "live";
+    if (!driver?.signals.reactions && !driver?.signals.handRaise && !gatewayReactions) return null;
+    const sendReaction = driver?.signals.reactions ? driver.sendReaction : undefined;
+    const setHandRaised = driver?.signals.handRaise ? driver.setHandRaised : undefined;
     return {
-      onReact: (emoji: ReactionEmoji) =>
-        void sendReaction?.(emoji).catch(() => failedToast("Couldn't send the reaction")),
+      onReact: (emoji: ReactionEmoji) => {
+        if (sendReaction)
+          void sendReaction(emoji).catch(() => failedToast("Couldn't send the reaction"));
+        else if (gatewayReactions && calChat) gateway.sendReaction(emoji, calChat.sendCallFrame);
+      },
       hand: setHandRaised
         ? {
             raised: localHandUp,
@@ -511,7 +554,7 @@ export function VideoCallScreen({
           }
         : null,
     };
-  }, [driver, localHandUp]);
+  }, [driver, localHandUp, calChat, gateway]);
 
   // A host lowering your hand is worth a word, since nothing else on screen says who did it.
   const loweredAt = state.handLoweredByHostAt;
@@ -637,7 +680,16 @@ export function VideoCallScreen({
         <>
           <CallScreen
             driver={driver}
-            state={state}
+            state={{
+              ...state,
+              reactions: driver?.signals.reactions ? state.reactions : gateway.reactions,
+              captions: calCaptions
+                ? {
+                    status: gateway.transcription?.on ? "on" : "off",
+                    lines: gateway.lines,
+                  }
+                : state.captions,
+            }}
             layout={layout}
             pinnedIds={pinnedIds}
             localAvatarUrl={grant?.avatarUrl ?? viewerAvatarUrl}

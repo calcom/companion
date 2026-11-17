@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 const mockFetch = jest.fn();
 jest.mock("@/utils/network", () => ({ fetchWithTimeout: (...args) => mockFetch(...args) }));
 
-const { knockRoom, knockStatus } = require("./api");
+const { knockRoom, knockStatus, setTranscription } = require("./api");
 
 const room = { origin: "https://cal.video", slug: "room" };
 const reply = (body, status = 200) => ({ status, ok: status < 400, json: async () => body });
@@ -31,5 +31,32 @@ describe("the knock", () => {
 
     await expect(knockStatus(room)).resolves.toEqual({ state: "admitted" });
     expect(mockFetch.mock.calls[0][1].body).toBeUndefined();
+  });
+});
+
+describe("captions control", () => {
+  beforeEach(() => mockFetch.mockReset());
+
+  test("posts the grant's control token and returns the authoritative state", async () => {
+    const state = { on: true, epoch: 1, version: 2 };
+    mockFetch.mockResolvedValue(reply({ state }));
+    await expect(
+      setTranscription(room, { controlToken: "control", action: "start" })
+    ).resolves.toEqual(state);
+    expect(mockFetch.mock.calls[0][0]).toBe("https://cal.video/api/rooms/room/transcription");
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+      controlToken: "control",
+      action: "start",
+    });
+  });
+
+  test("rejects denied and empty responses rather than showing captions as on", async () => {
+    mockFetch.mockResolvedValueOnce(reply({}, 403)).mockResolvedValueOnce(reply({}));
+    await expect(
+      setTranscription(room, { controlToken: "control", action: "stop" })
+    ).rejects.toThrow("403");
+    await expect(
+      setTranscription(room, { controlToken: "control", action: "start" })
+    ).rejects.toThrow();
   });
 });

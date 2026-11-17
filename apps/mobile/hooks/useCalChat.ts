@@ -38,6 +38,8 @@ import {
 } from "@/services/cal-video/cal-chat/socket-client";
 import {
   type CalChatMessage,
+  type CalChatCallFrame,
+  type CalChatClientFrame,
   type CalChatReactionEmoji,
   type CalChatServerFrame,
   frameSubject,
@@ -96,7 +98,8 @@ export function useCalChat(input: {
   sessionId: string | null;
   viewer: CalChatViewer | null;
   open: boolean;
-}): ChatController | null {
+  onCallFrame?: (frame: CalChatCallFrame) => void;
+}): (ChatController & { sendCallFrame: (frame: CalChatClientFrame) => boolean }) | null {
   const { origin, sessionId, viewer, open } = input;
   const api = useMemo<CalChatApi | null>(
     () => (sessionId ? createCalChatApi({ origin, sessionId }) : null),
@@ -114,6 +117,14 @@ export function useCalChat(input: {
   const roomRef = useRef(room);
   const openRef = useRef(open);
   const socketRef = useRef<CalChatSocketClient | null>(null);
+  const onCallFrameRef = useRef(input.onCallFrame);
+  useEffect(() => {
+    onCallFrameRef.current = input.onCallFrame;
+  }, [input.onCallFrame]);
+  const sendCallFrame = useCallback(
+    (frame: CalChatClientFrame) => socketRef.current?.send(frame) ?? false,
+    []
+  );
   const ackSent = useRef({ deliveredSeq: 0, readSeq: 0, at: 0 });
   const gapFilling = useRef(false);
   useEffect(() => {
@@ -296,6 +307,9 @@ export function useCalChat(input: {
     const socket = new CalChatSocketClient({
       url: socketUrlFor(origin),
       fetchToken: () => api.getSocketToken(),
+      onCallFrame: (frame) => {
+        if (!cancelled) onCallFrameRef.current?.(frame);
+      },
       onFrame: (frame) => {
         if (cancelled) return;
         if (frame.type === "ready") {
@@ -561,6 +575,7 @@ export function useCalChat(input: {
   const pendingIds = new Set(room.pending.map((send) => `pending:${send.clientKey}`));
   return {
     kind: "cal",
+    sendCallFrame,
     rows,
     unread,
     connection,
