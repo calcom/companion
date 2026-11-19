@@ -3,11 +3,17 @@ import { expect, jest, test } from "@jest/globals";
 jest.mock("react-native-web/dist/exports/Text", () => ({ __esModule: true, default: "Text" }));
 jest.mock("react-native-web/dist/exports/View", () => ({ __esModule: true, default: "View" }));
 jest.mock("react-native-web/dist/exports/Pressable", () => ({ __esModule: true, default: "View" }));
+// React Native 0.86 can't load under Node, so this stands in for the parts these tests reach.
 jest.mock("react-native", () => ({
-  ...jest.requireActual("react-native"),
+  Platform: { OS: "ios", select: (options) => options.ios ?? options.default },
+  Pressable: "View",
+  StyleSheet: {
+    create: (styles) => styles,
+    flatten: (style) =>
+      Array.isArray(style) ? Object.assign({}, ...style.flat(Infinity)) : (style ?? {}),
+  },
   Text: "Text",
   View: "View",
-  Pressable: "View",
 }));
 jest.mock("lucide-react-native", () => ({ Hand: () => null }));
 jest.mock("./GlassSurface", () => ({ GlassSurface: require("react-native").View }));
