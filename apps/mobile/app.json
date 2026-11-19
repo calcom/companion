@@ -91,6 +91,20 @@
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "app.cal.com", "path": "/bookings" },
+            { "scheme": "https", "host": "app.cal.com", "pathPrefix": "/bookings/" },
+            { "scheme": "https", "host": "app.cal.com", "path": "/event-types" },
+            { "scheme": "https", "host": "app.cal.com", "pathPrefix": "/event-types/" },
+            { "scheme": "https", "host": "app.cal.com", "path": "/availability" },
+            { "scheme": "https", "host": "app.cal.com", "pathPrefix": "/availability/" },
+            { "scheme": "https", "host": "app.cal.com", "path": "/more" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
       "permissions": [

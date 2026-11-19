@@ -144,11 +144,12 @@ export default function EventTypeDetail() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === "dark";
+  // A link (`app.cal.com/event-types/<id>`) passes only the id; the list passes the rest too.
   const { id, title, description, duration, slug } = useLocalSearchParams<{
     id: string;
-    title: string;
+    title?: string;
     description?: string;
-    duration: string;
+    duration?: string;
     slug?: string;
   }>();
 
@@ -182,6 +183,8 @@ export default function EventTypeDetail() {
   const [scheduleDetailsLoading, setScheduleDetailsLoading] = useState(false);
   const [initialScheduleId, setInitialScheduleId] = useState<number | null>(null);
   const hasAutoSelectedScheduleRef = useRef(false);
+  // The load can run more than once; leave a missing event type only once.
+  const hasLeftMissingEventTypeRef = useRef(false);
 
   // Reset auto-selection ref when event type id changes (e.g., navigation reuse)
   useEffect(() => {
@@ -844,13 +847,23 @@ export default function EventTypeDetail() {
       eventType = await CalComAPIService.getEventTypeById(parseInt(id, 10));
     } catch (error) {
       safeLogError("Failed to fetch event type data:", error);
-      return;
     }
 
     if (eventType) {
       applyEventTypeData(eventType);
+      return;
     }
-  }, [id, applyEventTypeData]);
+
+    // Opened from a link there's nothing else to show, so say so instead of an empty form.
+    if (title === undefined && id !== "new" && !hasLeftMissingEventTypeRef.current) {
+      hasLeftMissingEventTypeRef.current = true;
+      showErrorAlert(
+        "Couldn't open this event type",
+        "It may have been deleted, or it belongs to another account."
+      );
+      router.back();
+    }
+  }, [id, title, router, applyEventTypeData]);
 
   useEffect(() => {
     if (activeTab === "availability") {
@@ -1281,7 +1294,9 @@ export default function EventTypeDetail() {
     updateEventType,
   ]);
 
-  const headerTitle = id === "new" ? "Create Link" : truncateTitle(title);
+  // A link opens this screen with only the id, so the title comes from the loaded event type.
+  const headerTitle =
+    id === "new" ? "Create Link" : truncateTitle(title ?? eventTypeData?.title ?? "");
   const saveButtonText = id === "new" ? "Create" : "Save";
 
   const renderHeaderLeft = useCallback(

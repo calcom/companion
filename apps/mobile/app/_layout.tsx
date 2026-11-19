@@ -21,6 +21,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { QueryProvider } from "@/contexts/QueryContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { useIncomingLink } from "@/hooks/useIncomingLink";
+import { useWebFallbackForAppLinks } from "@/hooks/useWebFallbackForAppLinks";
 import { parseCalVideoLink } from "@/utils/cal-video-links";
 
 function RootLayoutContent() {
@@ -30,6 +31,7 @@ function RootLayoutContent() {
   const colors = getColors(isDark);
   // A Cal Video link opened while signed out joins as a guest: a meeting must not need an account.
   const incoming = useIncomingLink();
+  useWebFallbackForAppLinks(incoming);
   const [dismissedSeq, setDismissedSeq] = useState<number | null>(null);
   // A new link object each render restarts the booking-link lookup, which loops on Android.
   const incomingUrl = incoming?.url;
