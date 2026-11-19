@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { type BookingLinkResolution, resolveBookingLink } from "@/services/cal-video/booking-link";
+import {
+  type BookingLinkResolution,
+  type CalVideoBookingCall,
+  resolveBookingLink,
+} from "@/services/cal-video/booking-link";
 import { openInAppBrowser } from "@/utils/browser";
 import { type CalVideoBookingLink, linkAddress } from "@/utils/cal-video-links";
 import { safeLogWarn } from "@/utils/safeLogger";
@@ -10,7 +14,7 @@ type Phase =
   | { kind: "resolving" }
   | { kind: "failed" }
   | { kind: "opened-web"; url: string }
-  | Exclude<BookingLinkResolution, { kind: "room" } | { kind: "web" }>;
+  | Exclude<BookingLinkResolution, { kind: "room" } | { kind: "booking-call" } | { kind: "web" }>;
 
 /** The web's copy for each outcome page, so a link reads the same in the app and the browser. */
 function copyFor(phase: Phase, address: string): { title: string; body: string } {
@@ -32,7 +36,7 @@ function copyFor(phase: Phase, address: string): { title: string; body: string }
     case "opened-web":
       return {
         title: "Opened in your browser",
-        body: "This meeting runs on a provider the app cannot host yet, so it opened on the web.",
+        body: "This meeting uses the earlier version of Cal Video, which the app can't join, so it opened on the web.",
       };
     case "failed":
       return {
@@ -49,11 +53,14 @@ function copyFor(phase: Phase, address: string): { title: string; body: string }
 export function BookingLinkScreen({
   link,
   onRoom,
+  onBookingCall,
   onClose,
 }: {
   link: CalVideoBookingLink;
   /** The page resolved to a Cal Video room; the caller joins it natively. */
   onRoom: (roomUrl: string) => void;
+  /** The page is a Cal Video 2.0 booking call; the caller joins it natively. */
+  onBookingCall: (call: CalVideoBookingCall) => void;
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -72,6 +79,10 @@ export function BookingLinkScreen({
           onRoom(resolution.url);
           return;
         }
+        if (resolution.kind === "booking-call") {
+          onBookingCall(resolution.call);
+          return;
+        }
         if (resolution.kind === "web") {
           setPhase({ kind: "opened-web", url: resolution.url });
           void openInAppBrowser(resolution.url, "meeting link");
@@ -85,7 +96,7 @@ export function BookingLinkScreen({
     return () => {
       cancelled = true;
     };
-  }, [link, onRoom, attempt]);
+  }, [link, onRoom, onBookingCall, attempt]);
 
   const retry = () => setAttempt((count) => count + 1);
   const openWeb = () => {

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import type { CalVideoBookingCall } from "@/services/cal-video/booking-link";
 import {
   type CalVideoLink,
   type CalVideoRoomLink,
@@ -9,7 +10,7 @@ import { VideoCallScreen } from "./VideoCallScreen";
 
 /**
  * Where every Cal Video link enters: a room joins straight away; a booking's meeting link is
- * resolved first and joins the room it names.
+ * resolved first, then joins the room it names or, for a Cal Video 2.0 booking, its call.
  */
 export function CalVideoEntry({
   link,
@@ -26,20 +27,27 @@ export function CalVideoEntry({
   getAccessToken: () => Promise<string | null>;
   onClose: () => void;
 }) {
-  const [resolvedRoom, setResolvedRoom] = useState<CalVideoRoomLink | null>(null);
+  const [resolved, setResolved] = useState<CalVideoRoomLink | CalVideoBookingCall | null>(null);
   const onRoom = useCallback((roomUrl: string) => {
     const room = parseCalVideoLink(roomUrl);
-    if (room?.kind === "room") setResolvedRoom(room);
+    if (room?.kind === "room") setResolved(room);
   }, []);
 
-  const room = link.kind === "room" ? link : resolvedRoom;
-  if (!room) {
+  const target = link.kind === "room" ? link : resolved;
+  if (!target) {
     if (link.kind !== "booking") return null;
-    return <BookingLinkScreen link={link} onRoom={onRoom} onClose={onClose} />;
+    return (
+      <BookingLinkScreen
+        link={link}
+        onRoom={onRoom}
+        onBookingCall={setResolved}
+        onClose={onClose}
+      />
+    );
   }
   return (
     <VideoCallScreen
-      link={room}
+      link={target}
       viewerName={viewerName}
       viewerAvatarUrl={viewerAvatarUrl}
       accessToken={accessToken}

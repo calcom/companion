@@ -32,6 +32,12 @@ const joinGrantCommonShape = {
   sessionEndsAt: z.number().int(),
   controlToken: z.string().min(1),
   chat: z.union([z.literal("provider"), z.literal("cal")]).optional(),
+  bookingAutoStart: z
+    .object({
+      recording: z.enum(["off", "server", "in-call"]),
+      transcription: z.enum(["off", "server", "in-call"]),
+    })
+    .optional(),
 };
 
 const sfuJoinGrantSchema = z.discriminatedUnion("provider", [
