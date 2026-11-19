@@ -35,7 +35,7 @@
         "com.apple.security.application-groups": ["group.com.cal.companion"]
       },
       "icon": "./assets/cal-logo.icon",
-      "associatedDomains": ["applinks:cal.video", "applinks:*.cal.video"]
+      "associatedDomains": ["applinks:cal.video", "applinks:*.cal.video", "applinks:app.cal.com"]
     },
     "android": {
       "adaptiveIcon": {
