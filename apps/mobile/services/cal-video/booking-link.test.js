@@ -1,4 +1,4 @@
-const { classifyLandingUrl, resolveBookingLink } = require("./booking-link");
+const { classifyLandingUrl, readBookingCallPage, resolveBookingLink } = require("./booking-link");
 
 const link = {
   kind: "booking",
@@ -75,5 +75,72 @@ describe("resolveBookingLink", () => {
       kind: "not-found",
     });
     await expect(resolveBookingLink(link, answer(503, link.url))).rejects.toThrow("503");
+  });
+});
+
+// The live 2.0 page, cut to what the app reads: the call frame and the guest-email flag in the
+// page's serialized props (escaped, as Next.js streams them).
+const page2 = (uid, requireEmail = false, origin = "https://cal.video") =>
+  `<html><body><iframe title="Cal Video call" class="fixed inset-0" src="${origin}/embed/booking/${uid}" allow="camera; microphone"></iframe>` +
+  `<script>self.__next_f.push([1,"{\\"requireEmailForGuests\\":${requireEmail},\\"videoOrigin\\":\\"${origin}\\"}"])</script></body></html>`;
+
+describe("readBookingCallPage", () => {
+  test("a 2.0 page's call frame names the video origin and the current booking", () => {
+    expect(readBookingCallPage(page2("newUid123"), link)).toEqual({
+      kind: "booking-call",
+      appOrigin: "https://app.cal.com",
+      host: "app.cal.com",
+      bookingUid: "newUid123",
+      url: "https://app.cal.com/video/newUid123",
+      videoOrigin: "https://cal.video",
+      requireEmail: false,
+    });
+  });
+
+  test("reads whether guests must give an email", () => {
+    expect(readBookingCallPage(page2(link.bookingUid, true), link).requireEmail).toBe(true);
+  });
+
+  test("a Cal Video 1 page has no call frame", () => {
+    expect(readBookingCallPage("<html><body><div id=daily></div></body></html>", link)).toBeNull();
+  });
+
+  test("never sends a token to a frame that isn't Cal Video's", () => {
+    expect(
+      readBookingCallPage(page2(link.bookingUid, false, "https://evil.example"), link)
+    ).toBeNull();
+    expect(
+      readBookingCallPage(page2(link.bookingUid, false, "https://cal.video.evil.example"), link)
+    ).toBeNull();
+  });
+});
+
+describe("resolveBookingLink on a 2.0 page", () => {
+  const page = (url, html) => async () => ({ ok: true, status: 200, url, text: async () => html });
+
+  test("joins a 2.0 booking call in the app", async () => {
+    await expect(resolveBookingLink(link, page(link.url, page2(link.bookingUid)))).resolves.toEqual(
+      {
+        kind: "booking-call",
+        call: expect.objectContaining({
+          bookingUid: link.bookingUid,
+          videoOrigin: "https://cal.video",
+        }),
+      }
+    );
+  });
+
+  test("follows a reschedule to the booking the page now shows", async () => {
+    const landed = "https://app.cal.com/video/newUid123";
+    await expect(resolveBookingLink(link, page(landed, page2("newUid123")))).resolves.toEqual({
+      kind: "booking-call",
+      call: expect.objectContaining({ bookingUid: "newUid123", url: landed }),
+    });
+  });
+
+  test("a Cal Video 1 page still opens in the browser", async () => {
+    await expect(
+      resolveBookingLink(link, page(link.url, "<html><body></body></html>"))
+    ).resolves.toEqual({ kind: "web", url: link.url });
   });
 });

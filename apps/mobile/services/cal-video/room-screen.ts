@@ -1,7 +1,17 @@
 import type { CallStatus } from "./types";
 
 /** Mirrors the web app's `room-screen.ts` so both surfaces tell the same story. */
-export type JoinFailure = "not-found" | "full" | "rate-limited" | "unsupported" | "error";
+/**
+ * `needs-web`: a booking call wants something the app cannot ask for yet (a speech consent tick,
+ * a web sign-in), so the call goes to the browser instead.
+ */
+export type JoinFailure =
+  | "not-found"
+  | "full"
+  | "rate-limited"
+  | "unsupported"
+  | "needs-web"
+  | "error";
 export type RoomFailure = JoinFailure | "disconnected";
 export type SessionEnd = "left" | "removed" | "ended";
 

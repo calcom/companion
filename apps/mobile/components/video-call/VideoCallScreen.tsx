@@ -4,10 +4,10 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import { useCalChat } from "@/hooks/useCalChat";
-import { useGatewayCall } from "@/hooks/useGatewayCall";
 import { useCallDriver } from "@/hooks/useCallDriver";
-import { useCalVideoRoom } from "@/hooks/useCalVideoRoom";
+import { type CalVideoCallTarget, useCalVideoRoom } from "@/hooks/useCalVideoRoom";
 import { useChatMutedIds } from "@/hooks/useChatMutedIds";
+import { useGatewayCall } from "@/hooks/useGatewayCall";
 import { useInviteLink } from "@/hooks/useInviteLink";
 import { useProviderChat } from "@/hooks/useProviderChat";
 import { useRoomAccess } from "@/hooks/useRoomAccess";
@@ -32,7 +32,7 @@ import {
 } from "@/services/cal-video/types";
 import { showActionSheet } from "@/utils/action-sheet";
 import { openInDefaultBrowser } from "@/utils/browser";
-import { type CalVideoRoomLink, roomAddress } from "@/utils/cal-video-links";
+import { roomAddress } from "@/utils/cal-video-links";
 import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
 import { safeLogWarn } from "@/utils/safeLogger";
 import { CallScreen } from "./CallScreen";
@@ -60,8 +60,15 @@ const failedToast = (title: string) => Alert.alert(title, "Try again in a moment
 /** Avatars from these origins are rendered; a peer's own URL anywhere else is initials. */
 const CAL_AVATAR_ORIGINS = [getCalAppUrl("us"), getCalWebUrl("us"), getCalAppUrl("eu")];
 
+/** What a person reads out: the room, or the booking's call page. */
+function targetAddress(target: CalVideoCallTarget): string {
+  return target.kind === "room" ? roomAddress(target) : `${target.host}/video/${target.bookingUid}`;
+}
+
 /**
- * A Cal Video room, end to end: pre-join, the door, the call, and how it ended.
+ * A Cal Video room, end to end: pre-join, the door, the call, and how it ended. A Cal Video 2.0
+ * booking call runs through the same screen without the door: no knocking, no lobby, no access
+ * or invite controls, and Leave only, because the booking decides who joins and when it ends.
  *
  * Three things are kept apart on purpose. The room hook talks to the Cal Video API and owns the
  * grant. The driver hook turns a grant into media through whichever provider the grant names.
@@ -76,7 +83,7 @@ export function VideoCallScreen({
   getAccessToken,
   onClose,
 }: {
-  link: CalVideoRoomLink;
+  link: CalVideoCallTarget;
   viewerName: string | null;
   viewerAvatarUrl: string | null;
   accessToken: string | null;
@@ -84,8 +91,8 @@ export function VideoCallScreen({
   onClose: () => void;
 }) {
   useKeepAwake();
-  const address = roomAddress(link);
-  const roomRef = useMemo<RoomRef>(() => ({ origin: link.origin, slug: link.slug }), [link]);
+  const address = targetAddress(link);
+  const isBooking = link.kind === "booking-call";
   const [microphoneOn, setMicrophoneOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [speakerphone, setSpeakerphone] = useState(true);
@@ -101,6 +108,12 @@ export function VideoCallScreen({
     beforeGrant: () => releasePreviewRef.current(),
   });
   const { leave: leaveRoom, end: endRoom, noteDriverEnd, setFailure } = room;
+  // A booking call's room arrives with its grant; until then nothing is sent to it.
+  const videoOrigin = link.kind === "room" ? link.origin : link.videoOrigin;
+  const roomRef = useMemo<RoomRef>(
+    () => room.room ?? { origin: videoOrigin, slug: "" },
+    [room.room, videoOrigin]
+  );
   const grant = room.grant;
   const controlToken = grant?.controlToken ?? null;
   const isHost = grant?.role === "host";
@@ -182,15 +195,16 @@ export function VideoCallScreen({
   const waitingList = useWaitingList({
     room: roomRef,
     controlToken,
-    enabled: state.capabilities.canAdmit && state.status === "joined",
+    // A booking has no door: admission decides who joins.
+    enabled: !isBooking && state.capabilities.canAdmit && state.status === "joined",
   });
   const access = useRoomAccess({ room: roomRef, controlToken });
   const invite = useInviteLink({ room: roomRef, controlToken });
 
   // --- Chat -----------------------------------------------------------------------------------
-  // The session's chat comes with the grant: Cal Video's own durable chat is not carried by the
-  // provider, so the provider panel is only offered when the session runs on the provider's.
-  const calChatEnabled = grant?.chat === "cal";
+  // Cal Video's own durable chat runs on every deployment, so servers since calcom/cal#16471 no
+  // longer say so in the grant; only an explicit "provider" still means the provider's chat.
+  const calChatEnabled = grant !== null && grant.chat !== "provider";
   const gateway = useGatewayCall({
     sessionId: calChatEnabled ? (grant?.sessionId ?? null) : null,
     participants: state.participants,
@@ -210,8 +224,9 @@ export function VideoCallScreen({
     [grant]
   );
   const calChat = useCalChat({
-    origin: link.origin,
+    origin: roomRef.origin,
     sessionId: calChatEnabled && grant ? grant.sessionId : null,
+    bearerToken: room.embedToken,
     viewer: calChatViewer,
     open: panel === "chat",
     onCallFrame: gateway.onFrame,
@@ -224,6 +239,28 @@ export function VideoCallScreen({
   const chat = state.capabilities.canChat ? (calChat ?? providerChat) : null;
   // The Cal chat is offered as soon as the grant says so; its sheet says "loading" until it is.
   const chatOffered = state.capabilities.canChat && (calChatEnabled || providerChat !== null);
+
+  // --- A booking's own auto-start -----------------------------------------------------------
+  // What the web's `startBookingMedia` does once the call is joined. The server keeps the
+  // `automatic` action idempotent, and only a host's control token may start the recording.
+  const autoStartedFor = useRef<string | null>(null);
+  useEffect(() => {
+    const autoStart = grant?.bookingAutoStart;
+    if (!grant || !autoStart || !controlToken || state.status !== "joined") return;
+    if (autoStartedFor.current === controlToken) return;
+    autoStartedFor.current = controlToken;
+    if (autoStart.recording === "server" && isHost && state.recording.status === "off") {
+      void setRecording(roomRef, { controlToken, action: "automatic" }).catch(() => undefined);
+    }
+    if (autoStart.transcription === "server") {
+      void setTranscription(roomRef, { controlToken, action: "automatic" })
+        .then(gateway.receiveState)
+        .catch(() => undefined);
+    }
+    if (autoStart.recording === "in-call" || autoStart.transcription === "in-call") {
+      safeLogWarn("[CalVideo] booking auto-start in the call isn't supported yet", autoStart);
+    }
+  }, [grant, controlToken, isHost, state.status, state.recording.status, roomRef, gateway]);
 
   // --- Layout ---------------------------------------------------------------------------------
   // Plain derivations: the compiler memoizes them, and a hand-written `useMemo` over a Set is
@@ -608,19 +645,25 @@ export function VideoCallScreen({
               failedToast("Couldn't copy the link")
             ),
         },
-        {
-          label: "Share invite link",
-          disabled: !isHost || invite.busy,
-          onPress: () =>
-            void invite.share().catch(() => failedToast("Couldn't create an invite link")),
-        },
-        { label: "Who can join…", disabled: !isHost, onPress: showAccessMenu },
+        // A booking decides who joins, so it has no invite links or door to change.
+        ...(isBooking
+          ? []
+          : [
+              {
+                label: "Share invite link",
+                disabled: !isHost || invite.busy,
+                onPress: () =>
+                  void invite.share().catch(() => failedToast("Couldn't create an invite link")),
+              },
+              { label: "Who can join…", disabled: !isHost, onPress: showAccessMenu },
+            ]),
       ],
     });
   }, [
     state.participants.length,
     waitingList.entries.length,
     address,
+    isBooking,
     isHost,
     invite,
     showAccessMenu,
@@ -647,12 +690,13 @@ export function VideoCallScreen({
           cameraOn={cameraOn}
           onMicrophoneChange={setMicrophoneOn}
           onCameraChange={setCameraOn}
-          onJoin={(name) => {
+          emailRequired={room.emailRequired}
+          onJoin={(name, email) => {
             if (viewerName === null) {
               setRememberedName(name);
               void saveGuestName(name);
             }
-            void room.join(name);
+            void room.join(name, email);
           }}
           onClose={onClose}
           onSignIn={viewerName === null && accessToken === null ? onClose : undefined}

@@ -32,6 +32,11 @@ function copyFor(outcome: Outcome, address: string): { title: string; body: stri
         title: "Can't join from the app",
         body: "This meeting uses a video provider this version of the app cannot join yet.",
       };
+    case "needs-web":
+      return {
+        title: "Join this call on the web",
+        body: "It needs a step the app can't show yet, such as a consent tick or a web sign-in.",
+      };
     default:
       return { title: "Something went wrong", body: "The call could not be joined." };
   }
@@ -57,7 +62,10 @@ export function OutcomeScreen({
   const copy = copyFor(outcome, address);
   const removed = outcome.kind === "ended" && outcome.status === "removed";
   const ended = outcome.kind === "ended" && outcome.status === "ended";
-  const unsupported = outcome.kind === "failure" && outcome.failure === "unsupported";
+  // Both are answered in a browser: a provider the app can't run, or a step it can't show.
+  const unsupported =
+    outcome.kind === "failure" &&
+    (outcome.failure === "unsupported" || outcome.failure === "needs-web");
   const notFound = outcome.kind === "failure" && outcome.failure === "not-found";
   const canRejoin = !ended && !unsupported;
 
