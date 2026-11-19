@@ -43,6 +43,26 @@ describe("getInitialLandingRedirectDecision", () => {
     ).toBe("redirect");
   });
 
+  test("skips redirect when a link opened the bookings tab", () => {
+    expect(
+      getInitialLandingRedirectDecision({
+        landingPage: "event-types",
+        segments: ["(tabs)", "(bookings)"],
+        isAppLink: true,
+      })
+    ).toBe("skip");
+  });
+
+  test("waits for the tabs even when a link opened the app", () => {
+    expect(
+      getInitialLandingRedirectDecision({
+        landingPage: "event-types",
+        segments: [],
+        isAppLink: true,
+      })
+    ).toBe("wait");
+  });
+
   test("skips redirect when bookings is already the preferred default", () => {
     expect(
       getInitialLandingRedirectDecision({
