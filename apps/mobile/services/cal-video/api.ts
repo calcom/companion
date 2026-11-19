@@ -6,7 +6,7 @@
  * identity) persist in the native cookie jar, so a re-join is recognised as the same person.
  */
 import { fetchWithTimeout } from "@/utils/network";
-import { transcriptionStateSchema, type TranscriptionState } from "./cal-chat/types";
+import { type TranscriptionState, transcriptionStateSchema } from "./cal-chat/types";
 import { joinGrantSchema } from "./join-grant-schema";
 import type { JoinFailure } from "./room-screen";
 import type { JoinGrant } from "./types";
@@ -238,10 +238,13 @@ export async function removeParticipant(
   if (!response.ok) throw new Error(`Removing a participant failed with ${response.status}`);
 }
 
-/** Starts or stops the provider's cloud recording for everyone. */
+/**
+ * Starts or stops the provider's cloud recording for everyone. `automatic` is a booking's own
+ * auto-start: the server starts it only if the booking asks for it and nothing is running yet.
+ */
 export async function setRecording(
   room: RoomRef,
-  input: { controlToken: string; action: "start" | "stop" }
+  input: { controlToken: string; action: "start" | "stop" | "automatic" }
 ): Promise<void> {
   const response = await hostPost(room, "recording", input, JOIN_TIMEOUT_MS);
   if (!response.ok) throw new Error(`Recording could not be updated (${response.status})`);
@@ -249,7 +252,7 @@ export async function setRecording(
 
 export async function setTranscription(
   room: RoomRef,
-  input: { controlToken: string; action: "start" | "stop" }
+  input: { controlToken: string; action: "start" | "stop" | "automatic" }
 ): Promise<TranscriptionState> {
   const response = await hostPost(room, "transcription", input, JOIN_TIMEOUT_MS);
   if (!response.ok) throw new Error(`Captions could not be updated (${response.status})`);

@@ -20,6 +20,9 @@ import { GlassSurface } from "./GlassSurface";
 import { TrayButton } from "./TrayButton";
 
 const MAX_NAME_LENGTH = 80;
+const MAX_EMAIL_LENGTH = 320;
+/** Enough to catch a typo before the server does; the server checks the address itself. */
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function previewHint(status: PreviewStatus, cameraOn: boolean): string | null {
   if (!cameraOn) return "Camera is off";
@@ -45,6 +48,7 @@ export function PreJoinScreen({
   onSignIn,
   joining,
   onPreviewRelease,
+  emailRequired = false,
 }: {
   address: string;
   viewerName: string | null;
@@ -53,13 +57,15 @@ export function PreJoinScreen({
   cameraOn: boolean;
   onMicrophoneChange: (on: boolean) => void;
   onCameraChange: (on: boolean) => void;
-  onJoin: (displayName: string) => void;
+  onJoin: (displayName: string, email: string | null) => void;
   onClose: () => void;
   /** Offered to a guest: the room's owner signs in to host it. Absent while signed in. */
   onSignIn?: () => void;
   joining: boolean;
   /** Receives the preview's release function so the room hook can call it before a grant. */
   onPreviewRelease: (release: () => void) => void;
+  /** A booking call whose event type asks guests for their email. */
+  emailRequired?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(viewerName?.trim() ?? "");
@@ -72,8 +78,14 @@ export function PreJoinScreen({
     onPreviewRelease(preview.release);
   }, [onPreviewRelease, preview.release]);
 
+  const [email, setEmail] = useState("");
   const trimmed = name.trim();
-  const canJoin = trimmed.length > 0 && !joining;
+  const trimmedEmail = email.trim();
+  const emailReady = !emailRequired || EMAIL_SHAPE.test(trimmedEmail);
+  const canJoin = trimmed.length > 0 && emailReady && !joining;
+  const submit = () => {
+    if (canJoin) onJoin(trimmed, emailRequired ? trimmedEmail : null);
+  };
   const hint = previewHint(preview.status, cameraOn);
   const showVideo = cameraOn && preview.status === "ready" && preview.streamUrl;
 
@@ -154,21 +166,47 @@ export function PreJoinScreen({
               editable={!joining}
               maxLength={MAX_NAME_LENGTH}
               onChangeText={setName}
-              onSubmitEditing={() => canJoin && onJoin(trimmed)}
+              onSubmitEditing={submit}
               placeholder="How should people see you?"
               placeholderTextColor="rgba(255,255,255,0.45)"
-              returnKeyType="join"
+              returnKeyType={emailRequired ? "next" : "join"}
               style={styles.input}
               value={name}
             />
           </GlassSurface>
+
+          {emailRequired && (
+            <>
+              <Text style={styles.label}>Your email</Text>
+              <GlassSurface style={styles.inputSurface}>
+                <TextInput
+                  accessibilityLabel="Your email"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  editable={!joining}
+                  inputMode="email"
+                  keyboardType="email-address"
+                  maxLength={MAX_EMAIL_LENGTH}
+                  onChangeText={setEmail}
+                  onSubmitEditing={submit}
+                  placeholder="The email you booked with"
+                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  returnKeyType="join"
+                  style={styles.input}
+                  value={email}
+                />
+              </GlassSurface>
+              <Text style={styles.hint}>This meeting asks guests for their email.</Text>
+            </>
+          )}
 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={joining ? "Joining" : "Join"}
             accessibilityState={{ disabled: !canJoin }}
             disabled={!canJoin}
-            onPress={() => onJoin(trimmed)}
+            onPress={submit}
             style={styles.joinPressable}
           >
             {/* Visuals on an inner View: the NativeWind JSX runtime drops function-form `style`. */}

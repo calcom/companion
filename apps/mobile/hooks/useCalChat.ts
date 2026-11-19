@@ -37,9 +37,9 @@ import {
   CalChatSocketClient,
 } from "@/services/cal-video/cal-chat/socket-client";
 import {
-  type CalChatMessage,
   type CalChatCallFrame,
   type CalChatClientFrame,
+  type CalChatMessage,
   type CalChatReactionEmoji,
   type CalChatServerFrame,
   frameSubject,
@@ -96,14 +96,16 @@ export function useCalChat(input: {
   origin: string;
   /** Null while there is no grant, or when the session is on the provider's chat: nothing is fetched. */
   sessionId: string | null;
+  /** A booking call's embed token, which identifies the participant instead of the `cvi` cookie. */
+  bearerToken?: string | null;
   viewer: CalChatViewer | null;
   open: boolean;
   onCallFrame?: (frame: CalChatCallFrame) => void;
 }): (ChatController & { sendCallFrame: (frame: CalChatClientFrame) => boolean }) | null {
-  const { origin, sessionId, viewer, open } = input;
+  const { origin, sessionId, bearerToken, viewer, open } = input;
   const api = useMemo<CalChatApi | null>(
-    () => (sessionId ? createCalChatApi({ origin, sessionId }) : null),
-    [origin, sessionId]
+    () => (sessionId ? createCalChatApi({ origin, sessionId, bearerToken }) : null),
+    [origin, sessionId, bearerToken]
   );
   const [room, setRoom] = useState<CalChatRoomState>(EMPTY_CAL_CHAT);
   const [viewerId, setViewerId] = useState<string | null>(null);

@@ -80,8 +80,20 @@ export interface CalChatApi {
   getSocketToken(): Promise<string>;
 }
 
-export function createCalChatApi(input: { origin: string; sessionId: string }): CalChatApi {
+/**
+ * `bearerToken` is a booking call's embed token: the server then identifies the participant by it
+ * and ignores the `cvi` cookie, so no cookies are sent. Standalone rooms send the cookie instead.
+ */
+export function createCalChatApi(input: {
+  origin: string;
+  sessionId: string;
+  bearerToken?: string | null;
+}): CalChatApi {
   const base = `${input.origin}/api/chat/sessions/${encodeURIComponent(input.sessionId)}`;
+  const auth: Pick<RequestInit, "credentials"> & { headers: Record<string, string> } =
+    input.bearerToken
+      ? { credentials: "omit", headers: { Authorization: `Bearer ${input.bearerToken}` } }
+      : { credentials: "include", headers: {} };
 
   async function request<T>(
     path: string,
@@ -92,10 +104,11 @@ export function createCalChatApi(input: { origin: string; sessionId: string }): 
       `${base}${path}`,
       {
         ...init,
-        credentials: "include",
+        credentials: auth.credentials,
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
+          ...auth.headers,
           ...init.headers,
         },
       },

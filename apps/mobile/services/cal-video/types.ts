@@ -51,9 +51,17 @@ export interface JoinGrantCommon {
   sessionEndsAt: number;
   /** Signed proof of `role`, sent back for host actions and the leave beacon. */
   controlToken: string;
-  /** Which chat this session runs: the provider's, or Cal Video's own durable one. */
+  /**
+   * Which chat this session runs. Servers since calcom/cal#16471 leave it out: Cal Video's own
+   * chat runs on every deployment, so only an explicit `"provider"` means the provider's chat.
+   */
   chat?: "provider" | "cal";
+  /** Booking calls only: what the booking starts by itself once someone is in the call. */
+  bookingAutoStart?: { recording: BookingAutoStartMode; transcription: BookingAutoStartMode };
 }
+
+/** `server`: Cal starts it through the room API. `in-call`: the provider starts it in the call. */
+export type BookingAutoStartMode = "off" | "server" | "in-call";
 
 export type SfuJoinGrant = {
   [P in VideoProvider]: JoinGrantCommon & {
