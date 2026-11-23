@@ -64,7 +64,8 @@ export function ParticipantGrid({
     participant: CallParticipant,
     style: object,
     compact = false,
-    labelBottom?: number
+    labelBottom?: number,
+    badgeTop?: number
   ) => (
     <ParticipantTile
       key={participant.id}
@@ -76,6 +77,7 @@ export function ParticipantGrid({
       reaction={badges.get(participant.id) ?? null}
       compact={compact}
       labelBottom={labelBottom}
+      badgeTop={badgeTop}
       style={style}
       onPress={onTilePress}
     />
@@ -110,7 +112,13 @@ export function ParticipantGrid({
               </GlassSurface>
             </View>
           ) : (
-            tile(staged.participant, [StyleSheet.absoluteFill, styles.fullBleed])
+            tile(
+              staged.participant,
+              [StyleSheet.absoluteFill, styles.fullBleed],
+              false,
+              undefined,
+              topInset
+            )
           )}
         </View>
         <ScrollView
@@ -131,7 +139,8 @@ export function ParticipantGrid({
     const main = remote[0] ?? local;
     return (
       <GestureHandlerRootView style={styles.fill} onLayout={onLayout}>
-        {main && tile(main, [StyleSheet.absoluteFill, styles.fullBleed], false, bottomInset)}
+        {main &&
+          tile(main, [StyleSheet.absoluteFill, styles.fullBleed], false, bottomInset, topInset)}
         {remote.length === 1 && local && size.width > 0 && (
           <DraggablePip
             style={styles.pip}
@@ -167,8 +176,15 @@ export function ParticipantGrid({
 
   const grid = (
     <View style={[styles.grid, { gap: GAP, paddingBottom: scrolls ? bottomInset + GAP : 0 }]}>
-      {everyone.map((participant) =>
-        tile(participant, { width: tileWidth, height: tileHeight }, everyone.length > 4)
+      {everyone.map((participant, index) =>
+        tile(
+          participant,
+          { width: tileWidth, height: tileHeight },
+          everyone.length > 4,
+          undefined,
+          // The header buttons sit over the top row.
+          index < columns ? topInset : undefined
+        )
       )}
     </View>
   );
