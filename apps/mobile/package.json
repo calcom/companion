@@ -107,7 +107,7 @@
     "babel-plugin-react-compiler": "19.0.0-beta-af1b7da-20250417",
     "babel-preset-expo": "~57.0.17",
     "eslint": "9.28.0",
-    "eslint-plugin-react-compiler": "19.0.0-beta-af1b7da-20250417",
+    "eslint-plugin-react-hooks": "7.1.1",
     "jest": "30.4.2",
     "jest-environment-node": "30.4.1",
     "jest-expo": "~57.0.6",
