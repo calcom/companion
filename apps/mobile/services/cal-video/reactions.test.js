@@ -46,3 +46,49 @@ describe("reactionBadges", () => {
     expect(nextBadgeExpiry(new Map())).toBeNull();
   });
 });
+
+describe("admitReactionFloats", () => {
+  const { admitReactionFloats, REACTION_FLOAT_MS } = require("./reactions");
+  const random = () => 0.5;
+
+  test("floats only reactions after the last one seen that are still fresh", () => {
+    const reactions = [
+      reaction("old", "a", "👍", 0),
+      reaction("seen", "a", "👍", 9000),
+      reaction("new", "b", "🎉", 9500),
+    ];
+    const floats = admitReactionFloats({
+      active: [],
+      reactions,
+      lastSeenId: "seen",
+      now: 10_000,
+      random,
+    });
+    expect(floats.map((float) => float.id)).toEqual(["new"]);
+    expect(
+      admitReactionFloats({ active: [], reactions, lastSeenId: null, now: 10_000, random }).map(
+        (float) => float.id
+      )
+    ).toEqual(["seen", "new"]);
+  });
+
+  test("retires finished floats and caps how many rise at once", () => {
+    const burst = Array.from({ length: 10 }, (_, i) => reaction(`${i}`, "a", "❤️", 0));
+    const floats = admitReactionFloats({
+      active: [],
+      reactions: burst,
+      lastSeenId: null,
+      now: 0,
+      random,
+    });
+    expect(floats).toHaveLength(6);
+    expect(
+      admitReactionFloats({
+        active: floats,
+        reactions: burst,
+        lastSeenId: "9",
+        now: REACTION_FLOAT_MS,
+      })
+    ).toEqual([]);
+  });
+});

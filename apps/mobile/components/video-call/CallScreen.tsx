@@ -15,6 +15,7 @@ import { GlassSurface } from "./GlassSurface";
 import { HeaderButton, HeaderButtonGroup } from "./HeaderButton";
 import { ParticipantGrid } from "./ParticipantGrid";
 import { ReactionBar } from "./ReactionBar";
+import { ReactionFloats } from "./ReactionFloats";
 import { RecordingPill } from "./RecordingPill";
 
 const TRAY_HEIGHT = 56 + 24;
@@ -148,6 +149,12 @@ export function CallScreen({
           <CaptionsStrip lines={state.captions.lines} />
         </View>
       )}
+
+      <ReactionFloats
+        reactions={state.reactions}
+        participants={state.participants}
+        bottom={TRAY_HEIGHT + insets.bottom + 16}
+      />
 
       {reactions && reactionsOpen && (
         <View style={[styles.reactions, { bottom: TRAY_HEIGHT + insets.bottom + 8 }]}>
