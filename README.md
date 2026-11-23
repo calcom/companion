@@ -180,6 +180,7 @@ bun run ext:zip:prod
 ## Releasing
 
 - **iOS** — Step-by-step guide to building, testing, and shipping a new version to the App Store: [Releasing the iOS app](apps/mobile/docs/releasing-ios.md)
+- **Android** — Step-by-step guide to building, testing, and shipping a new version to Google Play: [Releasing the Android app](apps/mobile/docs/releasing-android.md)
 
 ## Contributing
 
