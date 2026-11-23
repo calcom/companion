@@ -63,3 +63,55 @@ export function nextBadgeExpiry(badges: ReadonlyMap<string, ReactionBadge>): num
   }
   return earliest;
 }
+
+/** How long a float takes to rise and fade; a float is retired after this. */
+export const REACTION_FLOAT_MS = 3_000;
+const MAX_FLOATS = 6;
+
+/**
+ * One reaction rising from the bottom right: where it starts, how far it sways and leans, and how
+ * far it climbs, so rapid repeats spread out instead of stacking on one spot.
+ */
+export interface ReactionFloat {
+  id: string;
+  participantId: string;
+  emoji: Reaction["emoji"];
+  startedAt: number;
+  offsetPx: number;
+  swayPx: number;
+  tiltDeg: number;
+  riseScale: number;
+}
+
+const between = (random: () => number, min: number, max: number) => min + random() * (max - min);
+
+/**
+ * Adds a float for each reaction after `lastSeenId` that is still young enough to rise, up to the
+ * cap. The age guard stops a mount, or a buffer the last-seen id rolled out of, replaying old ones.
+ */
+export function admitReactionFloats(input: {
+  active: readonly ReactionFloat[];
+  reactions: readonly Reaction[];
+  lastSeenId: string | null;
+  now: number;
+  random?: () => number;
+}): ReactionFloat[] {
+  const { active, reactions, lastSeenId, now, random = Math.random } = input;
+  const seen = lastSeenId === null ? -1 : reactions.findLastIndex((r) => r.id === lastSeenId);
+  const next = active.filter((float) => float.startedAt + REACTION_FLOAT_MS > now);
+  for (const reaction of reactions.slice(seen + 1)) {
+    if (next.length >= MAX_FLOATS) break;
+    if (reaction.at <= now - REACTION_FLOAT_MS) continue;
+    next.push({
+      id: reaction.id,
+      participantId: reaction.participantId,
+      emoji: reaction.emoji,
+      startedAt: now,
+      offsetPx: between(random, -48, 0),
+      swayPx: (random() < 0.5 ? -1 : 1) * between(random, 6, 14),
+      tiltDeg: between(random, -25, 25),
+      riseScale: between(random, 0.85, 1.15),
+    });
+  }
+  return next;
+}
