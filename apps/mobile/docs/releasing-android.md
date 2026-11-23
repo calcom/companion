@@ -159,6 +159,14 @@ the upload instead once a Play admin has set it up; see
 4. **Download the `.aab`** once the build shows **Finished**: click
    **Download** on the build's page on expo.dev. The file is about 85 MB.
 
+   Or from the terminal, using the build ID from `build:list`:
+
+   ```sh
+   npx eas-cli@latest build:view <build id> --json   # check status, appVersion, appBuildVersion, gitCommitHash
+   curl -L -o ~/Downloads/companion-android.aab \
+     "$(npx eas-cli@latest build:view <build id> --json | jq -r '.artifacts.applicationArchiveUrl')"
+   ```
+
 ---
 
 ## Part 3: Upload to Internal testing
