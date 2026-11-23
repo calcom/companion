@@ -2,7 +2,8 @@
 
 This guide takes you from "I have never shipped an app" to "the new version is
 live on the App Store". It covers the Cal.com Companion iOS app in
-`apps/mobile`. Android is not covered.
+`apps/mobile`. For Android, see
+[releasing-android.md](./releasing-android.md).
 
 You'll do about an hour of hands-on work, then wait 1–2 days for Apple's review.
 
