@@ -5,9 +5,10 @@
  * otherwise, and hides the app from devices without that hardware. Without these entries,
  * CAMERA hides it from devices without a back camera or autofocus (Chromebooks, cars, TVs, many
  * tablets), RECORD_AUDIO from devices without a microphone, and CALL_PHONE (react-native-callkeep)
- * from Wi-Fi-only tablets and Chromebooks. Every one of these is optional here: QR check-in and
- * Cal Video degrade when the hardware is missing, event photos come from the photo library, and
- * calls are self-managed VoIP that never touch the cellular network.
+ * from Wi-Fi-only tablets and Chromebooks, and ACCESS_FINE_LOCATION (RealtimeKit) from devices
+ * without location hardware. Every one of these is optional here: QR check-in and Cal Video
+ * degrade when the hardware is missing, event photos come from the photo library, calls are
+ * self-managed VoIP that never touch the cellular network, and the app never reads the location.
  *
  * `android:required` is OR-merged across manifests, so a library that declares a feature without
  * `required="false"` (RealtimeKit does for the camera) would win over ours. `tools:replace` makes
@@ -28,6 +29,9 @@ const OPTIONAL_FEATURES = [
   "android.hardware.telephony",
   // BLUETOOTH (react-native-webrtc, RealtimeKit). Used to route Cal Video audio to a headset.
   "android.hardware.bluetooth",
+  // ACCESS_FINE_LOCATION (RealtimeKit, Android 11 and older only). Bluetooth needs it there; the
+  // app never reads the location.
+  "android.hardware.location",
 ];
 
 /** @type {import("expo/config-plugins").ConfigPlugin} */
