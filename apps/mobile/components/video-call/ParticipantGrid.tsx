@@ -64,8 +64,7 @@ export function ParticipantGrid({
     participant: CallParticipant,
     style: object,
     compact = false,
-    labelBottom?: number,
-    badgeTop?: number
+    labelBottom?: number
   ) => (
     <ParticipantTile
       key={participant.id}
@@ -77,7 +76,6 @@ export function ParticipantGrid({
       reaction={badges.get(participant.id) ?? null}
       compact={compact}
       labelBottom={labelBottom}
-      badgeTop={badgeTop}
       style={style}
       onPress={onTilePress}
     />
@@ -112,13 +110,7 @@ export function ParticipantGrid({
               </GlassSurface>
             </View>
           ) : (
-            tile(
-              staged.participant,
-              [StyleSheet.absoluteFill, styles.fullBleed],
-              false,
-              undefined,
-              topInset
-            )
+            tile(staged.participant, [StyleSheet.absoluteFill, styles.fullBleed])
           )}
         </View>
         <ScrollView
@@ -139,8 +131,7 @@ export function ParticipantGrid({
     const main = remote[0] ?? local;
     return (
       <GestureHandlerRootView style={styles.fill} onLayout={onLayout}>
-        {main &&
-          tile(main, [StyleSheet.absoluteFill, styles.fullBleed], false, bottomInset, topInset)}
+        {main && tile(main, [StyleSheet.absoluteFill, styles.fullBleed], false, bottomInset)}
         {remote.length === 1 && local && size.width > 0 && (
           <DraggablePip
             style={styles.pip}
