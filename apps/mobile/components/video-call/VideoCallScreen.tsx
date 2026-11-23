@@ -626,6 +626,15 @@ export function VideoCallScreen({
     });
   }, [driver, speakerphone]);
 
+  const copyMeetingLink = async () => {
+    try {
+      return await Clipboard.setStringAsync(`https://${address}`);
+    } catch {
+      failedToast("Couldn't copy the link");
+      return false;
+    }
+  };
+
   const showInfoMenu = useCallback(() => {
     const count = state.participants.length;
     const waiting = waitingList.entries.length;
@@ -637,13 +646,6 @@ export function VideoCallScreen({
         {
           label: waiting > 0 ? `People (${waiting} waiting)` : `People (${count})`,
           onPress: () => setPanel("people"),
-        },
-        {
-          label: "Copy meeting link",
-          onPress: () =>
-            void Clipboard.setStringAsync(`https://${address}`).catch(() =>
-              failedToast("Couldn't copy the link")
-            ),
         },
         // A booking decides who joins, so it has no invite links or door to change.
         ...(isBooking
@@ -745,6 +747,7 @@ export function VideoCallScreen({
             notice={notice}
             onFlipCamera={flipCamera}
             onSpeaker={showSpeakerMenu}
+            onCopyLink={copyMeetingLink}
             onInfo={showInfoMenu}
             onMore={showMoreMenu}
             onTilePress={onTilePress}

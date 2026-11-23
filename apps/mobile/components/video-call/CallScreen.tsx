@@ -1,5 +1,14 @@
-import { Ellipsis, Hand, SwitchCamera, Volume2, Wifi, WifiOff } from "lucide-react-native";
-import { useState } from "react";
+import {
+  Check,
+  Copy,
+  Ellipsis,
+  Hand,
+  SwitchCamera,
+  Volume2,
+  Wifi,
+  WifiOff,
+} from "lucide-react-native";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { StageLayout } from "@/services/cal-video/layout";
@@ -24,7 +33,7 @@ const HEADER_CLEARANCE = 4 + 40 + 8;
 
 /**
  * The call itself: video edge to edge, a row of glass buttons at the top right (flip camera,
- * speaker, the meeting's details), the tray floating at the bottom.
+ * speaker, copy link, the meeting's details), the tray floating at the bottom.
  */
 export function CallScreen({
   driver,
@@ -38,6 +47,7 @@ export function CallScreen({
   notice = null,
   onFlipCamera,
   onSpeaker,
+  onCopyLink,
   onInfo,
   onMore,
   onTilePress,
@@ -62,7 +72,8 @@ export function CallScreen({
   notice?: string | null;
   onFlipCamera: () => void;
   onSpeaker: () => void;
-  /** The meeting's details: link, people, who can join. */
+  onCopyLink: () => Promise<boolean>;
+  /** The meeting's details: people, invites, who can join. */
   onInfo: () => void;
   onMore: () => void;
   onTilePress: (participant: CallParticipant) => void;
@@ -73,6 +84,13 @@ export function CallScreen({
   const insets = useSafeAreaInsets();
   const local = state.participants.find((participant) => participant.isLocal);
   const [reactionsOpen, setReactionsOpen] = useState(false);
+  const [copyCount, setCopyCount] = useState(0);
+  useEffect(() => {
+    if (copyCount === 0) return;
+    const timer = setTimeout(() => setCopyCount(0), 2000);
+    return () => clearTimeout(timer);
+  }, [copyCount]);
+  const copied = copyCount > 0;
   const connecting = state.status === "joining" || state.status === "idle";
   const reconnecting = state.status === "reconnecting";
   const poorNetwork = state.localConnection === "poor" || state.localConnection === "bad";
@@ -106,6 +124,13 @@ export function CallScreen({
             label="Speaker"
             disabled={!driver?.signals.speakerToggle}
             onPress={onSpeaker}
+          />
+          <HeaderButton
+            icon={copied ? Check : Copy}
+            label={copied ? "Meeting link copied" : "Copy meeting link"}
+            onPress={async () => {
+              if (await onCopyLink()) setCopyCount((count) => count + 1);
+            }}
           />
           <HeaderButton
             icon={Ellipsis}

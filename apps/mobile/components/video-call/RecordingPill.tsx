@@ -13,7 +13,9 @@ export function RecordingPill({ status }: { status: ToggleStatus }) {
   return (
     <GlassSurface style={styles.pill}>
       <Disc size={12} color="#FF453A" />
-      <Text style={styles.text}>{status === "on" ? "Recording" : "Starting…"}</Text>
+      <Text style={styles.text} numberOfLines={1}>
+        {status === "on" ? "Recording" : "Starting…"}
+      </Text>
     </GlassSurface>
   );
 }
@@ -21,6 +23,7 @@ export function RecordingPill({ status }: { status: ToggleStatus }) {
 const styles = StyleSheet.create({
   pill: {
     flexDirection: "row",
+    flexShrink: 1,
     alignItems: "center",
     gap: 5,
     paddingHorizontal: 10,
@@ -28,5 +31,5 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: "hidden",
   },
-  text: { color: "#FFFFFF", fontSize: 12, fontWeight: "600" },
+  text: { color: "#FFFFFF", fontSize: 12, fontWeight: "600", flexShrink: 1 },
 });
