@@ -19,6 +19,7 @@ export function ParticipantTile({
   reaction = null,
   compact = false,
   labelBottom,
+  badgeTop,
   style,
   onPress,
 }: {
@@ -33,6 +34,8 @@ export function ParticipantTile({
   compact?: boolean;
   /** Lifts the name clear of whatever floats over the tile's bottom edge. */
   labelBottom?: number;
+  /** Drops the reaction badge below the call's header buttons, for tiles the header sits over. */
+  badgeTop?: number;
   style?: StyleProp<ViewStyle>;
   onPress?: (participant: CallParticipant) => void;
 }) {
@@ -65,7 +68,11 @@ export function ParticipantTile({
       {reaction && (
         <GlassSurface
           key={reaction.key}
-          style={[styles.reaction, compact && styles.reactionCompact]}
+          style={[
+            styles.reaction,
+            compact && styles.reactionCompact,
+            badgeTop !== undefined && { top: badgeTop },
+          ]}
         >
           <Text
             style={[styles.reactionEmoji, compact && styles.reactionEmojiCompact]}
