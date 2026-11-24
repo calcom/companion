@@ -48,7 +48,7 @@
   },
   "overrides": {
     "axios": "1.18.0",
-    "shell-quote": "1.9.0",
+    "shell-quote": "1.12.0",
     "qs": "6.15.2",
     "tar": "7.5.22",
     "defu": "6.1.7",
@@ -57,17 +57,19 @@
     "form-data": "4.0.6",
     "tmp": "0.2.7",
     "flatted": "3.4.2",
-    "node-forge": "1.4.0",
+    "node-forge": "1.4.4",
     "postcss": "8.5.23",
     "ws": "8.21.0",
     "micromatch": "4.0.8",
     "picomatch": "4.0.5",
     "path-to-regexp": "8.4.0",
-    "fast-uri": "3.1.6",
+    "fast-uri": "3.1.9",
+    "decode-uri-component": "0.5.1",
+    "zod": "4.6.7",
     "yaml": "2.8.3",
-    "vite": "7.3.5",
+    "vite": "7.3.8",
     "@xmldom/xmldom": "0.8.15",
-    "adm-zip": "0.6.0",
+    "adm-zip": "0.6.1",
     "js-yaml": "4.3.2",
     "browserslist": "4.28.8",
     "ip-address": "10.3.1",
@@ -76,6 +78,7 @@
   },
   "patchedDependencies": {
     "@cloudflare/react-native-webrtc@125.0.1": "patches/@cloudflare%2Freact-native-webrtc@125.0.1.patch",
-    "@cloudflare/realtimekit-react-native@1.1.0": "patches/@cloudflare%2Frealtimekit-react-native@1.1.0.patch"
+    "@cloudflare/realtimekit-react-native@1.1.0": "patches/@cloudflare%2Frealtimekit-react-native@1.1.0.patch",
+    "decode-uri-component@0.5.1": "patches/decode-uri-component@0.5.1.patch"
   }
 }
