@@ -635,6 +635,7 @@ export function VideoCallScreen({
     }
   };
 
+  /** A room's details. A booking has no menu: see `onInfo` below. */
   const showInfoMenu = useCallback(() => {
     const count = state.participants.length;
     const waiting = waitingList.entries.length;
@@ -647,25 +648,19 @@ export function VideoCallScreen({
           label: waiting > 0 ? `People (${waiting} waiting)` : `People (${count})`,
           onPress: () => setPanel("people"),
         },
-        // A booking decides who joins, so it has no invite links or door to change.
-        ...(isBooking
-          ? []
-          : [
-              {
-                label: "Share invite link",
-                disabled: !isHost || invite.busy,
-                onPress: () =>
-                  void invite.share().catch(() => failedToast("Couldn't create an invite link")),
-              },
-              { label: "Who can join…", disabled: !isHost, onPress: showAccessMenu },
-            ]),
+        {
+          label: "Share invite link",
+          disabled: !isHost || invite.busy,
+          onPress: () =>
+            void invite.share().catch(() => failedToast("Couldn't create an invite link")),
+        },
+        { label: "Who can join…", disabled: !isHost, onPress: showAccessMenu },
       ],
     });
   }, [
     state.participants.length,
     waitingList.entries.length,
     address,
-    isBooking,
     isHost,
     invite,
     showAccessMenu,
@@ -748,7 +743,10 @@ export function VideoCallScreen({
             onFlipCamera={flipCamera}
             onSpeaker={showSpeakerMenu}
             onCopyLink={copyMeetingLink}
-            onInfo={showInfoMenu}
+            // A booking decides who joins, so it has no invite links or door to change, and
+            // People would be all its menu holds: the header opens People directly.
+            onInfo={isBooking ? null : showInfoMenu}
+            onPeople={() => setPanel("people")}
             onMore={showMoreMenu}
             onTilePress={onTilePress}
             onToggleMicrophone={() => setMicrophone(!microphoneOn)}
