@@ -1,5 +1,5 @@
 import { RTCView } from "@cloudflare/react-native-webrtc";
-import { Mic, MicOff, Video, VideoOff, X } from "lucide-react-native";
+import { Check, Mic, MicOff, Video, VideoOff, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,7 +14,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalPreview } from "@/hooks/useLocalPreview";
+import type { GuestSpeechConsent, SpeechConsentRefusal } from "@/services/cal-video/booking-api";
+import type { BookingSpeechConsent } from "@/services/cal-video/booking-link";
 import type { PreviewStatus } from "@/services/cal-video/local-preview";
+import { openInAppBrowser } from "@/utils/browser";
+import { getCalPrivacyPolicyUrl } from "@/utils/region";
 import { CallAvatar } from "./Avatar";
 import { GlassSurface } from "./GlassSurface";
 import { TrayButton } from "./TrayButton";
@@ -23,6 +27,23 @@ const MAX_NAME_LENGTH = 80;
 const MAX_EMAIL_LENGTH = 320;
 /** Enough to catch a typo before the server does; the server checks the address itself. */
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** The web pre-join's wording (`pre_join_speech_consent_*` in cal.com's `cal_video.json`). */
+function speechConsentLabel(prompt: BookingSpeechConsent): string {
+  return prompt.captionsOn
+    ? "This call uses captions and transcription, processed by ElevenLabs."
+    : "The host can turn on captions and transcription, processed by ElevenLabs.";
+}
+
+/**
+ * The web's messages for a refused tick (`pre_join_speech_consent_reload` / `_retry`), with "the
+ * page" made "this screen": reopening the call loads the booking page afresh.
+ */
+const SPEECH_CONSENT_REFUSAL_MESSAGE: Record<SpeechConsentRefusal, string> = {
+  reload:
+    "Something about this call changed since this screen opened. Close it and open the call again to join.",
+  retry: "We couldn’t save your agreement. Try joining again.",
+};
 
 function previewHint(status: PreviewStatus, cameraOn: boolean): string | null {
   if (!cameraOn) return "Camera is off";
@@ -49,6 +70,8 @@ export function PreJoinScreen({
   joining,
   onPreviewRelease,
   emailRequired = false,
+  speechConsent = null,
+  speechConsentRefusal = null,
 }: {
   address: string;
   viewerName: string | null;
@@ -57,7 +80,11 @@ export function PreJoinScreen({
   cameraOn: boolean;
   onMicrophoneChange: (on: boolean) => void;
   onCameraChange: (on: boolean) => void;
-  onJoin: (displayName: string, email: string | null) => void;
+  onJoin: (
+    displayName: string,
+    email: string | null,
+    speechConsent: GuestSpeechConsent | null
+  ) => void;
   onClose: () => void;
   /** Offered to a guest: the room's owner signs in to host it. Absent while signed in. */
   onSignIn?: () => void;
@@ -66,6 +93,10 @@ export function PreJoinScreen({
   onPreviewRelease: (release: () => void) => void;
   /** A booking call whose event type asks guests for their email. */
   emailRequired?: boolean;
+  /** The speech-processing checkbox this guest must tick before joining; null for none. */
+  speechConsent?: BookingSpeechConsent | null;
+  /** Why the last tick was refused, shown under Join. */
+  speechConsentRefusal?: SpeechConsentRefusal | null;
 }) {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(viewerName?.trim() ?? "");
@@ -82,9 +113,17 @@ export function PreJoinScreen({
   const trimmed = name.trim();
   const trimmedEmail = email.trim();
   const emailReady = !emailRequired || EMAIL_SHAPE.test(trimmedEmail);
-  const canJoin = trimmed.length > 0 && emailReady && !joining;
+  // Not remembered anywhere: like the web, every visit to this screen asks again.
+  const [consentTicked, setConsentTicked] = useState(false);
+  const consentReady = !speechConsent || consentTicked;
+  const canJoin = trimmed.length > 0 && emailReady && consentReady && !joining;
   const submit = () => {
-    if (canJoin) onJoin(trimmed, emailRequired ? trimmedEmail : null);
+    if (!canJoin) return;
+    onJoin(
+      trimmed,
+      emailRequired ? trimmedEmail : null,
+      speechConsent ? { agreed: true, version: speechConsent.version } : null
+    );
   };
   const hint = previewHint(preview.status, cameraOn);
   const showVideo = cameraOn && preview.status === "ready" && preview.streamUrl;
@@ -218,6 +257,46 @@ export function PreJoinScreen({
               )}
             </View>
           </Pressable>
+          {speechConsentRefusal && (
+            <Text accessibilityRole="alert" style={styles.refusal}>
+              {SPEECH_CONSENT_REFUSAL_MESSAGE[speechConsentRefusal]}
+            </Text>
+          )}
+          {speechConsent && (
+            <View style={styles.consent}>
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: consentTicked, disabled: joining }}
+                accessibilityLabel={speechConsentLabel(speechConsent)}
+                disabled={joining}
+                hitSlop={6}
+                onPress={() => setConsentTicked((ticked) => !ticked)}
+                style={styles.consentRow}
+              >
+                <View style={[styles.checkbox, consentTicked && styles.checkboxTicked]}>
+                  {consentTicked && <Check size={14} color="#111111" strokeWidth={3} />}
+                </View>
+                <Text style={styles.consentLabel}>{speechConsentLabel(speechConsent)}</Text>
+              </Pressable>
+              <View style={styles.consentLinks}>
+                <Pressable
+                  accessibilityRole="link"
+                  hitSlop={6}
+                  onPress={() => void openInAppBrowser(speechConsent.helpUrl, "ElevenLabs details")}
+                >
+                  <Text style={styles.consentLink}>Details</Text>
+                </Pressable>
+                <Text style={styles.consentDot}>·</Text>
+                <Pressable
+                  accessibilityRole="link"
+                  hitSlop={6}
+                  onPress={() => void openInAppBrowser(getCalPrivacyPolicyUrl(), "Privacy policy")}
+                >
+                  <Text style={styles.consentLink}>Privacy policy</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
           {onSignIn && (
             <Pressable
               accessibilityRole="button"
@@ -276,6 +355,28 @@ const styles = StyleSheet.create({
   label: { color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: "500" },
   inputSurface: { borderRadius: 14, overflow: "hidden" },
   input: { color: "#FFFFFF", fontSize: 17, paddingHorizontal: 16, paddingVertical: 14 },
+  consent: { marginTop: 4, gap: 6 },
+  refusal: { color: "#FF6961", fontSize: 13, textAlign: "center" },
+  consentRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  checkbox: {
+    width: 22,
+    height: 22,
+    marginTop: 1,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxTicked: { backgroundColor: "#FFFFFF", borderColor: "#FFFFFF" },
+  consentLabel: { flex: 1, color: "#FFFFFF", fontSize: 15, lineHeight: 21 },
+  consentLinks: { flexDirection: "row", alignItems: "center", gap: 6, paddingLeft: 34 },
+  consentLink: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 13,
+    textDecorationLine: "underline",
+  },
+  consentDot: { color: "rgba(255,255,255,0.6)", fontSize: 13 },
   joinPressable: { marginTop: 8 },
   joinButton: {
     height: 54,

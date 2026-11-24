@@ -8,6 +8,7 @@ const {
   admitToBooking,
   joinBookingSession,
   sessionJoinFailure,
+  speechConsentRefusalFor,
 } = require("./booking-api");
 
 const call = {
@@ -153,12 +154,78 @@ describe("session join", () => {
     expect(sessionJoinFailure(404, { outcome: "not-found" })).toBe("not-found");
     expect(sessionJoinFailure(403, { outcome: "full" })).toBe("full");
     expect(sessionJoinFailure(429, {})).toBe("rate-limited");
-    expect(sessionJoinFailure(403, { outcome: "error", reason: "speech_consent_required" })).toBe(
-      "needs-web"
-    );
-    expect(sessionJoinFailure(409, { outcome: "error", reason: "speech_consent_stale" })).toBe(
-      "needs-web"
-    );
     expect(sessionJoinFailure(503, { outcome: "unavailable" })).toBe("error");
+  });
+
+  test("reads a refused tick the way the web pre-join does", () => {
+    expect(speechConsentRefusalFor("speech_consent_required")).toBe("reload");
+    expect(speechConsentRefusalFor("speech_consent_stale")).toBe("reload");
+    expect(speechConsentRefusalFor("speech_consent_unsaved")).toBe("retry");
+    expect(speechConsentRefusalFor(undefined)).toBeNull();
+  });
+
+  const consentCall = {
+    ...call,
+    speechConsent: { version: "3.0", helpUrl: "https://example.com/help", captionsOn: true },
+  };
+  const consentRefusal = reply({ outcome: "error", reason: "speech_consent_required" }, 403);
+
+  test("asks for the tick when the call wants one and the page showed the checkbox", async () => {
+    mockFetch.mockResolvedValue(consentRefusal);
+
+    await expect(
+      joinBookingSession({ call: consentCall, sessionId: "s1", token: "embed" })
+    ).resolves.toEqual({ kind: "consent-required" });
+  });
+
+  test("asked for a tick the app couldn't read a checkbox for, the call goes to the web", async () => {
+    mockFetch.mockResolvedValue(consentRefusal);
+
+    await expect(joinBookingSession({ call, sessionId: "s1", token: "embed" })).resolves.toEqual({
+      kind: "failure",
+      failure: "needs-web",
+    });
+  });
+
+  test("carries the tick with the wording version it agrees to", async () => {
+    mockFetch.mockResolvedValue(reply({ grant, roomSlug: "booking-room" }));
+
+    const result = await joinBookingSession({
+      call: consentCall,
+      sessionId: "s1",
+      token: "embed",
+      speechConsent: { agreed: true, version: "3.0" },
+    });
+
+    expect(result.kind).toBe("admitted");
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+      speechConsent: { agreed: true, version: "3.0" },
+    });
+  });
+
+  test("never loops: asked again after sending a tick, it's the reload message", async () => {
+    mockFetch.mockResolvedValue(consentRefusal);
+
+    await expect(
+      joinBookingSession({
+        call: consentCall,
+        sessionId: "s1",
+        token: "embed",
+        speechConsent: { agreed: true, version: "3.0" },
+      })
+    ).resolves.toEqual({ kind: "consent-refused", refusal: "reload" });
+  });
+
+  test("a tick that couldn't be saved asks to join again", async () => {
+    mockFetch.mockResolvedValue(reply({ outcome: "error", reason: "speech_consent_unsaved" }, 500));
+
+    await expect(
+      joinBookingSession({
+        call: consentCall,
+        sessionId: "s1",
+        token: "embed",
+        speechConsent: { agreed: true, version: "3.0" },
+      })
+    ).resolves.toEqual({ kind: "consent-refused", refusal: "retry" });
   });
 });

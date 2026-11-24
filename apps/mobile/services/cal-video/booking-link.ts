@@ -19,6 +19,21 @@ export interface CalVideoBookingCall {
   videoOrigin: string;
   /** The event type asks guests for an email before they join. */
   requireEmail: boolean;
+  /**
+   * The speech-processing checkbox the page's pre-join shows a guest, or null for none. The page is
+   * fetched without a session, so this is what a signed-out guest is asked; whether this person
+   * must tick it is the session join's call (a signed-in member of the account never is).
+   */
+  speechConsent: BookingSpeechConsent | null;
+}
+
+/** The web pre-join's ElevenLabs checkbox: its wording version, help page, and which text it shows. */
+export interface BookingSpeechConsent {
+  /** The wording the tick agrees to; the session join refuses a tick for wording that changed. */
+  version: string;
+  helpUrl: string;
+  /** Captions are already on ("This call uses…"), rather than the host could turn them on. */
+  captionsOn: boolean;
 }
 
 /**
@@ -64,6 +79,26 @@ export function classifyLandingUrl(
 const EMBED_FRAME =
   /<iframe\b[^>]*\bsrc="(https:\/\/[a-z0-9.-]+)\/embed\/booking\/([A-Za-z0-9_-]{1,64})"/i;
 const REQUIRE_EMAIL = /\\?"requireEmailForGuests\\?":\s*(true|false)/;
+/** The page's `speechConsent` prop: a flat object, escaped like the rest of the streamed props. */
+const SPEECH_CONSENT = /\\?"speechConsent\\?":\s*(\{[^{}]{0,600}\})/;
+
+/** The checkbox the page shows a guest; null when it shows none or its shape isn't recognised. */
+function readSpeechConsent(html: string): BookingSpeechConsent | null {
+  const raw = SPEECH_CONSENT.exec(html)?.[1];
+  if (!raw) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(raw.replace(/\\"/g, '"'));
+  } catch {
+    return null;
+  }
+  if (!value || typeof value !== "object") return null;
+  const { version, helpUrl, captionsOn } = value as Record<string, unknown>;
+  if (typeof version !== "string" || !version || version.length > 100) return null;
+  if (typeof helpUrl !== "string" || !helpUrl.startsWith("https://")) return null;
+  if (typeof captionsOn !== "boolean") return null;
+  return { version, helpUrl, captionsOn };
+}
 
 /** Only Cal Video's own hosts receive the admission token. */
 function isCalVideoOrigin(origin: string): boolean {
@@ -92,6 +127,7 @@ export function readBookingCallPage(
     url: `${landed.origin}/video/${bookingUid}`,
     videoOrigin,
     requireEmail: REQUIRE_EMAIL.exec(html)?.[1] === "true",
+    speechConsent: readSpeechConsent(html),
   };
 }
 

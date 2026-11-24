@@ -80,9 +80,12 @@ describe("resolveBookingLink", () => {
 
 // The live 2.0 page, cut to what the app reads: the call frame and the guest-email flag in the
 // page's serialized props (escaped, as Next.js streams them).
-const page2 = (uid, requireEmail = false, origin = "https://cal.video") =>
+const page2 = (uid, requireEmail = false, origin = "https://cal.video", speechConsent = "null") =>
   `<html><body><iframe title="Cal Video call" class="fixed inset-0" src="${origin}/embed/booking/${uid}" allow="camera; microphone"></iframe>` +
-  `<script>self.__next_f.push([1,"{\\"requireEmailForGuests\\":${requireEmail},\\"videoOrigin\\":\\"${origin}\\"}"])</script></body></html>`;
+  `<script>self.__next_f.push([1,"{\\"requireEmailForGuests\\":${requireEmail},\\"videoOrigin\\":\\"${origin}\\",\\"speechConsent\\":${speechConsent}}"])</script></body></html>`;
+// The live page's checkbox prop for a signed-out viewer, as streamed (24 Nov 2026).
+const CONSENT =
+  '{\\"version\\":\\"3.0\\",\\"helpUrl\\":\\"https://cal.com/help/privacy-and-compliance/elevenlabs\\",\\"captionsOn\\":true}';
 
 describe("readBookingCallPage", () => {
   test("a 2.0 page's call frame names the video origin and the current booking", () => {
@@ -94,7 +97,27 @@ describe("readBookingCallPage", () => {
       url: "https://app.cal.com/video/newUid123",
       videoOrigin: "https://cal.video",
       requireEmail: false,
+      speechConsent: null,
     });
+  });
+
+  test("reads the speech-processing checkbox the page shows a guest", () => {
+    expect(
+      readBookingCallPage(page2(link.bookingUid, false, "https://cal.video", CONSENT), link)
+        .speechConsent
+    ).toEqual({
+      version: "3.0",
+      helpUrl: "https://cal.com/help/privacy-and-compliance/elevenlabs",
+      captionsOn: true,
+    });
+  });
+
+  test("ignores a checkbox whose help link isn't https", () => {
+    const consent = CONSENT.replace("https://cal.com", "javascript:alert(1)//cal.com");
+    expect(
+      readBookingCallPage(page2(link.bookingUid, false, "https://cal.video", consent), link)
+        .speechConsent
+    ).toBeNull();
   });
 
   test("reads whether guests must give an email", () => {
