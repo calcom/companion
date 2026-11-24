@@ -5,6 +5,7 @@ import {
   getGuestsNotInAttendees,
   groupBookingsByMonth,
   groupRecurringBookings,
+  searchBookings,
   sortBookingsByStart,
 } from "./bookings-utils";
 
@@ -40,6 +41,39 @@ describe("groupRecurringBookings", () => {
     ]);
 
     expect(groups[0]?.hasUnconfirmed).toBe(true);
+  });
+});
+
+describe("searchBookings", () => {
+  const bookings = [
+    {
+      id: 1,
+      title: "Intro call",
+      status: "accepted",
+      attendees: [{ name: "Ada Lovelace", email: "ada@example.com" }],
+    },
+    {
+      id: 2,
+      title: "Design review",
+      status: "accepted",
+      attendees: [{ name: "Grace Hopper", email: "grace@example.com" }],
+    },
+  ];
+
+  test("returns every booking for a blank query", () => {
+    expect(searchBookings(bookings, "   ")).toEqual(bookings);
+  });
+
+  test("matches a query that has a trailing space", () => {
+    expect(searchBookings(bookings, "ada@example.com ").map((b) => b.id)).toEqual([1]);
+  });
+
+  test("matches a query that has a leading space", () => {
+    expect(searchBookings(bookings, " design review").map((b) => b.id)).toEqual([2]);
+  });
+
+  test("keeps spaces inside the query", () => {
+    expect(searchBookings(bookings, "intro call").map((b) => b.id)).toEqual([1]);
   });
 });
 

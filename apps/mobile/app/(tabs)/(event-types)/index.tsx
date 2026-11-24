@@ -112,7 +112,7 @@ export default function EventTypes() {
 
     // Then apply search query filter
     if (searchQuery.trim() !== "") {
-      const searchLower = searchQuery.toLowerCase();
+      const searchLower = searchQuery.trim().toLowerCase();
       filtered = filtered.filter(
         (eventType) =>
           eventType.title.toLowerCase().includes(searchLower) ||
