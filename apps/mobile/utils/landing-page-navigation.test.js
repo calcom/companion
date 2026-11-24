@@ -1,11 +1,25 @@
-import { describe, expect, test } from "@jest/globals";
+import { describe, expect, jest, test } from "@jest/globals";
 import { getInitialLandingRedirectDecision } from "@/utils/landing-page-navigation";
+
+// getRouteFromPreference is pure: keep its module's storage (AsyncStorage, SecureStore) unloaded.
+jest.mock("@/utils/storage", () => ({ generalStorage: {} }));
+
+const { getRouteFromPreference } = require("@/hooks/useUserPreferences");
 
 describe("getInitialLandingRedirectDecision", () => {
   test("redirects event-types preference from the tabs root", () => {
     expect(
       getInitialLandingRedirectDecision({
         landingPage: "event-types",
+        segments: ["(tabs)"],
+      })
+    ).toBe("redirect");
+  });
+
+  test("redirects events preference from the tabs root", () => {
+    expect(
+      getInitialLandingRedirectDecision({
+        landingPage: "events",
         segments: ["(tabs)"],
       })
     ).toBe("redirect");
@@ -27,6 +41,26 @@ describe("getInitialLandingRedirectDecision", () => {
         segments: ["(tabs)", "(bookings)", "index"],
       })
     ).toBe("redirect");
+  });
+
+  test("skips redirect when a link opened the bookings tab", () => {
+    expect(
+      getInitialLandingRedirectDecision({
+        landingPage: "event-types",
+        segments: ["(tabs)", "(bookings)"],
+        isAppLink: true,
+      })
+    ).toBe("skip");
+  });
+
+  test("waits for the tabs even when a link opened the app", () => {
+    expect(
+      getInitialLandingRedirectDecision({
+        landingPage: "event-types",
+        segments: [],
+        isAppLink: true,
+      })
+    ).toBe("wait");
   });
 
   test("skips redirect when bookings is already the preferred default", () => {
@@ -61,5 +95,11 @@ describe("getInitialLandingRedirectDecision", () => {
         segments: ["profile-sheet"],
       })
     ).toBe("wait");
+  });
+});
+
+describe("getRouteFromPreference", () => {
+  test("routes events preference to the Events tab", () => {
+    expect(getRouteFromPreference("events")).toBe("/(tabs)/(events)");
   });
 });

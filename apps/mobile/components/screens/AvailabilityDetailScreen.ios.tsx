@@ -8,7 +8,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -231,9 +231,12 @@ export const AvailabilityDetailScreen = forwardRef<
     }
   }, [onActionsReady, handleSetAsDefault, handleDelete]);
 
-  // Handle error state - must be in useEffect to avoid side effects during render
+  // Handle error state - must be in useEffect to avoid side effects during render. The query can
+  // report a failure more than once (a link can open a schedule that doesn't exist), so leave once.
+  const hasLeftAfterErrorRef = useRef(false);
   useEffect(() => {
-    if (error) {
+    if (error && !hasLeftAfterErrorRef.current) {
+      hasLeftAfterErrorRef.current = true;
       showErrorAlert("Error", "Failed to load availability. Please try again.");
       router.back();
     }

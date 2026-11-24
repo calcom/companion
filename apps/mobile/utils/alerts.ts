@@ -3,11 +3,12 @@
  *
  * Helper functions for showing alerts with environment-aware and platform-aware behavior.
  * On iOS/Android, uses native Alert.alert().
- * On web (browser extension), uses the global toast system for centered notifications.
+ * On web (browser extension), uses the global toast system for centered notifications, and the
+ * global confirm dialog for confirmations.
  * Error alerts are only shown in development mode to avoid confusing users in production.
  */
 
-import { Alert, Platform } from "react-native";
+import { Alert, type AlertButton, Platform } from "react-native";
 
 type ToastType = "success" | "error" | "info";
 
@@ -23,6 +24,24 @@ let globalShowToast: ((title: string, message: string, type?: ToastType) => void
  */
 export const setGlobalToastFunction = (fn: typeof globalShowToast) => {
   globalShowToast = fn;
+};
+
+/** A confirmation for the web's confirm dialog: Alert.alert's arguments. */
+export interface ConfirmRequest {
+  title: string;
+  message?: string;
+  buttons: AlertButton[];
+}
+
+/** Global confirm dialog reference (set by GlobalConfirmDialog), like the toast's. */
+let globalShowConfirm: ((request: ConfirmRequest) => void) | null = null;
+
+/**
+ * Set the global confirm function. Called by GlobalConfirmDialog on mount.
+ * @param fn - The dialog's open function, or null to clear
+ */
+export const setGlobalConfirmFunction = (fn: typeof globalShowConfirm) => {
+  globalShowConfirm = fn;
 };
 
 /**
@@ -51,11 +70,25 @@ export const showErrorAlert = (title: string, message: string) => {
 };
 
 /**
- * Show a confirmation alert (always shown - user-initiated actions)
- * This is a direct reference to Alert.alert for consistency.
- * Note: On web, this will not work - use a modal or custom confirmation dialog instead.
+ * Show a confirmation alert (always shown - user-initiated actions), with Alert.alert's buttons.
+ * On web, react-native-web's Alert.alert does nothing, so the global confirm dialog asks instead.
+ *
+ * @param title - The alert title
+ * @param message - The question to confirm
+ * @param buttons - The choices, as for Alert.alert
  */
-export const showConfirmAlert = Alert.alert;
+export const showConfirmAlert = (
+  title: string,
+  message?: string,
+  buttons: AlertButton[] = [{ text: "OK" }]
+) => {
+  if (Platform.OS === "web" && globalShowConfirm) {
+    globalShowConfirm({ title, message, buttons });
+    return;
+  }
+
+  Alert.alert(title, message, buttons);
+};
 
 /**
  * Show a success alert (always shown - user feedback)
@@ -109,7 +142,7 @@ export const showInfoAlert = (title: string, message: string) => {
  * Show a standard "Feature not available" alert for companion app limitations.
  */
 export const showNotAvailableAlert = () => {
-  Alert.alert(
+  showConfirmAlert(
     "Feature not available",
     "This feature is not available in the app yet. To use, please visit Cal.com.",
     [{ text: "OK", style: "cancel" }]

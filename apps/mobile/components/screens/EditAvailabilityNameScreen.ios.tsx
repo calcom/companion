@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host, HStack, Image } from "@expo/ui/swift-ui";
+import { Button, Host, HStack, Image, Menu } from "@expo/ui/swift-ui";
 import { buttonStyle, frame, padding } from "@expo/ui/swift-ui/modifiers";
 import { Ionicons } from "@expo/vector-icons";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
@@ -177,24 +177,12 @@ export const EditAvailabilityNameScreen = forwardRef<
 
               {/* Native iOS Context Menu Button */}
               <Host matchContents>
-                <ContextMenu
+                <Menu
                   modifiers={[
                     buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered"),
                     padding(),
                   ]}
-                  activationMethod="singlePress"
-                >
-                  <ContextMenu.Items>
-                    {TIMEZONES.map((tz) => (
-                      <Button
-                        key={tz.id}
-                        systemImage={timezone === tz.id ? "checkmark" : "globe"}
-                        onPress={() => handleTimezoneSelect(tz.id)}
-                        label={tz.label}
-                      />
-                    ))}
-                  </ContextMenu.Items>
-                  <ContextMenu.Trigger>
+                  label={
                     <HStack>
                       <Image
                         systemName="chevron.up.chevron.down"
@@ -203,8 +191,17 @@ export const EditAvailabilityNameScreen = forwardRef<
                         modifiers={[frame({ height: 16, width: 16 })]}
                       />
                     </HStack>
-                  </ContextMenu.Trigger>
-                </ContextMenu>
+                  }
+                >
+                  {TIMEZONES.map((tz) => (
+                    <Button
+                      key={tz.id}
+                      systemImage={timezone === tz.id ? "checkmark" : "globe"}
+                      onPress={() => handleTimezoneSelect(tz.id)}
+                      label={tz.label}
+                    />
+                  ))}
+                </Menu>
               </Host>
             </View>
           </>
@@ -245,24 +242,12 @@ export const EditAvailabilityNameScreen = forwardRef<
 
               {/* Native iOS Context Menu Button */}
               <Host matchContents>
-                <ContextMenu
+                <Menu
                   modifiers={[
                     buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered"),
                     padding(),
                   ]}
-                  activationMethod="singlePress"
-                >
-                  <ContextMenu.Items>
-                    {TIMEZONES.map((tz) => (
-                      <Button
-                        key={tz.id}
-                        systemImage={timezone === tz.id ? "checkmark" : "globe"}
-                        onPress={() => handleTimezoneSelect(tz.id)}
-                        label={tz.label}
-                      />
-                    ))}
-                  </ContextMenu.Items>
-                  <ContextMenu.Trigger>
+                  label={
                     <HStack>
                       <Image
                         systemName="chevron.up.chevron.down"
@@ -271,8 +256,17 @@ export const EditAvailabilityNameScreen = forwardRef<
                         modifiers={[frame({ height: 16, width: 16 })]}
                       />
                     </HStack>
-                  </ContextMenu.Trigger>
-                </ContextMenu>
+                  }
+                >
+                  {TIMEZONES.map((tz) => (
+                    <Button
+                      key={tz.id}
+                      systemImage={timezone === tz.id ? "checkmark" : "globe"}
+                      onPress={() => handleTimezoneSelect(tz.id)}
+                      label={tz.label}
+                    />
+                  ))}
+                </Menu>
               </Host>
             </View>
           </>

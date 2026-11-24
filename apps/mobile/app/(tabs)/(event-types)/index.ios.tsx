@@ -31,9 +31,9 @@ import { useEventTypeFilter } from "@/hooks/useEventTypeFilter";
 import type { EventType } from "@/services/calcom";
 import { showErrorAlert, showSilentSuccessAlert, showSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
+import { getDisplayError } from "@/utils/error";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
 import { getEventDuration } from "@/utils/getEventDuration";
-import { getDisplayError } from "@/utils/error";
 import { offlineAwareRefresh } from "@/utils/network";
 import { slugify } from "@/utils/slugify";
 
@@ -114,7 +114,7 @@ export default function EventTypesIOS() {
     }
     try {
       await Clipboard.setStringAsync(eventType.bookingUrl);
-      showSuccessAlert("Link Copied", "Booking link copied!");
+      showSuccessAlert("Link copied", "Booking link copied!");
     } catch {
       showErrorAlert("Error", "Failed to copy link. Please try again.");
     }
@@ -154,7 +154,7 @@ export default function EventTypesIOS() {
   const handleDelete = (eventType: EventType) => {
     // Use native iOS Alert for confirmation
     Alert.alert(
-      "Delete Link",
+      "Delete link",
       `Are you sure you want to delete "${eventType.title}"? This action cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
@@ -335,9 +335,9 @@ export default function EventTypesIOS() {
         <Stack.Header
           style={{ backgroundColor: "transparent", shadowColor: "transparent" }}
           blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
-        >
-          <Stack.Header.Title large>Links</Stack.Header.Title>
-        </Stack.Header>
+        />
+        <Stack.Title large>Links</Stack.Title>
+
         <ScrollView
           style={{ backgroundColor: theme.background }}
           contentContainerStyle={{ paddingBottom: 120, paddingTop: 16 }}
@@ -418,105 +418,102 @@ export default function EventTypesIOS() {
       <Stack.Header
         style={{ backgroundColor: "transparent", shadowColor: "transparent" }}
         blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
-      >
-        <Stack.Header.Title large>Links</Stack.Header.Title>
+      />
+      <Stack.Title large>Links</Stack.Title>
 
-        <Stack.Header.Right>
-          {/* Filter/Sort Menu */}
-          <Stack.Header.Menu>
-            <Stack.Header.Icon sf="line.3.horizontal.decrease" />
+      <Stack.Toolbar placement="right">
+        {/* Filter/Sort Menu */}
+        <Stack.Toolbar.Menu>
+          <Stack.Toolbar.Icon sf="line.3.horizontal.decrease" />
 
-            {/* Sort by Submenu - opens as separate submenu */}
-            <Stack.Header.Menu title="Sort by">
-              <Stack.Header.MenuAction
-                icon={sortBy === "alphabetical" ? "checkmark.circle.fill" : "textformat.abc"}
-                onPress={() => handleSortByOption("alphabetical")}
-              >
-                Alphabetical
-              </Stack.Header.MenuAction>
-              <Stack.Header.MenuAction
-                icon={sortBy === "newest" ? "checkmark.circle.fill" : "calendar.badge.clock"}
-                onPress={() => handleSortByOption("newest")}
-              >
-                Newest First
-              </Stack.Header.MenuAction>
-              <Stack.Header.MenuAction
-                icon={sortBy === "duration" ? "checkmark.circle.fill" : "clock"}
-                onPress={() => handleSortByOption("duration")}
-              >
-                By Duration
-              </Stack.Header.MenuAction>
-            </Stack.Header.Menu>
-
-            {/* Filter Submenu - multi-select toggles */}
-            <Stack.Header.Menu
-              title={`Filter${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}`}
+          {/* Sort by Submenu - opens as separate submenu */}
+          <Stack.Toolbar.Menu title="Sort by">
+            <Stack.Toolbar.MenuAction
+              icon={sortBy === "alphabetical" ? "checkmark.circle.fill" : "textformat.abc"}
+              onPress={() => handleSortByOption("alphabetical")}
             >
-              <Stack.Header.MenuAction
-                icon={filters.hiddenOnly ? "checkmark.circle.fill" : "eye.slash"}
-                onPress={() => handleFilterToggle("hiddenOnly")}
-              >
-                Hidden Only
-              </Stack.Header.MenuAction>
-              <Stack.Header.MenuAction
-                icon={filters.paidOnly ? "checkmark.circle.fill" : "dollarsign.circle"}
-                onPress={() => handleFilterToggle("paidOnly")}
-              >
-                Paid Events
-              </Stack.Header.MenuAction>
-              <Stack.Header.MenuAction
-                icon={filters.seatedOnly ? "checkmark.circle.fill" : "person.2"}
-                onPress={() => handleFilterToggle("seatedOnly")}
-              >
-                Seated Events
-              </Stack.Header.MenuAction>
-              <Stack.Header.MenuAction
-                icon={
-                  filters.requiresConfirmationOnly ? "checkmark.circle.fill" : "checkmark.shield"
-                }
-                onPress={() => handleFilterToggle("requiresConfirmationOnly")}
-              >
-                Requires Confirmation
-              </Stack.Header.MenuAction>
-              <Stack.Header.MenuAction
-                icon={filters.recurringOnly ? "checkmark.circle.fill" : "repeat"}
-                onPress={() => handleFilterToggle("recurringOnly")}
-              >
-                Recurring
-              </Stack.Header.MenuAction>
-              {activeFilterCount > 0 && (
-                <Stack.Header.MenuAction icon="xmark.circle" onPress={resetFilters}>
-                  Clear All Filters
-                </Stack.Header.MenuAction>
-              )}
-            </Stack.Header.Menu>
-          </Stack.Header.Menu>
+              Alphabetical
+            </Stack.Toolbar.MenuAction>
+            <Stack.Toolbar.MenuAction
+              icon={sortBy === "newest" ? "checkmark.circle.fill" : "calendar.badge.clock"}
+              onPress={() => handleSortByOption("newest")}
+            >
+              Newest First
+            </Stack.Toolbar.MenuAction>
+            <Stack.Toolbar.MenuAction
+              icon={sortBy === "duration" ? "checkmark.circle.fill" : "clock"}
+              onPress={() => handleSortByOption("duration")}
+            >
+              By Duration
+            </Stack.Toolbar.MenuAction>
+          </Stack.Toolbar.Menu>
 
-          {/* Profile Button - Opens bottom sheet */}
-          {userProfile?.avatarUrl ? (
-            <Stack.Header.View>
-              <Pressable onPress={() => router.push("/profile-sheet")}>
-                <Image
-                  source={{ uri: getAvatarUrl(userProfile.avatarUrl) }}
-                  style={{ width: 32, height: 32, borderRadius: 16 }}
-                />
-              </Pressable>
-            </Stack.Header.View>
-          ) : (
-            <Stack.Header.Button onPress={() => router.push("/profile-sheet")}>
-              <Stack.Header.Icon sf="person.circle.fill" />
-            </Stack.Header.Button>
-          )}
-        </Stack.Header.Right>
+          {/* Filter Submenu - multi-select toggles */}
+          <Stack.Toolbar.Menu
+            title={`Filter${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}`}
+          >
+            <Stack.Toolbar.MenuAction
+              icon={filters.hiddenOnly ? "checkmark.circle.fill" : "eye.slash"}
+              onPress={() => handleFilterToggle("hiddenOnly")}
+            >
+              Hidden Only
+            </Stack.Toolbar.MenuAction>
+            <Stack.Toolbar.MenuAction
+              icon={filters.paidOnly ? "checkmark.circle.fill" : "dollarsign.circle"}
+              onPress={() => handleFilterToggle("paidOnly")}
+            >
+              Paid Events
+            </Stack.Toolbar.MenuAction>
+            <Stack.Toolbar.MenuAction
+              icon={filters.seatedOnly ? "checkmark.circle.fill" : "person.2"}
+              onPress={() => handleFilterToggle("seatedOnly")}
+            >
+              Seated Events
+            </Stack.Toolbar.MenuAction>
+            <Stack.Toolbar.MenuAction
+              icon={filters.requiresConfirmationOnly ? "checkmark.circle.fill" : "checkmark.shield"}
+              onPress={() => handleFilterToggle("requiresConfirmationOnly")}
+            >
+              Requires Confirmation
+            </Stack.Toolbar.MenuAction>
+            <Stack.Toolbar.MenuAction
+              icon={filters.recurringOnly ? "checkmark.circle.fill" : "repeat"}
+              onPress={() => handleFilterToggle("recurringOnly")}
+            >
+              Recurring
+            </Stack.Toolbar.MenuAction>
+            {activeFilterCount > 0 && (
+              <Stack.Toolbar.MenuAction icon="xmark.circle" onPress={resetFilters}>
+                Clear All Filters
+              </Stack.Toolbar.MenuAction>
+            )}
+          </Stack.Toolbar.Menu>
+        </Stack.Toolbar.Menu>
 
-        {/* Search Bar */}
-        <Stack.Header.SearchBar
-          placeholder="Search links"
-          onChangeText={(e) => handleSearch(e.nativeEvent.text)}
-          obscureBackground={false}
-          barTintColor={isDark ? "#171717" : "#fff"}
-        />
-      </Stack.Header>
+        {/* Profile Button - Opens bottom sheet */}
+        {userProfile?.avatarUrl ? (
+          <Stack.Toolbar.View>
+            <Pressable onPress={() => router.push("/profile-sheet")}>
+              <Image
+                source={{ uri: getAvatarUrl(userProfile.avatarUrl) }}
+                style={{ width: 32, height: 32, borderRadius: 16 }}
+              />
+            </Pressable>
+          </Stack.Toolbar.View>
+        ) : (
+          <Stack.Toolbar.Button onPress={() => router.push("/profile-sheet")}>
+            <Stack.Toolbar.Icon sf="person.circle.fill" />
+          </Stack.Toolbar.Button>
+        )}
+      </Stack.Toolbar>
+
+      {/* Search Bar */}
+      <Stack.SearchBar
+        placeholder="Search links"
+        onChangeText={(e) => handleSearch(e.nativeEvent.text)}
+        obscureBackground={false}
+        barTintColor={isDark ? "#171717" : "#fff"}
+      />
 
       {/* Links List */}
       <ScrollView

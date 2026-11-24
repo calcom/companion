@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { type Href, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef } from "react";
 import { useColorScheme } from "react-native";
 import { BookingDetailScreen } from "@/components/screens/BookingDetailScreen";
@@ -13,6 +13,7 @@ import { getMeetingUrl } from "@/utils/booking";
 import { type BookingActionsResult, getBookingActions } from "@/utils/booking-actions";
 import { getBookingForCacheUpdate, updateBookingCaches } from "@/utils/booking-cache";
 import { openInDefaultBrowser } from "@/utils/browser";
+import { buildVideoCallHref, parseCalVideoLink } from "@/utils/cal-video-links";
 
 // Empty actions result for when no booking is loaded
 const EMPTY_ACTIONS: BookingActionsResult = {
@@ -93,10 +94,15 @@ export default function BookingDetailIOS() {
 
   // Handle join meeting
   const handleJoinMeeting = useCallback(() => {
-    if (meetingUrl) {
-      openInDefaultBrowser(meetingUrl, "meeting link");
+    if (!meetingUrl) return;
+    // Cal Video rooms open natively; every other provider opens in the browser.
+    const calVideoLink = parseCalVideoLink(meetingUrl);
+    if (calVideoLink) {
+      router.push(buildVideoCallHref(calVideoLink) as Href);
+      return;
     }
-  }, [meetingUrl]);
+    openInDefaultBrowser(meetingUrl, "meeting link");
+  }, [meetingUrl, router]);
 
   const handleBackToBookings = useCallback(() => {
     const bookingForCacheUpdate = getBookingForCacheUpdate(queryClient, uid, enrichedBooking);
@@ -252,91 +258,90 @@ export default function BookingDetailIOS() {
       <Stack.Header
         style={{ backgroundColor: "transparent", shadowColor: "transparent" }}
         blurEffect={isLiquidGlassAvailable() ? undefined : "light"}
-      >
-        {openedFromNotification ? (
-          <Stack.Header.Left>
-            <Stack.Header.Button
-              accessibilityLabel="Back to bookings"
-              onPress={handleBackToBookings}
-              tintColor={colorScheme === "dark" ? "#FFF" : "#000"}
-            >
-              <Stack.Header.Icon sf="chevron.backward" />
-            </Stack.Header.Button>
-          </Stack.Header.Left>
-        ) : (
-          <Stack.Header.BackButton displayMode="default">{backTitle}</Stack.Header.BackButton>
-        )}
+      />
+      {openedFromNotification ? (
+        <Stack.Toolbar placement="left">
+          <Stack.Toolbar.Button
+            accessibilityLabel="Back to bookings"
+            onPress={handleBackToBookings}
+            tintColor={colorScheme === "dark" ? "#FFF" : "#000"}
+          >
+            <Stack.Toolbar.Icon sf="chevron.backward" />
+          </Stack.Toolbar.Button>
+        </Stack.Toolbar>
+      ) : (
+        <Stack.Screen.BackButton displayMode="default">{backTitle}</Stack.Screen.BackButton>
+      )}
 
-        <Stack.Header.Right>
-          {/* Actions Menu */}
-          <Stack.Header.Menu>
-            <Stack.Header.Icon sf="ellipsis" />
+      <Stack.Toolbar placement="right">
+        {/* Actions Menu */}
+        <Stack.Toolbar.Menu>
+          <Stack.Toolbar.Icon sf="ellipsis" />
 
-            {/* Copy Meeting Link - only show if there's a meeting URL */}
-            {meetingUrl && (
-              <Stack.Header.MenuAction icon="doc.on.doc" onPress={handleCopyMeetingLink}>
-                Copy Meeting Link
-              </Stack.Header.MenuAction>
-            )}
-
-            {/* Edit Event Section */}
-            <Stack.Header.Menu inline title="Edit Event">
-              {bookingActionsSections.editEvent.map((action) => (
-                <Stack.Header.MenuAction
-                  key={action.id}
-                  icon={action.icon}
-                  onPress={() => invokeHandler(action.handlerName, action.errorMessage)}
-                >
-                  {action.label}
-                </Stack.Header.MenuAction>
-              ))}
-            </Stack.Header.Menu>
-
-            {/* After Event Section */}
-            <Stack.Header.Menu inline title="After Event">
-              {bookingActionsSections.afterEvent.map((action) => (
-                <Stack.Header.MenuAction
-                  key={action.id}
-                  icon={action.icon}
-                  onPress={() => invokeHandler(action.handlerName, action.errorMessage)}
-                >
-                  {action.label}
-                </Stack.Header.MenuAction>
-              ))}
-            </Stack.Header.Menu>
-
-            {/* Danger Zone Submenu */}
-            <Stack.Header.Menu inline title="Danger Zone">
-              {bookingActionsSections.standalone.map((action) => (
-                <Stack.Header.MenuAction
-                  key={action.id}
-                  icon={action.icon}
-                  onPress={() => {
-                    if (action.customHandler) {
-                      action.customHandler();
-                    } else if (action.handlerName && action.errorMessage) {
-                      invokeHandler(action.handlerName, action.errorMessage);
-                    }
-                  }}
-                  destructive
-                >
-                  {action.label}
-                </Stack.Header.MenuAction>
-              ))}
-            </Stack.Header.Menu>
-          </Stack.Header.Menu>
-
+          {/* Copy Meeting Link - only show if there's a meeting URL */}
           {meetingUrl && (
-            <Stack.Header.Button
-              onPress={handleJoinMeeting}
-              variant="prominent"
-              tintColor={colorScheme === "dark" ? "#FFF" : "#000"}
-            >
-              Join
-            </Stack.Header.Button>
+            <Stack.Toolbar.MenuAction icon="doc.on.doc" onPress={handleCopyMeetingLink}>
+              Copy Meeting Link
+            </Stack.Toolbar.MenuAction>
           )}
-        </Stack.Header.Right>
-      </Stack.Header>
+
+          {/* Edit Event Section */}
+          <Stack.Toolbar.Menu inline title="Edit Event">
+            {bookingActionsSections.editEvent.map((action) => (
+              <Stack.Toolbar.MenuAction
+                key={action.id}
+                icon={action.icon}
+                onPress={() => invokeHandler(action.handlerName, action.errorMessage)}
+              >
+                {action.label}
+              </Stack.Toolbar.MenuAction>
+            ))}
+          </Stack.Toolbar.Menu>
+
+          {/* After Event Section */}
+          <Stack.Toolbar.Menu inline title="After Event">
+            {bookingActionsSections.afterEvent.map((action) => (
+              <Stack.Toolbar.MenuAction
+                key={action.id}
+                icon={action.icon}
+                onPress={() => invokeHandler(action.handlerName, action.errorMessage)}
+              >
+                {action.label}
+              </Stack.Toolbar.MenuAction>
+            ))}
+          </Stack.Toolbar.Menu>
+
+          {/* Danger Zone Submenu */}
+          <Stack.Toolbar.Menu inline title="Danger Zone">
+            {bookingActionsSections.standalone.map((action) => (
+              <Stack.Toolbar.MenuAction
+                key={action.id}
+                icon={action.icon}
+                onPress={() => {
+                  if (action.customHandler) {
+                    action.customHandler();
+                  } else if (action.handlerName && action.errorMessage) {
+                    invokeHandler(action.handlerName, action.errorMessage);
+                  }
+                }}
+                destructive
+              >
+                {action.label}
+              </Stack.Toolbar.MenuAction>
+            ))}
+          </Stack.Toolbar.Menu>
+        </Stack.Toolbar.Menu>
+
+        {meetingUrl && (
+          <Stack.Toolbar.Button
+            onPress={handleJoinMeeting}
+            variant="prominent"
+            tintColor={colorScheme === "dark" ? "#FFF" : "#000"}
+          >
+            Join
+          </Stack.Toolbar.Button>
+        )}
+      </Stack.Toolbar>
 
       <BookingDetailScreen
         booking={enrichedBooking}

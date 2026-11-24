@@ -2,6 +2,7 @@
   "compilerOptions": {
     "types": ["nativewind/types"],
     "strict": true,
+    "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
@@ -11,7 +12,9 @@
       "@/services/*": ["./services/*"],
       "@/contexts/*": ["./contexts/*"],
       "@/config/*": ["./config/*"],
-      "@/types/*": ["./types/*"]
+      "@/types/*": ["./types/*"],
+      "expo-kloq": ["./vendor/expo-kloq/src/index.ts"],
+      "kloq/lib/*": ["./vendor/kloq/src/lib/*"]
     }
   },
   "extends": "expo/tsconfig.base",

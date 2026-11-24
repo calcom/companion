@@ -91,15 +91,14 @@ export default function MarkNoShowIOS() {
         }}
       />
 
-      <Stack.Header>
-        <Stack.Header.Left>
-          <Stack.Header.Button onPress={() => router.back()}>
-            <Stack.Header.Icon sf="xmark" />
-          </Stack.Header.Button>
-        </Stack.Header.Left>
+      <Stack.Header />
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button onPress={() => router.back()}>
+          <Stack.Toolbar.Icon sf="xmark" />
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
 
-        <Stack.Header.Title>Mark No-Show</Stack.Header.Title>
-      </Stack.Header>
+      <Stack.Title>Mark No-Show</Stack.Title>
 
       <View
         style={{

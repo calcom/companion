@@ -32,6 +32,7 @@ export const colors = {
 
     // Accent colors
     accent: "#007AFF",
+    link: "#005FCC",
     success: "#34C759",
     warning: "#FF9500",
     error: "#FF3B30",
@@ -57,6 +58,7 @@ export const colors = {
 
     // Accent colors
     accent: "#007AFF",
+    link: "#4DA3FF",
     success: "#34C759",
     warning: "#FF9500",
     error: "#FF3B30",
@@ -119,3 +121,13 @@ export const semanticColors = {
     dark: colors.dark.backgroundEmphasis,
   },
 } as const;
+
+/**
+ * Surfaces of a detail or edit screen: cards on a screen that sets them off, as Bookings and
+ * Availability draw them. Dark mode lifts the cards off black; light mode sets white cards on gray.
+ */
+export function getGroupedSurfaces(isDark: boolean) {
+  return isDark
+    ? { screen: colors.dark.background, card: colors.dark.backgroundSecondary }
+    : { screen: colors.light.backgroundMuted, card: colors.light.background };
+}

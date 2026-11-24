@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
-import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
@@ -19,6 +18,9 @@ import {
 import { type Booking, CalComAPIService } from "@/services/calcom";
 import { showInfoAlert, showSuccessAlert } from "@/utils/alerts";
 import { syncBookingCachesAfterMutation } from "@/utils/booking-cache";
+import { openInAppBrowser } from "@/utils/browser";
+import { getPushNotificationRoute } from "@/utils/push-notification-route";
+import { CAL_APP_HOSTNAMES } from "@/utils/region";
 
 // How long the pre-logout callback waits for an in-flight registration to
 // settle before deregistering, so a token that registered moments before
@@ -109,15 +111,21 @@ interface PushNotificationProviderProps {
 
 function handleNotificationUrl(url: string, router: ReturnType<typeof useRouter>): void {
   try {
-    const parsed = Linking.parse(url);
-    const uid = typeof parsed.queryParams?.uid === "string" ? parsed.queryParams.uid : null;
-    if (uid) {
+    const route = getPushNotificationRoute(url, CAL_APP_HOSTNAMES);
+    if (route?.kind === "booking") {
       router.push(
-        `/(tabs)/(bookings)/booking-detail?uid=${encodeURIComponent(uid)}&source=notification`,
+        `/(tabs)/(bookings)/booking-detail?uid=${encodeURIComponent(route.uid)}&source=notification`,
         {
           withAnchor: true,
         }
       );
+    } else if (route?.kind === "cal-event") {
+      router.push({
+        pathname: "/edit-cal-event",
+        params: { uuid: route.uuid, initialTab: "guests" },
+      });
+    } else if (route?.kind === "web") {
+      void openInAppBrowser(route.url);
     }
   } catch {
     // Malformed deep link — ignore.

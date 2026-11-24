@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs, useRouter, useSegments, VectorIcon } from "expo-router";
+import { Tabs, useGlobalSearchParams, useRouter, useSegments, VectorIcon } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useEffect, useRef } from "react";
 import type { ColorValue, ImageSourcePropType } from "react-native";
 import { Platform, useColorScheme } from "react-native";
 import { getRouteFromPreference, useUserPreferences } from "@/hooks/useUserPreferences";
+import { APP_LINK_SOURCE } from "@/utils/app-link-navigation";
 import { getInitialLandingRedirectDecision } from "@/utils/landing-page-navigation";
 
 // Type for vector icon families that support getImageSource
@@ -16,6 +17,7 @@ export default function TabLayout() {
   const router = useRouter();
   const segments = useSegments();
   const segmentKey = segments.join("/");
+  const { source } = useGlobalSearchParams<{ source?: string }>();
   const { preferences, isLoading } = useUserPreferences();
   const hasNavigated = useRef(false);
   const colorScheme = useColorScheme();
@@ -39,6 +41,7 @@ export default function TabLayout() {
     const decision = getInitialLandingRedirectDecision({
       landingPage: preferences.landingPage,
       segments: segmentKey ? segmentKey.split("/") : [],
+      isAppLink: source === APP_LINK_SOURCE,
     });
 
     if (decision === "wait") {
@@ -59,7 +62,7 @@ export default function TabLayout() {
       // biome-ignore lint/suspicious/noExplicitAny: expo-router types don't support dynamic route strings from preferences
       router.navigate(route as any);
     }, 50);
-  }, [isLoading, preferences.landingPage, router, segmentKey]);
+  }, [isLoading, preferences.landingPage, router, segmentKey, source]);
 
   if (Platform.OS === "web") {
     return <WebTabs colors={colors} />;
@@ -101,6 +104,19 @@ export default function TabLayout() {
           ),
         })}
         <NativeTabs.Trigger.Label>Links</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="(events)">
+        {Platform.select({
+          ios: <NativeTabs.Trigger.Icon sf={{ default: "ticket", selected: "ticket.fill" }} />,
+          android: (
+            <NativeTabs.Trigger.Icon
+              src={<VectorIcon family={Ionicons as VectorIconFamily} name="ticket-outline" />}
+              selectedColor={colors.selected}
+            />
+          ),
+        })}
+        <NativeTabs.Trigger.Label>Events</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="(availability)">
@@ -180,6 +196,16 @@ function WebTabs({ colors }: { colors: TabColors }) {
           title: "Bookings",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "calendar" : "calendar-outline"} size={24} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="(events)"
+        options={{
+          title: "Events",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "ticket" : "ticket-outline"} size={24} color={color} />
           ),
         }}
       />

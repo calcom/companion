@@ -87,7 +87,10 @@ export function MeetingSessionDetailsScreen({
         }`}
       >
         <View className="flex-row items-center">
-          <View className="mr-3 h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: pillBg }}>
+          <View
+            className="mr-3 h-10 w-10 items-center justify-center rounded-full"
+            style={{ backgroundColor: pillBg }}
+          >
             <Ionicons name="videocam" size={20} color={isDark ? "#A3A3A3" : "#6B7280"} />
           </View>
           <Text className={`text-[17px] font-semibold ${isDark ? "text-white" : "text-[#000]"}`}>
@@ -185,7 +188,10 @@ export function MeetingSessionDetailsScreen({
   if (sessions.length === 0) {
     return (
       <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor }}>
-        <View className="mb-4 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: pillBg }}>
+        <View
+          className="mb-4 h-16 w-16 items-center justify-center rounded-full"
+          style={{ backgroundColor: pillBg }}
+        >
           <Ionicons name="information-circle" size={32} color="#A3A3A3" />
         </View>
         <Text

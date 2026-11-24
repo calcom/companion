@@ -130,8 +130,46 @@ export async function getBookings(filters?: {
   const endpoint = `/bookings${queryString ? `?${queryString}` : ""}`;
 
   const response = await makeRequest<unknown>(endpoint);
+  return keepParticipatingBookings(bookingsFromResponse(response));
+}
 
-  // Handle different possible response structures (same logic as event types)
+/** The calendar's page size, and how many pages it reads at most. */
+const RANGE_PAGE_SIZE = 100;
+const RANGE_MAX_PAGES = 10;
+
+/**
+ * The bookings that start and end between `afterStart` and `beforeEnd`, for the bookings
+ * calendar: up to RANGE_MAX_PAGES pages of RANGE_PAGE_SIZE, earliest first.
+ */
+export async function getBookingsBetween(range: {
+  afterStart: string;
+  beforeEnd: string;
+  eventTypeId?: number;
+}): Promise<Booking[]> {
+  const bookings: Booking[] = [];
+  for (let page = 0; page < RANGE_MAX_PAGES; page++) {
+    const params = new URLSearchParams();
+    params.append("afterStart", range.afterStart);
+    params.append("beforeEnd", range.beforeEnd);
+    params.append("sortStart", "asc");
+    params.append("take", String(RANGE_PAGE_SIZE));
+    params.append("skip", String(page * RANGE_PAGE_SIZE));
+    if (range.eventTypeId) {
+      params.append("eventTypeId", String(range.eventTypeId));
+    }
+    const pageBookings = bookingsFromResponse(
+      await makeRequest<unknown>(`/bookings?${params.toString()}`)
+    );
+    bookings.push(...pageBookings);
+    if (pageBookings.length < RANGE_PAGE_SIZE) {
+      break;
+    }
+  }
+  return keepParticipatingBookings(bookings);
+}
+
+/** The bookings in a list response, whichever shape it has (same logic as event types). */
+function bookingsFromResponse(response: unknown): Booking[] {
   let bookingsArray: Booking[] = [];
 
   if (Array.isArray(response)) {
@@ -167,7 +205,11 @@ export async function getBookings(filters?: {
       }
     }
   }
+  return bookingsArray;
+}
 
+/** Only the bookings the signed-in user takes part in. */
+async function keepParticipatingBookings(bookingsArray: Booking[]): Promise<Booking[]> {
   // Get cached user profile to filter bookings (uses in-flight deduplication)
   let userProfile: UserProfile | undefined;
   try {

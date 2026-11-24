@@ -63,6 +63,24 @@ export function useBookings(filters?: BookingFilters) {
 }
 
 /**
+ * The bookings between two instants, for the bookings calendar. Kept under the bookings key, so
+ * booking mutations refetch it with the lists.
+ */
+export function useBookingsBetween(range: {
+  afterStart: string;
+  beforeEnd: string;
+  eventTypeId?: number;
+}) {
+  return useQuery({
+    queryKey: [...queryKeys.bookings.all, "between", range] as const,
+    queryFn: () => CalComAPIService.getBookingsBetween(range),
+    staleTime: CACHE_CONFIG.bookings.staleTime,
+    // Keep the last range's bookings on screen while the next one loads
+    placeholderData: (previousData) => previousData,
+  });
+}
+
+/**
  * Hook to fetch a single booking by UID
  *
  * @param uid - The unique identifier of the booking
