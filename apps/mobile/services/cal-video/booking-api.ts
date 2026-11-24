@@ -147,14 +147,13 @@ export async function joinBookingSession(input: {
   );
   const body = await readJson(response);
   if (!response.ok) {
-    // Asked for a tick the page has a checkbox for, and none was sent: show it. Anything else
-    // about the tick gets the web's message, so a refusal never loops.
-    if (
-      body.reason === "speech_consent_required" &&
-      !input.speechConsent &&
-      input.call.speechConsent
-    ) {
-      return { kind: "consent-required" };
+    // Asked for a tick and none was sent: show the page's checkbox. If the app couldn't read one,
+    // reopening reads the same page, so the call goes to the web pre-join, which has it. Anything
+    // else about the tick gets the web's message, so a refusal never loops.
+    if (body.reason === "speech_consent_required" && !input.speechConsent) {
+      return input.call.speechConsent
+        ? { kind: "consent-required" }
+        : { kind: "failure", failure: "needs-web" };
     }
     const refusal = speechConsentRefusalFor(body.reason);
     if (refusal) return { kind: "consent-refused", refusal };
