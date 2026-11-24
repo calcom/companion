@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host, HStack, Image } from "@expo/ui/swift-ui";
+import { Button, Host, HStack, Image, Menu } from "@expo/ui/swift-ui";
 import { buttonStyle, frame } from "@expo/ui/swift-ui/modifiers";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import type React from "react";
@@ -134,22 +134,9 @@ export const EventTypeListItem = ({
 
         <View style={{ paddingRight: 16, paddingTop: 4, flexShrink: 0 }}>
           <Host matchContents>
-            <ContextMenu
+            <Menu
               modifiers={[buttonStyle(isLiquidGlassAvailable() ? "glass" : "bordered")]}
-              activationMethod="singlePress"
-            >
-              <ContextMenu.Items>
-                {eventTypes.map((eventType) => (
-                  <Button
-                    key={eventType.label}
-                    systemImage={eventType.icon}
-                    onPress={eventType.onPress}
-                    role={eventType.role}
-                    label={eventType.label}
-                  />
-                ))}
-              </ContextMenu.Items>
-              <ContextMenu.Trigger>
+              label={
                 <HStack>
                   <Image
                     systemName="ellipsis"
@@ -158,8 +145,18 @@ export const EventTypeListItem = ({
                     modifiers={[frame({ height: 24, width: 17 })]}
                   />
                 </HStack>
-              </ContextMenu.Trigger>
-            </ContextMenu>
+              }
+            >
+              {eventTypes.map((eventType) => (
+                <Button
+                  key={eventType.label}
+                  systemImage={eventType.icon}
+                  onPress={eventType.onPress}
+                  role={eventType.role}
+                  label={eventType.label}
+                />
+              ))}
+            </Menu>
           </Host>
         </View>
       </View>

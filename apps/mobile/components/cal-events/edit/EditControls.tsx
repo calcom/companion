@@ -1,0 +1,615 @@
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { createContext, type ReactNode, useContext } from "react";
+import {
+  KeyboardAvoidingView,
+  type KeyboardTypeOptions,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  useColorScheme,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SectionHeader } from "@/components/event-type-detail/SettingsUI";
+import { HeaderPillButton, HeaderSaveButton } from "@/components/HeaderButtons";
+import { getColors, getGroupedSurfaces } from "@/constants/colors";
+import { getAvatarUrl } from "@/utils/getAvatarUrl";
+
+/** The edit screen's building blocks: sections, fields, rows and sheets in one visual style. */
+
+// Lives with the edit model so node tests can reach it without React Native.
+export { moveItem } from "@/utils/cal-event-edit";
+
+export function useEditTheme() {
+  return getColors(useColorScheme() === "dark");
+}
+
+/** The screen and card colors of the other tabs' detail screens. */
+export function useEditSurfaces() {
+  return getGroupedSurfaces(useColorScheme() === "dark");
+}
+
+const OnCardContext = createContext(false);
+
+/**
+ * A field's fill: the link editor's gray on a card, else the card color, which sets it off the
+ * screen or sheet behind it.
+ */
+export function useFieldBackground() {
+  const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
+  return useContext(OnCardContext) ? theme.backgroundMuted : surfaces.card;
+}
+
+/**
+ * Gives the fields inside the gray fill they use on a card. For a liquid glass sheet, which turns
+ * opaque white at full height and would hide a card-colored field.
+ */
+export function OnCardFields({ children }: { children: ReactNode }) {
+  return <OnCardContext.Provider value={true}>{children}</OnCardContext.Provider>;
+}
+
+export function EditSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
+  return (
+    <View>
+      {/* The link editor's small grey heading. */}
+      <SectionHeader title={title} />
+      {description ? (
+        <Text style={{ color: theme.textSecondary, fontSize: 13, marginLeft: 16, marginBottom: 8 }}>
+          {description}
+        </Text>
+      ) : null}
+      <View
+        style={{
+          backgroundColor: surfaces.card,
+          borderRadius: 14,
+          padding: 14,
+          gap: 18,
+        }}
+      >
+        <OnCardContext.Provider value={true}>{children}</OnCardContext.Provider>
+      </View>
+    </View>
+  );
+}
+
+export function FieldLabel({ label, hint }: { label: string; hint?: string }) {
+  const theme = useEditTheme();
+  return (
+    <View style={{ gap: 2 }}>
+      <Text style={{ color: theme.text, fontSize: 15, fontWeight: "600" }}>{label}</Text>
+      {hint ? <Text style={{ color: theme.textSecondary, fontSize: 13 }}>{hint}</Text> : null}
+    </View>
+  );
+}
+
+/** Small secondary text under a field or list. */
+export function HintText({ children }: { children: ReactNode }) {
+  const theme = useEditTheme();
+  return <Text style={{ color: theme.textSecondary, fontSize: 13 }}>{children}</Text>;
+}
+
+export function ErrorText({ message }: { message?: string | null }) {
+  const theme = useEditTheme();
+  if (!message) return null;
+  return (
+    <Text accessibilityRole="alert" style={{ color: theme.error, fontSize: 14 }}>
+      {message}
+    </Text>
+  );
+}
+
+interface EditTextFieldProps {
+  label?: string;
+  hint?: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  onBlur?: () => void;
+  placeholder?: string;
+  multiline?: boolean;
+  keyboardType?: KeyboardTypeOptions;
+  autoCapitalize?: "none" | "sentences" | "words";
+  editable?: boolean;
+  maxLength?: number;
+  error?: string | null;
+  testID?: string;
+  accessibilityLabel?: string;
+  /** Text before the field, such as a URL's host. */
+  prefix?: string;
+  /** An icon before the field, such as a search glass. */
+  leading?: ReactNode;
+  /** A control after the field, such as a copy button. */
+  trailing?: ReactNode;
+}
+
+export function EditTextField({
+  label,
+  hint,
+  value,
+  onChangeText,
+  onBlur,
+  placeholder,
+  multiline = false,
+  keyboardType,
+  autoCapitalize,
+  editable = true,
+  maxLength,
+  error,
+  testID,
+  accessibilityLabel,
+  prefix,
+  leading,
+  trailing,
+}: EditTextFieldProps) {
+  const theme = useEditTheme();
+  const fieldBackground = useFieldBackground();
+  return (
+    <View style={{ gap: 6 }}>
+      {label ? <FieldLabel label={label} hint={hint} /> : null}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: multiline ? "flex-start" : "center",
+          // As in the link editor: a fill, no outline. The outline only marks an error.
+          borderWidth: 1,
+          borderColor: error ? theme.error : "transparent",
+          borderRadius: 8,
+          paddingLeft: prefix ? 0 : 12,
+          paddingRight: 12,
+          overflow: "hidden",
+          backgroundColor: fieldBackground,
+          gap: leading ? 8 : 0,
+        }}
+      >
+        {leading}
+        {/* The link editor's URL host, on a darker block at the field's start. A long host
+            shortens rather than pushing the field's end out of it. */}
+        {prefix ? (
+          <View
+            style={{
+              alignSelf: "stretch",
+              justifyContent: "center",
+              flexShrink: 1,
+              maxWidth: "60%",
+              paddingHorizontal: 12,
+              marginRight: 12,
+              backgroundColor: theme.backgroundEmphasis,
+            }}
+          >
+            <Text style={{ color: theme.textSecondary, fontSize: 16 }} numberOfLines={1}>
+              {prefix}
+            </Text>
+          </View>
+        ) : null}
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          onBlur={onBlur}
+          placeholder={placeholder}
+          placeholderTextColor={theme.textMuted}
+          multiline={multiline}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={autoCapitalize !== "none"}
+          editable={editable}
+          maxLength={maxLength}
+          testID={testID}
+          accessibilityLabel={accessibilityLabel ?? label}
+          accessibilityHint={hint}
+          style={{
+            flex: 1,
+            // The web's input otherwise keeps its default width and pushes `trailing` out.
+            minWidth: 0,
+            color: editable ? theme.text : theme.textSecondary,
+            fontSize: 16,
+            paddingVertical: 10,
+            minHeight: multiline ? 120 : 44,
+            textAlignVertical: multiline ? "top" : "center",
+          }}
+        />
+        {trailing}
+      </View>
+      <ErrorText message={error} />
+    </View>
+  );
+}
+
+export function SwitchRow({
+  label,
+  hint,
+  value,
+  onValueChange,
+  disabled = false,
+}: {
+  label: string;
+  hint?: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={() => !disabled && onValueChange(!value)}
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      accessibilityState={{ checked: value, disabled }}
+      style={{ flexDirection: "row", alignItems: "center", gap: 12, opacity: disabled ? 0.5 : 1 }}
+    >
+      <View style={{ flex: 1 }}>
+        <FieldLabel label={label} hint={hint} />
+      </View>
+      <EditSwitch value={value} onValueChange={onValueChange} disabled={disabled} />
+    </Pressable>
+  );
+}
+
+/** The web's switch colors an on thumb from this (teal by default), not thumbColor; untyped in RN. */
+const WEB_SWITCH_THUMB = { activeThumbColor: "#FFFFFF" };
+
+/**
+ * A switch in the Links editor's colors: black when on (green in dark mode), never the platform's
+ * own green or the web's teal. Hidden from screen readers: its row is the switch they hear.
+ */
+export function EditSwitch({
+  value,
+  onValueChange,
+  disabled = false,
+}: {
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
+  const isDark = useColorScheme() === "dark";
+  return (
+    <Switch
+      value={value}
+      onValueChange={onValueChange}
+      disabled={disabled}
+      trackColor={{
+        false: isDark ? "#404040" : "#E5E5EA",
+        true: isDark ? "#34C759" : "#000000",
+      }}
+      thumbColor="#FFFFFF"
+      {...WEB_SWITCH_THUMB}
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+    />
+  );
+}
+
+/** A row of chips, one of which is picked. */
+export function ChoiceChips<T extends string | null>({
+  label,
+  hint,
+  options,
+  value,
+  onChange,
+  disabled = false,
+}: {
+  label?: string;
+  hint?: string;
+  options: { value: T; label: string; hint?: string }[];
+  value: T;
+  onChange: (value: T) => void;
+  disabled?: boolean;
+}) {
+  const theme = useEditTheme();
+  return (
+    <View style={{ gap: 8, opacity: disabled ? 0.5 : 1 }}>
+      {label ? <FieldLabel label={label} hint={hint} /> : null}
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel={label}
+        style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
+      >
+        {options.map((option) => {
+          const selected = option.value === value;
+          return (
+            <Pressable
+              key={String(option.value)}
+              onPress={() => !disabled && onChange(option.value)}
+              disabled={disabled}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected, disabled }}
+              accessibilityHint={option.hint}
+              style={{
+                height: 38,
+                justifyContent: "center",
+                paddingHorizontal: 14,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: selected ? theme.text : theme.border,
+                backgroundColor: selected ? theme.backgroundEmphasis : "transparent",
+              }}
+            >
+              <Text
+                style={{ color: theme.text, fontSize: 15, fontWeight: selected ? "600" : "400" }}
+              >
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * The editor's secondary button, outlined in the app's neutral colors like the guest toolbar's:
+ * "Add lineup person", "Upload", "Remove".
+ */
+export function TextButton({
+  icon,
+  label,
+  onPress,
+  destructive = false,
+  disabled = false,
+  accessibilityLabel,
+}: {
+  icon?: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+}) {
+  const theme = useEditTheme();
+  const color = destructive ? theme.destructive : theme.text;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ disabled }}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        alignSelf: "flex-start",
+        height: 36,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: theme.border,
+        opacity: disabled ? 0.4 : 1,
+      }}
+    >
+      {icon ? <Ionicons name={icon} size={16} color={color} /> : null}
+      <Text style={{ color, fontSize: 15, fontWeight: "500" }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** Up / down / remove buttons for a row in an ordered list. */
+export function RowControls({
+  itemLabel,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+  removeDisabled = false,
+}: {
+  /** Names the row for VoiceOver: "Move Ada up". */
+  itemLabel: string;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  /** Without it there's no remove button. */
+  onRemove?: () => void;
+  /** Keeps the remove button in place but greyed out, e.g. while a change is saving. */
+  removeDisabled?: boolean;
+}) {
+  const theme = useEditTheme();
+  const button = (
+    icon: keyof typeof Ionicons.glyphMap,
+    label: string,
+    onPress: (() => void) | undefined,
+    // Not a default parameter: the React Compiler can't lower `= theme.textSecondary`.
+    color?: string
+  ) => (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !onPress }}
+      hitSlop={6}
+      style={{ padding: 4, opacity: onPress ? 1 : 0.25 }}
+    >
+      <Ionicons name={icon} size={20} color={color ?? theme.textSecondary} />
+    </Pressable>
+  );
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+      {onMoveUp !== undefined || onMoveDown !== undefined ? (
+        <>
+          {button("chevron-up", `Move ${itemLabel} up`, onMoveUp)}
+          {button("chevron-down", `Move ${itemLabel} down`, onMoveDown)}
+        </>
+      ) : null}
+      {onRemove
+        ? button(
+            "close-circle",
+            `Remove ${itemLabel}`,
+            removeDisabled ? undefined : onRemove,
+            theme.destructive
+          )
+        : null}
+    </View>
+  );
+}
+
+/** A row with an optional avatar, a title and a subtitle; tappable when `onPress` is given. */
+export function ListRow({
+  title,
+  subtitle,
+  avatarUrl,
+  showAvatar = false,
+  onPress,
+  trailing,
+  accessibilityHint,
+}: {
+  title: string;
+  subtitle?: string | null;
+  avatarUrl?: string | null;
+  showAvatar?: boolean;
+  onPress?: () => void;
+  trailing?: ReactNode;
+  accessibilityHint?: string;
+}) {
+  const theme = useEditTheme();
+  const content = (
+    <>
+      {showAvatar ? (
+        <Image
+          source={{ uri: getAvatarUrl(avatarUrl) }}
+          style={{ width: 32, height: 32, borderRadius: 16 }}
+          accessibilityIgnoresInvertColors
+        />
+      ) : null}
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: theme.text, fontSize: 16 }} numberOfLines={2}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text style={{ color: theme.textSecondary, fontSize: 13 }} numberOfLines={2}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+    </>
+  );
+  const rowStyle = {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 10,
+    minHeight: 44,
+  };
+  return (
+    <View style={rowStyle}>
+      {onPress ? (
+        <Pressable
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityHint={accessibilityHint}
+          style={[rowStyle, { flex: 1 }]}
+        >
+          {content}
+          <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+        </Pressable>
+      ) : (
+        <View style={[rowStyle, { flex: 1 }]}>{content}</View>
+      )}
+      {trailing}
+    </View>
+  );
+}
+
+/**
+ * A page sheet over the edit screen with a Cancel pill and a primary one, for editing one list
+ * item (a person, a schedule item, a question) before it goes into the form.
+ */
+export function EditSheet({
+  visible,
+  title,
+  onCancel,
+  onDone,
+  doneLabel = "Done",
+  doneDisabled = false,
+  busy = false,
+  children,
+}: {
+  visible: boolean;
+  title: string;
+  onCancel: () => void;
+  onDone: () => void;
+  doneLabel?: string;
+  doneDisabled?: boolean;
+  /**
+   * An add, a save or a photo upload is in flight. It can't be called off, so Cancel would only
+   * hide it: the sheet stays open until it settles.
+   */
+  busy?: boolean;
+  children: ReactNode;
+}) {
+  const theme = useEditTheme();
+  const surfaces = useEditSurfaces();
+  const insets = useSafeAreaInsets();
+  // Android's back button and an iOS swipe down both ask through onRequestClose.
+  const requestClose = () => {
+    if (!busy) onCancel();
+  };
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle={Platform.OS === "ios" ? "pageSheet" : undefined}
+      onRequestClose={requestClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{
+          flex: 1,
+          backgroundColor: surfaces.screen,
+          paddingTop: Platform.OS === "ios" ? 8 : insets.top,
+        }}
+      >
+        {/* The editor's own header buttons: a Cancel pill and the primary pill, greyed out until
+            the item can be added. */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            paddingHorizontal: 16,
+            height: 60,
+          }}
+        >
+          <HeaderPillButton label="Cancel" onPress={onCancel} disabled={busy} />
+          <Text
+            accessibilityRole="header"
+            style={{
+              flex: 1,
+              color: theme.text,
+              fontSize: 17,
+              fontWeight: "600",
+              textAlign: "center",
+            }}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          <HeaderSaveButton
+            label={doneLabel}
+            onPress={onDone}
+            saving={busy}
+            dirty={!doneDisabled}
+          />
+        </View>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 18 }}
+        >
+          {/* Off the card even when opened from one (Add a question), so its fields stand out. */}
+          <OnCardContext.Provider value={false}>{children}</OnCardContext.Provider>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}

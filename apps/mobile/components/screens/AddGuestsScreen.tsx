@@ -18,10 +18,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getUserFacingApiReason } from "@/components/cal-events/useCalEventActions";
 import { getColors } from "@/constants/colors";
 import { useAddGuests } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
-import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
+import { showErrorAlert, showInfoAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { safeLogError } from "@/utils/safeLogger";
 
 export interface AddGuestsScreenProps {
@@ -135,7 +136,12 @@ export const AddGuestsScreen = forwardRef<AddGuestsScreenHandle, AddGuestsScreen
           },
           onError: (error) => {
             safeLogError("[AddGuestsScreen] Failed to add guests:", error);
-            showErrorAlert("Error", "Failed to add guests. Please try again.");
+            // Shown in release builds too, with the API's reason when it gives one (e.g. a seated
+            // event, where retrying can't help).
+            showInfoAlert(
+              "Error",
+              getUserFacingApiReason(error) ?? "Failed to add guests. Please try again."
+            );
           },
         }
       );

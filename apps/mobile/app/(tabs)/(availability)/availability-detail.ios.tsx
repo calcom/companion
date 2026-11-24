@@ -83,39 +83,38 @@ export default function AvailabilityDetailIOS() {
           shadowColor: "transparent",
           backgroundColor: isDark ? theme.background : theme.backgroundMuted,
         }}
-      >
-        <Stack.Header.Right>
-          {/* Edit Menu */}
-          <Stack.Header.Menu>
-            <Stack.Header.Label>Edit</Stack.Header.Label>
+      />
+      <Stack.Toolbar placement="right">
+        {/* Edit Menu */}
+        <Stack.Toolbar.Menu>
+          <Stack.Toolbar.Label>Edit</Stack.Toolbar.Label>
 
-            {/* Name and Timezone */}
-            <Stack.Header.MenuAction icon="pencil" onPress={handleEditNameAndTimezone}>
-              Name and Timezone
-            </Stack.Header.MenuAction>
+          {/* Name and Timezone */}
+          <Stack.Toolbar.MenuAction icon="pencil" onPress={handleEditNameAndTimezone}>
+            Name and Timezone
+          </Stack.Toolbar.MenuAction>
 
-            {/* Working Hours */}
-            <Stack.Header.MenuAction icon="clock" onPress={handleEditWorkingHours}>
-              Working Hours
-            </Stack.Header.MenuAction>
+          {/* Working Hours */}
+          <Stack.Toolbar.MenuAction icon="clock" onPress={handleEditWorkingHours}>
+            Working Hours
+          </Stack.Toolbar.MenuAction>
 
-            {/* Date Override */}
-            <Stack.Header.MenuAction icon="calendar.badge.plus" onPress={handleEditOverride}>
-              Date Override
-            </Stack.Header.MenuAction>
+          {/* Date Override */}
+          <Stack.Toolbar.MenuAction icon="calendar.badge.plus" onPress={handleEditOverride}>
+            Date Override
+          </Stack.Toolbar.MenuAction>
 
-            {/* Set as Default */}
-            <Stack.Header.MenuAction icon="star" onPress={handleSetAsDefault}>
-              Set as Default
-            </Stack.Header.MenuAction>
+          {/* Set as Default */}
+          <Stack.Toolbar.MenuAction icon="star" onPress={handleSetAsDefault}>
+            Set as Default
+          </Stack.Toolbar.MenuAction>
 
-            {/* Delete */}
-            <Stack.Header.MenuAction icon="trash" onPress={handleDelete} destructive>
-              Delete Schedule
-            </Stack.Header.MenuAction>
-          </Stack.Header.Menu>
-        </Stack.Header.Right>
-      </Stack.Header>
+          {/* Delete */}
+          <Stack.Toolbar.MenuAction icon="trash" onPress={handleDelete} destructive>
+            Delete Schedule
+          </Stack.Toolbar.MenuAction>
+        </Stack.Toolbar.Menu>
+      </Stack.Toolbar>
 
       <AvailabilityDetailScreen ref={screenRef} id={id} onActionsReady={handleActionsReady} />
     </>

@@ -29,6 +29,7 @@ export default tseslint.config(
       'android/**',
       'ios/**',
       'api/**',
+      'vendor/**',
       '**/*.generated.*',
       '**/*.d.ts',
       'babel.config.js',

@@ -25,6 +25,7 @@ export function SectionHeader({
   return (
     <View className={`flex-row items-center ${rightElement ? "justify-between pr-4" : ""} mb-2`}>
       <Text
+        accessibilityRole="header"
         className="ml-4 text-[13px] uppercase tracking-wide"
         style={{ letterSpacing: 0.5, color: theme.textSecondary }}
       >

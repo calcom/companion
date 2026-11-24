@@ -25,6 +25,7 @@ A native companion app built with [Expo](https://expo.dev) and React Native.
 
 - **Bookings** — View, cancel, reschedule, add guests, and mark no-shows
 - **Links** — Browse and edit booking links including duration, recurrence, limits, and availability
+- **Events** — Browse the one-off events you host (meetups, parties, launches) per profile, with publish, cancel, delete and share; editing opens the web editor
 - **Availability** — Manage schedules, working hours, and date overrides
 - **Widgets** — Home-screen widgets for iOS (WidgetKit) and Android show your upcoming bookings at a glance
 - **Dark mode** — Full light/dark theme support that follows your system preference
@@ -68,8 +69,8 @@ A cross-browser extension built with [WXT](https://wxt.dev) that brings Cal.com 
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+)
-- [Bun](https://bun.sh/) (recommended) or npm
+- [Node.js](https://nodejs.org/) (v20.19.4+ for the current mobile toolchain)
+- [Bun](https://bun.sh/) (the workspace scripts below use Bun)
 - For mobile development: Xcode (iOS) or Android Studio (Android)
 
 ### Install dependencies
@@ -80,13 +81,23 @@ bun install
 
 ### Environment
 
-Copy the example env file and fill in your Cal.com OAuth credentials:
+For the mobile app, follow [Running the iOS app in the Simulator](apps/mobile/docs/local-development.md)
+to pull the production OAuth configuration into `apps/mobile/.env.local`, or
+configure a local Cal.com instance. The root `.env` alone does not configure Expo.
+
+For browser-extension configuration, copy the example env file and fill in your
+Cal.com OAuth credentials:
 
 ```sh
 cp .env.example .env
 ```
 
 ### Run the mobile app
+
+For iOS prerequisites (including CocoaPods), production sign-in, and optional
+local-backend setup, see [Running the iOS app in the Simulator](apps/mobile/docs/local-development.md).
+Use `bun run mobile:ios` to build and install the iOS dev client first;
+`bun run mobile` only starts Metro for an already-installed app.
 
 ```sh
 # Expo dev server
@@ -165,6 +176,11 @@ bun run ext:zip:prod
 | `bun run format:check` | Check Biome formatting |
 | `bun run check` | Run Biome checks and apply safe fixes |
 | `bun run check:ci` | Run Biome CI checks |
+
+## Releasing
+
+- **iOS** — Step-by-step guide to building, testing, and shipping a new version to the App Store: [Releasing the iOS app](apps/mobile/docs/releasing-ios.md)
+- **Android** — Step-by-step guide to building, testing, and shipping a new version to Google Play: [Releasing the Android app](apps/mobile/docs/releasing-android.md)
 
 ## Contributing
 

@@ -3,6 +3,7 @@ import { getMeetingUrl } from "@/utils/booking";
 import { getBookingPaymentStatus } from "@/utils/booking-payment-status";
 import { isBookingRequestPending } from "@/utils/booking-request-actions";
 import { formatDate, formatTime, getHostAndAttendeesDisplay } from "@/utils/bookings-utils";
+import { RANGE_SEPARATOR } from "@/utils/date-time-format";
 import { getMeetingInfo } from "@/utils/meetings-utils";
 
 export interface BookingListItemData {
@@ -24,7 +25,11 @@ export interface BookingListItemData {
  * Extracts and computes derived data from a booking object.
  * This hook centralizes the logic shared between iOS and non-iOS BookingListItem components.
  */
-export function useBookingListItemData(booking: Booking, userEmail?: string): BookingListItemData {
+export function useBookingListItemData(
+  booking: Booking,
+  userEmail?: string,
+  hour12 = true
+): BookingListItemData {
   const startTime = booking.start || booking.startTime || "";
   const endTime = booking.end || booking.endTime || "";
   const isUpcoming = new Date(endTime) >= new Date();
@@ -43,7 +48,7 @@ export function useBookingListItemData(booking: Booking, userEmail?: string): Bo
     ) ?? false;
 
   const formattedDate = formatDate(startTime, isUpcoming);
-  const formattedTimeRange = `${formatTime(startTime)} - ${formatTime(endTime)}`;
+  const formattedTimeRange = `${formatTime(startTime, hour12)}${RANGE_SEPARATOR}${formatTime(endTime, hour12)}`;
 
   return {
     startTime,

@@ -1,27 +1,46 @@
 import "../lib/webRuntimeGuards";
 import "../global.css";
 
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { PortalHost } from "@rn-primitives/portal";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack } from "expo-router";
+import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router/react-navigation";
+import { useMemo, useState } from "react";
 import { Platform, StatusBar, useColorScheme, View } from "react-native";
 import { CalComLogo } from "@/components/CalComLogo";
 import LoginScreenComponent from "@/components/LoginScreen";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { PushNotificationProvider } from "@/components/PushNotificationProvider";
+import { GlobalActionSheet } from "@/components/ui/GlobalActionSheet";
+import { GlobalConfirmDialog } from "@/components/ui/GlobalConfirmDialog";
 import { GlobalToast } from "@/components/ui/GlobalToast";
+import { CalVideoEntry } from "@/components/video-call/CalVideoEntry";
 import { WidgetSyncProvider } from "@/components/WidgetSyncProvider";
 import { getColors, colors as semanticColors } from "@/constants/colors";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { QueryProvider } from "@/contexts/QueryContext";
 import { ToastProvider } from "@/contexts/ToastContext";
+import { useIncomingLink } from "@/hooks/useIncomingLink";
+import { useWebFallbackForAppLinks } from "@/hooks/useWebFallbackForAppLinks";
+import { parseCalVideoLink } from "@/utils/cal-video-links";
 
 function RootLayoutContent() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, getFreshAccessToken } = useAuth();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = getColors(isDark);
+  // A Cal Video link opened while signed out joins as a guest: a meeting must not need an account.
+  const incoming = useIncomingLink();
+  useWebFallbackForAppLinks(incoming);
+  const [dismissedSeq, setDismissedSeq] = useState<number | null>(null);
+  // A new link object each render restarts the booking-link lookup, which loops on Android.
+  const incomingUrl = incoming?.url;
+  const parsedLink = useMemo(
+    () => (incomingUrl ? parseCalVideoLink(incomingUrl) : null),
+    [incomingUrl]
+  );
+  const guestLink =
+    !isAuthenticated && incoming && incoming.seq !== dismissedSeq ? parsedLink : null;
 
   // Show Cal.com logo while checking auth state to prevent login flash
   if (loading) {
@@ -50,6 +69,23 @@ function RootLayoutContent() {
   const content = isAuthenticated ? (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {/* A Cal Video call: edge to edge, no header, no swipe-to-dismiss mid-call. A plain push, as
+          a fullScreenModal stays on screen on iOS after closing, swallowing every tap. */}
+      <Stack.Screen
+        name="video-call"
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+          animation: "fade",
+          contentStyle: { backgroundColor: "#000000" },
+        }}
+      />
+      {/* A sheet over the tab bar, like the app's other modals. As a fullScreenModal, iOS kept
+          it on screen after Done, swallowing every tap. */}
+      <Stack.Screen
+        name="event-check-in-scanner"
+        options={{ presentation: "modal", headerShown: false }}
+      />
       <Stack.Screen
         name="profile-sheet"
         options={{
@@ -131,6 +167,113 @@ function RootLayoutContent() {
               : "containedModal",
           sheetGrabberVisible: Platform.OS === "ios",
           sheetAllowedDetents: Platform.OS === "ios" ? [0.5, 0.7] : undefined,
+          sheetInitialDetentIndex: Platform.OS === "ios" ? 0 : undefined,
+          contentStyle: {
+            backgroundColor:
+              Platform.OS === "ios" && isLiquidGlassAvailable()
+                ? "transparent"
+                : colors.backgroundSecondary,
+          },
+          headerStyle: {
+            backgroundColor: Platform.OS === "ios" ? "transparent" : colors.backgroundSecondary,
+          },
+          headerBlurEffect:
+            Platform.OS === "ios" && isLiquidGlassAvailable()
+              ? undefined
+              : isDark
+                ? "dark"
+                : "light",
+        }}
+      />
+      <Stack.Screen
+        name="create-cal-event"
+        options={{
+          headerShown: false,
+          presentation: Platform.OS === "ios" ? "modal" : "containedModal",
+        }}
+      />
+      <Stack.Screen name="edit-cal-event" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="cal-event-invite-guests"
+        options={{
+          headerShown: true,
+          headerTransparent: Platform.OS === "ios",
+          headerLargeTitle: false,
+          title: "Invite guests",
+          presentation:
+            Platform.OS === "ios"
+              ? isLiquidGlassAvailable()
+                ? "formSheet"
+                : "modal"
+              : "containedModal",
+          sheetGrabberVisible: Platform.OS === "ios",
+          sheetAllowedDetents: Platform.OS === "ios" ? [0.7, 1] : undefined,
+          sheetInitialDetentIndex: Platform.OS === "ios" ? 0 : undefined,
+          contentStyle: {
+            backgroundColor:
+              Platform.OS === "ios" && isLiquidGlassAvailable()
+                ? "transparent"
+                : colors.backgroundSecondary,
+          },
+          headerStyle: {
+            backgroundColor: Platform.OS === "ios" ? "transparent" : colors.backgroundSecondary,
+          },
+          headerBlurEffect:
+            Platform.OS === "ios" && isLiquidGlassAvailable()
+              ? undefined
+              : isDark
+                ? "dark"
+                : "light",
+        }}
+      />
+      <Stack.Screen
+        name="cal-event-message-guests"
+        options={{
+          headerShown: true,
+          headerTransparent: Platform.OS === "ios",
+          headerLargeTitle: false,
+          title: "Message guests",
+          presentation:
+            Platform.OS === "ios"
+              ? isLiquidGlassAvailable()
+                ? "formSheet"
+                : "modal"
+              : "containedModal",
+          sheetGrabberVisible: Platform.OS === "ios",
+          sheetAllowedDetents: Platform.OS === "ios" ? [1] : undefined,
+          sheetInitialDetentIndex: Platform.OS === "ios" ? 0 : undefined,
+          contentStyle: {
+            backgroundColor:
+              Platform.OS === "ios" && isLiquidGlassAvailable()
+                ? "transparent"
+                : colors.backgroundSecondary,
+          },
+          headerStyle: {
+            backgroundColor: Platform.OS === "ios" ? "transparent" : colors.backgroundSecondary,
+          },
+          headerBlurEffect:
+            Platform.OS === "ios" && isLiquidGlassAvailable()
+              ? undefined
+              : isDark
+                ? "dark"
+                : "light",
+        }}
+      />
+      <Stack.Screen
+        name="cal-event-sent-messages"
+        options={{
+          headerShown: true,
+          headerTransparent: Platform.OS === "ios",
+          headerLargeTitle: false,
+          title: "Sent messages",
+          presentation:
+            Platform.OS === "ios"
+              ? isLiquidGlassAvailable()
+                ? "formSheet"
+                : "modal"
+              : "containedModal",
+          sheetGrabberVisible: Platform.OS === "ios",
+          sheetAllowedDetents: Platform.OS === "ios" ? [0.7, 1] : undefined,
           sheetInitialDetentIndex: Platform.OS === "ios" ? 0 : undefined,
           contentStyle: {
             backgroundColor:
@@ -414,6 +557,15 @@ function RootLayoutContent() {
         }}
       />
     </Stack>
+  ) : guestLink ? (
+    <CalVideoEntry
+      link={guestLink}
+      viewerName={null}
+      viewerAvatarUrl={null}
+      accessToken={null}
+      getAccessToken={getFreshAccessToken}
+      onClose={() => setDismissedSeq(incoming?.seq ?? null)}
+    />
   ) : (
     <LoginScreenComponent />
   );
@@ -462,6 +614,8 @@ export default function RootLayout() {
             </WidgetSyncProvider>
           </PushNotificationProvider>
           <GlobalToast />
+          <GlobalConfirmDialog />
+          <GlobalActionSheet />
         </ToastProvider>
       </AuthProvider>
     </QueryProvider>

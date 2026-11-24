@@ -12,7 +12,9 @@
 
 // Alert utilities
 export {
+  setGlobalConfirmFunction,
   setGlobalToastFunction,
+  showConfirmAlert,
   showErrorAlert,
   showInfoAlert,
   showSilentSuccessAlert,

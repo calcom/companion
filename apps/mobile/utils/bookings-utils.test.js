@@ -1,5 +1,12 @@
 import { describe, expect, test } from "@jest/globals";
-import { groupRecurringBookings } from "./bookings-utils";
+import {
+  getBookingStartTime,
+  getBookingsNotEnded,
+  getGuestsNotInAttendees,
+  groupBookingsByMonth,
+  groupRecurringBookings,
+  sortBookingsByStart,
+} from "./bookings-utils";
 
 function createRecurringBooking(overrides = {}) {
   return {
@@ -33,5 +40,74 @@ describe("groupRecurringBookings", () => {
     ]);
 
     expect(groups[0]?.hasUnconfirmed).toBe(true);
+  });
+});
+
+describe("getGuestsNotInAttendees", () => {
+  test("leaves out a guest who is also an attendee, whatever the case", () => {
+    const guests = getGuestsNotInAttendees({
+      attendees: [{ email: "Guest@Mailinator.com", name: "Guest" }],
+      guests: ["guest@mailinator.com", "other@mailinator.com"],
+    });
+
+    expect(guests).toEqual(["other@mailinator.com"]);
+  });
+
+  test("returns no guests when the booking has none", () => {
+    expect(getGuestsNotInAttendees({ attendees: [{ email: "a@mailinator.com" }] })).toEqual([]);
+  });
+});
+
+describe("sortBookingsByStart", () => {
+  // API v2 bookings carry `start` only, as the Past list receives them.
+  const past = [
+    { id: 1, start: "2026-08-20T10:00:00.000Z" },
+    { id: 2, start: "2026-09-02T10:00:00.000Z" },
+    { id: 3, start: "2026-08-05T10:00:00.000Z" },
+    { id: 4, start: "2026-09-15T10:00:00.000Z" },
+  ];
+
+  test("reads `start` when there's no `startTime`", () => {
+    expect(getBookingStartTime({ start: "2026-08-20T10:00:00.000Z" })).toBe(
+      "2026-08-20T10:00:00.000Z"
+    );
+    expect(getBookingStartTime({ startTime: "2026-08-21T10:00:00.000Z" })).toBe(
+      "2026-08-21T10:00:00.000Z"
+    );
+  });
+
+  test("puts past bookings latest first, and upcoming ones soonest first", () => {
+    expect(sortBookingsByStart(past, "desc").map((b) => b.id)).toEqual([4, 2, 1, 3]);
+    expect(sortBookingsByStart(past, "asc").map((b) => b.id)).toEqual([3, 1, 2, 4]);
+  });
+
+  test("gives each month one header, so list keys stay unique", () => {
+    const items = groupBookingsByMonth(sortBookingsByStart(past, "desc"));
+    const keys = items.map((item) => item.key);
+
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(items.filter((item) => item.type === "monthHeader")).toHaveLength(2);
+  });
+});
+
+describe("getBookingsNotEnded", () => {
+  const now = new Date("2026-11-10T12:00:00.000Z").getTime();
+
+  test("keeps API v2 bookings (start/end) that haven't ended, soonest first", () => {
+    const bookings = [
+      { id: 1, start: "2026-11-12T10:00:00.000Z", end: "2026-11-12T10:30:00.000Z" },
+      { id: 2, start: "2026-11-09T10:00:00.000Z", end: "2026-11-09T10:30:00.000Z" },
+      { id: 3, start: "2026-11-10T11:45:00.000Z", end: "2026-11-10T12:15:00.000Z" },
+      { id: 4, start: "2026-11-11T09:00:00.000Z", end: "2026-11-11T09:30:00.000Z" },
+    ];
+    expect(getBookingsNotEnded(bookings, now).map((b) => b.id)).toEqual([3, 4, 1]);
+  });
+
+  test("still reads the older startTime/endTime names, and drops a booking with no end", () => {
+    const bookings = [
+      { id: 1, startTime: "2026-11-12T10:00:00.000Z", endTime: "2026-11-12T10:30:00.000Z" },
+      { id: 2, start: "2026-11-13T10:00:00.000Z" },
+    ];
+    expect(getBookingsNotEnded(bookings, now).map((b) => b.id)).toEqual([1]);
   });
 });

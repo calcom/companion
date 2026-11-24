@@ -14,8 +14,8 @@ expo-env.d.ts
 # @end expo-cli
 
 # Native generated folders
-ios/
-android/
+/ios/
+/android/
 .kotlin/
 
 # Metro

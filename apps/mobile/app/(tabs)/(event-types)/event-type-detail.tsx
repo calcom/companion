@@ -4,8 +4,6 @@ import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   Animated,
   Modal,
   Platform,
@@ -24,6 +22,7 @@ import { LimitsTab } from "@/components/event-type-detail/tabs/LimitsTab";
 import { RecurringTab } from "@/components/event-type-detail/tabs/RecurringTab";
 import { truncateTitle } from "@/components/event-type-detail/utils";
 import { buildPartialUpdatePayload } from "@/components/event-type-detail/utils/buildPartialUpdatePayload";
+import { HEADER_PILL_CLASS, HeaderBackButton, HeaderSaveButton } from "@/components/HeaderButtons";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 import {
   DropdownMenu,
@@ -40,6 +39,7 @@ import {
 } from "@/services/calcom";
 import type { LocationItem, LocationOptionGroup } from "@/types/locations";
 import {
+  showConfirmAlert,
   showErrorAlert,
   showInfoAlert,
   showNotAvailableAlert,
@@ -144,11 +144,12 @@ export default function EventTypeDetail() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === "dark";
+  // A link (`app.cal.com/event-types/<id>`) passes only the id; the list passes the rest too.
   const { id, title, description, duration, slug } = useLocalSearchParams<{
     id: string;
-    title: string;
+    title?: string;
     description?: string;
-    duration: string;
+    duration?: string;
     slug?: string;
   }>();
 
@@ -182,6 +183,8 @@ export default function EventTypeDetail() {
   const [scheduleDetailsLoading, setScheduleDetailsLoading] = useState(false);
   const [initialScheduleId, setInitialScheduleId] = useState<number | null>(null);
   const hasAutoSelectedScheduleRef = useRef(false);
+  // The load can run more than once; leave a missing event type only once.
+  const hasLeftMissingEventTypeRef = useRef(false);
 
   // Reset auto-selection ref when event type id changes (e.g., navigation reuse)
   useEffect(() => {
@@ -844,13 +847,23 @@ export default function EventTypeDetail() {
       eventType = await CalComAPIService.getEventTypeById(parseInt(id, 10));
     } catch (error) {
       safeLogError("Failed to fetch event type data:", error);
-      return;
     }
 
     if (eventType) {
       applyEventTypeData(eventType);
+      return;
     }
-  }, [id, applyEventTypeData]);
+
+    // Opened from a link there's nothing else to show, so say so instead of an empty form.
+    if (title === undefined && id !== "new" && !hasLeftMissingEventTypeRef.current) {
+      hasLeftMissingEventTypeRef.current = true;
+      showErrorAlert(
+        "Couldn't open this event type",
+        "It may have been deleted, or it belongs to another account."
+      );
+      router.back();
+    }
+  }, [id, title, router, applyEventTypeData]);
 
   useEffect(() => {
     if (activeTab === "availability") {
@@ -985,7 +998,8 @@ export default function EventTypeDetail() {
   };
 
   const handleDelete = () => {
-    Alert.alert("Delete Link", `Are you sure you want to delete "${eventTitle}"?`, [
+    // showConfirmAlert: the web's Alert.alert does nothing.
+    showConfirmAlert("Delete link", `Are you sure you want to delete "${eventTitle}"?`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -1280,21 +1294,18 @@ export default function EventTypeDetail() {
     updateEventType,
   ]);
 
-  const headerTitle = id === "new" ? "Create Link" : truncateTitle(title);
+  // A link opens this screen with only the id, so the title comes from the loaded event type.
+  const headerTitle =
+    id === "new" ? "Create Link" : truncateTitle(title ?? eventTypeData?.title ?? "");
   const saveButtonText = id === "new" ? "Create" : "Save";
 
   const renderHeaderLeft = useCallback(
     () => (
       <HeaderButtonWrapper side="left">
-        <AppPressable
-          onPress={() => router.back()}
-          className="mr-2 h-10 w-10 items-center justify-center rounded-full border border-[#E5E5E5] bg-white dark:border-[#262626] dark:bg-[#171717]"
-        >
-          <Ionicons name="chevron-back" size={20} color={isDarkMode ? "#FFFFFF" : "#000000"} />
-        </AppPressable>
+        <HeaderBackButton onPress={() => router.back()} />
       </HeaderButtonWrapper>
     ),
-    [router, isDarkMode]
+    [router]
   );
 
   const renderHeaderRight = useCallback(
@@ -1304,7 +1315,7 @@ export default function EventTypeDetail() {
           {/* Tab Navigation Dropdown Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <AppPressable className="h-10 flex-row items-center justify-center gap-2 rounded-full border border-[#E5E5E5] bg-white px-4 dark:border-[#262626] dark:bg-[#171717]">
+              <AppPressable className={HEADER_PILL_CLASS}>
                 <Text
                   className="text-[15px] font-medium text-[#000000] dark:text-white"
                   numberOfLines={1}
@@ -1346,39 +1357,12 @@ export default function EventTypeDetail() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Save Button */}
-          <AppPressable
+          <HeaderSaveButton
+            label={saveButtonText}
             onPress={handleSave}
-            disabled={isSaving || !isDirty}
-            className={`h-10 flex-row items-center justify-center rounded-full border px-5 ${
-              isSaving || !isDirty
-                ? "border-[#E5E5EA] bg-[#E5E5EA] dark:border-[#262626] dark:bg-[#262626]"
-                : "border-black bg-black dark:border-white dark:bg-white"
-            }`}
-          >
-            {isSaving ? (
-              <ActivityIndicator
-                size="small"
-                color={
-                  isSaving || !isDirty
-                    ? isDarkMode
-                      ? "#A3A3A3"
-                      : "#A3A3A3"
-                    : isDarkMode
-                      ? "#000000"
-                      : "#FFFFFF"
-                }
-              />
-            ) : (
-              <Text
-                className={`text-[15px] font-medium ${
-                  isSaving || !isDirty ? "text-[#A3A3A3]" : isDarkMode ? "text-black" : "text-white"
-                }`}
-              >
-                {saveButtonText}
-              </Text>
-            )}
-          </AppPressable>
+            saving={isSaving}
+            dirty={isDirty}
+          />
         </View>
       </HeaderButtonWrapper>
     ),
@@ -1414,16 +1398,17 @@ export default function EventTypeDetail() {
       />
 
       {Platform.OS === "ios" && (
-        <Stack.Header
-          blurEffect={isLiquidGlassAvailable() ? undefined : isDarkMode ? "dark" : "light"}
-        >
-          <Stack.Header.Right>
-            <Stack.Header.Menu>
-              <Stack.Header.Label>
+        <>
+          <Stack.Header
+            blurEffect={isLiquidGlassAvailable() ? undefined : isDarkMode ? "dark" : "light"}
+          />
+          <Stack.Toolbar placement="right">
+            <Stack.Toolbar.Menu>
+              <Stack.Toolbar.Label>
                 {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-              </Stack.Header.Label>
+              </Stack.Toolbar.Label>
               {tabs.map((tab) => (
-                <Stack.Header.MenuAction
+                <Stack.Toolbar.MenuAction
                   key={tab.id}
                   icon={
                     activeTab === tab.id
@@ -1443,19 +1428,19 @@ export default function EventTypeDetail() {
                   onPress={() => setActiveTab(tab.id)}
                 >
                   {tab.label}
-                </Stack.Header.MenuAction>
+                </Stack.Toolbar.MenuAction>
               ))}
-            </Stack.Header.Menu>
-            <Stack.Header.Button
+            </Stack.Toolbar.Menu>
+            <Stack.Toolbar.Button
               onPress={handleSave}
               disabled={isSaving || !isDirty}
               variant="prominent"
               tintColor={isDarkMode ? "#FFF" : "#000"}
             >
               {saveButtonText}
-            </Stack.Header.Button>
-          </Stack.Header.Right>
-        </Stack.Header>
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
+        </>
       )}
 
       <View className="flex-1 bg-[#f8f9fa] dark:bg-black">
@@ -2332,10 +2317,7 @@ export default function EventTypeDetail() {
                       style={{ minHeight: 56 }}
                       onPress={() => {
                         if (id === "new") {
-                          showInfoAlert(
-                            "Info",
-                            "Save the link first to configure this setting."
-                          );
+                          showInfoAlert("Info", "Save the link first to configure this setting.");
                         } else if (Platform.OS === "ios") {
                           showNotAvailableAlert();
                         } else {
@@ -2367,10 +2349,7 @@ export default function EventTypeDetail() {
                       style={{ minHeight: 56 }}
                       onPress={() => {
                         if (id === "new") {
-                          showInfoAlert(
-                            "Info",
-                            "Save the link first to configure this setting."
-                          );
+                          showInfoAlert("Info", "Save the link first to configure this setting.");
                         } else if (Platform.OS === "ios") {
                           showNotAvailableAlert();
                         } else {
@@ -2402,10 +2381,7 @@ export default function EventTypeDetail() {
                       style={{ minHeight: 56 }}
                       onPress={() => {
                         if (id === "new") {
-                          showInfoAlert(
-                            "Info",
-                            "Save the link first to configure this setting."
-                          );
+                          showInfoAlert("Info", "Save the link first to configure this setting.");
                         } else if (Platform.OS === "ios") {
                           showNotAvailableAlert();
                         } else {
@@ -2496,7 +2472,7 @@ export default function EventTypeDetail() {
                       onPress={handleCopyLink}
                       activeOpacity={0.5}
                     >
-                      <Text className="text-[17px] text-black dark:text-white">Copy Link</Text>
+                      <Text className="text-[17px] text-black dark:text-white">Copy link</Text>
                       <Ionicons name="link-outline" size={18} color="#C7C7CC" />
                     </TouchableOpacity>
                   </View>
@@ -2513,7 +2489,7 @@ export default function EventTypeDetail() {
                       onPress={handleDelete}
                       activeOpacity={0.5}
                     >
-                      <Text className="text-[17px] text-[#FF3B30]">Delete Link</Text>
+                      <Text className="text-[17px] text-[#FF3B30]">Delete link</Text>
                       <Ionicons name="trash-outline" size={18} color="#FF3B30" />
                     </TouchableOpacity>
                   </View>
