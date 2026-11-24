@@ -108,8 +108,8 @@ export function VideoCallScreen({
     beforeGrant: () => releasePreviewRef.current(),
   });
   const { leave: leaveRoom, end: endRoom, noteDriverEnd, setFailure } = room;
-  // Signed out, the page's checkbox is exact, so it shows up front as on the web. Signed in, only
-  // the session join knows whether this person is in the account, so the box waits for it to ask.
+  // Signed out, the page's checkbox is exact, so it shows up front as on the web. Signed in, the
+  // page can't tell whether this person is in the account, so the room hook asks the server.
   const speechConsent =
     room.speechConsentPrompt ??
     (link.kind === "booking-call" && accessToken === null ? link.speechConsent : null);

@@ -6,6 +6,7 @@ jest.mock("@/utils/network", () => ({ fetchWithTimeout: (...args) => mockFetch(.
 const {
   admissionFailure,
   admitToBooking,
+  fetchBookingSpeechConsent,
   joinBookingSession,
   sessionJoinFailure,
   speechConsentRefusalFor,
@@ -227,5 +228,48 @@ describe("session join", () => {
         speechConsent: { agreed: true, version: "3.0" },
       })
     ).resolves.toEqual({ kind: "consent-refused", refusal: "retry" });
+  });
+});
+
+describe("speech-consent route", () => {
+  beforeEach(() => mockFetch.mockReset());
+
+  const consent = { version: "3.0", helpUrl: "https://cal.com/help/elevenlabs", captionsOn: true };
+
+  test("asks the booking's route with the app's token, the way admission knows the caller", async () => {
+    mockFetch.mockResolvedValue(reply({ speechConsent: consent }));
+
+    await expect(fetchBookingSpeechConsent({ call, accessToken: "oauth" })).resolves.toEqual(
+      consent
+    );
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe(
+      "https://app.cal.com/api/video/booking-admission/r63umUSdfs8QX7ajaYiYhy/speech-consent"
+    );
+    expect(init.method).toBe("GET");
+    expect(init.credentials).toBe("include");
+    expect(init.headers.Authorization).toBe("Bearer oauth");
+  });
+
+  test("no checkbox when the route says this person isn't asked, as for a member", async () => {
+    mockFetch.mockResolvedValue(reply({ speechConsent: null }));
+
+    await expect(fetchBookingSpeechConsent({ call, accessToken: "oauth" })).resolves.toBeNull();
+  });
+
+  test("no checkbox when the route isn't deployed yet or refuses", async () => {
+    mockFetch.mockResolvedValueOnce(reply({}, 404));
+    await expect(fetchBookingSpeechConsent({ call, accessToken: "oauth" })).resolves.toBeNull();
+
+    mockFetch.mockResolvedValueOnce(reply({ outcome: "rate-limited" }, 429));
+    await expect(fetchBookingSpeechConsent({ call, accessToken: "oauth" })).resolves.toBeNull();
+  });
+
+  test("ignores a checkbox whose link isn't https", async () => {
+    mockFetch.mockResolvedValue(
+      reply({ speechConsent: { ...consent, helpUrl: "http://cal.com/help" } })
+    );
+
+    await expect(fetchBookingSpeechConsent({ call, accessToken: "oauth" })).resolves.toBeNull();
   });
 });

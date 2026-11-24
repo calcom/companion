@@ -11,7 +11,11 @@
  * The embed token also authorises Cal chat for the session, so it is handed back to the caller.
  */
 import { fetchWithTimeout } from "@/utils/network";
-import type { CalVideoBookingCall } from "./booking-link";
+import {
+  type BookingSpeechConsent,
+  type CalVideoBookingCall,
+  parseSpeechConsent,
+} from "./booking-link";
 import { joinGrantSchema } from "./join-grant-schema";
 import type { JoinFailure } from "./room-screen";
 import type { JoinGrant } from "./types";
@@ -106,6 +110,30 @@ export async function admitToBooking(input: {
     sessionId: body.sessionId,
     redirectUrl: typeof body.redirectUrl === "string" ? body.redirectUrl : null,
   };
+}
+
+/**
+ * The checkbox the booking's pre-join shows this signed-in person, as the web page would show it
+ * to them (`GET <app>/api/video/booking-admission/<uid>/speech-consent`). It identifies the caller
+ * as admission does, so a member of the booking's account gets null. Any answer that isn't one
+ * reads as null too: the session join still asks, so the box then shows after the first Join.
+ */
+export async function fetchBookingSpeechConsent(input: {
+  call: CalVideoBookingCall;
+  accessToken: string;
+}): Promise<BookingSpeechConsent | null> {
+  const response = await fetchWithTimeout(
+    `${input.call.appOrigin}/api/video/booking-admission/${encodeURIComponent(input.call.bookingUid)}/speech-consent`,
+    {
+      method: "GET",
+      // As admission: the same caller, so the same answer about who must tick.
+      credentials: "include",
+      headers: { Accept: "application/json", Authorization: `Bearer ${input.accessToken}` },
+    },
+    TIMEOUT_MS
+  );
+  if (!response.ok) return null;
+  return parseSpeechConsent((await readJson(response)).speechConsent);
 }
 
 /** What a session join refusal means for the app. */

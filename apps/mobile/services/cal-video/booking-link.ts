@@ -86,12 +86,15 @@ const SPEECH_CONSENT = /\\?"speechConsent\\?":\s*(\{[^{}]{0,600}\})/;
 function readSpeechConsent(html: string): BookingSpeechConsent | null {
   const raw = SPEECH_CONSENT.exec(html)?.[1];
   if (!raw) return null;
-  let value: unknown;
   try {
-    value = JSON.parse(raw.replace(/\\"/g, '"'));
+    return parseSpeechConsent(JSON.parse(raw.replace(/\\"/g, '"')));
   } catch {
     return null;
   }
+}
+
+/** A checkbox as the page or the speech-consent route sends it; null for none or an unknown shape. */
+export function parseSpeechConsent(value: unknown): BookingSpeechConsent | null {
   if (!value || typeof value !== "object") return null;
   const { version, helpUrl, captionsOn } = value as Record<string, unknown>;
   if (typeof version !== "string" || !version || version.length > 100) return null;
