@@ -4,6 +4,7 @@ import {
   Ellipsis,
   Hand,
   SwitchCamera,
+  Users,
   Volume2,
   Wifi,
   WifiOff,
@@ -33,7 +34,8 @@ const HEADER_CLEARANCE = 4 + 40 + 8;
 
 /**
  * The call itself: video edge to edge, a row of glass buttons at the top right (flip camera,
- * speaker, copy link, the meeting's details), the tray floating at the bottom.
+ * speaker, copy link, the meeting's details or, in a booking, People), the tray floating at the
+ * bottom.
  */
 export function CallScreen({
   driver,
@@ -49,6 +51,7 @@ export function CallScreen({
   onSpeaker,
   onCopyLink,
   onInfo,
+  onPeople,
   onMore,
   onTilePress,
   onToggleMicrophone,
@@ -73,8 +76,12 @@ export function CallScreen({
   onFlipCamera: () => void;
   onSpeaker: () => void;
   onCopyLink: () => Promise<boolean>;
-  /** The meeting's details: people, invites, who can join. */
-  onInfo: () => void;
+  /**
+   * The meeting's details: people, invites, who can join. `null` where People would be all it
+   * holds (a booking): the header then opens People directly.
+   */
+  onInfo: (() => void) | null;
+  onPeople: () => void;
   onMore: () => void;
   onTilePress: (participant: CallParticipant) => void;
   onToggleMicrophone: () => void;
@@ -132,12 +139,16 @@ export function CallScreen({
               if (await onCopyLink()) setCopyCount((count) => count + 1);
             }}
           />
-          <HeaderButton
-            icon={Ellipsis}
-            label="Meeting details"
-            badge={waitingCount}
-            onPress={onInfo}
-          />
+          {onInfo ? (
+            <HeaderButton
+              icon={Ellipsis}
+              label="Meeting details"
+              badge={waitingCount}
+              onPress={onInfo}
+            />
+          ) : (
+            <HeaderButton icon={Users} label="People" badge={waitingCount} onPress={onPeople} />
+          )}
         </HeaderButtonGroup>
       </View>
 
