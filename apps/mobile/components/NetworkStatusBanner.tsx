@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Modal, Text, TouchableOpacity, View } from "react-native";
 
 export function NetworkStatusBanner() {
-  // eslint-disable-next-line react-compiler/react-compiler -- Animated.Value ref access in JSX is incompatible with React Compiler
+  // Animated.Value ref access in JSX is incompatible with React Compiler
   "use no memo";
   const [showModal, setShowModal] = useState(false);
   const fadeAnimRef = useRef(new Animated.Value(0));

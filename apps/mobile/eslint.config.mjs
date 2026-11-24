@@ -1,11 +1,11 @@
-import reactCompiler from 'eslint-plugin-react-compiler';
+import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
     plugins: {
-      'react-compiler': reactCompiler,
+      'react-hooks': reactHooks,
     },
     languageOptions: {
       parser: tseslint.parser,
@@ -17,8 +17,18 @@ export default tseslint.config(
         },
       },
     },
+    // React Compiler diagnostics only. The last four rules are newer than the old
+    // eslint-plugin-react-compiler and flag existing code; re-enable once fixed.
     rules: {
-      'react-compiler/react-compiler': 'error',
+      ...Object.fromEntries(
+        Object.entries(reactHooks.configs['recommended-latest'].rules).filter(
+          ([name]) => name !== 'react-hooks/rules-of-hooks' && name !== 'react-hooks/exhaustive-deps'
+        )
+      ),
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/purity': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
     },
   },
   {
