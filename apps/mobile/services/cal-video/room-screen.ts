@@ -2,8 +2,8 @@ import type { CallStatus } from "./types";
 
 /** Mirrors the web app's `room-screen.ts` so both surfaces tell the same story. */
 /**
- * `needs-web`: a booking call wants something the app cannot ask for yet (a speech consent tick,
- * a web sign-in), so the call goes to the browser instead.
+ * `needs-web`: a booking call wants something the app cannot ask for yet (a web sign-in), so the
+ * call goes to the browser instead.
  */
 export type JoinFailure =
   | "not-found"

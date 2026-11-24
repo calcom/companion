@@ -152,6 +152,55 @@ describe("useCalVideoRoom with a 2.0 booking call", () => {
     expect(result.current.grant).toBe(GRANT);
   });
 
+  test("shows the speech-processing checkbox once the call asks, then joins with the tick", async () => {
+    const consent = { version: "3.0", helpUrl: "https://example.com/help", captionsOn: true };
+    const admitted = { kind: "admitted", token: "embed", sessionId: "s1", redirectUrl: null };
+    mockAdmit.mockResolvedValue(admitted);
+    mockSessionJoin.mockResolvedValueOnce({ kind: "consent-required" });
+    const result = await render({ ...BOOKING, speechConsent: consent });
+    expect(result.current.speechConsentPrompt).toBeNull();
+
+    await act(() => result.current.join("Ana"));
+    expect(result.current.speechConsentPrompt).toEqual(consent);
+    expect(result.current.failure).toBeNull();
+    expect(result.current.grant).toBeNull();
+
+    mockSessionJoin.mockResolvedValueOnce({
+      kind: "admitted",
+      grant: GRANT,
+      roomSlug: "booking-room",
+    });
+    await act(() => result.current.join("Ana", null, { agreed: true, version: "3.0" }));
+    expect(mockSessionJoin).toHaveBeenLastCalledWith(
+      expect.objectContaining({ speechConsent: { agreed: true, version: "3.0" } })
+    );
+    expect(result.current.grant).toBe(GRANT);
+  });
+
+  test("keeps a refused tick's message until the next join", async () => {
+    mockAdmit.mockResolvedValue({
+      kind: "admitted",
+      token: "embed",
+      sessionId: "s1",
+      redirectUrl: null,
+    });
+    mockSessionJoin.mockResolvedValueOnce({ kind: "consent-refused", refusal: "retry" });
+    const result = await render();
+
+    await act(() => result.current.join("Ana", null, { agreed: true, version: "3.0" }));
+    expect(result.current.speechConsentRefusal).toBe("retry");
+    expect(result.current.failure).toBeNull();
+
+    mockSessionJoin.mockResolvedValueOnce({
+      kind: "admitted",
+      grant: GRANT,
+      roomSlug: "booking-room",
+    });
+    await act(() => result.current.join("Ana", null, { agreed: true, version: "3.0" }));
+    expect(result.current.speechConsentRefusal).toBeNull();
+    expect(result.current.grant).toBe(GRANT);
+  });
+
   test("starts with the email field when the page already says so", async () => {
     const result = await render({ ...BOOKING, requireEmail: true });
     expect(result.current.emailRequired).toBe(true);

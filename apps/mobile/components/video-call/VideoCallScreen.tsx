@@ -108,6 +108,11 @@ export function VideoCallScreen({
     beforeGrant: () => releasePreviewRef.current(),
   });
   const { leave: leaveRoom, end: endRoom, noteDriverEnd, setFailure } = room;
+  // Signed out, the page's checkbox is exact, so it shows up front as on the web. Signed in, only
+  // the session join knows whether this person is in the account, so the box waits for it to ask.
+  const speechConsent =
+    room.speechConsentPrompt ??
+    (link.kind === "booking-call" && accessToken === null ? link.speechConsent : null);
   // A booking call's room arrives with its grant; until then nothing is sent to it.
   const videoOrigin = link.kind === "room" ? link.origin : link.videoOrigin;
   const roomRef = useMemo<RoomRef>(
@@ -688,12 +693,14 @@ export function VideoCallScreen({
           onMicrophoneChange={setMicrophoneOn}
           onCameraChange={setCameraOn}
           emailRequired={room.emailRequired}
-          onJoin={(name, email) => {
+          speechConsent={speechConsent}
+          speechConsentRefusal={room.speechConsentRefusal}
+          onJoin={(name, email, speechConsent) => {
             if (viewerName === null) {
               setRememberedName(name);
               void saveGuestName(name);
             }
-            void room.join(name, email);
+            void room.join(name, email, speechConsent);
           }}
           onClose={onClose}
           onSignIn={viewerName === null && accessToken === null ? onClose : undefined}

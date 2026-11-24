@@ -8,8 +8,13 @@ import {
   leaveRoom,
   type RoomRef,
 } from "@/services/cal-video/api";
-import { admitToBooking, joinBookingSession } from "@/services/cal-video/booking-api";
-import type { CalVideoBookingCall } from "@/services/cal-video/booking-link";
+import {
+  admitToBooking,
+  type GuestSpeechConsent,
+  joinBookingSession,
+  type SpeechConsentRefusal,
+} from "@/services/cal-video/booking-api";
+import type { BookingSpeechConsent, CalVideoBookingCall } from "@/services/cal-video/booking-link";
 import type {
   JoinFailure,
   KnockState,
@@ -61,8 +66,21 @@ export function useCalVideoRoom({
   const [emailRequired, setEmailRequired] = useState(
     link.kind === "booking-call" && link.requireEmail
   );
+  /**
+   * The speech-processing checkbox, once a booking call's session join asked this person for a
+   * tick. The screen shows the page's checkbox up front only to a signed-out guest.
+   */
+  const [speechConsentPrompt, setSpeechConsentPrompt] = useState<BookingSpeechConsent | null>(null);
+  /** Why the last tick was refused, shown under Join as the web does; cleared by the next join. */
+  const [speechConsentRefusal, setSpeechConsentRefusal] = useState<SpeechConsentRefusal | null>(
+    null
+  );
   const knockedAs = useRef<string | null>(null);
-  const joinedAs = useRef<{ name: string; email: string | null } | null>(null);
+  const joinedAs = useRef<{
+    name: string;
+    email: string | null;
+    speechConsent: GuestSpeechConsent | null;
+  } | null>(null);
   const actedOn = useRef<string | null>(null);
   const beforeGrantRef = useRef(beforeGrant);
   const linkRef = useRef(link);
@@ -161,19 +179,29 @@ export function useCalVideoRoom({
   );
 
   const join = useCallback(
-    async (name: string, email: string | null = null) => {
+    async (
+      name: string,
+      email: string | null = null,
+      speechConsent: GuestSpeechConsent | null = null
+    ) => {
       setJoining(true);
       setFailure(null);
-      joinedAs.current = { name, email };
+      setSpeechConsentRefusal(null);
+      joinedAs.current = { name, email, speechConsent };
       const accessToken = await getAccessTokenRef.current().catch(() => null);
       const target = linkRef.current;
 
       if (target.kind === "booking-call") {
-        const result = await joinBookingCall(target, { name, email, accessToken }).catch(
-          () => null
-        );
+        const result = await joinBookingCall(target, {
+          name,
+          email,
+          accessToken,
+          speechConsent,
+        }).catch(() => null);
         if (result === null) setFailure("error");
         else if (result.kind === "email-required") setEmailRequired(true);
+        else if (result.kind === "consent-required") setSpeechConsentPrompt(target.speechConsent);
+        else if (result.kind === "consent-refused") setSpeechConsentRefusal(result.refusal);
         else if (result.kind === "failure") setFailure(result.failure);
         else admit(result.grant, { room: result.room, embedToken: result.embedToken });
         setJoining(false);
@@ -252,7 +280,7 @@ export function useCalVideoRoom({
       actedOn.current = null;
       resetKnock();
       setGrant(null);
-      await join(previous.name, previous.email);
+      await join(previous.name, previous.email, previous.speechConsent);
       setSessionEnd(null);
     },
     [join, resetKnock]
@@ -275,6 +303,10 @@ export function useCalVideoRoom({
     /** A booking call's embed token, for Cal chat. Null for rooms. */
     embedToken,
     emailRequired,
+    /** The speech-processing checkbox the pre-join must show before the next join; null for none. */
+    speechConsentPrompt,
+    /** The web's message for a refused tick ("reload" or "retry"); null when there's none. */
+    speechConsentRefusal,
     join,
     retryKnock,
     leave,
@@ -289,10 +321,17 @@ export function useCalVideoRoom({
 /** Admission on the web app, then the session join on the video origin. */
 async function joinBookingCall(
   call: CalVideoBookingCall,
-  input: { name: string; email: string | null; accessToken: string | null }
+  input: {
+    name: string;
+    email: string | null;
+    accessToken: string | null;
+    speechConsent: GuestSpeechConsent | null;
+  }
 ): Promise<
   | { kind: "admitted"; grant: JoinGrant; room: RoomRef; embedToken: string }
   | { kind: "email-required" }
+  | { kind: "consent-required" }
+  | { kind: "consent-refused"; refusal: SpeechConsentRefusal }
   | { kind: "failure"; failure: JoinFailure }
 > {
   const admission = await admitToBooking({
@@ -306,8 +345,9 @@ async function joinBookingCall(
     call,
     sessionId: admission.sessionId,
     token: admission.token,
+    ...(input.speechConsent ? { speechConsent: input.speechConsent } : {}),
   });
-  if (session.kind === "failure") return session;
+  if (session.kind !== "admitted") return session;
   return {
     kind: "admitted",
     grant: session.grant,

@@ -26,7 +26,17 @@ export type BookingAdmission =
 
 export type BookingSessionJoin =
   | { kind: "admitted"; grant: JoinGrant; roomSlug: string }
+  /** The call asks this guest to tick the speech-processing checkbox; ask, then join again. */
+  | { kind: "consent-required" }
+  /** The tick was refused: the wording changed since the page loaded, or it couldn't be saved. */
+  | { kind: "consent-refused"; refusal: SpeechConsentRefusal }
   | { kind: "failure"; failure: JoinFailure };
+
+/** The web pre-join's two answers to a refused tick: reload the page, or try joining again. */
+export type SpeechConsentRefusal = "reload" | "retry";
+
+/** A guest's tick on the speech-processing checkbox, with the wording version they were shown. */
+export type GuestSpeechConsent = { agreed: true; version: string };
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   try {
@@ -103,16 +113,22 @@ export function sessionJoinFailure(status: number, body: Record<string, unknown>
   if (status === 429) return "rate-limited";
   if (status === 404 || body.outcome === "not-found") return "not-found";
   if (body.outcome === "full") return "full";
-  // The speech consent tick (`speech_consent_required`, `_stale`, `_unsaved`) is only on the web.
-  if (typeof body.reason === "string" && body.reason.startsWith("speech_consent"))
-    return "needs-web";
   return "error";
+}
+
+/** As the web's `speechConsentRefusalFor`: a missing or outdated tick means reload, an unsaved one retry. */
+export function speechConsentRefusalFor(reason: unknown): SpeechConsentRefusal | null {
+  if (reason === "speech_consent_required" || reason === "speech_consent_stale") return "reload";
+  if (reason === "speech_consent_unsaved") return "retry";
+  return null;
 }
 
 export async function joinBookingSession(input: {
   call: CalVideoBookingCall;
   sessionId: string;
   token: string;
+  /** Only a ticked box is sent; the server decides whether this person needed one. */
+  speechConsent?: GuestSpeechConsent | null;
 }): Promise<BookingSessionJoin> {
   const response = await fetchWithTimeout(
     `${input.call.videoOrigin}/api/sessions/${encodeURIComponent(input.sessionId)}/join`,
@@ -125,12 +141,25 @@ export async function joinBookingSession(input: {
         Accept: "application/json",
         Authorization: `Bearer ${input.token}`,
       },
-      body: "{}",
+      body: JSON.stringify(input.speechConsent ? { speechConsent: input.speechConsent } : {}),
     },
     TIMEOUT_MS
   );
   const body = await readJson(response);
-  if (!response.ok) return { kind: "failure", failure: sessionJoinFailure(response.status, body) };
+  if (!response.ok) {
+    // Asked for a tick the page has a checkbox for, and none was sent: show it. Anything else
+    // about the tick gets the web's message, so a refusal never loops.
+    if (
+      body.reason === "speech_consent_required" &&
+      !input.speechConsent &&
+      input.call.speechConsent
+    ) {
+      return { kind: "consent-required" };
+    }
+    const refusal = speechConsentRefusalFor(body.reason);
+    if (refusal) return { kind: "consent-refused", refusal };
+    return { kind: "failure", failure: sessionJoinFailure(response.status, body) };
+  }
   const parsed = joinGrantSchema.safeParse(body.grant);
   if (!parsed.success || typeof body.roomSlug !== "string" || !body.roomSlug) {
     return { kind: "failure", failure: "error" };

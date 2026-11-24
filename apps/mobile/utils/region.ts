@@ -155,6 +155,14 @@ export function getCalHelpUrl(slug: string): string {
 }
 
 /**
+ * Cal.com's privacy policy. Stays global: the web app's own `WEBSITE_PRIVACY_POLICY_URL` is
+ * `cal.com/privacy` for every region, and Cal Video's consent checkbox links to it.
+ */
+export function getCalPrivacyPolicyUrl(): string {
+  return "https://cal.com/privacy";
+}
+
+/**
  * Returns the set of Cal.com app hostnames the app talks to across regions.
  * Useful for code (e.g. `appendStandaloneParam`) that needs to recognize any
  * Cal.com app URL regardless of the user's current region.
