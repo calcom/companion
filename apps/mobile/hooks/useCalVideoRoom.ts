@@ -10,6 +10,7 @@ import {
 } from "@/services/cal-video/api";
 import {
   admitToBooking,
+  fetchBookingSpeechConsent,
   type GuestSpeechConsent,
   joinBookingSession,
   type SpeechConsentRefusal,
@@ -67,8 +68,9 @@ export function useCalVideoRoom({
     link.kind === "booking-call" && link.requireEmail
   );
   /**
-   * The speech-processing checkbox, once a booking call's session join asked this person for a
-   * tick. The screen shows the page's checkbox up front only to a signed-out guest.
+   * The speech-processing checkbox a signed-in person must tick, from the speech-consent route
+   * before they join, or once the session join asked for it. A signed-out guest's is the page's,
+   * which the screen shows itself.
    */
   const [speechConsentPrompt, setSpeechConsentPrompt] = useState<BookingSpeechConsent | null>(null);
   /** Why the last tick was refused, shown under Join as the web does; cleared by the next join. */
@@ -92,6 +94,22 @@ export function useCalVideoRoom({
     roomRef.current = room;
     getAccessTokenRef.current = getAccessToken;
   }, [beforeGrant, link, room, getAccessToken]);
+
+  // Signed in, ask up front whether this person must tick, as the web page knows from its session.
+  // No answer leaves the checkbox to the session join, which asks after the first Join.
+  useEffect(() => {
+    if (link.kind !== "booking-call") return;
+    let cancelled = false;
+    void (async () => {
+      const accessToken = await getAccessTokenRef.current().catch(() => null);
+      if (!accessToken || cancelled) return;
+      const prompt = await fetchBookingSpeechConsent({ call: link, accessToken }).catch(() => null);
+      if (prompt && !cancelled) setSpeechConsentPrompt(prompt);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [link]);
 
   const resetKnock = useCallback(() => {
     setKnock({ status: "idle" });

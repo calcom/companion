@@ -12,12 +12,14 @@ jest.mock("@/services/cal-video/api", () => ({
 }));
 const mockAdmit = jest.fn();
 const mockSessionJoin = jest.fn();
+const mockConsentRoute = jest.fn();
 jest.mock("@/services/cal-video/booking-api", () => ({
   admitToBooking: (...args) => mockAdmit(...args),
+  fetchBookingSpeechConsent: (...args) => mockConsentRoute(...args),
   joinBookingSession: (...args) => mockSessionJoin(...args),
 }));
 
-const { act, renderHook } = require("@testing-library/react-native");
+const { act, renderHook, waitFor } = require("@testing-library/react-native");
 const { useCalVideoRoom } = require("./useCalVideoRoom");
 
 const LINK = {
@@ -40,10 +42,12 @@ describe("useCalVideoRoom join", () => {
   beforeEach(() => {
     mockJoinRoom.mockReset();
     mockJoinRoom.mockResolvedValue({ kind: "failure", failure: "not-found" });
+    mockConsentRoute.mockReset();
   });
 
   test("sends the renewed token, so an owner whose app sat open is still the host", async () => {
     await joinWith(() => Promise.resolve("renewed"));
+    expect(mockConsentRoute).not.toHaveBeenCalled();
 
     expect(mockJoinRoom).toHaveBeenCalledTimes(1);
     expect(mockJoinRoom).toHaveBeenCalledWith(
@@ -84,14 +88,64 @@ describe("useCalVideoRoom with a 2.0 booking call", () => {
     mockLeaveRoom.mockReset();
     mockAdmit.mockReset();
     mockSessionJoin.mockReset();
+    mockConsentRoute.mockReset();
+    mockConsentRoute.mockResolvedValue(null);
   });
 
-  async function render(link = BOOKING) {
-    const { result } = await renderHook(() =>
-      useCalVideoRoom({ link, getAccessToken: () => Promise.resolve("oauth") })
-    );
+  async function render(link = BOOKING, getAccessToken = () => Promise.resolve("oauth")) {
+    const { result } = await renderHook(() => useCalVideoRoom({ link, getAccessToken }));
     return result;
   }
+
+  /** Lets the up-front ask finish, for checks that it changed nothing. */
+  async function afterTheAsk() {
+    await waitFor(() => expect(mockConsentRoute).toHaveBeenCalled());
+    await act(async () => {});
+  }
+
+  const consent = { version: "3.0", helpUrl: "https://example.com/help", captionsOn: true };
+
+  test("signed in, shows the route's checkbox before any join", async () => {
+    mockConsentRoute.mockResolvedValue(consent);
+    const result = await render();
+
+    await waitFor(() => expect(result.current.speechConsentPrompt).toEqual(consent));
+    expect(mockConsentRoute).toHaveBeenCalledWith({ call: BOOKING, accessToken: "oauth" });
+    expect(mockAdmit).not.toHaveBeenCalled();
+  });
+
+  test("signed in as a member of the account, no checkbox", async () => {
+    const result = await render({ ...BOOKING, speechConsent: consent });
+    await afterTheAsk();
+
+    expect(result.current.speechConsentPrompt).toBeNull();
+  });
+
+  test("signed out, the route isn't asked: the page's checkbox is the answer", async () => {
+    const result = await render(BOOKING, () => Promise.resolve(null));
+    await act(async () => {});
+
+    expect(mockConsentRoute).not.toHaveBeenCalled();
+    expect(result.current.speechConsentPrompt).toBeNull();
+  });
+
+  test("a failed ask leaves the checkbox to the session join", async () => {
+    mockConsentRoute.mockRejectedValue(new Error("offline"));
+    mockAdmit.mockResolvedValue({
+      kind: "admitted",
+      token: "embed",
+      sessionId: "s1",
+      redirectUrl: null,
+    });
+    mockSessionJoin.mockResolvedValueOnce({ kind: "consent-required" });
+    const result = await render({ ...BOOKING, speechConsent: consent });
+    await afterTheAsk();
+    expect(result.current.speechConsentPrompt).toBeNull();
+
+    await act(() => result.current.join("Ana"));
+    expect(result.current.speechConsentPrompt).toEqual(consent);
+    expect(result.current.failure).toBeNull();
+  });
 
   test("admits on the web app, joins the session, and learns the booking's room", async () => {
     mockAdmit.mockResolvedValue({
