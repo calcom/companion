@@ -179,12 +179,12 @@ describe("session join", () => {
     ).resolves.toEqual({ kind: "consent-required" });
   });
 
-  test("a tick the page had no checkbox for gets the web's reload message", async () => {
+  test("asked for a tick the app couldn't read a checkbox for, the call goes to the web", async () => {
     mockFetch.mockResolvedValue(consentRefusal);
 
     await expect(joinBookingSession({ call, sessionId: "s1", token: "embed" })).resolves.toEqual({
-      kind: "consent-refused",
-      refusal: "reload",
+      kind: "failure",
+      failure: "needs-web",
     });
   });
 
