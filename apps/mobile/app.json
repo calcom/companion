@@ -28,7 +28,8 @@
         "UIBackgroundModes": ["audio", "voip"],
         "RTCAppGroupIdentifier": "group.com.cal.companion",
         "RTCAppScreenSharingExtension": "com.cal.companion.screenshare",
-        "NSSupportsLiveActivities": true
+        "NSSupportsLiveActivities": true,
+        "NSBluetoothAlwaysUsageDescription": "Allow $(PRODUCT_NAME) to use Bluetooth to connect to audio devices during Cal Video calls."
       },
       "entitlements": {
         "com.apple.developer.default-data-protection": "NSFileProtectionComplete",
