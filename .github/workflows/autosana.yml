@@ -24,16 +24,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-test:
-    name: ${{ matrix.platform }}
+  build:
+    name: Build ${{ matrix.platform }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         platform: ${{ fromJSON(inputs.platforms == 'both' && '["ios","android"]' || format('["{0}"]', inputs.platforms)) }}
-    env:
-      BUNDLE_ID: ${{ matrix.platform == 'ios' && 'com.cal.companion' || 'com.calcom.companion' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -79,6 +77,42 @@ jobs:
             echo "path=$RUNNER_TEMP/build/calcom-companion.apk" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Keep the build for the test job
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.platform }}
+          path: ${{ steps.artifact.outputs.path }}
+          if-no-files-found: error
+          retention-days: 1
+
+  test:
+    name: Test ${{ matrix.platform }}
+    needs: build
+    # Test a platform whose build passed even if the other platform's failed.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      # Both platforms' suites use the same test account and the same
+      # autosana- data, so one platform's tests must finish before the other's
+      # start. The builds above still run in parallel.
+      max-parallel: 1
+      matrix:
+        platform: ${{ fromJSON(inputs.platforms == 'both' && '["ios","android"]' || format('["{0}"]', inputs.platforms)) }}
+    env:
+      BUNDLE_ID: ${{ matrix.platform == 'ios' && 'com.cal.companion' || 'com.calcom.companion' }}
+      BUILD_FILE: ${{ matrix.platform == 'ios' && 'Calcom.app.zip' || 'calcom-companion.apk' }}
+    steps:
+      # The Autosana action reads the commit from the checkout.
+      - uses: actions/checkout@v4
+
+      - name: Get the build
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ matrix.platform }}
+          path: ${{ runner.temp }}/build
+
       - name: Upload to Autosana and run tests
         uses: autosana/autosana-ci@9e5b6b075c61b438bac7494da4bedd4ded2237f3 # main, 2026-11-18
         with:
@@ -86,5 +120,5 @@ jobs:
           name: Cal.com
           bundle-id: ${{ env.BUNDLE_ID }}
           platform: ${{ matrix.platform }}
-          build-path: ${{ steps.artifact.outputs.path }}
+          build-path: ${{ runner.temp }}/build/${{ env.BUILD_FILE }}
           labels: ${{ inputs.labels }}
