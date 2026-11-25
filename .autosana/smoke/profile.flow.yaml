@@ -1,0 +1,6 @@
+key: smoke/profile
+name: Smoke | More opens and closes the profile sheet
+description: Matrix rows F1 and F2.
+instructions: |
+  Open the More tab and check its header: a "More" title on iOS, or the shared Cal.com header on Android. Open the profile sheet from the avatar or profile button in the header, then close it with its close (✕) button.
+  Verify that the sheet opened with the title "You" on iOS or "Profile" on Android, and that closing it returned you to the More tab.

@@ -14,6 +14,16 @@
         "image": "macos-tahoe-26.5-xcode-26.6"
       }
     },
+    "autosana-simulator": {
+      "extends": "preview",
+      "environment": "production",
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "ios": {

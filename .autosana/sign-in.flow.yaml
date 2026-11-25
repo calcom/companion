@@ -1,0 +1,7 @@
+key: sign-in
+name: Sign in | Test account, United States region
+description: Setup flow for the signed-in suites. Signs in to the dedicated test account on app.cal.com.
+instructions: |
+  Start on the app's sign-in screen and make sure the data region is United States. Continue with Cal.com, allowing any system prompt that asks to use the website to sign in.
+  On the Cal.com sign-in page, sign in with the email ${env:CAL_TEST_EMAIL} and the password ${env:CAL_TEST_PASSWORD}. If Cal.com asks whether the app may access the account, allow it.
+  Verify that you are back in the app and signed in: the tab bar shows Bookings, Links, Events, Availability and More.

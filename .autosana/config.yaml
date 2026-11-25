@@ -1,0 +1,7 @@
+# Defaults for `autosana run` (the CLI only; the sync ignores this file).
+apps:
+  ios:
+    bundle_id: com.cal.companion
+  android:
+    bundle_id: com.calcom.companion
+default_platform: ios

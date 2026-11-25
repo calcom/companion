@@ -1,0 +1,8 @@
+key: sign-in-eu
+name: Login | EU region opens the EU sign-in page
+description: Signed out. Matrix row A3, for the European Union region.
+labels: [smoke, regression]
+instructions: |
+  Start signed out on the app's sign-in screen. Change the data region to the European Union and check that the region picker now shows it as selected.
+  Continue to sign in with Cal.com, allowing any system prompt that asks to use the website to sign in.
+  Verify that the sign-in page opens on the EU site: the address shown is app.eu.cal.com (not app.cal.com), the page is branded "Cal.eu", and it has an email field.
