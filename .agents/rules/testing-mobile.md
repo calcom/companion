@@ -25,6 +25,9 @@ This is the entrypoint rule. Read the detailed rule that matches the work:
   flows.
 - [testing-mobile-ai-authoring](testing-mobile-ai-authoring.md) when a human or
   AI agent is using prompts to generate mobile tests.
+- `.autosana/` at the repo root holds the Autosana E2E flows. Validate changes
+  with `autosana flows validate`, and follow
+  https://docs.autosana.ai/code-managed-flows.
 
 ## Agent operating procedure
 
