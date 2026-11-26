@@ -11,17 +11,18 @@ You'll do about an hour of hands-on work, then wait 1–2 days for Apple's revie
 
 | Name | What it is | What you use it for |
 |------|------------|---------------------|
-| **Expo / EAS** ([expo.dev](https://expo.dev)) | Expo's cloud service. EAS Build compiles the app on Expo's servers; EAS Submit uploads it to Apple. | Building the app and uploading it, from your terminal. |
+| **Expo / EAS** ([expo.dev](https://expo.dev)) | Expo's cloud service. EAS Build compiles the app on Expo's servers; EAS Submit uploads it to Apple. | Building the app and uploading it. The Autosana workflow does both for you; the terminal is the fallback. |
 | **App Store Connect** ([appstoreconnect.apple.com](https://appstoreconnect.apple.com)) | Apple's website for managing the app on the App Store. | Creating the version, testing in TestFlight, filling in review details, submitting, releasing. |
 | **TestFlight** | Apple's beta testing service: a tab in App Store Connect plus an iPhone app. | Installing a build on your iPhone before anyone else gets it. |
 | **Apple Developer** ([developer.apple.com](https://developer.apple.com)) | The developer account: membership, team ID, certificates. | Rarely. EAS manages the certificates for you. |
 
 The flow:
 
-1. **Check** an up-to-date `main` with the Autosana end-to-end tests and wait
-   for them to pass.
-2. **Build** the app on EAS from that same commit.
+1. **Check** an up-to-date `main` with the Autosana end-to-end tests.
+2. **Build** the app on EAS from that same commit, once the tests pass.
 3. **Upload** it to App Store Connect. Nothing is public yet.
+
+   One run of the Autosana workflow with **publish** ticked does steps 1–3.
 4. **Test** that exact build on your iPhone through TestFlight.
 5. **Submit** that same build for Apple's review.
 6. **Release** it to everyone once Apple approves it.
@@ -39,8 +40,14 @@ The flow:
 | TestFlight group for the team | **Team (Expo)** |
 | End-to-end tests | **Autosana** workflow in GitHub Actions; the tests are in `.autosana/` |
 
-Commands, run from `apps/mobile` on a clean, up-to-date `main`. Wait for the
-Autosana run to pass before you build:
+Test, build and upload in one run:
+
+```sh
+gh workflow run autosana.yml --ref main -f platforms=ios -f publish=true
+```
+
+Fallback if the publish job can't run, from `apps/mobile` on a clean,
+up-to-date `main`, after an Autosana run without **publish** has passed:
 
 ```sh
 gh workflow run autosana.yml --ref main -f platforms=ios
@@ -72,10 +79,12 @@ You need all of these before your first release.
    [expo.dev](https://expo.dev), then ask an Owner or Admin of
    `calcoms-organization` to invite you with the **Developer** role or higher.
    Accept the invite. The project is `calcom-companion`.
-4. **Tools on your Mac:** this repo cloned, plus Node.js, so `npx` works. You
-   don't need to install the EAS CLI; `npx eas-cli@latest` downloads it each
-   time.
-5. **An iPhone** with the **TestFlight** app installed from the App Store.
+4. **Write access to the `calcom/companion` GitHub repo**, so you can run the
+   Autosana workflow.
+5. **Tools on your Mac:** this repo cloned, plus Node.js, so `npx` works. You
+   only need them for the fallback in Part 2. You don't need to install the
+   EAS CLI; `npx eas-cli@latest` downloads it each time.
+6. **An iPhone** with the **TestFlight** app installed from the App Store.
 
 ---
 
@@ -84,7 +93,9 @@ You need all of these before your first release.
 1. **Bump the version.** In `apps/mobile/app.json`, set `expo.version` to the
    new version, for example `1.1.0` → `1.1.1` for fixes or `1.2.0` for new
    features. It must be higher than the version live on the App Store. Merge
-   that change to `main` with a normal PR.
+   that change to `main` with a normal PR. If you forget, a run with
+   **publish** ticked (Part 2) stops at its first check, before any build or
+   test, and tells you to bump the version.
 
    Don't touch the build number. EAS stores it on its servers and raises it by
    one on every production build (`appVersionSource: remote`,
@@ -113,27 +124,55 @@ You need all of these before your first release.
 
 ---
 
-## Part 2: Build and upload
+## Part 2: Test, build and upload
 
-Use a normal Terminal window. Apple's login and two-factor prompts are
-interactive.
-
-1. **Run the Autosana workflow on this commit and wait for it to pass.** The
-   workflow builds a simulator copy of `main` on EAS, uploads it to
-   [Autosana](https://autosana.ai) and runs the end-to-end tests in
-   `.autosana/` that are labelled `regression` on a cloud iPhone. On GitHub,
-   open **Actions → Autosana → Run workflow**, leave the branch on `main`, set
-   **Platforms** to `ios` (or `both` if Android ships too) and click
-   **Run workflow**. Or from a terminal:
+1. **Run the Autosana workflow on `main` with publish ticked.** On GitHub, open
+   **Actions → Autosana → Run workflow**, leave the branch on `main`, set
+   **Platforms** to `ios` (or `both` if Android ships too), tick **publish**
+   and click **Run workflow**. Or from a terminal:
 
    ```sh
-   gh workflow run autosana.yml --ref main -f platforms=ios
+   gh workflow run autosana.yml --ref main -f platforms=ios -f publish=true
    ```
 
-   The job log links to each test's run on Autosana, with a recording. If a
-   test fails, fix the bug on a branch, merge it, and run the workflow again
-   on the new commit. Don't build a release from a commit that hasn't passed.
-2. **Start from a clean, up-to-date `main`:**
+   The run does three things, one after the other:
+   - **Build** a simulator copy of the commit on EAS.
+   - **Test** it: it uploads the copy to [Autosana](https://autosana.ai) and runs
+     the end-to-end tests in `.autosana/` that are labelled `regression` on a
+     cloud iPhone. The job log links to each test's run on Autosana, with a
+     recording.
+   - **Publish**, only if every test job in the run passed: it builds the same
+     commit with the `production` profile (the build number goes up by one)
+     and uploads it to App Store Connect. Only the platforms tested in this run
+     are published. Nothing goes to Apple's review.
+
+   The whole run takes about an hour. If a test fails, nothing is published:
+   fix the bug on a branch, merge it, and run the workflow again on the new
+   commit.
+
+   With **publish** ticked, the run first checks three things, in seconds,
+   and stops before any build or test if one fails:
+   - it was started on `main`, since publish never runs from another branch
+     or tag;
+   - **Labels** include `regression` (the default), so it never publishes
+     after only the smoke tests;
+   - the version in `app.json` is higher than the one live on the App Store.
+2. **Check the publish job's summary.** Open the run on GitHub and scroll to
+   **Publish ios** in the summary. It links to the EAS build and the upload,
+   and shows the version, build number and commit. If the job failed, the
+   summary and the job's error say why. See [Troubleshooting](#troubleshooting).
+3. **Wait for Apple to process it** (usually 10–30 minutes; Apple emails you).
+   The build then shows in App Store Connect → **TestFlight**, under your
+   version number.
+
+### Fallback: build and upload from your terminal
+
+Use this only when the publish job can't do it, for example when EAS needs you
+to sign in to Apple. Run the Autosana workflow without **publish** first and
+wait for it to pass. Use a normal Terminal window; Apple's login and two-factor
+prompts are interactive.
+
+1. **Start from a clean, up-to-date `main`:**
 
    ```sh
    cd ~/path/to/companion/apps/mobile
@@ -145,15 +184,16 @@ interactive.
    `git status` must say `nothing to commit, working tree clean`. EAS uploads
    the files in your folder, **including uncommitted changes**, so a local test
    tweak would ship to the App Store. `git log -1` must show the commit the
-   Autosana run passed on. If `main` has moved on since, go back to step 1.
-3. **Log in to Expo** (once per machine):
+   Autosana run passed on. If `main` has moved on since, run the workflow
+   again.
+2. **Log in to Expo** (once per machine):
 
    ```sh
    npx eas-cli@latest login
    npx eas-cli@latest whoami
    ```
 
-4. **Build.** This runs on Expo's servers and takes about 20–40 minutes.
+3. **Build.** This runs on Expo's servers and takes about 20–40 minutes.
 
    ```sh
    npx eas-cli@latest build --platform ios --profile production
@@ -176,7 +216,7 @@ interactive.
    The profile filter leaves out the Autosana workflow's test builds of
    the same commit. Check that the build shows your version, a new build number
    and the commit you expect.
-5. **Upload to App Store Connect** once the build shows **Finished**:
+4. **Upload to App Store Connect** once the build shows **Finished**:
 
    ```sh
    npx eas-cli@latest submit --platform ios --latest
@@ -187,10 +227,8 @@ interactive.
    asks you to log in to Apple, or to create or reuse an App Store Connect API
    key, say yes.
 
-   This only uploads the build. Nothing goes to Apple's review yet.
-6. **Wait for Apple to process it** (usually 10–30 minutes; Apple emails you).
-   The build then shows in App Store Connect → **TestFlight**, under your
-   version number.
+   This only uploads the build. Nothing goes to Apple's review yet. Then
+   continue with step 3 above.
 
 ---
 
@@ -360,10 +398,15 @@ approved the build, as long as you haven't released it yet.
 | Problem | Fix |
 |---------|-----|
 | **Add for Review** is grey | No build is attached yet. See Part 5, step 1. |
-| Your build isn't in **Add Build** | Refresh the page. Check that it finished processing in the TestFlight tab, and that the upload (Part 2, step 5) actually ran. The version in `app.json` must match the App Store Connect version exactly. |
+| Your build isn't in **Add Build** | Refresh the page. Check that it finished processing in the TestFlight tab, and that the upload actually ran (Part 2, step 2). The version in `app.json` must match the App Store Connect version exactly. |
+| The publish job didn't run | It runs only when **publish** was ticked and every test job in the run passed. A failed, cancelled or skipped test job means nothing is published. Fix the cause and run the workflow again. |
+| The run stops at **Check publish settings** | Its error says which check failed (Part 2, step 1). **Not main:** start the run again with **Use workflow from** set to `main`. **No `regression` label:** add it to **Labels**. **Version not higher than the live one:** bump `expo.version` in `apps/mobile/app.json` in a PR (Part 1, step 1), merge it and run the workflow again. |
+| The upload fails although the version check passed | Apple also refuses builds for a version that's approved but not yet released, which the check can't see. Bump the version as above. |
+| The publish job's build fails with a **certificate or provisioning profile** error | The publish job can't sign in to Apple, so it can't renew expired iOS credentials. Run the [fallback](#fallback-build-and-upload-from-your-terminal) build once from your terminal: it signs in to Apple and renews them. Later runs of the publish job then work again. |
+| The build finished but the upload failed | You don't need a new build. Fix the cause and upload that build from your terminal: `npx eas-cli@latest submit --platform ios --id <build id>`, with the build ID from the job summary. |
 | TestFlight shows **Redeem** | You haven't accepted an invite. Open the invite email on the iPhone. See Part 4, step 2. |
 | "Unable to Add for Review" about **age ratings** | Apple sometimes adds required age-rating questions, and every update must answer them. Click **Go to App Information** → **Age Rating** → **Edit**. For this app every answer is **No** / **None**: no user-to-user chat, no social feed, no unrestricted web browsing, no ads. That gives **4+**. On the last step, leave the override as **Not Applicable**, as in previous versions. Save, then submit again. |
-| No two-factor code during `eas build` | See Part 2, step 4: get a code from Settings → **Sign-In & Security**, or rerun and pick SMS. |
+| No two-factor code during `eas build` | See the [fallback](#fallback-build-and-upload-from-your-terminal), step 3: get a code from Settings → **Sign-In & Security**, or rerun and pick SMS. |
 | EAS asks to **revoke** a certificate or push key | Say no and ask an Admin. Revoking the push key breaks notifications in the live app. |
 | Build installed, but App Store Connect shows 0 installs | Normal. The counts lag by hours. TestFlight on the phone shows which build you have. |
 | No emails from Apple about review status | App Store Connect → your name (top right) → **Edit Profile** → **Notifications** → turn on **App Status Reports**, then **Save**. |

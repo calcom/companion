@@ -11,17 +11,18 @@ Google's review.
 
 | Name | What it is | What you use it for |
 |------|------------|---------------------|
-| **Expo / EAS** ([expo.dev](https://expo.dev)) | Expo's cloud service. EAS Build compiles the app on Expo's servers and signs it with Cal.com's upload key. | Building the app file (`.aab`) from your terminal. |
+| **Expo / EAS** ([expo.dev](https://expo.dev)) | Expo's cloud service. EAS Build compiles the app on Expo's servers and signs it with Cal.com's upload key; EAS Submit uploads it to Google Play. | Building the app file (`.aab`) and uploading it. The Autosana workflow does both for you; the terminal is the fallback. |
 | **Google Play Console** ([play.google.com/console](https://play.google.com/console)) | Google's website for managing the app on Google Play. | Uploading builds, testing, store paperwork, sending for review, publishing. |
 | **Internal testing** | A test track in Play Console, the Android counterpart of TestFlight. Testers install the build from the Play Store app. | Installing a build on an Android phone before anyone else gets it. |
 | **Production** | The track real users get. | Releasing the version you tested. |
 
 The flow:
 
-1. **Check** an up-to-date `main` with the Autosana end-to-end tests and wait
-   for them to pass.
-2. **Build** the app on EAS from that same commit.
+1. **Check** an up-to-date `main` with the Autosana end-to-end tests.
+2. **Build** the app on EAS from that same commit, once the tests pass.
 3. **Upload** the `.aab` to the Internal testing track. Nothing is public yet.
+
+   One run of the Autosana workflow with **publish** ticked does steps 1–3.
 4. **Test** that exact build on an Android phone through the Play Store.
 5. **Promote** that same build to Production and send it for Google's review.
 6. **Publish** it once Google approves it.
@@ -40,17 +41,23 @@ The flow:
 | Managed publishing | **On**: approved changes wait until someone clicks **Publish changes** |
 | End-to-end tests | **Autosana** workflow in GitHub Actions; the tests are in `.autosana/` |
 
-Commands, run from `apps/mobile` on a clean, up-to-date `main`. Wait for the
-Autosana run to pass before you build:
+Test, build and upload to Internal testing in one run:
+
+```sh
+gh workflow run autosana.yml --ref main -f platforms=android -f publish=true
+```
+
+Fallback if the publish job can't run, from `apps/mobile` on a clean,
+up-to-date `main`, after an Autosana run without **publish** has passed:
 
 ```sh
 gh workflow run autosana.yml --ref main -f platforms=android
 npx eas-cli@latest build --platform android --profile production
+npx eas-cli@latest submit --platform android --latest
 ```
 
-Then upload the `.aab` in Play Console by hand (Part 3). `eas submit` can do
-the upload instead once a Play admin has set it up; see
-[Making uploads automatic](#making-uploads-automatic).
+If `eas submit` fails too, upload the `.aab` in Play Console by hand
+([Part 3 fallback](#fallback-upload-by-hand)).
 
 ---
 
@@ -67,8 +74,11 @@ the upload instead once a Play admin has set it up; see
 3. **A seat in the Expo organization.** Same as for iOS: ask an Owner or Admin
    of `calcoms-organization` to invite you with the **Developer** role or
    higher.
-4. **Tools on your Mac:** this repo cloned, plus Node.js, so `npx` works.
-5. **An Android phone** with the Play Store, signed in with a Google account
+4. **Write access to the `calcom/companion` GitHub repo**, so you can run the
+   Autosana workflow.
+5. **Tools on your Mac:** this repo cloned, plus Node.js, so `npx` works. You
+   only need them for the fallbacks in Parts 2 and 3.
+6. **An Android phone** with the Play Store, signed in with a Google account
    you can add as a tester. No Android phone? Use an emulator; see
    [Testing without an Android phone](#testing-without-an-android-phone).
 
@@ -107,7 +117,7 @@ the upload instead once a Play admin has set it up; see
      phone *must* have that hardware, and it hides the app from devices
      without it. `apps/mobile/plugins/with-optional-android-features.js`
      marks camera, autofocus, microphone, telephony and Bluetooth as
-     optional. If the release uses new hardware, add it there. Part 3, step 7
+     optional. If the release uses new hardware, add it there. Part 6, step 5
      shows how to check.
    - **Foreground services:** if the release adds a new foreground service
      type (1.2.0 adds a phone-call service for Cal Video), Play asks for a
@@ -115,26 +125,54 @@ the upload instead once a Play admin has set it up; see
 
 ---
 
-## Part 2: Build
+## Part 2: Test, build and upload
 
-1. **Run the Autosana workflow on this commit and wait for it to pass.** The
-   workflow builds an emulator copy (`.apk`) of `main` on EAS, uploads it to
-   [Autosana](https://autosana.ai) and runs the end-to-end tests in
-   `.autosana/` that are labelled `regression` on a cloud Android emulator. On
-   GitHub, open **Actions → Autosana → Run workflow**, leave the branch on
-   `main`, set **Platforms** to `android` (or `both` if iOS ships too) and
-   click **Run workflow**. Or from a terminal:
+1. **Run the Autosana workflow on `main` with publish ticked.** On GitHub, open
+   **Actions → Autosana → Run workflow**, leave the branch on `main`, set
+   **Platforms** to `android` (or `both` if iOS ships too), tick **publish**
+   and click **Run workflow**. Or from a terminal:
 
    ```sh
-   gh workflow run autosana.yml --ref main -f platforms=android
+   gh workflow run autosana.yml --ref main -f platforms=android -f publish=true
    ```
 
-   The job log links to each test's run on Autosana, with a recording. If a
-   test fails, fix the bug on a branch, merge it, and run the workflow again
-   on the new commit. Don't build a release from a commit that hasn't passed.
-   The workflow runs on a branch or tag, so to test an earlier commit, push a
-   tag at it and pick that tag instead of `main`.
-2. **Start from a clean, up-to-date `main`:**
+   The run does three things, one after the other:
+   - **Build** an emulator copy (`.apk`) of the commit on EAS.
+   - **Test** it: it uploads the copy to [Autosana](https://autosana.ai) and runs
+     the end-to-end tests in `.autosana/` that are labelled `regression` on a
+     cloud Android emulator. The job log links to each test's run on Autosana,
+     with a recording.
+   - **Publish**, only if every test job in the run passed: it builds the same
+     commit with the `production` profile (the version code goes up by one)
+     and uploads the `.aab` to the **Internal testing** track. Only the
+     platforms tested in this run are published. Nothing goes to Production.
+
+   The whole run takes about an hour. If a test fails, nothing is published:
+   fix the bug on a branch, merge it, and run the workflow again on the new
+   commit.
+
+   With **publish** ticked, the run first checks, in seconds, that it was
+   started on `main` and that **Labels** include `regression` (the default),
+   so it never publishes after only the smoke tests. If either check fails,
+   it stops before any build or test. When iOS is in the run too, it also
+   checks the iOS version (see the iOS guide).
+
+   To ship an earlier commit (for example the commit iOS shipped), push a tag
+   at it and run the workflow on that tag **without** publish, because publish
+   only runs from `main`. Once the tests pass, build and upload that commit
+   with the [fallback](#fallback-build-from-your-terminal).
+2. **Check the publish job's summary.** Open the run on GitHub and scroll to
+   **Publish android** in the summary. It links to the EAS build and the
+   upload, and shows the version, version code and commit. If the job failed,
+   the summary and the job's error say why. See
+   [Troubleshooting](#troubleshooting).
+
+### Fallback: build from your terminal
+
+Use this only when the publish job can't do it. Run the Autosana workflow
+without **publish** first and wait for it to pass.
+
+1. **Start from a clean, up-to-date `main`:**
 
    ```sh
    cd ~/path/to/companion/apps/mobile
@@ -147,7 +185,7 @@ the upload instead once a Play admin has set it up; see
    the files in your folder, **including uncommitted changes**, so a local test
    tweak (for example a `region.ts` pointing at localhost) would ship to Google
    Play. `git log -1` must show the commit the Autosana run passed on. If
-   `main` has moved on since, go back to step 1.
+   `main` has moved on since, run the workflow again.
 
    To ship exactly the code of an earlier release (for example the commit iOS
    shipped), build from a separate clean checkout of that commit:
@@ -157,14 +195,14 @@ the upload instead once a Play admin has set it up; see
    cd ../companion-release && bun install && cd apps/mobile
    ```
 
-3. **Log in to Expo** (once per machine):
+2. **Log in to Expo** (once per machine):
 
    ```sh
    npx eas-cli@latest login
    npx eas-cli@latest whoami
    ```
 
-4. **Build.** This runs on Expo's servers and takes about 20–30 minutes.
+3. **Build.** This runs on Expo's servers and takes about 20–30 minutes.
 
    ```sh
    npx eas-cli@latest build --platform android --profile production
@@ -180,8 +218,18 @@ the upload instead once a Play admin has set it up; see
    The profile filter leaves out the Autosana workflow's test builds of
    the same commit. Check that the build shows your version, a new version code
    and the commit you expect.
-5. **Download the `.aab`** once the build shows **Finished**: click
-   **Download** on the build's page on expo.dev. The file is about 85 MB.
+4. **Upload to Internal testing** once the build shows **Finished**:
+
+   ```sh
+   npx eas-cli@latest submit --platform android --latest
+   ```
+
+   `--latest` picks the newest finished Android build of the project. If
+   someone else built after you, use `--id <build id>` from `build:list`
+   instead. If this fails as well, download the `.aab` (next step) and upload
+   it by hand ([Part 3 fallback](#fallback-upload-by-hand)).
+5. **Download the `.aab`** (only for the upload by hand): click **Download** on
+   the build's page on expo.dev. The file is about 85 MB.
 
    Or from the terminal, using the build ID from `build:list`:
 
@@ -193,7 +241,7 @@ the upload instead once a Play admin has set it up; see
 
 ---
 
-## Part 3: Upload to Internal testing
+## Part 3: Check Internal testing
 
 All in Play Console → **Cal.com Companion** → **Test and release** →
 **Testing** → **Internal testing**.
@@ -204,23 +252,30 @@ All in Play Console → **Cal.com Companion** → **Test and release** →
    sure the list is ticked, then click **Save**.
 2. Under **How testers join your test**, find **Join on the web** and click
    **Copy link**. You'll open it on the phone in Part 4.
-3. Open the **Releases** tab and click **Create new release**.
-4. Under **App bundles**, click **Upload** and pick the `.aab`. Wait for it to
+3. **Check the release.** Open the **Releases** tab. The publish job's upload
+   is the newest release, named `<version code> (<version>)`, for example
+   **47 (1.2.0)**, with the version code from the job summary. Internal
+   testing usually goes live within minutes, without a full review. If
+   **Publishing overview** in the left sidebar lists it under changes not yet
+   sent for review or ready to publish, send or publish it there.
+
+The automatic upload skips Play's review page with the supported-devices
+check. You'll see that page when you promote the release (Part 6, step 5).
+
+### Fallback: upload by hand
+
+Only when the publish job and `eas submit` both failed. Use the `.aab` from the
+[Part 2 fallback](#fallback-build-from-your-terminal), step 5.
+
+1. Open the **Releases** tab and click **Create new release**.
+2. Under **App bundles**, click **Upload** and pick the `.aab`. Wait for it to
    process. The release name fills in as `<version code> (<version>)`, for
    example **41 (1.1.0)**.
-5. **Release notes:** replace the text between the `<en-US>` tags with a short
+3. **Release notes:** replace the text between the `<en-US>` tags with a short
    line. Testers see it in the Play Store.
-6. Click **Next**. The page lists errors and warnings:
-   - **"This App Bundle contains Java/Kotlin code, which might be obfuscated"**
-     (no deobfuscation file): ignore it. The app isn't obfuscated, and every
-     release has shown it.
-   - **Errors** block you. See [Troubleshooting](#troubleshooting).
-7. **Check the devices.** Under **Changes to your supported devices**, every row
-   must show **0** devices no longer supported. If it shows a number, the build
-   declares some hardware as required (see Part 1, step 4). Don't ship it to
-   Production like that: those devices would be stuck on the old version.
-   Clicking the arrow on the bundle's **Required features** shows which ones.
-8. Click **Save and publish**, then confirm. If it only offers **Save**, that's
+4. Click **Next**. The page lists errors and warnings, and the supported
+   devices. Check them as in Part 6, step 5.
+5. Click **Save and publish**, then confirm. If it only offers **Save**, that's
    managed publishing: open **Publishing overview** in the left sidebar and
    click **Send changes for review**. Internal testing usually goes through
    within minutes, without a full review.
@@ -244,8 +299,8 @@ All in Play Console → **Cal.com Companion** → **Test and release** →
    - Try every new feature, especially anything that uploads data or asks for a
      permission.
 4. **Found a bug?** Fix it on a branch, merge to `main` (keep the same
-   `version`), and repeat Parts 2 and 3. Create a new Internal testing release
-   with the new `.aab`. Testers get it as a normal update.
+   `version`), and repeat Parts 2 and 3. The publish job creates a new
+   Internal testing release. Testers get it as a normal update.
 
 **Letting a teammate test:** add their Google account to the email list (Part 3,
 step 1) and send them the join link.
@@ -297,8 +352,17 @@ together with the release, so update them before Part 6.
    Play. Write them for users and keep them short. For example:
    *"New: Events. Create, edit and publish events from the app, add cover
    photos, and check guests in by scanning their QR tickets."*
-5. Click **Next**. Expect the same review page as in Part 3: only the
-   deobfuscation warning, and 0 devices dropped.
+5. Click **Next**. The page lists errors and warnings:
+   - **"This App Bundle contains Java/Kotlin code, which might be obfuscated"**
+     (no deobfuscation file): ignore it. The app isn't obfuscated, and every
+     release has shown it.
+   - **Errors** block you. See [Troubleshooting](#troubleshooting).
+
+   **Check the devices.** Under **Changes to your supported devices**, every
+   row must show **0** devices no longer supported. If it shows a number, the
+   build declares some hardware as required (see Part 1, step 4). Don't ship
+   it like that: those devices would be stuck on the old version. Clicking the
+   arrow on the bundle's **Required features** shows which ones.
 6. **Rollout:** choose a percentage, or **full rollout**.
    - A **staged rollout** (for example 20%) sends the update to that share of
      users first. If crashes show up you can stop it, and fewer people are
@@ -336,11 +400,16 @@ together with the release, so update them before Part 6.
 
 ## Making uploads automatic
 
-EAS has a Google service account for uploading,
-`play-console-service-account@calcom-companion.iam.gserviceaccount.com`, but
-it has no Play Console permissions, so `eas submit` fails with
-`SERVICE_ACCOUNT_IS_MISSING_PERMISSIONS`. A Play Console admin can fix that
-once:
+This is done. EAS uploads with the Google service account
+`play-console-service-account@calcom-companion.iam.gserviceaccount.com`. Since
+26 November 2026 it has **Release apps to testing tracks** for Cal.com
+Companion in Play Console, but no production permission. The publish job (Part
+2) and `eas submit` therefore upload to Internal testing (`track: internal` in
+the `production` submit profile of `apps/mobile/eas.json`), and promoting to
+Production (Part 6) stays in Play Console.
+
+For reference, this is how a Play Console admin grants the permission, for
+example if the account is ever removed:
 
 1. Play Console → **Users and permissions** → **Invite new users**.
 2. **Email address:** the service account above.
@@ -350,15 +419,6 @@ once:
    be possible from the terminal.
 4. **Apply**, then **Invite user**. The account doesn't need to accept; the
    change can take a few hours to apply.
-
-After that, this replaces the manual upload in Part 3, steps 3–8:
-
-```sh
-npx eas-cli@latest submit --platform android --latest
-```
-
-It puts the build on Internal testing. Promoting to Production (Part 6) stays
-in Play Console.
 
 ---
 
@@ -386,12 +446,15 @@ phone.
 | Problem | Fix |
 |---------|-----|
 | **"Version code X has already been used"** | Play already has a bundle with that code, even if its release was discarded. If you uploaded the same file twice, ignore it. Otherwise build again; EAS raises the code. |
-| Review page says the release **no longer supports N devices** | A permission makes Play treat some hardware as required. Add it to `plugins/with-optional-android-features.js`, rebuild, and upload the new bundle. See Part 3, step 7. |
+| Review page says the release **no longer supports N devices** | A permission makes Play treat some hardware as required. Add it to `plugins/with-optional-android-features.js`, rebuild, and upload the new bundle. See Part 6, step 5. |
 | Warning about a **deobfuscation file** | Ignore it. The app isn't obfuscated. |
 | The release page offers **Save** but not **Save and publish** | Managed publishing is on. Open **Publishing overview** and send the changes for review. |
 | The phone installs the old version after joining the test | Wait 10–15 minutes, then update in the Play Store. |
 | Accepting the join link loops on "Verify it's you" (seen in an emulator's Chrome) | Accept the link in a desktop browser with the same Google account instead. |
-| `eas submit` fails with `SERVICE_ACCOUNT_IS_MISSING_PERMISSIONS` | The service account has no Play permissions yet. Upload by hand, or see [Making uploads automatic](#making-uploads-automatic). |
+| The run stops at **Check publish settings** | Its error says which check failed (Part 2, step 1). **Not main:** start the run again with **Use workflow from** set to `main`. **No `regression` label:** add it to **Labels**. |
+| The publish job didn't run | It runs only when **publish** was ticked and every test job in the run passed. A failed, cancelled or skipped test job means nothing is published. Fix the cause and run the workflow again. |
+| The build finished but the upload failed | You don't need a new build. Fix the cause and upload that build from your terminal: `npx eas-cli@latest submit --platform android --id <build id>`, with the build ID from the job summary. Or upload it by hand ([Part 3 fallback](#fallback-upload-by-hand)). Google Play doesn't check the version name, so the version in `app.json` is never the cause on Android. |
+| The upload fails with `SERVICE_ACCOUNT_IS_MISSING_PERMISSIONS` | The service account lost its Play permission. Ask a Play admin to check it ([Making uploads automatic](#making-uploads-automatic)). Meanwhile, upload by hand. |
 | EAS asks to **generate a new keystore** | Say no and ask an Admin. EAS already holds the upload key. |
 | Review rejected for **app access** | The reviewer couldn't sign in. Check the account in **Sign in details**: password, two-factor off, US region. |
 | **"Declare your trader status"** banner | Only the Play Console account owner can do this. It doesn't block releases, but Google removes the app if it's not done by the deadline. |
