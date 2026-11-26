@@ -1,0 +1,6 @@
+key: app/restart-stays-signed-in
+name: App | Still signed in after closing and reopening the app
+description: Matrix row A4.
+instructions:
+  - Open the Bookings tab and wait for it to load. Close the app with Terminate App, then open it again with Reopen App.
+  - Verify that the app opens signed in, on one of its tabs with the tab bar, with no sign-in screen and no error. Then open the Bookings tab and verify that it still loads the Autosana App booking.

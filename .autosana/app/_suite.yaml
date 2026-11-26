@@ -1,0 +1,20 @@
+name: App
+description: >-
+  App launch, light and dark mode, staying signed in after a restart, the More
+  tab and profile sheet, deep links, and the date and time pickers. Expo 57
+  test matrix rows A1 to A4, F1, F2 (light and dark mode), I4 and I5.
+setup_flow: sign-in
+setup_hooks: [cleanup-test-data, seed-app]
+teardown_hooks: [cleanup-test-data]
+variables:
+  # cleanup-test-data removes only items whose name starts with this.
+  TEST_PREFIX: autosana-app-
+labels: [regression]
+flows:
+  - app/launch-and-appearance
+  - app/restart-stays-signed-in
+  - app/more-and-profile
+  - app/deep-links
+  - app/date-and-time-pickers
+instructions: |
+  This suite's prefix is "autosana-app-". The setup hooks created a schedule "autosana-app-schedule" (Monday to Friday, 9:00 AM to 5:00 PM), a link "autosana-app-link" and one booking of it with the attendee Autosana App, three days from now. Only change that booking and that schedule.

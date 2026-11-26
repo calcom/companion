@@ -1,0 +1,8 @@
+key: app/more-and-profile
+name: App | More tab and profile sheet, light and dark
+description: Matrix rows F1 and F2, in light and dark mode.
+instructions:
+  - Open the More tab. Verify that the header is a large "More" title with your avatar or a profile button on iOS, or the shared Cal.com header with the avatar on Android.
+  - Open the profile sheet from the header. Verify that its title is "You" on iOS or "Profile" on Android, and that it shows your name and email. Close it with its close (✕) button and verify that you're back on the More tab.
+  - Switch the device to dark mode with Set Appearance Mode. Open the profile sheet again and verify that it's dark with readable text and the same title. Close it with its close (✕) button.
+  - Switch the device back to light mode with Set Appearance Mode and verify that the More tab is light again.
