@@ -46,7 +46,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Set up EAS
-        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
+        uses: expo/expo-github-action@5273c2136bd09c2a341fe3340d3e767ce5a13015 # 9.0.2
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
