@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -99,6 +100,7 @@ export function PreJoinScreen({
   speechConsentRefusal?: SpeechConsentRefusal | null;
 }) {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const [name, setName] = useState(viewerName?.trim() ?? "");
   // A remembered name arrives after mount; it fills an untouched field and never overwrites typing.
   useEffect(() => {
@@ -125,10 +127,10 @@ export function PreJoinScreen({
       speechConsent ? { agreed: true, version: speechConsent.version } : null
     );
   };
-  // The camera preview fills most of the screen, so a checkbox or refusal that appears after
-  // Join lands below the fold, and Join just turns grey with no visible reason. Scroll so both
-  // are on screen whenever either appears or changes; a checkbox present from the start is
-  // already in reading order above Join.
+  // The preview takes the height the form leaves, so a checkbox or refusal that appears after
+  // Join shrinks it instead of landing below the fold. Once the preview is at its minimum (a
+  // small phone, or the keyboard is up) the screen scrolls instead: scroll to the end whenever
+  // either appears or changes, so Join never just turns grey with no visible reason.
   const scrollRef = useRef<ScrollView>(null);
   const consentNotice = speechConsentRefusal ?? (speechConsent ? "checkbox" : null);
   const [shownNotice, setShownNotice] = useState(consentNotice);
@@ -177,7 +179,7 @@ export function PreJoinScreen({
           {address}
         </Text>
 
-        <View style={styles.viewfinder}>
+        <View style={[styles.viewfinder, { maxHeight: (windowWidth - 40) * (4 / 3) }]}>
           {showVideo ? (
             <RTCView
               streamURL={preview.streamUrl ?? undefined}
@@ -344,7 +346,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
     backgroundColor: "#000000",
   },
-  content: { paddingHorizontal: 20, gap: 6 },
+  // Fills the screen, so the preview can take whatever height the rest leaves.
+  content: { flexGrow: 1, paddingHorizontal: 20, gap: 6 },
   header: { flexDirection: "row", justifyContent: "flex-end", marginBottom: 8 },
   closeButton: {
     width: 36,
@@ -356,8 +359,12 @@ const styles = StyleSheet.create({
   },
   title: { color: "#FFFFFF", fontSize: 28, fontWeight: "700", letterSpacing: -0.4 },
   address: { color: "rgba(255,255,255,0.6)", fontSize: 15, marginBottom: 16 },
+  // At most 3:4 (maxHeight inline); never so short that the avatar and controls collide.
   viewfinder: {
-    aspectRatio: 3 / 4,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minHeight: 200,
     width: "100%",
     borderRadius: 24,
     overflow: "hidden",
