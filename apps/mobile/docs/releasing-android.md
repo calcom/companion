@@ -18,11 +18,13 @@ Google's review.
 
 The flow:
 
-1. **Build** the app on EAS from an up-to-date `main`.
-2. **Upload** the `.aab` to the Internal testing track. Nothing is public yet.
-3. **Test** that exact build on an Android phone through the Play Store.
-4. **Promote** that same build to Production and send it for Google's review.
-5. **Publish** it once Google approves it.
+1. **Check** an up-to-date `main` with the Autosana end-to-end tests and wait
+   for them to pass.
+2. **Build** the app on EAS from that same commit.
+3. **Upload** the `.aab` to the Internal testing track. Nothing is public yet.
+4. **Test** that exact build on an Android phone through the Play Store.
+5. **Promote** that same build to Production and send it for Google's review.
+6. **Publish** it once Google approves it.
 
 ## Quick reference
 
@@ -36,10 +38,13 @@ The flow:
 | Version code | Set by EAS on every production build (`appVersionSource: remote`, `autoIncrement: true` in `eas.json`) |
 | Build settings | `production` profile in `apps/mobile/eas.json`. It produces a signed `.aab` |
 | Managed publishing | **On**: approved changes wait until someone clicks **Publish changes** |
+| End-to-end tests | **Autosana** workflow in GitHub Actions; the tests are in `.autosana/` |
 
-Command, run from `apps/mobile` on a clean, up-to-date `main`:
+Commands, run from `apps/mobile` on a clean, up-to-date `main`. Wait for the
+Autosana run to pass before you build:
 
 ```sh
+gh workflow run autosana.yml --ref main -f platforms=android
 npx eas-cli@latest build --platform android --profile production
 ```
 
@@ -112,7 +117,24 @@ the upload instead once a Play admin has set it up; see
 
 ## Part 2: Build
 
-1. **Start from a clean, up-to-date `main`:**
+1. **Run the Autosana workflow on this commit and wait for it to pass.** The
+   workflow builds an emulator copy (`.apk`) of `main` on EAS, uploads it to
+   [Autosana](https://autosana.ai) and runs the end-to-end tests in
+   `.autosana/` that are labelled `regression` on a cloud Android emulator. On
+   GitHub, open **Actions → Autosana → Run workflow**, leave the branch on
+   `main`, set **Platforms** to `android` (or `both` if iOS ships too) and
+   click **Run workflow**. Or from a terminal:
+
+   ```sh
+   gh workflow run autosana.yml --ref main -f platforms=android
+   ```
+
+   The job log links to each test's run on Autosana, with a recording. If a
+   test fails, fix the bug on a branch, merge it, and run the workflow again
+   on the new commit. Don't build a release from a commit that hasn't passed.
+   The workflow runs on a branch or tag, so to test an earlier commit, push a
+   tag at it and pick that tag instead of `main`.
+2. **Start from a clean, up-to-date `main`:**
 
    ```sh
    cd ~/path/to/companion/apps/mobile
@@ -124,7 +146,8 @@ the upload instead once a Play admin has set it up; see
    `git status` must say `nothing to commit, working tree clean`. EAS uploads
    the files in your folder, **including uncommitted changes**, so a local test
    tweak (for example a `region.ts` pointing at localhost) would ship to Google
-   Play.
+   Play. `git log -1` must show the commit the Autosana run passed on. If
+   `main` has moved on since, go back to step 1.
 
    To ship exactly the code of an earlier release (for example the commit iOS
    shipped), build from a separate clean checkout of that commit:
@@ -134,14 +157,14 @@ the upload instead once a Play admin has set it up; see
    cd ../companion-release && bun install && cd apps/mobile
    ```
 
-2. **Log in to Expo** (once per machine):
+3. **Log in to Expo** (once per machine):
 
    ```sh
    npx eas-cli@latest login
    npx eas-cli@latest whoami
    ```
 
-3. **Build.** This runs on Expo's servers and takes about 20–30 minutes.
+4. **Build.** This runs on Expo's servers and takes about 20–30 minutes.
 
    ```sh
    npx eas-cli@latest build --platform android --profile production
@@ -153,10 +176,11 @@ the upload instead once a Play admin has set it up; see
 
    You can close the terminal once the build starts. Follow it on
    [expo.dev → Builds](https://expo.dev/accounts/calcoms-organization/projects/calcom-companion/builds)
-   or with `npx eas-cli@latest build:list --platform android --limit 3`. Check
-   that the build shows your version, a new version code and the commit you
-   expect.
-4. **Download the `.aab`** once the build shows **Finished**: click
+   or with `npx eas-cli@latest build:list --platform android --build-profile production --limit 3`.
+   The profile filter leaves out the Autosana workflow's test builds of
+   the same commit. Check that the build shows your version, a new version code
+   and the commit you expect.
+5. **Download the `.aab`** once the build shows **Finished**: click
    **Download** on the build's page on expo.dev. The file is about 85 MB.
 
    Or from the terminal, using the build ID from `build:list`:

@@ -1,0 +1,6 @@
+key: smoke/events
+name: Smoke | Events tab loads
+description: Matrix row E1.
+instructions: |
+  Open the Events tab and wait for it to finish loading. The test account has no events.
+  Verify that the header is an "Events" title on iOS, or the shared Cal.com header on Android, and that the page shows the "Host your first event" empty state with a "New event" button and no error message.

@@ -1,0 +1,6 @@
+key: smoke/links
+name: Smoke | Links list finds and opens the seeded link
+description: Matrix rows C1 and C6 (opening a row).
+instructions: |
+  Open the Links tab and check its header: a "Links" title on iOS, or the shared Cal.com header on Android, and on both a "Search links" search bar. Search for "autosana-smoke" and open that link from the results.
+  Verify that the link's detail page opens for autosana-smoke and shows a 15 minute duration.

@@ -18,11 +18,13 @@ You'll do about an hour of hands-on work, then wait 1–2 days for Apple's revie
 
 The flow:
 
-1. **Build** the app on EAS from an up-to-date `main`.
-2. **Upload** it to App Store Connect. Nothing is public yet.
-3. **Test** that exact build on your iPhone through TestFlight.
-4. **Submit** that same build for Apple's review.
-5. **Release** it to everyone once Apple approves it.
+1. **Check** an up-to-date `main` with the Autosana end-to-end tests and wait
+   for them to pass.
+2. **Build** the app on EAS from that same commit.
+3. **Upload** it to App Store Connect. Nothing is public yet.
+4. **Test** that exact build on your iPhone through TestFlight.
+5. **Submit** that same build for Apple's review.
+6. **Release** it to everyone once Apple approves it.
 
 ## Quick reference
 
@@ -35,10 +37,13 @@ The flow:
 | Version number | `version` in `apps/mobile/app.json` |
 | Build settings | `production` profile in `apps/mobile/eas.json` (pinned Xcode image, build number set automatically) |
 | TestFlight group for the team | **Team (Expo)** |
+| End-to-end tests | **Autosana** workflow in GitHub Actions; the tests are in `.autosana/` |
 
-Commands, run from `apps/mobile` on a clean, up-to-date `main`:
+Commands, run from `apps/mobile` on a clean, up-to-date `main`. Wait for the
+Autosana run to pass before you build:
 
 ```sh
+gh workflow run autosana.yml --ref main -f platforms=ios
 npx eas-cli@latest build --platform ios --profile production
 npx eas-cli@latest submit --platform ios --latest
 ```
@@ -113,7 +118,22 @@ You need all of these before your first release.
 Use a normal Terminal window. Apple's login and two-factor prompts are
 interactive.
 
-1. **Start from a clean, up-to-date `main`:**
+1. **Run the Autosana workflow on this commit and wait for it to pass.** The
+   workflow builds a simulator copy of `main` on EAS, uploads it to
+   [Autosana](https://autosana.ai) and runs the end-to-end tests in
+   `.autosana/` that are labelled `regression` on a cloud iPhone. On GitHub,
+   open **Actions → Autosana → Run workflow**, leave the branch on `main`, set
+   **Platforms** to `ios` (or `both` if Android ships too) and click
+   **Run workflow**. Or from a terminal:
+
+   ```sh
+   gh workflow run autosana.yml --ref main -f platforms=ios
+   ```
+
+   The job log links to each test's run on Autosana, with a recording. If a
+   test fails, fix the bug on a branch, merge it, and run the workflow again
+   on the new commit. Don't build a release from a commit that hasn't passed.
+2. **Start from a clean, up-to-date `main`:**
 
    ```sh
    cd ~/path/to/companion/apps/mobile
@@ -124,15 +144,16 @@ interactive.
 
    `git status` must say `nothing to commit, working tree clean`. EAS uploads
    the files in your folder, **including uncommitted changes**, so a local test
-   tweak would ship to the App Store.
-2. **Log in to Expo** (once per machine):
+   tweak would ship to the App Store. `git log -1` must show the commit the
+   Autosana run passed on. If `main` has moved on since, go back to step 1.
+3. **Log in to Expo** (once per machine):
 
    ```sh
    npx eas-cli@latest login
    npx eas-cli@latest whoami
    ```
 
-3. **Build.** This runs on Expo's servers and takes about 20–40 minutes.
+4. **Build.** This runs on Expo's servers and takes about 20–40 minutes.
 
    ```sh
    npx eas-cli@latest build --platform ios --profile production
@@ -151,10 +172,11 @@ interactive.
 
    You can close the terminal once the build starts. Follow it on
    [expo.dev → Builds](https://expo.dev/accounts/calcoms-organization/projects/calcom-companion/builds)
-   or with `npx eas-cli@latest build:list --platform ios --limit 3`. Check
-   that the build shows your version, a new build number and the commit you
-   expect.
-4. **Upload to App Store Connect** once the build shows **Finished**:
+   or with `npx eas-cli@latest build:list --platform ios --build-profile production --limit 3`.
+   The profile filter leaves out the Autosana workflow's test builds of
+   the same commit. Check that the build shows your version, a new build number
+   and the commit you expect.
+5. **Upload to App Store Connect** once the build shows **Finished**:
 
    ```sh
    npx eas-cli@latest submit --platform ios --latest
@@ -166,7 +188,7 @@ interactive.
    key, say yes.
 
    This only uploads the build. Nothing goes to Apple's review yet.
-5. **Wait for Apple to process it** (usually 10–30 minutes; Apple emails you).
+6. **Wait for Apple to process it** (usually 10–30 minutes; Apple emails you).
    The build then shows in App Store Connect → **TestFlight**, under your
    version number.
 
@@ -338,10 +360,10 @@ approved the build, as long as you haven't released it yet.
 | Problem | Fix |
 |---------|-----|
 | **Add for Review** is grey | No build is attached yet. See Part 5, step 1. |
-| Your build isn't in **Add Build** | Refresh the page. Check that it finished processing in the TestFlight tab, and that the upload (Part 2, step 4) actually ran. The version in `app.json` must match the App Store Connect version exactly. |
+| Your build isn't in **Add Build** | Refresh the page. Check that it finished processing in the TestFlight tab, and that the upload (Part 2, step 5) actually ran. The version in `app.json` must match the App Store Connect version exactly. |
 | TestFlight shows **Redeem** | You haven't accepted an invite. Open the invite email on the iPhone. See Part 4, step 2. |
 | "Unable to Add for Review" about **age ratings** | Apple sometimes adds required age-rating questions, and every update must answer them. Click **Go to App Information** → **Age Rating** → **Edit**. For this app every answer is **No** / **None**: no user-to-user chat, no social feed, no unrestricted web browsing, no ads. That gives **4+**. On the last step, leave the override as **Not Applicable**, as in previous versions. Save, then submit again. |
-| No two-factor code during `eas build` | See Part 2, step 3: get a code from Settings → **Sign-In & Security**, or rerun and pick SMS. |
+| No two-factor code during `eas build` | See Part 2, step 4: get a code from Settings → **Sign-In & Security**, or rerun and pick SMS. |
 | EAS asks to **revoke** a certificate or push key | Say no and ask an Admin. Revoking the push key breaks notifications in the live app. |
 | Build installed, but App Store Connect shows 0 installs | Normal. The counts lag by hours. TestFlight on the phone shows which build you have. |
 | No emails from Apple about review status | App Store Connect → your name (top right) → **Edit Profile** → **Notifications** → turn on **App Status Reports**, then **Save**. |

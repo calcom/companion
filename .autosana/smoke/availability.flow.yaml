@@ -1,0 +1,6 @@
+key: smoke/availability
+name: Smoke | Availability lists the seeded schedule
+description: Matrix row D1.
+instructions: |
+  Open the Availability tab and check its header: an "Availability" title and a + button on iOS, or the shared Cal.com header and a "+ New" button on Android, and on both a "Search schedules" search bar. Search for "autosana-smoke", then clear the search.
+  Verify that the search leaves only the autosana-smoke schedule, and that after clearing it the full list of schedules shows again, including autosana-smoke.

@@ -1,0 +1,16 @@
+name: Smoke
+description: >-
+  A quick signed-in pass over every tab, on data the setup hooks create.
+  Expo 57 test matrix rows B1, C1, C6, D1, E1, F1 and F2, in light mode.
+setup_flow: sign-in
+setup_hooks: [cleanup-test-data, seed-smoke]
+teardown_hooks: [cleanup-test-data]
+labels: [smoke, regression]
+flows:
+  - smoke/bookings
+  - smoke/links
+  - smoke/availability
+  - smoke/events
+  - smoke/profile
+instructions: |
+  The setup hooks created a 15-minute link titled "autosana-smoke", a schedule named "autosana-smoke", and one upcoming booking of that link with the attendee "Autosana Smoke". Its title reads "autosana-smoke between … and Autosana Smoke".
