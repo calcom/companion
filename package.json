@@ -79,6 +79,7 @@
   "patchedDependencies": {
     "@cloudflare/react-native-webrtc@125.0.1": "patches/@cloudflare%2Freact-native-webrtc@125.0.1.patch",
     "@cloudflare/realtimekit-react-native@1.1.0": "patches/@cloudflare%2Frealtimekit-react-native@1.1.0.patch",
+    "decode-uri-component@0.5.1": "patches/decode-uri-component@0.5.1.patch",
     "@rn-primitives/alert-dialog@1.2.0": "patches/@rn-primitives%2Falert-dialog@1.2.0.patch",
     "@rn-primitives/dropdown-menu@1.2.0": "patches/@rn-primitives%2Fdropdown-menu@1.2.0.patch"
   }
