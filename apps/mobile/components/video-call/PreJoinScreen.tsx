@@ -1,6 +1,6 @@
 import { RTCView } from "@cloudflare/react-native-webrtc";
 import { Check, Mic, MicOff, Video, VideoOff, X } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -125,6 +125,24 @@ export function PreJoinScreen({
       speechConsent ? { agreed: true, version: speechConsent.version } : null
     );
   };
+  // The camera preview fills most of the screen, so a checkbox or refusal that appears after
+  // Join lands below the fold, and Join just turns grey with no visible reason. Scroll so both
+  // are on screen whenever either appears or changes; a checkbox present from the start is
+  // already in reading order above Join.
+  const scrollRef = useRef<ScrollView>(null);
+  const consentNotice = speechConsentRefusal ?? (speechConsent ? "checkbox" : null);
+  const [shownNotice, setShownNotice] = useState(consentNotice);
+  const [revealCount, setRevealCount] = useState(0);
+  if (consentNotice !== shownNotice) {
+    setShownNotice(consentNotice);
+    if (consentNotice) setRevealCount((count) => count + 1);
+  }
+  useEffect(() => {
+    if (revealCount === 0) return;
+    const frame = requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [revealCount]);
+
   const hint = previewHint(preview.status, cameraOn);
   const showVideo = cameraOn && preview.status === "ready" && preview.streamUrl;
 
@@ -134,6 +152,7 @@ export function PreJoinScreen({
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[
           styles.content,
           { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 },
@@ -240,28 +259,6 @@ export function PreJoinScreen({
             </>
           )}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={joining ? "Joining" : "Join"}
-            accessibilityState={{ disabled: !canJoin }}
-            disabled={!canJoin}
-            onPress={submit}
-            style={styles.joinPressable}
-          >
-            {/* Visuals on an inner View: the NativeWind JSX runtime drops function-form `style`. */}
-            <View style={[styles.joinButton, !canJoin && styles.joinDisabled]}>
-              {joining ? (
-                <ActivityIndicator color="#111111" />
-              ) : (
-                <Text style={styles.joinText}>Join</Text>
-              )}
-            </View>
-          </Pressable>
-          {speechConsentRefusal && (
-            <Text accessibilityRole="alert" style={styles.refusal}>
-              {SPEECH_CONSENT_REFUSAL_MESSAGE[speechConsentRefusal]}
-            </Text>
-          )}
           {speechConsent && (
             <View style={styles.consent}>
               <Pressable
@@ -297,6 +294,28 @@ export function PreJoinScreen({
               </View>
             </View>
           )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={joining ? "Joining" : "Join"}
+            accessibilityState={{ disabled: !canJoin }}
+            disabled={!canJoin}
+            onPress={submit}
+            style={styles.joinPressable}
+          >
+            {/* Visuals on an inner View: the NativeWind JSX runtime drops function-form `style`. */}
+            <View style={[styles.joinButton, !canJoin && styles.joinDisabled]}>
+              {joining ? (
+                <ActivityIndicator color="#111111" />
+              ) : (
+                <Text style={styles.joinText}>Join</Text>
+              )}
+            </View>
+          </Pressable>
+          {speechConsentRefusal && (
+            <Text accessibilityRole="alert" style={styles.refusal}>
+              {SPEECH_CONSENT_REFUSAL_MESSAGE[speechConsentRefusal]}
+            </Text>
+          )}
           {onSignIn && (
             <Pressable
               accessibilityRole="button"
@@ -309,12 +328,22 @@ export function PreJoinScreen({
           )}
         </View>
       </ScrollView>
+      {/* Scrolled content passes under the status bar; keep the clock on a solid ground. */}
+      <View pointerEvents="none" style={[styles.statusBarGround, { height: insets.top }]} />
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000000" },
+  statusBarGround: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    backgroundColor: "#000000",
+  },
   content: { paddingHorizontal: 20, gap: 6 },
   header: { flexDirection: "row", justifyContent: "flex-end", marginBottom: 8 },
   closeButton: {
