@@ -27,7 +27,9 @@ This is the entrypoint rule. Read the detailed rule that matches the work:
   AI agent is using prompts to generate mobile tests.
 - `.autosana/` at the repo root holds the Autosana E2E flows. Validate changes
   with `autosana flows validate`, and follow
-  https://docs.autosana.ai/code-managed-flows.
+  https://docs.autosana.ai/code-managed-flows. A suite whose hooks create data
+  must run `cleanup-test-data` as a teardown hook, and that hook must remove
+  every kind of item they create.
 
 ## Agent operating procedure
 
@@ -93,6 +95,10 @@ When a mobile PR changes behavior:
 3. Explain in the PR when a behavior change does not need Maestro coverage.
 4. Keep iOS and Android coverage in mind, especially when touching `.ios.tsx`,
    `.android.tsx`, native modules, widgets, notifications, or deep links.
+5. If the change renames or removes text or a screen that a flow in
+   `.autosana/` checks (search `.autosana/` for the old text), update that flow
+   in the same PR. PRs don't run the Autosana flows, so a stale one only fails
+   at the next release.
 
 When returning work, include:
 
