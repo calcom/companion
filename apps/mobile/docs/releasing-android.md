@@ -151,9 +151,16 @@ If `eas submit` fails too, upload the `.aab` in Play Console by hand
    fix the bug on a branch, merge it, and run the workflow again on the new
    commit.
 
-   The workflow runs on a branch or tag, so to ship an earlier commit (for
-   example the commit iOS shipped), push a tag at it and pick that tag instead
-   of `main`.
+   With **publish** ticked, the run first checks, in seconds, that it was
+   started on `main` and that **Labels** include `regression` (the default),
+   so it never publishes after only the smoke tests. If either check fails,
+   it stops before any build or test. When iOS is in the run too, it also
+   checks the iOS version (see the iOS guide).
+
+   To ship an earlier commit (for example the commit iOS shipped), push a tag
+   at it and run the workflow on that tag **without** publish, because publish
+   only runs from `main`. Once the tests pass, build and upload that commit
+   with the [fallback](#fallback-build-from-your-terminal).
 2. **Check the publish job's summary.** Open the run on GitHub and scroll to
    **Publish android** in the summary. It links to the EAS build and the
    upload, and shows the version, version code and commit. If the job failed,
@@ -444,6 +451,7 @@ phone.
 | The release page offers **Save** but not **Save and publish** | Managed publishing is on. Open **Publishing overview** and send the changes for review. |
 | The phone installs the old version after joining the test | Wait 10–15 minutes, then update in the Play Store. |
 | Accepting the join link loops on "Verify it's you" (seen in an emulator's Chrome) | Accept the link in a desktop browser with the same Google account instead. |
+| The run stops at **Check publish settings** | Its error says which check failed (Part 2, step 1). **Not main:** start the run again with **Use workflow from** set to `main`. **No `regression` label:** add it to **Labels**. |
 | The publish job didn't run | It runs only when **publish** was ticked and every test job in the run passed. A failed, cancelled or skipped test job means nothing is published. Fix the cause and run the workflow again. |
 | The build finished but the upload failed | You don't need a new build. Fix the cause and upload that build from your terminal: `npx eas-cli@latest submit --platform android --id <build id>`, with the build ID from the job summary. Or upload it by hand ([Part 3 fallback](#fallback-upload-by-hand)). Google Play doesn't check the version name, so the version in `app.json` is never the cause on Android. |
 | The upload fails with `SERVICE_ACCOUNT_IS_MISSING_PERMISSIONS` | The service account lost its Play permission. Ask a Play admin to check it ([Making uploads automatic](#making-uploads-automatic)). Meanwhile, upload by hand. |

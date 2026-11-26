@@ -4,8 +4,9 @@ name: Autosana
 # `autosana-simulator` profile, upload it to Autosana and run the tests
 # that carry the chosen labels. With `publish` ticked and every test job
 # passed, it then builds the same commit with the `production` profile and
-# uploads it to TestFlight (iOS) and Internal testing (Android). Needs the
-# EXPO_TOKEN and AUTOSANA_KEY secrets.
+# uploads it to TestFlight (iOS) and Internal testing (Android). Publishing
+# only runs from main with the regression label. Needs the EXPO_TOKEN and
+# AUTOSANA_KEY secrets.
 on:
   workflow_dispatch:
     inputs:
@@ -19,7 +20,7 @@ on:
         type: string
         default: regression
       publish:
-        description: After every test passes, build with the production profile and upload to TestFlight / Internal testing
+        description: After every test passes, build with the production profile and upload to TestFlight / Internal testing. Only from main, and labels must include regression
         type: boolean
         default: false
 
@@ -31,8 +32,62 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Runs first, in seconds. With publish ticked, it stops the run before any
+  # build or test if the run could never publish.
+  preflight:
+    name: Check publish settings
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        if: ${{ inputs.publish }}
+
+      - name: Check the publish settings
+        if: ${{ inputs.publish }}
+        shell: bash
+        env:
+          REF: ${{ github.ref }}
+          LABELS: ${{ inputs.labels }}
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          set -euo pipefail
+          failed=0
+
+          if [[ "$REF" != "refs/heads/main" ]]; then
+            echo "::error::Publish only runs from main, and this run was started on $REF. Start it again with \"Use workflow from\" set to main, or untick publish to only test this ref."
+            failed=1
+          fi
+
+          has_regression=0
+          IFS=',' read -ra labels <<< "$LABELS"
+          for label in "${labels[@]}"; do
+            label="${label#"${label%%[![:space:]]*}"}"
+            label="${label%"${label##*[![:space:]]}"}"
+            [[ "$label" == "regression" ]] && has_regression=1
+          done
+          if [[ "$has_regression" -ne 1 ]]; then
+            echo "::error::Publish needs the full regression tests, but the labels are \"$LABELS\". Add regression to the labels, or untick publish."
+            failed=1
+          fi
+
+          if [[ "$PLATFORMS" != "android" ]]; then
+            version=$(jq -r .expo.version apps/mobile/app.json)
+            # Public App Store lookup. If it can't be reached, carry on: the
+            # upload fails later with the same advice.
+            live=$(curl -fsS --max-time 20 'https://itunes.apple.com/lookup?bundleId=com.cal.companion' \
+              | jq -r '.results[0].version // empty') || live=""
+            echo "app.json version: $version, live on the App Store: ${live:-unknown}"
+            if [[ -n "$live" && "$(printf '%s\n%s\n' "$version" "$live" | sort -V | tail -1)" == "$live" ]]; then
+              echo "::error::Version $version is not higher than the version live on the App Store ($live). Bump expo.version in apps/mobile/app.json in a PR, merge it and run the workflow again."
+              failed=1
+            fi
+          fi
+
+          exit "$failed"
+
   build:
     name: Build ${{ matrix.platform }}
+    needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -94,9 +149,10 @@ jobs:
 
   test:
     name: Test ${{ matrix.platform }}
-    needs: build
-    # Test a platform whose build passed even if the other platform's failed.
-    if: ${{ !cancelled() }}
+    needs: [preflight, build]
+    # Test a platform whose build passed even if the other platform's failed,
+    # but not when the preflight check stopped the run.
+    if: ${{ !cancelled() && needs.preflight.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -135,7 +191,9 @@ jobs:
     needs: test
     # needs.test.result is 'success' only when every test job in the matrix
     # passed. A failed, cancelled or skipped test job leaves nothing published.
-    if: ${{ inputs.publish && needs.test.result == 'success' }}
+    # The preflight job already refused other refs; the ref check here is a
+    # second guard.
+    if: ${{ inputs.publish && github.ref == 'refs/heads/main' && needs.test.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -147,22 +205,6 @@ jobs:
       PLATFORM: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Check the version is not on the App Store yet
-        if: ${{ matrix.platform == 'ios' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          version=$(jq -r .expo.version apps/mobile/app.json)
-          # Public App Store lookup. If it can't be reached, carry on: the
-          # upload below fails with the same advice.
-          live=$(curl -fsS --max-time 20 'https://itunes.apple.com/lookup?bundleId=com.cal.companion' \
-            | jq -r '.results[0].version // empty') || live=""
-          echo "app.json version: $version, live on the App Store: ${live:-unknown}"
-          if [[ -n "$live" && "$(printf '%s\n%s\n' "$version" "$live" | sort -V | tail -1)" == "$live" ]]; then
-            echo "::error::Version $version is already released on the App Store (live: $live). Bump expo.version in apps/mobile/app.json in a PR, merge it and run the workflow again."
-            exit 1
-          fi
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@f4d14e03ff726c06358e5557344e1da148b56cf7 # v1.2.2

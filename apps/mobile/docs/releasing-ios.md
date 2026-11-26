@@ -93,8 +93,9 @@ You need all of these before your first release.
 1. **Bump the version.** In `apps/mobile/app.json`, set `expo.version` to the
    new version, for example `1.1.0` → `1.1.1` for fixes or `1.2.0` for new
    features. It must be higher than the version live on the App Store. Merge
-   that change to `main` with a normal PR. If you forget, the publish job in
-   Part 2 stops before it builds and tells you to bump the version.
+   that change to `main` with a normal PR. If you forget, a run with
+   **publish** ticked (Part 2) stops at its first check, before any build or
+   test, and tells you to bump the version.
 
    Don't touch the build number. EAS stores it on its servers and raises it by
    one on every production build (`appVersionSource: remote`,
@@ -148,6 +149,14 @@ You need all of these before your first release.
    The whole run takes about an hour. If a test fails, nothing is published:
    fix the bug on a branch, merge it, and run the workflow again on the new
    commit.
+
+   With **publish** ticked, the run first checks three things, in seconds,
+   and stops before any build or test if one fails:
+   - it was started on `main`, since publish never runs from another branch
+     or tag;
+   - **Labels** include `regression` (the default), so it never publishes
+     after only the smoke tests;
+   - the version in `app.json` is higher than the one live on the App Store.
 2. **Check the publish job's summary.** Open the run on GitHub and scroll to
    **Publish ios** in the summary. It links to the EAS build and the upload,
    and shows the version, build number and commit. If the job failed, the
@@ -391,7 +400,8 @@ approved the build, as long as you haven't released it yet.
 | **Add for Review** is grey | No build is attached yet. See Part 5, step 1. |
 | Your build isn't in **Add Build** | Refresh the page. Check that it finished processing in the TestFlight tab, and that the upload actually ran (Part 2, step 2). The version in `app.json` must match the App Store Connect version exactly. |
 | The publish job didn't run | It runs only when **publish** was ticked and every test job in the run passed. A failed, cancelled or skipped test job means nothing is published. Fix the cause and run the workflow again. |
-| The publish job says the version is **already released** | Apple doesn't accept new builds for a version that is live or approved. Bump `expo.version` in `apps/mobile/app.json` in a PR (Part 1, step 1), merge it and run the workflow again. |
+| The run stops at **Check publish settings** | Its error says which check failed (Part 2, step 1). **Not main:** start the run again with **Use workflow from** set to `main`. **No `regression` label:** add it to **Labels**. **Version not higher than the live one:** bump `expo.version` in `apps/mobile/app.json` in a PR (Part 1, step 1), merge it and run the workflow again. |
+| The upload fails although the version check passed | Apple also refuses builds for a version that's approved but not yet released, which the check can't see. Bump the version as above. |
 | The publish job's build fails with a **certificate or provisioning profile** error | The publish job can't sign in to Apple, so it can't renew expired iOS credentials. Run the [fallback](#fallback-build-and-upload-from-your-terminal) build once from your terminal: it signs in to Apple and renews them. Later runs of the publish job then work again. |
 | The build finished but the upload failed | You don't need a new build. Fix the cause and upload that build from your terminal: `npx eas-cli@latest submit --platform ios --id <build id>`, with the build ID from the job summary. |
 | TestFlight shows **Redeem** | You haven't accepted an invite. Open the invite email on the iPhone. See Part 4, step 2. |
