@@ -55,12 +55,12 @@ describe("speech consent on a room join", () => {
 
   test("reads the checkbox from the room's page", async () => {
     const html =
-      '<script>self.__next_f.push([1,"{\\"speechConsent\\":{\\"version\\":\\"3.0\\",\\"helpUrl\\":\\"https://cal.com/help/privacy-and-compliance/elevenlabs\\",\\"captionsOn\\":false},\\"viewerAvatarUrl\\":null}"])</script>';
+      '<script>self.__next_f.push([1,"{\\"speechConsent\\":{\\"version\\":\\"3.0\\",\\"helpUrl\\":\\"https://example.com/help\\",\\"captionsOn\\":false},\\"viewerAvatarUrl\\":null}"])</script>';
     mockFetch.mockResolvedValue({ ok: true, status: 200, text: async () => html });
 
     await expect(fetchRoomSpeechConsent(room)).resolves.toEqual({
       version: "3.0",
-      helpUrl: "https://cal.com/help/privacy-and-compliance/elevenlabs",
+      helpUrl: "https://example.com/help",
       captionsOn: false,
     });
     expect(mockFetch.mock.calls[0][0]).toBe("https://cal.video/room");
