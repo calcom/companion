@@ -25,6 +25,8 @@ import urllib.request
 
 API = "https://api.cal.com/v2"
 PREFIX = "autosana-"
+# The whole hook has one minute, so a slow request must not use most of it.
+TIMEOUT_SECONDS = 10
 
 
 class ApiError(Exception):
@@ -44,10 +46,13 @@ def call(method, path, version, body=None):
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(API + path, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             text = response.read().decode()
     except urllib.error.HTTPError as error:
         raise ApiError(f"{method} {path} -> {error.code}: {error.read().decode()[:300]}")
+    except OSError as error:
+        # Timeouts, refused or dropped connections, DNS failures.
+        raise ApiError(f"{method} {path} -> {error!r}")
     return json.loads(text) if text else {}
 
 
@@ -98,58 +103,81 @@ def remove_cal_event(event):
         call("DELETE", path, "2024-06-14")
 
 
+def is_test_booking(booking, test_event_type_ids):
+    event_type = booking.get("eventType") or {}
+    return booking.get("eventTypeId") in test_event_type_ids or is_test_item(
+        booking.get("title"), event_type.get("slug")
+    )
+
+
 failures = []
 
-# Cal Events go first: publishing one creates a booking with its title, and
-# the Cal Events API takes care of it. The booking sweep below catches any left.
-test_events = test_cal_events()
-for event in test_events:
-    try:
-        remove_cal_event(event)
-    except ApiError as error:
-        failures.append(str(error))
 
-event_types = call("GET", "/event-types", "2024-06-14").get("data") or []
-test_event_types = [e for e in event_types if is_test_item(e.get("slug"), e.get("title"))]
+def attempt(label, action, *args):
+    """Run one step. If it fails, note why and return False, so the rest still runs."""
+    try:
+        action(*args)
+    except Exception as error:
+        failures.append(f"{label}: {error}")
+        return False
+    return True
+
+
+def listed(label, list_items):
+    """Like attempt, for a listing: an empty list if it fails."""
+    try:
+        return list_items()
+    except Exception as error:
+        failures.append(f"{label}: {error}")
+        return []
+
+
+def list_test_event_types():
+    event_types = call("GET", "/event-types", "2024-06-14").get("data") or []
+    return [e for e in event_types if is_test_item(e.get("slug"), e.get("title"))]
+
+
+def list_test_schedules():
+    schedules = call("GET", "/schedules", "2024-06-11").get("data") or []
+    return [s for s in schedules if is_test_item(s.get("name")) and not s.get("isDefault")]
+
+
+# Cal Events go first: publishing one creates a booking with its title, and
+# deleting the event cancels it. The booking sweep below catches any left.
+deleted_events = 0
+for event in listed("list Cal Events", test_cal_events):
+    if attempt(f"delete Cal Event {event.get('title')}", remove_cal_event, event):
+        deleted_events += 1
+
+# If the links can't be listed, bookings are still matched by title.
+test_event_types = listed("list links", list_test_event_types)
 test_event_type_ids = {e["id"] for e in test_event_types}
 
 cancelled = 0
-for booking in upcoming_bookings():
-    event_type = booking.get("eventType") or {}
-    if not (
-        booking.get("eventTypeId") in test_event_type_ids
-        or is_test_item(booking.get("title"), event_type.get("slug"))
-    ):
+for booking in listed("list bookings", upcoming_bookings):
+    if not is_test_booking(booking, test_event_type_ids):
         continue
-    try:
-        call(
-            "POST",
-            f"/bookings/{booking['uid']}/cancel",
-            "2024-08-13",
-            {"cancellationReason": "Autosana test cleanup"},
-        )
+    cancel = f"/bookings/{booking['uid']}/cancel"
+    reason = {"cancellationReason": "Autosana test cleanup"}
+    if attempt(f"cancel booking {booking.get('title')}", call, "POST", cancel, "2024-08-13", reason):
         cancelled += 1
-    except ApiError as error:
-        failures.append(str(error))
 
+deleted_links = 0
 for event_type in test_event_types:
-    try:
-        call("DELETE", f"/event-types/{event_type['id']}", "2024-06-14")
-    except ApiError as error:
-        failures.append(str(error))
+    path = f"/event-types/{event_type['id']}"
+    if attempt(f"delete link {event_type.get('slug')}", call, "DELETE", path, "2024-06-14"):
+        deleted_links += 1
 
-schedules = call("GET", "/schedules", "2024-06-11").get("data") or []
-test_schedules = [s for s in schedules if is_test_item(s.get("name")) and not s.get("isDefault")]
-for schedule in test_schedules:
-    try:
-        call("DELETE", f"/schedules/{schedule['id']}", "2024-06-11")
-    except ApiError as error:
-        failures.append(str(error))
+deleted_schedules = 0
+for schedule in listed("list schedules", list_test_schedules):
+    path = f"/schedules/{schedule['id']}"
+    if attempt(f"delete schedule {schedule.get('name')}", call, "DELETE", path, "2024-06-11"):
+        deleted_schedules += 1
 
 print(
-    f"Cleanup: cancelled {cancelled} autosana- booking(s), deleted "
-    f"{len(test_event_types)} autosana- link(s), {len(test_schedules)} autosana- schedule(s) "
-    f"and {len(test_events)} autosana- Cal Event(s)."
+    f"Cleanup: deleted {deleted_events} autosana- Cal Event(s), cancelled {cancelled} "
+    f"autosana- booking(s), deleted {deleted_links} autosana- link(s) and "
+    f"{deleted_schedules} autosana- schedule(s)."
 )
 if failures:
     print("Cleanup could not remove everything:\n" + "\n".join(failures))
