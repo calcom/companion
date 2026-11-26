@@ -1,0 +1,13 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 2a1381608b22dacf1f73375d91e58b0c82c25a8f..3aa61259a52bc5441251ed20ad274a53dc4b0f87 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -101,7 +101,7 @@ dependencies {
+   implementation "com.facebook.react:react-native:+"
+   // From node_modules
+   implementation 'androidx.concurrent:concurrent-futures:1.1.0'
+-  implementation 'androidx.work:work-runtime:2.8.1'
++  implementation 'androidx.work:work-runtime:2.11.2'
+   implementation 'com.caverock:androidsvg-aar:1.4'
+ }
+ 
