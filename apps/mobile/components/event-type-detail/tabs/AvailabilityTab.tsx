@@ -33,7 +33,8 @@ interface AvailabilityTabProps {
   formatTime: (time: string) => string;
   selectedTimezone: string;
   schedules: Schedule[];
-  setSelectedSchedule: (schedule: Schedule) => void;
+  // Also loads the schedule's hours and timezone for the rows below.
+  onSelectSchedule: (schedule: Schedule) => void;
 }
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -154,7 +155,7 @@ export function AvailabilityTab(props: AvailabilityTabProps) {
           options={props.schedules.map((s) => ({ label: s.name, value: s.id.toString() }))}
           onSelect={(id) => {
             const schedule = props.schedules.find((s) => s.id.toString() === id);
-            if (schedule) props.setSelectedSchedule(schedule);
+            if (schedule) props.onSelectSchedule(schedule);
           }}
           isLast
         />

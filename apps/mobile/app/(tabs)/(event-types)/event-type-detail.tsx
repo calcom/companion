@@ -425,6 +425,13 @@ export default function EventTypeDetail() {
     setScheduleDetailsLoading(false);
   }, []);
 
+  // The iOS menu and the Android list both pick a schedule here, so the weekly
+  // hours and timezone under the Schedule row change with it.
+  const selectSchedule = (schedule: Schedule) => {
+    setSelectedSchedule(schedule);
+    fetchScheduleDetails(schedule.id);
+  };
+
   const fetchSchedules = useCallback(async () => {
     setSchedulesLoading(true);
     try {
@@ -1710,8 +1717,7 @@ export default function EventTypeDetail() {
                                 : ""
                             }`}
                             onPress={() => {
-                              setSelectedSchedule(schedule);
-                              fetchScheduleDetails(schedule.id);
+                              selectSchedule(schedule);
                               setShowScheduleDropdown(false);
                             }}
                           >
@@ -1756,8 +1762,7 @@ export default function EventTypeDetail() {
                               : ""
                           }`}
                           onPress={() => {
-                            setSelectedSchedule(schedule);
-                            fetchScheduleDetails(schedule.id);
+                            selectSchedule(schedule);
                             setShowScheduleDropdown(false);
                           }}
                         >
@@ -2167,7 +2172,7 @@ export default function EventTypeDetail() {
               formatTime={formatTime}
               selectedTimezone={selectedTimezone}
               schedules={schedules}
-              setSelectedSchedule={setSelectedSchedule}
+              onSelectSchedule={selectSchedule}
             />
           ) : null}
 
