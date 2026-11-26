@@ -1,0 +1,9 @@
+key: availability/name-and-timezone
+name: Availability | Edit Name & Timezone, timezone picker, save and cancel
+description: Matrix rows D7 and D8. Changes only autosana-availability-edit.
+instructions:
+  - Open the Availability tab, open autosana-availability-edit, open the Edit menu and choose Name and Timezone. Verify that the sheet is titled "Edit Name & Timezone" and shows the schedule name and its current timezone.
+  - Tap the Timezone row once. Verify that a timezone list opens on that single tap with the current timezone marked with a check, and that the list scrolls. Search for "Cairo", choose Africa/Cairo, and verify that the Timezone row now shows Africa/Cairo.
+  - On iOS, drag the sheet up to full height, open the timezone list again and verify that it opens there too, then close the list without changing the timezone. On Android, skip this step.
+  - Tap the save (✓) button. Verify that the sheet closes and the schedule's detail page shows the timezone Africa/Cairo.
+  - Open Name and Timezone again. Change the name to "autosana-availability-renamed", then close the sheet with its close (✕) button instead of saving. Verify that the detail page still shows the name autosana-availability-edit.

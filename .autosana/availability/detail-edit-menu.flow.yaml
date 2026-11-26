@@ -1,0 +1,10 @@
+key: availability/detail-edit-menu
+name: Availability | Schedule detail Edit menu, Set as Default and Delete Schedule
+description: >-
+  Matrix row D6. Makes autosana-availability-default the default (the
+  teardown puts Working Hours back) and deletes autosana-availability-delete.
+instructions:
+  - Open the Availability tab and open autosana-availability-default. Open the Edit menu in the header. Verify that it lists Name and Timezone, Working Hours, Date Override, Set as Default and Delete Schedule, with Delete Schedule in red.
+  - Choose Set as Default. Go back to the Availability list and verify that autosana-availability-default now has the Default badge and Working Hours doesn't.
+  - Open autosana-availability-delete, open the Edit menu and choose Delete Schedule. Verify that the app asks to confirm deleting it, confirm with Delete, and dismiss the success message.
+  - Verify that you're back on the Availability list and autosana-availability-delete is no longer listed.

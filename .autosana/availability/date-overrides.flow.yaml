@@ -1,0 +1,9 @@
+key: availability/date-overrides
+name: Availability | Add and edit a date override
+description: Matrix row D11. Changes only autosana-availability-edit.
+instructions:
+  - Open the Availability tab, open autosana-availability-edit, open the Edit menu and choose Date Override. Verify that the sheet is titled "Add Override".
+  - Pick the date one week from today. Leave "Mark as unavailable" off and the hours at 9:00 AM to 5:00 PM, and tap the save (✓) button. Verify that the sheet closes and the schedule's Date Overrides now lists that date.
+  - Open the Edit menu and choose Date Override again. Under Existing Overrides, tap the override you just added. Verify that the sheet's title is now "Edit Override". Turn on "Mark as unavailable" and tap the save (✓) button.
+  - Close the Add Override sheet with its close (✕) button. Verify that the schedule's Date Overrides shows that date as Unavailable.
+  - Open the Edit menu and choose Date Override once more. Pick the date two weeks from today, then close the sheet with its close (✕) button instead of saving. Verify that the schedule still lists only the one override.

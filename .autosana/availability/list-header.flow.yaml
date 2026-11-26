@@ -1,0 +1,10 @@
+key: availability/list-header
+name: Availability | List header, search and avatar, light and dark
+description: Matrix rows D1 (light and dark mode) and D3.
+instructions:
+  - Open the Availability tab. Check the header in light mode. On iOS it has a large "Availability" title, a + button and your avatar or a profile button. On Android it has the shared Cal.com header with the avatar, and a "+ New" button. Both have a "Search schedules" search bar, and Working Hours shows a Default badge.
+  - Search for "autosana-availability-edit". Verify that only that schedule shows. Then leave the search (on iOS tap its Cancel or close button; on Android clear it and close the keyboard) and verify that the full list shows again, including Working Hours and autosana-availability-delete, with the header and tab bar back in view.
+  - Switch the device to dark mode with Set Appearance Mode. Before searching, verify that the header, search bar, list and tab bar are all dark with readable text.
+  - Search for "autosana-availability-default", verify that only it shows, then leave the search the same way.
+  - Switch the device back to light mode with Set Appearance Mode and verify that the Availability tab is light again.
+  - Tap your avatar or the profile button in the header. Verify that the profile sheet opens, then close it with its close (✕) button.

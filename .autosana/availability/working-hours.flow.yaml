@@ -1,0 +1,8 @@
+key: availability/working-hours
+name: Availability | Working Hours and the day editor
+description: Matrix rows D9 and D10, and the Availability time picker for row I5. Changes only autosana-availability-edit.
+instructions:
+  - Open the Availability tab, open autosana-availability-edit, open the Edit menu and choose Working Hours. Verify that the sheet is titled "Working Hours" and lists every day from Sunday to Saturday, with Monday to Friday at 9:00 AM to 5:00 PM. Close it with its close (✕) button and verify that you're back on the schedule.
+  - Open Working Hours again and tap Monday. Verify that the day editor's title is "Monday" and that Monday is available with one time slot from 9:00 AM to 5:00 PM.
+  - Change the slot's start time to 10:00 AM with its time picker, and tap the save (✓) button. Verify that the day editor closes and Working Hours shows Monday from 10:00 AM to 5:00 PM.
+  - Close Working Hours with its close (✕) button. Verify that the schedule's weekly schedule shows Monday from 10:00 AM to 5:00 PM and Tuesday still from 9:00 AM to 5:00 PM.
