@@ -1,6 +1,6 @@
 import { RTCView } from "@cloudflare/react-native-webrtc";
 import { Check, Mic, MicOff, Video, VideoOff, X } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -99,6 +100,7 @@ export function PreJoinScreen({
   speechConsentRefusal?: SpeechConsentRefusal | null;
 }) {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const [name, setName] = useState(viewerName?.trim() ?? "");
   // A remembered name arrives after mount; it fills an untouched field and never overwrites typing.
   useEffect(() => {
@@ -125,6 +127,24 @@ export function PreJoinScreen({
       speechConsent ? { agreed: true, version: speechConsent.version } : null
     );
   };
+  // The preview takes the height the form leaves, so a checkbox or refusal that appears after
+  // Join shrinks it instead of landing below the fold. Once the preview is at its minimum (a
+  // small phone, or the keyboard is up) the screen scrolls instead: scroll to the end whenever
+  // either appears or changes, so Join never just turns grey with no visible reason.
+  const scrollRef = useRef<ScrollView>(null);
+  const consentNotice = speechConsentRefusal ?? (speechConsent ? "checkbox" : null);
+  const [shownNotice, setShownNotice] = useState(consentNotice);
+  const [revealCount, setRevealCount] = useState(0);
+  if (consentNotice !== shownNotice) {
+    setShownNotice(consentNotice);
+    if (consentNotice) setRevealCount((count) => count + 1);
+  }
+  useEffect(() => {
+    if (revealCount === 0) return;
+    const frame = requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [revealCount]);
+
   const hint = previewHint(preview.status, cameraOn);
   const showVideo = cameraOn && preview.status === "ready" && preview.streamUrl;
 
@@ -134,6 +154,7 @@ export function PreJoinScreen({
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[
           styles.content,
           { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 },
@@ -158,7 +179,7 @@ export function PreJoinScreen({
           {address}
         </Text>
 
-        <View style={styles.viewfinder}>
+        <View style={[styles.viewfinder, { maxHeight: (windowWidth - 40) * (4 / 3) }]}>
           {showVideo ? (
             <RTCView
               streamURL={preview.streamUrl ?? undefined}
@@ -240,28 +261,6 @@ export function PreJoinScreen({
             </>
           )}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={joining ? "Joining" : "Join"}
-            accessibilityState={{ disabled: !canJoin }}
-            disabled={!canJoin}
-            onPress={submit}
-            style={styles.joinPressable}
-          >
-            {/* Visuals on an inner View: the NativeWind JSX runtime drops function-form `style`. */}
-            <View style={[styles.joinButton, !canJoin && styles.joinDisabled]}>
-              {joining ? (
-                <ActivityIndicator color="#111111" />
-              ) : (
-                <Text style={styles.joinText}>Join</Text>
-              )}
-            </View>
-          </Pressable>
-          {speechConsentRefusal && (
-            <Text accessibilityRole="alert" style={styles.refusal}>
-              {SPEECH_CONSENT_REFUSAL_MESSAGE[speechConsentRefusal]}
-            </Text>
-          )}
           {speechConsent && (
             <View style={styles.consent}>
               <Pressable
@@ -297,6 +296,28 @@ export function PreJoinScreen({
               </View>
             </View>
           )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={joining ? "Joining" : "Join"}
+            accessibilityState={{ disabled: !canJoin }}
+            disabled={!canJoin}
+            onPress={submit}
+            style={styles.joinPressable}
+          >
+            {/* Visuals on an inner View: the NativeWind JSX runtime drops function-form `style`. */}
+            <View style={[styles.joinButton, !canJoin && styles.joinDisabled]}>
+              {joining ? (
+                <ActivityIndicator color="#111111" />
+              ) : (
+                <Text style={styles.joinText}>Join</Text>
+              )}
+            </View>
+          </Pressable>
+          {speechConsentRefusal && (
+            <Text accessibilityRole="alert" style={styles.refusal}>
+              {SPEECH_CONSENT_REFUSAL_MESSAGE[speechConsentRefusal]}
+            </Text>
+          )}
           {onSignIn && (
             <Pressable
               accessibilityRole="button"
@@ -309,13 +330,24 @@ export function PreJoinScreen({
           )}
         </View>
       </ScrollView>
+      {/* Scrolled content passes under the status bar; keep the clock on a solid ground. */}
+      <View pointerEvents="none" style={[styles.statusBarGround, { height: insets.top }]} />
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000000" },
-  content: { paddingHorizontal: 20, gap: 6 },
+  statusBarGround: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    backgroundColor: "#000000",
+  },
+  // Fills the screen, so the preview can take whatever height the rest leaves.
+  content: { flexGrow: 1, paddingHorizontal: 20, gap: 6 },
   header: { flexDirection: "row", justifyContent: "flex-end", marginBottom: 8 },
   closeButton: {
     width: 36,
@@ -327,8 +359,12 @@ const styles = StyleSheet.create({
   },
   title: { color: "#FFFFFF", fontSize: 28, fontWeight: "700", letterSpacing: -0.4 },
   address: { color: "rgba(255,255,255,0.6)", fontSize: 15, marginBottom: 16 },
+  // At most 3:4 (maxHeight inline); never so short that the avatar and controls collide.
   viewfinder: {
-    aspectRatio: 3 / 4,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minHeight: 200,
     width: "100%",
     borderRadius: 24,
     overflow: "hidden",
