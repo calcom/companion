@@ -27,9 +27,14 @@ This is the entrypoint rule. Read the detailed rule that matches the work:
   AI agent is using prompts to generate mobile tests.
 - `.autosana/` at the repo root holds the Autosana E2E flows. Validate changes
   with `autosana flows validate`, and follow
-  https://docs.autosana.ai/code-managed-flows. A suite whose hooks create data
-  must run `cleanup-test-data` as a teardown hook, and that hook must remove
-  every kind of item they create.
+  https://docs.autosana.ai/code-managed-flows. Each suite names everything it
+  creates, in hooks or in the app, with its own prefix (its `TEST_PREFIX`
+  variable, such as `autosana-bookings-`), and runs `cleanup-test-data` first
+  in its setup hooks and as its teardown hook. That hook must remove every
+  kind of item the suite creates and restore every account setting it
+  changes, so a run leaves the test account as it found it. A booking that
+  has ended can't be cancelled or deleted through the API, so suites must not
+  leave one to end.
 
 ## Agent operating procedure
 

@@ -2,9 +2,12 @@
 
 Runs after cleanup-test-data. Creates:
 
-- a schedule named "autosana-smoke" (09:00 to 17:00 every day)
-- a 15-minute link (event type) titled "autosana-smoke" that uses it
+- a schedule named "autosana-smoke-schedule" (09:00 to 17:00 every day)
+- a 15-minute link (event type) titled "autosana-smoke-link" that uses it
 - one upcoming booking of that link with the attendee "Autosana Smoke"
+
+Everything is named with the suite's prefix "autosana-smoke-", so the
+cleanup-test-data teardown removes it.
 
 Needs CAL_API_KEY, the test account's API key (an Autosana environment
 secret). Hooks may only use the standard library.
@@ -18,7 +21,8 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 API = "https://api.cal.com/v2"
-NAME = "autosana-smoke"
+SCHEDULE_NAME = "autosana-smoke-schedule"
+LINK_NAME = "autosana-smoke-link"
 ATTENDEE = "Autosana Smoke"
 DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
@@ -55,7 +59,7 @@ schedule = call(
     "/schedules",
     "2024-06-11",
     {
-        "name": NAME,
+        "name": SCHEDULE_NAME,
         "timeZone": time_zone,
         "isDefault": False,
         "availability": [{"days": DAYS, "startTime": "09:00", "endTime": "17:00"}],
@@ -67,8 +71,8 @@ event_type = call(
     "/event-types",
     "2024-06-14",
     {
-        "title": NAME,
-        "slug": NAME,
+        "title": LINK_NAME,
+        "slug": LINK_NAME,
         "lengthInMinutes": 15,
         "description": "Created by the Autosana smoke suite and deleted after it runs.",
         "scheduleId": schedule["id"],
@@ -97,7 +101,7 @@ for attempt in range(6):
         break
     time.sleep(5)
 if not starts:
-    raise SystemExit(f"No free slot for {NAME} in the next week")
+    raise SystemExit(f"No free slot for {LINK_NAME} in the next week")
 
 call(
     "POST",
@@ -109,7 +113,7 @@ call(
         "attendee": {
             "name": ATTENDEE,
             # The shared QA Gmail; the plus part keeps each run's address unique.
-            "email": f"calcom.qa+autosana-{int(time.time())}@gmail.com",
+            "email": f"calcom.qa+autosana-smoke-{int(time.time())}@gmail.com",
             "timeZone": time_zone,
             "language": "en",
         },
@@ -117,6 +121,6 @@ call(
 )
 
 print(
-    f'Created the schedule "{NAME}", the 15-minute link "{NAME}" and one upcoming '
-    f'booking of it with the attendee "{ATTENDEE}".'
+    f'Created the schedule "{SCHEDULE_NAME}", the 15-minute link "{LINK_NAME}" and one '
+    f'upcoming booking of it with the attendee "{ATTENDEE}".'
 )

@@ -3,4 +3,4 @@ name: Smoke | Bookings list finds the seeded booking
 description: Matrix row B1 (search part).
 instructions: |
   Open the Bookings tab and wait for the upcoming bookings to load. Search for "Autosana Smoke", then clear the search.
-  Verify that the search shows the autosana-smoke booking with Autosana Smoke, and that after clearing it the search bar is empty and the upcoming list shows that booking again.
+  Verify that the search shows the autosana-smoke-link booking with Autosana Smoke, and that after clearing it the search bar is empty and the upcoming list shows that booking again.
