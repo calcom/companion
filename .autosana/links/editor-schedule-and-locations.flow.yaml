@@ -1,0 +1,12 @@
+key: links/editor-schedule-and-locations
+name: Links | Editor schedule picker and adding a location
+description: >-
+  Matrix rows C10 and C13. Edits only autosana-links-edit. Changing the
+  schedule must also update the Weekly Schedule below it.
+instructions:
+  - Open the Links tab, search for "autosana-links-edit" and open it. Use the tab menu to switch to Availability.
+  - Verify that the Weekly Schedule below the Schedule row shows the hours of autosana-links-schedule-a, 9:00 AM to 5:00 PM on Monday to Friday.
+  - Open the Schedule options. Verify that they list autosana-links-schedule-a and autosana-links-schedule-b, with a check on autosana-links-schedule-a. Choose autosana-links-schedule-b and verify that the Schedule row now shows autosana-links-schedule-b, and that the Weekly Schedule now shows its hours, 10:00 AM to 4:00 PM on Monday to Friday.
+  - Use the tab menu to switch back to Basics. In the Locations section, which lists Cal Video, tap the + button in the section header once. Verify that the list of location types opens on that single tap, and that Cal Video is not offered again (iOS leaves it out; Android marks it as already added).
+  - Choose Attendee Phone Number. Verify that it now appears in the Locations list under Cal Video.
+  - Tap Save and wait for it to finish. Go back to the list, open autosana-links-edit again and verify that Basics lists Cal Video and Attendee Phone Number, and that Availability shows autosana-links-schedule-b.

@@ -1,0 +1,11 @@
+key: links/sort-and-filter
+name: Links | Sort by and Filter menus
+description: Matrix rows C2 and C3.
+instructions:
+  - Open the Links tab. Open the header's filter (sort and filter) menu and open "Sort by". Verify that it offers Alphabetical, Newest First and By Duration, and that Alphabetical has a check.
+  - Choose By Duration. Verify that the list is now ordered by duration, shortest first, so the 30-minute autosana-links-edit comes before the 45-minute autosana-links-recurring and the 15-minute links come first.
+  - Open the menu again and choose Newest First under Sort by. Verify that Newest First now has a check, and that autosana-links-recurring, the newest link, is at the top.
+  - Open the menu and choose Alphabetical under Sort by, so the sort is back to its default.
+  - Open the filter options (the "Filter" submenu on iOS, the filter items in the same menu on Android). Verify that they offer Hidden Only, Paid Events, Seated Events, Requires Confirmation and Recurring. Turn on Recurring.
+  - Verify that the list shows only autosana-links-recurring, and that the filter shows a count of 1 ("Filter (1)" on iOS, a 1 badge on the filter button on Android).
+  - Open the filter options again and choose Clear All Filters. Verify that the count is gone and the full list shows again, including 30 Min Meeting and autosana-links-edit.

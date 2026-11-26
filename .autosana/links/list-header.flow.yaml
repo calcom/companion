@@ -1,0 +1,9 @@
+key: links/list-header
+name: Links | List header, search and profile button, light and dark
+description: Matrix rows C1 (light and dark mode) and C4.
+instructions:
+  - Open the Links tab. Check the header in light mode. On iOS it has a large "Links" title, a filter (sort and filter) button and a profile button. On Android it has the shared Cal.com header with a filter button and the avatar. Both have a "Search links" search bar.
+  - Search for "autosana-links-edit". Verify that the list shows only autosana-links-edit. Clear the search and verify that the full list shows again, including autosana-links-recurring and 30 Min Meeting.
+  - Switch the device to dark mode with Set Appearance Mode. Verify that the header, search bar, list and tab bar switch to dark colours and all text stays readable. Search for "autosana-links-recurring", verify that only that link shows, then clear the search.
+  - Switch the device back to light mode with Set Appearance Mode and verify that the Links tab is light again.
+  - Tap the profile button (iOS) or the avatar (Android) in the header. Verify that the profile sheet opens, then close it with its close (✕) button and verify that you're back on the Links tab.
