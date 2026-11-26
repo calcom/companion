@@ -1,10 +1,14 @@
 """Remove leftover autosana- test data from the Cal.com test account.
 
 Suites run this first in their setup hooks, in case an earlier run stopped
-before its teardown, and again as their teardown hook. It only touches items
-whose title, slug or name starts with "autosana-":
+before its teardown, and again as their teardown hook. Every suite whose hooks
+create data must run it as a teardown hook, and a hook that creates a new kind
+of item must teach this one to remove it. It only touches items whose title,
+slug or name starts with "autosana-":
 
-- cancels upcoming and unconfirmed bookings of autosana- links
+- deletes autosana- Cal Events, cancelling a published one first if it can't
+  be deleted as it is
+- cancels upcoming and unconfirmed autosana- bookings
 - deletes autosana- links (event types)
 - deletes autosana- schedules, never the default one
 
@@ -16,6 +20,7 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 API = "https://api.cal.com/v2"
@@ -61,7 +66,48 @@ def upcoming_bookings():
     return bookings
 
 
+def test_cal_events():
+    events = {}
+    for status in ("draft", "upcoming", "past"):
+        cursor = None
+        for page in range(10):
+            query = f"status={status}&limit=50"
+            if cursor:
+                query += "&cursor=" + urllib.parse.quote(cursor)
+            # This API version pages with limit and cursor and filters by status.
+            response = call("GET", f"/events?{query}", "2026-05-01")
+            for event in response.get("data") or []:
+                if is_test_item(event.get("title"), event.get("slug")):
+                    events[event["uuid"]] = event
+            pagination = response.get("pagination") or {}
+            cursor = pagination.get("nextCursor")
+            if not (pagination.get("hasMore") and cursor):
+                break
+    return list(events.values())
+
+
+def remove_cal_event(event):
+    path = f"/events/{event['uuid']}"
+    try:
+        call("DELETE", path, "2024-06-14")
+    except ApiError:
+        # A published event with guests has to be cancelled before it can be deleted.
+        if not event.get("publishedAt") or event.get("cancelledAt"):
+            raise
+        call("POST", f"{path}/cancel", "2024-06-14", {"reason": "Autosana test cleanup"})
+        call("DELETE", path, "2024-06-14")
+
+
 failures = []
+
+# Cal Events go first: publishing one creates a booking with its title, and
+# the Cal Events API takes care of it. The booking sweep below catches any left.
+test_events = test_cal_events()
+for event in test_events:
+    try:
+        remove_cal_event(event)
+    except ApiError as error:
+        failures.append(str(error))
 
 event_types = call("GET", "/event-types", "2024-06-14").get("data") or []
 test_event_types = [e for e in event_types if is_test_item(e.get("slug"), e.get("title"))]
@@ -102,7 +148,8 @@ for schedule in test_schedules:
 
 print(
     f"Cleanup: cancelled {cancelled} autosana- booking(s), deleted "
-    f"{len(test_event_types)} autosana- link(s) and {len(test_schedules)} autosana- schedule(s)."
+    f"{len(test_event_types)} autosana- link(s), {len(test_schedules)} autosana- schedule(s) "
+    f"and {len(test_events)} autosana- Cal Event(s)."
 )
 if failures:
     print("Cleanup could not remove everything:\n" + "\n".join(failures))
