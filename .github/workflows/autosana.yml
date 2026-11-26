@@ -2,7 +2,10 @@ name: Autosana
 
 # Manual run before a release: build the app on EAS with the
 # `autosana-simulator` profile, upload it to Autosana and run the tests
-# that carry the chosen labels. Needs the EXPO_TOKEN and AUTOSANA_KEY secrets.
+# that carry the chosen labels. With `publish` ticked and every test job
+# passed, it then builds the same commit with the `production` profile and
+# uploads it to TestFlight (iOS) and Internal testing (Android). Needs the
+# EXPO_TOKEN and AUTOSANA_KEY secrets.
 on:
   workflow_dispatch:
     inputs:
@@ -15,6 +18,10 @@ on:
         description: Autosana labels to run after the upload (comma-separated)
         type: string
         default: regression
+      publish:
+        description: After every test passes, build with the production profile and upload to TestFlight / Internal testing
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -122,3 +129,115 @@ jobs:
           platform: ${{ matrix.platform }}
           build-path: ${{ runner.temp }}/build/${{ env.BUILD_FILE }}
           labels: ${{ inputs.labels }}
+
+  publish:
+    name: Publish ${{ matrix.platform }}
+    needs: test
+    # needs.test.result is 'success' only when every test job in the matrix
+    # passed. A failed, cancelled or skipped test job leaves nothing published.
+    if: ${{ inputs.publish && needs.test.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      # The same platforms as the test jobs, so only tested platforms ship.
+      matrix:
+        platform: ${{ fromJSON(inputs.platforms == 'both' && '["ios","android"]' || format('["{0}"]', inputs.platforms)) }}
+    env:
+      PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the version is not on the App Store yet
+        if: ${{ matrix.platform == 'ios' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(jq -r .expo.version apps/mobile/app.json)
+          # Public App Store lookup. If it can't be reached, carry on: the
+          # upload below fails with the same advice.
+          live=$(curl -fsS --max-time 20 'https://itunes.apple.com/lookup?bundleId=com.cal.companion' \
+            | jq -r '.results[0].version // empty') || live=""
+          echo "app.json version: $version, live on the App Store: ${live:-unknown}"
+          if [[ -n "$live" && "$(printf '%s\n%s\n' "$version" "$live" | sort -V | tail -1)" == "$live" ]]; then
+            echo "::error::Version $version is already released on the App Store (live: $live). Bump expo.version in apps/mobile/app.json in a PR, merge it and run the workflow again."
+            exit 1
+          fi
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@f4d14e03ff726c06358e5557344e1da148b56cf7 # v1.2.2
+        with:
+          bun-version: 1.3.0
+          cache: true
+          cache-dependency-path: bun.lock
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@5273c2136bd09c2a341fe3340d3e767ce5a13015 # 9.0.2
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # Uses the credentials stored on EAS and the `production` submit
+      # profile in eas.json. --wait also waits for the upload to finish.
+      - name: Build and upload on EAS
+        working-directory: apps/mobile
+        run: |
+          eas build --platform "$PLATFORM" --profile production --auto-submit \
+            --non-interactive --wait --json > "$RUNNER_TEMP/publish.json"
+
+      - name: Write the job summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(jq -r .expo.version apps/mobile/app.json)
+          json="$RUNNER_TEMP/publish.json"
+          if [[ "$PLATFORM" == "ios" ]]; then
+            store="TestFlight"
+            hint="If version $version is already released or approved on the App Store, Apple refuses new builds for it: bump expo.version in apps/mobile/app.json in a PR, merge it and run the workflow again."
+          else
+            store="Internal testing"
+            hint="Google Play doesn't check the version name, only the version code, which EAS raises on every build. See releasing-android.md, Troubleshooting."
+          fi
+
+          {
+            echo "## Publish $PLATFORM"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ ! -s "$json" ]] || ! jq -e 'length > 0' "$json" > /dev/null 2>&1; then
+            echo "No EAS build was started. See the log of the step that failed." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::No EAS build was started. See the log of the step that failed."
+            exit 0
+          fi
+
+          jq -r --arg store "$store" 'def cell: tostring | gsub("[\\r\\n]+"; " ") | gsub("[|]"; "\\|");
+            .[0] as $b
+            | "https://expo.dev/accounts/\($b.app.ownerAccount.name)/projects/\($b.app.slug)" as $p
+            | "| | |",
+              "|---|---|",
+              "| Build | [\($b.id)](\($p)/builds/\($b.id)): \($b.status) |",
+              "| Version | \($b.appVersion) (\($b.appBuildVersion)) |",
+              "| Commit | \($b.gitCommitHash) |",
+              (($b.submissions // [])[] | "| Upload to \($store) | [\(.id)](\($p)/submissions/\(.id)): \(.status) |"),
+              (if $b.error then "| Build error | \($b.error.message | cell) |" else empty end),
+              (($b.submissions // [])[] | select(.error) | "| Upload error | \(.error.message | cell) |")
+            ' "$json" >> "$GITHUB_STEP_SUMMARY"
+
+          build_status=$(jq -r '.[0].status' "$json")
+          submit_status=$(jq -r '.[0].submissions[0].status // "NONE"' "$json")
+          if [[ "$build_status" != "FINISHED" ]]; then
+            echo "::error::The EAS production build ended with status $build_status. Open the build link in the job summary for its logs."
+          elif [[ "$submit_status" != "FINISHED" ]]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo "$hint" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::The upload to $store ended with status $submit_status. $hint"
+          else
+            {
+              echo
+              echo "Uploaded to $store. The rest of the release is manual: see apps/mobile/docs/releasing-$PLATFORM.md."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
