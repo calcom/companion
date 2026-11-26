@@ -274,7 +274,7 @@ export const AvailabilityDetailScreen = forwardRef<
           paddingBottom: insets.bottom + 100,
         }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}
       >
         {/* Schedule Title Section */}
         <View className="mb-4">

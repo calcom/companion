@@ -53,10 +53,7 @@ function RootLayoutContent() {
           alignItems: "center",
         }}
       >
-        <StatusBar
-          barStyle={isDark ? "light-content" : "dark-content"}
-          backgroundColor={colors.background}
-        />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <CalComLogo
           width={120}
           height={26}
@@ -591,10 +588,7 @@ function RootLayoutContent() {
         style={[containerStyle, Platform.OS === "web" && { pointerEvents: "auto" as const }]}
         className={containerClass}
       >
-        <StatusBar
-          barStyle={isDark ? "light-content" : "dark-content"}
-          backgroundColor={colors.background}
-        />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         {content}
         <NetworkStatusBanner />
         <PortalHost />

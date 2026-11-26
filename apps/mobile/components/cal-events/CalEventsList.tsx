@@ -301,13 +301,13 @@ export function CalEventsList({
           ) : null}
         </>
       }
-      ListEmptyComponent={listState}
+      ListEmptyComponent={listState ?? undefined}
       ListFooterComponent={
-        !showingEvents ? null : isFetchNextPageError ? (
+        !showingEvents ? undefined : isFetchNextPageError ? (
           <ListNotice message="Couldn't load more events." onRetry={() => fetchNextPage()} />
         ) : isFetchingNextPage || wantsNextPage ? (
           <ActivityIndicator color={theme.textMuted} style={{ paddingVertical: 16 }} />
-        ) : null
+        ) : undefined
       }
     />
   );

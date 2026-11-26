@@ -185,7 +185,7 @@ function WebTabs({ colors }: { colors: TabColors }) {
         options={{
           title: "Links",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "link" : "link-outline"} size={24} color={color} />
+            <Ionicons name={focused ? "link" : "link-outline"} size={24} color={color as string} />
           ),
         }}
       />
@@ -195,7 +195,11 @@ function WebTabs({ colors }: { colors: TabColors }) {
         options={{
           title: "Bookings",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "calendar" : "calendar-outline"} size={24} color={color} />
+            <Ionicons
+              name={focused ? "calendar" : "calendar-outline"}
+              size={24}
+              color={color as string}
+            />
           ),
         }}
       />
@@ -205,7 +209,11 @@ function WebTabs({ colors }: { colors: TabColors }) {
         options={{
           title: "Events",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "ticket" : "ticket-outline"} size={24} color={color} />
+            <Ionicons
+              name={focused ? "ticket" : "ticket-outline"}
+              size={24}
+              color={color as string}
+            />
           ),
         }}
       />
@@ -215,7 +223,7 @@ function WebTabs({ colors }: { colors: TabColors }) {
         options={{
           title: "Availability",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "time" : "time-outline"} size={24} color={color} />
+            <Ionicons name={focused ? "time" : "time-outline"} size={24} color={color as string} />
           ),
         }}
       />
@@ -228,7 +236,7 @@ function WebTabs({ colors }: { colors: TabColors }) {
             <Ionicons
               name={focused ? "ellipsis-horizontal" : "ellipsis-horizontal-outline"}
               size={24}
-              color={color}
+              color={color as string}
             />
           ),
         }}

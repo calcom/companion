@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from "react-native";
 import {
   type CalEvent,
   type CalendarSource,
@@ -39,7 +39,7 @@ export function TimelineView({
   onCreate,
 }: TimelineViewProps) {
   const p = usePalette();
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const window = useMemo(
     () =>
       resolveWindow(
