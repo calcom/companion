@@ -18,11 +18,13 @@ You'll do about an hour of hands-on work, then wait 1–2 days for Apple's revie
 
 The flow:
 
-1. **Build** the app on EAS from an up-to-date `main`.
-2. **Upload** it to App Store Connect. Nothing is public yet.
-3. **Test** that exact build on your iPhone through TestFlight.
-4. **Submit** that same build for Apple's review.
-5. **Release** it to everyone once Apple approves it.
+1. **Check** an up-to-date `main` with the Autosana end-to-end tests and wait
+   for them to pass.
+2. **Build** the app on EAS from that same commit.
+3. **Upload** it to App Store Connect. Nothing is public yet.
+4. **Test** that exact build on your iPhone through TestFlight.
+5. **Submit** that same build for Apple's review.
+6. **Release** it to everyone once Apple approves it.
 
 ## Quick reference
 
@@ -35,10 +37,13 @@ The flow:
 | Version number | `version` in `apps/mobile/app.json` |
 | Build settings | `production` profile in `apps/mobile/eas.json` (pinned Xcode image, build number set automatically) |
 | TestFlight group for the team | **Team (Expo)** |
+| End-to-end tests | **Autosana** workflow in GitHub Actions; the tests are in `.autosana/` |
 
-Commands, run from `apps/mobile` on a clean, up-to-date `main`:
+Commands, run from `apps/mobile` on a clean, up-to-date `main`. Wait for the
+Autosana run to pass before you build:
 
 ```sh
+gh workflow run autosana.yml --ref main -f platforms=ios
 npx eas-cli@latest build --platform ios --profile production
 npx eas-cli@latest submit --platform ios --latest
 ```

@@ -18,11 +18,13 @@ Google's review.
 
 The flow:
 
-1. **Build** the app on EAS from an up-to-date `main`.
-2. **Upload** the `.aab` to the Internal testing track. Nothing is public yet.
-3. **Test** that exact build on an Android phone through the Play Store.
-4. **Promote** that same build to Production and send it for Google's review.
-5. **Publish** it once Google approves it.
+1. **Check** an up-to-date `main` with the Autosana end-to-end tests and wait
+   for them to pass.
+2. **Build** the app on EAS from that same commit.
+3. **Upload** the `.aab` to the Internal testing track. Nothing is public yet.
+4. **Test** that exact build on an Android phone through the Play Store.
+5. **Promote** that same build to Production and send it for Google's review.
+6. **Publish** it once Google approves it.
 
 ## Quick reference
 
@@ -36,10 +38,13 @@ The flow:
 | Version code | Set by EAS on every production build (`appVersionSource: remote`, `autoIncrement: true` in `eas.json`) |
 | Build settings | `production` profile in `apps/mobile/eas.json`. It produces a signed `.aab` |
 | Managed publishing | **On**: approved changes wait until someone clicks **Publish changes** |
+| End-to-end tests | **Autosana** workflow in GitHub Actions; the tests are in `.autosana/` |
 
-Command, run from `apps/mobile` on a clean, up-to-date `main`:
+Commands, run from `apps/mobile` on a clean, up-to-date `main`. Wait for the
+Autosana run to pass before you build:
 
 ```sh
+gh workflow run autosana.yml --ref main -f platforms=android
 npx eas-cli@latest build --platform android --profile production
 ```
 
