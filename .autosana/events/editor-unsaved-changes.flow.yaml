@@ -1,0 +1,8 @@
+key: events/editor-unsaved-changes
+name: Events | Unsaved changes alert in the event editor
+description: Matrix row E6. Edits only autosana-events-draft.
+instructions:
+  - Open the Events tab, open autosana-events-draft and tap Edit. On Basics, change the title to "autosana-events-draft unsaved".
+  - Tap the header's back button. Verify that an "Unsaved changes" alert appears with Stay and Leave without saving. Tap Stay and verify that you're still in the editor and the title still reads autosana-events-draft unsaved.
+  - Leave again with the back gesture (swipe from the left edge on iOS, the system back gesture or button on Android). Verify that the same alert appears, and tap Leave without saving. Verify that the editor closes and the event's detail page still shows the title autosana-events-draft.
+  - Tap Edit again, change the title to "autosana-events-draft saved" and tap Save. Verify that the editor closes with no Unsaved changes alert, and the detail page shows autosana-events-draft saved.

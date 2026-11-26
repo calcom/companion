@@ -1,0 +1,7 @@
+key: events/list-and-card-menus
+name: Events | Events list and an event's "⋯" menu
+description: Matrix rows E1 and E2.
+instructions:
+  - Open the Events tab and wait for it to load. Verify that the header is a large "Events" title on iOS, or the shared Cal.com header on Android, that there's no error, and that the list shows a Drafts section with autosana-events-draft and an Upcoming section with autosana-events-published and autosana-events-cancel.
+  - Tap the "⋯" button on autosana-events-draft once. Verify that the menu opens on that single tap without opening the event, with dividers between its groups, and that it has Preview, Copy link, Edit, Publish and Delete, with Delete in red. Close it by tapping outside it.
+  - Tap the "⋯" button on autosana-events-published once. Verify that it has View event page, Copy link, Share, Edit and Cancel event, with Cancel event in red, and no Publish. Choose Copy link, verify that the app confirms the event link was copied, and dismiss the message.

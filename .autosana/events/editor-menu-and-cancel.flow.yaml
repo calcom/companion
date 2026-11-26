@@ -1,0 +1,9 @@
+key: events/editor-menu-and-cancel
+name: Events | Editor "⋯" menu and cancelling an event
+description: Matrix row E4. Cancels only autosana-events-cancel.
+instructions:
+  - Open the Events tab, open autosana-events-cancel and tap Edit. Open the editor's "⋯" menu. Verify that it has View event page, Copy link, Share event and Cancel event, with Cancel event in red.
+  - Choose Copy link and verify that the app confirms the event link was copied. Dismiss the message.
+  - Open the "⋯" menu and choose Share event. Verify that the system share sheet opens, then close it without sharing.
+  - Open the "⋯" menu and choose Cancel event. Verify that the app asks you to confirm, warning that every registered guest is notified, with Keep event and Cancel event. If there's a reason field, type "Autosana test". Tap Cancel event.
+  - Verify that autosana-events-cancel now shows as Cancelled, on its detail page or in the Events list.
