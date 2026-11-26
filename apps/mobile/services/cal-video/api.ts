@@ -6,6 +6,12 @@
  * identity) persist in the native cookie jar, so a re-join is recognised as the same person.
  */
 import { fetchWithTimeout } from "@/utils/network";
+import {
+  type GuestSpeechConsent,
+  type SpeechConsentRefusal,
+  speechConsentRefusalFor,
+} from "./booking-api";
+import { type BookingSpeechConsent, readSpeechConsent } from "./booking-link";
 import { type TranscriptionState, transcriptionStateSchema } from "./cal-chat/types";
 import { joinGrantSchema } from "./join-grant-schema";
 import type { JoinFailure } from "./room-screen";
@@ -29,11 +35,16 @@ export interface JoinRequest extends RoomRef {
    * and lets the room owner join as host from the app once it does. Harmless where ignored.
    */
   accessToken?: string | null;
+  /** Only a ticked box is sent; the server decides whether this person needed one. */
+  speechConsent?: GuestSpeechConsent | null;
 }
 
 export type JoinResult =
   | { kind: "admitted"; grant: JoinGrant }
   | { kind: "knock" }
+  /** The room's owner has speech processing on and this guest hasn't ticked the checkbox yet. */
+  | { kind: "consent-required" }
+  | { kind: "consent-refused"; refusal: SpeechConsentRefusal }
   | { kind: "failure"; failure: JoinFailure };
 
 export type KnockResult =
@@ -83,6 +94,7 @@ export async function joinRoom(request: JoinRequest): Promise<JoinResult> {
       body: JSON.stringify({
         displayName: request.displayName,
         inviteToken: request.inviteToken || undefined,
+        speechConsent: request.speechConsent || undefined,
       }),
     },
     JOIN_TIMEOUT_MS
@@ -91,6 +103,13 @@ export async function joinRoom(request: JoinRequest): Promise<JoinResult> {
   if (!response.ok) {
     if (response.status === 429) return { kind: "failure", failure: "rate-limited" };
     const body = await readJson(response);
+    // Asked for a tick and none was sent: the pre-join shows the room page's checkbox. Anything
+    // else about the tick gets the web's message, so a refusal never loops.
+    if (body.reason === "speech_consent_required" && !request.speechConsent) {
+      return { kind: "consent-required" };
+    }
+    const refusal = speechConsentRefusalFor(body.reason);
+    if (refusal) return { kind: "consent-refused", refusal };
     const outcome = body.outcome;
     if (outcome === "knock") return { kind: "knock" };
     if (outcome === "not-found" || response.status === 404) {
@@ -104,6 +123,20 @@ export async function joinRoom(request: JoinRequest): Promise<JoinResult> {
   const parsed = joinGrantSchema.safeParse(body.grant);
   if (!parsed.success) return { kind: "failure", failure: "error" };
   return { kind: "admitted", grant: parsed.data };
+}
+
+/**
+ * The speech-processing checkbox the room's own page shows a signed-out guest: its wording
+ * version, help page, and which text it shows. Null when the page shows none or can't be read.
+ */
+export async function fetchRoomSpeechConsent(room: RoomRef): Promise<BookingSpeechConsent | null> {
+  const response = await fetchWithTimeout(
+    `${room.origin}/${encodeURIComponent(room.slug)}`,
+    { headers: { Accept: "text/html" } },
+    JOIN_TIMEOUT_MS
+  );
+  if (!response.ok) return null;
+  return readSpeechConsent(await response.text());
 }
 
 export async function knockRoom(room: RoomRef, displayName: string): Promise<KnockResult> {

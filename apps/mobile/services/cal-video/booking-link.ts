@@ -82,8 +82,11 @@ const REQUIRE_EMAIL = /\\?"requireEmailForGuests\\?":\s*(true|false)/;
 /** The page's `speechConsent` prop: a flat object, escaped like the rest of the streamed props. */
 const SPEECH_CONSENT = /\\?"speechConsent\\?":\s*(\{[^{}]{0,600}\})/;
 
-/** The checkbox the page shows a guest; null when it shows none or its shape isn't recognised. */
-function readSpeechConsent(html: string): BookingSpeechConsent | null {
+/**
+ * The checkbox a booking or room page shows a signed-out guest; null when it shows none or its
+ * shape isn't recognised.
+ */
+export function readSpeechConsent(html: string): BookingSpeechConsent | null {
   const raw = SPEECH_CONSENT.exec(html)?.[1];
   if (!raw) return null;
   try {

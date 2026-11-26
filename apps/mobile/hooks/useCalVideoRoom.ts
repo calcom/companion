@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   endMeeting,
+  fetchRoomSpeechConsent,
   type JoinResult,
   joinRoom,
   knockRoom,
@@ -68,9 +69,10 @@ export function useCalVideoRoom({
     link.kind === "booking-call" && link.requireEmail
   );
   /**
-   * The speech-processing checkbox a signed-in person must tick, from the speech-consent route
-   * before they join, or once the session join asked for it. A signed-out guest's is the page's,
-   * which the screen shows itself.
+   * The speech-processing checkbox this person must tick. For a booking call: from the
+   * speech-consent route before a signed-in person joins, or once the session join asked for it;
+   * a signed-out guest's is the page's, which the screen shows itself. For a room: read from the
+   * room's page once the join asked for it.
    */
   const [speechConsentPrompt, setSpeechConsentPrompt] = useState<BookingSpeechConsent | null>(null);
   /** Why the last tick was refused, shown under Join as the web does; cleared by the next join. */
@@ -233,10 +235,19 @@ export function useCalVideoRoom({
             displayName: name,
             inviteToken: target.inviteToken,
             accessToken,
+            speechConsent,
           }).catch(() => null)
         : null;
-      if (result === null) {
+      if (result === null || current === null) {
         setFailure("error");
+      } else if (result.kind === "consent-required") {
+        // If the app can't read the checkbox, reopening reads the same page, so the call goes
+        // to the web pre-join, which has it.
+        const prompt = await fetchRoomSpeechConsent(current).catch(() => null);
+        if (prompt) setSpeechConsentPrompt(prompt);
+        else setFailure("needs-web");
+      } else if (result.kind === "consent-refused") {
+        setSpeechConsentRefusal(result.refusal);
       } else if (result.kind === "knock") {
         knockedAs.current = name;
         await startKnock(name);
@@ -257,12 +268,14 @@ export function useCalVideoRoom({
     if (knock.status !== "open" && knock.status !== "admitted") return;
     if (actedOn.current === knock.status) return;
     actedOn.current = knock.status;
-    void join(name);
+    void join(name, null, joinedAs.current?.speechConsent ?? null);
   }, [knock, join]);
 
   const retryKnock = useCallback(() => {
     actedOn.current = null;
-    if (knockedAs.current) void join(knockedAs.current);
+    if (knockedAs.current) {
+      void join(knockedAs.current, null, joinedAs.current?.speechConsent ?? null);
+    }
   }, [join]);
 
   const leave = useCallback(() => {

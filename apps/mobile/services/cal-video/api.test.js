@@ -3,10 +3,75 @@ import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 const mockFetch = jest.fn();
 jest.mock("@/utils/network", () => ({ fetchWithTimeout: (...args) => mockFetch(...args) }));
 
-const { knockRoom, knockStatus, setTranscription } = require("./api");
+const {
+  fetchRoomSpeechConsent,
+  joinRoom,
+  knockRoom,
+  knockStatus,
+  setTranscription,
+} = require("./api");
 
 const room = { origin: "https://cal.video", slug: "room" };
 const reply = (body, status = 200) => ({ status, ok: status < 400, json: async () => body });
+
+describe("speech consent on a room join", () => {
+  beforeEach(() => mockFetch.mockReset());
+
+  const tick = { agreed: true, version: "3.0" };
+
+  test("asks for the checkbox when the server wants a tick and none was sent", async () => {
+    mockFetch.mockResolvedValue(
+      reply({ outcome: "error", reason: "speech_consent_required" }, 403)
+    );
+
+    await expect(joinRoom({ ...room, displayName: "Guest" })).resolves.toEqual({
+      kind: "consent-required",
+    });
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body).speechConsent).toBeUndefined();
+  });
+
+  test("sends the tick with the join", async () => {
+    mockFetch.mockResolvedValue(reply({}, 500));
+
+    await joinRoom({ ...room, displayName: "Guest", speechConsent: tick });
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+      displayName: "Guest",
+      speechConsent: tick,
+    });
+  });
+
+  test("shows the web's message rather than asking again when a sent tick is refused", async () => {
+    mockFetch
+      .mockResolvedValueOnce(reply({ outcome: "error", reason: "speech_consent_required" }, 403))
+      .mockResolvedValueOnce(reply({ outcome: "error", reason: "speech_consent_unsaved" }, 500));
+
+    await expect(joinRoom({ ...room, displayName: "Guest", speechConsent: tick })).resolves.toEqual(
+      { kind: "consent-refused", refusal: "reload" }
+    );
+    await expect(joinRoom({ ...room, displayName: "Guest", speechConsent: tick })).resolves.toEqual(
+      { kind: "consent-refused", refusal: "retry" }
+    );
+  });
+
+  test("reads the checkbox from the room's page", async () => {
+    const html =
+      '<script>self.__next_f.push([1,"{\\"speechConsent\\":{\\"version\\":\\"3.0\\",\\"helpUrl\\":\\"https://example.com/help\\",\\"captionsOn\\":false},\\"viewerAvatarUrl\\":null}"])</script>';
+    mockFetch.mockResolvedValue({ ok: true, status: 200, text: async () => html });
+
+    await expect(fetchRoomSpeechConsent(room)).resolves.toEqual({
+      version: "3.0",
+      helpUrl: "https://example.com/help",
+      captionsOn: false,
+    });
+    expect(mockFetch.mock.calls[0][0]).toBe("https://cal.video/room");
+  });
+
+  test("has no checkbox for a page that shows none", async () => {
+    mockFetch.mockResolvedValue({ ok: true, status: 200, text: async () => "<html></html>" });
+
+    await expect(fetchRoomSpeechConsent(room)).resolves.toBeNull();
+  });
+});
 
 describe("the knock", () => {
   beforeEach(() => mockFetch.mockReset());
