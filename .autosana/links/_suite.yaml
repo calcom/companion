@@ -1,0 +1,22 @@
+name: Links
+description: >-
+  The Links tab, a link's "⋯" menu and the link editor, on links the setup
+  hooks create. Expo 57 test matrix rows C1 to C13, with C1 in light and dark
+  mode.
+setup_flow: sign-in
+setup_hooks: [cleanup-test-data, seed-links]
+teardown_hooks: [cleanup-test-data]
+variables:
+  # cleanup-test-data removes only items whose name starts with this.
+  TEST_PREFIX: autosana-links-
+labels: [regression]
+flows:
+  - links/list-header
+  - links/sort-and-filter
+  - links/row-menu
+  - links/editor-tabs-and-limits
+  - links/editor-schedule-and-locations
+instructions: |
+  This suite's prefix is "autosana-links-". The setup hooks created two schedules, "autosana-links-schedule-a" and "autosana-links-schedule-b", and two links: "autosana-links-edit" (30 minutes, on schedule-a, with Cal Video as its location) and "autosana-links-recurring" (45 minutes, repeating weekly 4 times). The account also has its own links, "15 Min Meeting", "30 Min Meeting" and the hidden "Secret Meeting". Never change or delete those.
+  Sort and filter choices on the Links tab only last until the app restarts, but put them back to Alphabetical with no filters before a flow ends.
+  On iOS a setting with options shows its value and a small up-and-down chevron button that opens a menu. On Android the value opens a dialog with the options. Either way, the current value has a check.

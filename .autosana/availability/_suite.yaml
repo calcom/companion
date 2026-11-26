@@ -1,0 +1,24 @@
+name: Availability
+description: >-
+  The Availability tab, a schedule's menus and the schedule editor sheets, on
+  schedules the setup hooks create. Expo 57 test matrix rows D1 to D11, with
+  D1 in light and dark mode.
+setup_flow: sign-in
+setup_hooks: [cleanup-test-data, seed-availability]
+teardown_hooks: [cleanup-test-data]
+variables:
+  # cleanup-test-data removes only items whose name starts with this, and
+  # makes the account's own schedule the default again.
+  TEST_PREFIX: autosana-availability-
+labels: [regression]
+flows:
+  - availability/list-header
+  - availability/create-schedule
+  - availability/row-menus
+  - availability/detail-edit-menu
+  - availability/name-and-timezone
+  - availability/working-hours
+  - availability/date-overrides
+instructions: |
+  This suite's prefix is "autosana-availability-". The setup hooks created three schedules, each Monday to Friday 9:00 AM to 5:00 PM: "autosana-availability-edit", "autosana-availability-default" and "autosana-availability-delete". The account's own schedule is "Working Hours", the default. Never change or delete it; only change, duplicate or delete the schedule the flow names, and start the name of anything you create with "autosana-availability-". The flows run in order on the same schedules, so autosana-availability-edit may already have the timezone Africa/Cairo and Monday from 10:00 AM, set by earlier flows.
+  Tapping a schedule opens its detail page. Its Edit button (in the header) has the editing options. The app shows no message when a change saves: the sheet just closes. Check the schedule itself to see that the change took.

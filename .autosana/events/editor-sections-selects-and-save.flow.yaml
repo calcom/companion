@@ -1,0 +1,15 @@
+key: events/editor-sections-selects-and-save
+name: Events | Editor section menu, select fields and Save
+description: >-
+  Matrix rows E3, E5, E7 and E8. Edits only autosana-events-draft. E7's
+  Check-in and Location selects are on the Message guests sheet (row E10, left
+  out), and the Location select needs two locations.
+instructions:
+  - Open the Events tab, open autosana-events-draft and tap Edit. Verify that the editor opens and that Save is disabled before you change anything.
+  - Open the section menu in the header (it shows the current section's name, Basics). Verify that it lists sections including Basics, Appearance, Locations, Settings, Guests and Other, with a check on Basics.
+  - If the section menu has a Payment section, check its Currency field first. Switch to Payment and turn on "Paid event" so the Currency field shows. Open the Currency field, verify that USD has a check, choose EUR and verify that the field shows EUR. Then turn "Paid event" off again, so the event stays free and needs no price.
+  - Use the section menu to switch to Appearance. Verify that the page shows the Appearance settings and the header now shows Appearance.
+  - Tap anywhere on the Category field once. Verify that its options open on that single tap, that each option (Meetup, Conference, Music, Sports) shows a short description under its name, and that only the current one has a check. Choose Music, and verify that the field shows Music with its description under it and that Save is now enabled.
+  - Turn on Shader. Its Effect and Color palette fields appear below it. Open the Effect field, verify that Aurora has a check, choose Tide and verify that the field shows Tide.
+  - Open the Color palette field and choose Ember. Verify that the field shows Ember.
+  - Tap Save once and wait. The editor closes by itself when the save finishes; don't tap the header again until it has. Verify that you're back on the event's detail page, showing autosana-events-draft and its Edit button. Then tap Edit, switch to Appearance and verify that Category is Music, Color palette is Ember and Effect is Tide. Leave the editor with the back button.

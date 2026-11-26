@@ -1,0 +1,25 @@
+name: Bookings
+description: >-
+  The Bookings list, its filters and menus, booking detail and the booking
+  sheets, on bookings the setup hooks create. Expo 57 test matrix rows B1 to
+  B14, with B1 in light and dark mode.
+setup_flow: sign-in
+setup_hooks: [cleanup-test-data, seed-bookings]
+teardown_hooks: [cleanup-test-data]
+variables:
+  # cleanup-test-data removes only items whose name starts with this.
+  TEST_PREFIX: autosana-bookings-
+labels: [regression]
+flows:
+  - bookings/list-search-and-filters
+  - bookings/row-menus
+  - bookings/recurring-row
+  - bookings/detail-header-and-join
+  - bookings/detail-actions
+  - bookings/reschedule
+  - bookings/started-booking
+  - bookings/edit-location-save
+instructions: |
+  This suite's prefix is "autosana-bookings-". The setup hooks created four links, "autosana-bookings-meeting" (with a meeting link to https://example.com), "autosana-bookings-address" (at 1 Autosana Street, Vienna), "autosana-bookings-recurring" and "autosana-bookings-started", and one booking per flow, each with its own attendee: Autosana Join, Autosana Location, Autosana Reschedule and Autosana Cancel two days from now, a weekly series of three with Autosana Recurring, and a 4-hour booking with Autosana Started that began about a minute after the suite started and is in progress now. Booking titles read "autosana-bookings-<link> between … and <attendee>". Find a booking by searching for its attendee's name.
+  Only change, cancel or reschedule the booking the flow names. The account also has its own links and past bookings; never change those.
+  The app shows no message when a reschedule, location change or added guest saves, or when one fails: the sheet just closes, or stays open if it failed. Check the booking itself to see that the change took.

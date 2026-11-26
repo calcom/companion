@@ -1,0 +1,13 @@
+key: availability/row-menus
+name: Availability | A schedule's "⋯" menu, long press, duplicate and delete
+description: >-
+  Matrix rows D4 and D5. D5's long press is iOS only: Android has no
+  long-press menu, so there the flow checks the tap. Duplicates
+  autosana-availability-edit and deletes only the copy.
+instructions:
+  - Open the Availability tab and search for "autosana-availability-edit". Tap the "⋯" button on that row once. Verify that the menu opens on that single tap without opening the schedule, and that it has Set as Default, Duplicate and Delete, with Delete in red. Close it by tapping outside it, and verify that nothing changed.
+  - Clear the search and open the "⋯" menu on Working Hours, the default schedule. Verify that it has Duplicate and Delete but no Set as Default. Close it without choosing anything.
+  - Long-press the autosana-availability-edit row. On iOS, verify that the same menu opens, then close it by tapping outside it. Android has no long-press menu, so on Android verify that a long press doesn't open the "⋯" menu, and go back to the list if it opened the schedule.
+  - Tap the autosana-availability-edit row. Verify that its detail page opens, then go back.
+  - Open autosana-availability-edit's "⋯" menu and choose Duplicate. Verify that a schedule named "autosana-availability-edit (Copy)" appears in the list.
+  - Open the "⋯" menu on autosana-availability-edit (Copy) and choose Delete. Verify that the app asks to confirm deleting it, confirm with Delete and dismiss the success message. Verify that autosana-availability-edit (Copy) is gone and autosana-availability-edit is still listed.

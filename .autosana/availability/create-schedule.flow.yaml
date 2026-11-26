@@ -1,0 +1,7 @@
+key: availability/create-schedule
+name: Availability | Create a schedule from the + button
+description: Matrix row D2. The teardown deletes the new schedule.
+instructions:
+  - Open the Availability tab and tap the + button (iOS) or "+ New" (Android). Verify that a dialog titled "Add a new schedule" opens with a name field.
+  - Type the name "autosana-availability-new" and tap Continue. Verify that the new schedule's detail page opens, titled autosana-availability-new, with Monday to Friday available.
+  - Go back to the Availability list and verify that autosana-availability-new is listed.

@@ -1,0 +1,12 @@
+key: bookings/started-booking
+name: Bookings | A started booking's After Event menu and Mark No-Show sheet
+description: >-
+  Matrix rows B7 (After Event group) and B14, on a booking in progress: Mark
+  as No-Show appears once a booking has started. The API can't create a
+  booking in the past or cancel one that has ended, so the suite never leaves
+  one to end. Opens Mark No-Show and closes it without marking anyone.
+instructions:
+  - Open the Bookings tab and search for "Autosana Started". It started about a minute after the suite began and is in progress now. If it doesn't show yet, pull down to refresh. Open that booking.
+  - Open the header's "⋯" menu. Verify that it has an After Event group with Mark as No-Show, an Edit Event group, and a Danger Zone group with Report Booking and Cancel Event in red.
+  - Choose Mark as No-Show. Verify that the sheet's title is "Mark No-Show" and that it lists the attendee Autosana Started with a Mark button. Don't tap Mark. Close the sheet with its close (✕) button and verify that you're back on the booking.
+  - Go back to the Bookings list and clear the search.

@@ -5,6 +5,9 @@ description: >-
 setup_flow: sign-in
 setup_hooks: [cleanup-test-data, seed-smoke]
 teardown_hooks: [cleanup-test-data]
+variables:
+  # cleanup-test-data removes only items whose name starts with this.
+  TEST_PREFIX: autosana-smoke-
 labels: [smoke, regression]
 flows:
   - smoke/bookings
@@ -13,4 +16,4 @@ flows:
   - smoke/events
   - smoke/profile
 instructions: |
-  The setup hooks created a 15-minute link titled "autosana-smoke", a schedule named "autosana-smoke", and one upcoming booking of that link with the attendee "Autosana Smoke". Its title reads "autosana-smoke between … and Autosana Smoke".
+  The setup hooks created a 15-minute link titled "autosana-smoke-link", a schedule named "autosana-smoke-schedule", and one upcoming booking of that link with the attendee "Autosana Smoke". Its title reads "autosana-smoke-link between … and Autosana Smoke".

@@ -1,0 +1,9 @@
+key: bookings/row-menus
+name: Bookings | A booking row's "⋯" menu, long press and tap
+description: >-
+  Matrix rows B2, B3 and B4. B3's long press is iOS only: Android has no
+  long-press menu, so there the flow checks that a long press doesn't open one.
+instructions:
+  - Open the Bookings tab and search for "Autosana Join". Tap the "⋯" button on that booking once. Verify that a menu opens on that single tap and the booking's detail page does not open. Verify that it has Reschedule Booking, Edit Location, Add Guests, Report Booking and Cancel Event, and that Report Booking and Cancel Event are red. Close the menu by tapping outside it, and verify that nothing changed and you're still on the list.
+  - Long-press the same booking row. On iOS, verify that a menu opens with the same items, then close it by tapping outside it. Android has no long-press menu, so on Android verify that a long press doesn't open the booking's "⋯" menu, and go back to the list if it opened the booking.
+  - Tap the booking row itself (not the "⋯" button). Verify that the booking's detail page opens, showing autosana-bookings-meeting between … and Autosana Join, and that no menu appeared. Go back to the list and clear the search.

@@ -1,0 +1,8 @@
+key: app/launch-and-appearance
+name: App | Launch after sign-in, and light and dark mode
+description: Matrix rows A1, A2 and A3 (the sign-in setup flow signs in with the United States region).
+instructions:
+  - Verify that the app is signed in and showing one of its tabs with the tab bar, with no red error screen or error badge.
+  - In light mode, open the Bookings, Links, Events, Availability and More tabs in turn. Verify that each loads with light headers, a light tab bar and light backgrounds, and nothing overlaps or is cut off.
+  - Switch the device to dark mode with Set Appearance Mode. Open the same five tabs again, and open the profile sheet from the More tab's header and close it. Verify that the headers, tab bar, backgrounds and the profile sheet all switch to dark colours, with readable text.
+  - Switch the device back to light mode with Set Appearance Mode and verify that the app is light again.

@@ -1,0 +1,12 @@
+key: links/editor-tabs-and-limits
+name: Links | Editor tab menu, Save, Limits and Recurring pickers
+description: Matrix rows C7, C8, C9 (Limits and Recurring tabs), C11 and C12. Edits only autosana-links-edit.
+instructions:
+  - Open the Links tab, search for "autosana-links-edit" and open it. Verify that Save is disabled before you change anything.
+  - Open the tab menu in the header (it shows the current tab's name, Basics). Verify that it lists Basics, Availability, Limits, Advanced, Recurring and Other, with a check on Basics. Switch to Limits and verify that the page shows the Limits settings and the header now shows Limits.
+  - On Limits, open the Before event setting's options. Verify that "No buffer time" has a check, choose 10 Minutes, and verify that the row shows 10 Minutes and Save is now enabled.
+  - Change After event to 5 Minutes the same way, and verify that the row updates.
+  - Open the Minimum Notice unit's options. Verify that Hours has a check, choose Minutes, and verify that the unit shows Minutes.
+  - Open the Time-slot intervals options and choose 30 Minutes. Verify that the row shows 30 Minutes.
+  - Use the tab menu to switch to Recurring. Turn on Recurring Event, open the frequency options next to "Repeats every", verify that week has a check, choose month, and verify that it shows month.
+  - Tap Save and wait for it to finish. Go back to the list, open autosana-links-edit again and verify that Limits shows Before event 10 Minutes, After event 5 Minutes and Time-slot intervals 30 Minutes, and that Recurring is on and repeats every month.

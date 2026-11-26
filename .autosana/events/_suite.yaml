@@ -1,0 +1,21 @@
+name: Events
+description: >-
+  The Events tab, an event's "⋯" menus, the event editor and the Invite
+  guests sheet, on Cal Events the setup hooks create. Expo 57 test matrix rows
+  E1 to E9.
+setup_flow: sign-in
+setup_hooks: [cleanup-test-data, seed-events]
+teardown_hooks: [cleanup-test-data]
+variables:
+  # cleanup-test-data removes only items whose name starts with this.
+  TEST_PREFIX: autosana-events-
+labels: [regression]
+flows:
+  - events/list-and-card-menus
+  - events/editor-sections-selects-and-save
+  - events/editor-unsaved-changes
+  - events/editor-menu-and-cancel
+  - events/invite-guests
+instructions: |
+  This suite's prefix is "autosana-events-". The setup hooks created three Cal Events five days from now: "autosana-events-draft" (a draft), and "autosana-events-published" and "autosana-events-cancel" (both published). The account has no other events. Only edit, cancel or invite guests to the event the flow names, and keep "autosana-events-" at the start of any title you type.
+  Tapping an event opens its detail page; its Edit button opens the event editor. The app shows no message when an edit or publish saves. Check the event itself to see that the change took.

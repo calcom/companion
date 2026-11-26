@@ -1,0 +1,13 @@
+key: links/row-menu
+name: Links | A link's "⋯" menu, duplicate and delete
+description: >-
+  Matrix rows C5 and C6. The copy is deleted in the app; the teardown removes
+  it too if the flow stops early.
+instructions:
+  - Open the Links tab and search for "autosana-links-edit". Tap the "⋯" button on the autosana-links-edit row once. Verify that a menu opens on that single tap and the link's detail page does not open, that it has Copy link, Edit, Duplicate and Delete (Android also lists Preview), and that Delete is red. Close the menu by tapping outside it and verify that nothing changed.
+  - Tap the autosana-links-edit row itself (not the "⋯" button). Verify that its detail page opens with the title autosana-links-edit, then go back to the list.
+  - Open the row's "⋯" menu and choose Copy link. Verify that the app confirms the link was copied, and dismiss the message.
+  - Open the row's "⋯" menu and choose Edit. Verify that the detail page for autosana-links-edit opens, then go back.
+  - Open the row's "⋯" menu and choose Duplicate. Verify that the app opens the detail page of a new link whose Title field reads "autosana-links-edit (copy)" (the header shortens long titles). Go back to the list.
+  - Search for "autosana-links-edit (copy)". Open that copy's "⋯" menu and choose Delete. Verify that the app asks you to confirm deleting it, confirm with Delete, and dismiss the success message.
+  - Verify that autosana-links-edit (copy) is no longer in the list and autosana-links-edit still is. Clear the search.

@@ -1,0 +1,9 @@
+key: app/deep-links
+name: App | Deep links to a booking and to a tab
+description: >-
+  Matrix row I4, with the app running, through the app's calcom:// links.
+  The OAuth callback is covered by the sign-in setup flow, which finishes
+  through it; opening it again while signed in isn't a path the app supports.
+instructions:
+  - Open the Links tab. Use Open Deeplink to open calcom://(tabs)/(bookings)/booking-detail?uid=${env:APP_BOOKING_UID}. Verify that the app shows the booking detail page for autosana-app-link between … and Autosana App.
+  - Use Open Deeplink to open calcom://(tabs)/(availability). Verify that the app switches to the Availability tab and lists autosana-app-schedule.

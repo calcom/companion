@@ -1,0 +1,9 @@
+key: app/date-and-time-pickers
+name: App | Date and time pickers in Reschedule and Availability
+description: Matrix row I5. Reschedules only the Autosana App booking and edits only autosana-app-schedule.
+instructions:
+  - Open the Bookings tab, search for "Autosana App" and open that booking. Note its date and time. Open the header's "⋯" menu and choose Reschedule Booking.
+  - In the Reschedule sheet, verify that the date and time pickers show the booking's current date and time. Use the date picker to move it one day later, and the time picker to move it one hour later. Verify that the pickers show the new date and time, then tap the save (✓) button and verify that the sheet closes.
+  - Go back to the Bookings list, search for "Autosana App" and verify that the booking now shows the new date and time.
+  - Open the Availability tab, open autosana-app-schedule, open the Edit menu and choose Working Hours, then tap Tuesday. Change the slot's end time to 4:00 PM with its time picker and tap the save (✓) button.
+  - Verify that Working Hours shows Tuesday from 9:00 AM to 4:00 PM, then close it with its close (✕) button and verify that the schedule shows the same.

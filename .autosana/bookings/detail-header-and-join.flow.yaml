@@ -1,0 +1,9 @@
+key: bookings/detail-header-and-join
+name: Bookings | Booking detail header, its "⋯" menu and Join
+description: Matrix rows B6, B7 (Copy Meeting Link, Edit Event and Danger Zone) and B9.
+instructions:
+  - Open the Bookings tab, search for "Autosana Location" and open that booking. Verify that its detail page shows the location 1 Autosana Street, Vienna and has no Join button. Go back to the list.
+  - Search for "Autosana Join" and open that booking. Verify that the header's back button shows the name of the month the booking is in (not "Bookings").
+  - Open the header's "⋯" menu. Verify that Copy Meeting Link comes first, then an Edit Event group with Reschedule Booking, Edit Location and Add Guests, then a Danger Zone group with Report Booking and Cancel Event in red. Choose Copy Meeting Link and verify that the app confirms the meeting link was copied, then dismiss the message.
+  - Tap the back button and verify that it returns to the Bookings list. Open the Autosana Join booking again.
+  - Tap Join. Verify that the meeting link, https://example.com, opens in a browser showing the Example Domain page. Then return to the app.

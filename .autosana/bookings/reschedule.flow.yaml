@@ -1,0 +1,8 @@
+key: bookings/reschedule
+name: Bookings | Reschedule a booking
+description: Matrix row B10, and the Reschedule date picker for row I5. Reschedules only the Autosana Reschedule booking.
+instructions:
+  - Open the Bookings tab, search for "Autosana Reschedule" and open that booking. Note its date and time.
+  - Open the header's "⋯" menu and choose Reschedule Booking. Verify that the Reschedule sheet opens and shows the booking's current date and time. Close it with its close (✕) button and verify that the booking's date and time haven't changed.
+  - Open Reschedule Booking again. Use the date picker to move the booking one day later, keeping the same time, and tap the save (✓) button. Verify that the sheet closes.
+  - Go back to the Bookings list and search for "Autosana Reschedule". Verify that the booking now shows the new date, one day later than before, at the same time.

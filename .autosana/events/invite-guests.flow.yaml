@@ -1,0 +1,10 @@
+key: events/invite-guests
+name: Events | Invite guests sheet
+description: >-
+  Matrix row E9. Invites a guest only to autosana-events-published; the
+  teardown deletes the event with its invitation.
+instructions:
+  - Open the Events tab, open autosana-events-published and tap Edit. Use the section menu to switch to Guests and tap Invite guests.
+  - Verify that the sheet's title is "Invite guests" and that its send (✓) button is disabled while the form is empty. Close it with its close (✕) button and verify that you're back on the Guests section.
+  - Tap Invite guests again. Type the email "calcom.qa+autosana-events-guest@gmail.com". If it is still in the text field, tap Add; if the keyboard's enter already turned it into a guest, there is nothing to add. Verify that it shows as an added guest and that the send (✓) button is now enabled. Tap send.
+  - Verify that the app confirms that 1 guest was invited and the sheet closes. Leave the editor with the back button.
