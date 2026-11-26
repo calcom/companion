@@ -48,7 +48,7 @@ def parse_time(value):
 
 
 me = call("GET", "/me", "2024-06-11")["data"]
-time_zone = me.get("timeZone") or "Europe/London"
+time_zone = me["timeZone"]
 
 schedule = call(
     "POST",
