@@ -12,6 +12,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  type ScrollViewInstance,
   Text,
   useColorScheme,
   View,
@@ -197,7 +198,7 @@ export function EditCalEventScreen({
   const actions = useCalEventActions();
   const openEditor = useOpenCalEventEditor();
   const queryClient = useQueryClient();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
 
   // Prefilled once: a refetch while editing must not reset what the user typed.
   const [initial, setInitial] = useState(() => buildEditFormValues(event));

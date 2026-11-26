@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type TextInputInstance,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -142,7 +143,7 @@ export function ChatSheet({
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState("");
   const list = useRef<FlatList<ChatRow>>(null);
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
   // KeyboardAvoidingView compares its frame with the keyboard's screen position; a pageSheet
   // starts below the screen top, so without this offset the keyboard covers the composer.
   const { height: windowHeight } = useWindowDimensions();

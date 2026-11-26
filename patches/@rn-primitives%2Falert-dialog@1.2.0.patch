@@ -1,0 +1,242 @@
+diff --git a/dist/alert-dialog.d.mts b/dist/alert-dialog.d.mts
+index 801c54c0dedf0071b6ec901b1d66ce50cd9eaaab..88e9c9f7265965de2724dd0afc5ba0de490ce83d 100644
+--- a/dist/alert-dialog.d.mts
++++ b/dist/alert-dialog.d.mts
+@@ -11,47 +11,47 @@ declare const Root: React.ForwardRefExoticComponent<{
+     defaultOpen?: boolean;
+ } & react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useRootContext(): RootContext & {
+     nativeID: string;
+ };
+-declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ /**
+  * @warning when using a custom `<PortalHost />`, you might have to adjust the Content's sideOffset to account for nav elements like headers.
+  */
+ declare function Portal({ forceMount, hostName, children }: PortalProps): React.JSX.Element | null;
+ declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Content: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     onOpenAutoFocus?: (ev: Event) => void;
+     onCloseAutoFocus?: (ev: Event) => void;
+     onEscapeKeyDown?: (ev: Event) => void;
+-} & React.RefAttributes<View>>;
+-declare const Cancel: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const Cancel: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
+-declare const Action: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const Action: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Title: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
++} & React.RefAttributes<react_native.TextInstance>>;
+ declare const Description: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
++} & React.RefAttributes<react_native.TextInstance>>;
+ 
+ export { Action, Cancel, Content, Description, Overlay, Portal, Root, Title, Trigger, useRootContext };
+diff --git a/dist/alert-dialog.d.ts b/dist/alert-dialog.d.ts
+index 7ea2b143bbafef8fb24e45c84146df39019b3ba7..620182a698019351b646b8daa38559fc03ff3969 100644
+--- a/dist/alert-dialog.d.ts
++++ b/dist/alert-dialog.d.ts
+@@ -11,47 +11,47 @@ declare const Root: React.ForwardRefExoticComponent<{
+     defaultOpen?: boolean;
+ } & react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useRootContext(): RootContext & {
+     nativeID: string;
+ };
+-declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ /**
+  * @warning when using a custom `<PortalHost />`, you might have to adjust the Content's sideOffset to account for nav elements like headers.
+  */
+ declare function Portal({ forceMount, hostName, children }: PortalProps): React.JSX.Element | null;
+ declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Content: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     onOpenAutoFocus?: (ev: Event) => void;
+     onCloseAutoFocus?: (ev: Event) => void;
+     onEscapeKeyDown?: (ev: Event) => void;
+-} & React.RefAttributes<View>>;
+-declare const Cancel: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const Cancel: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
+-declare const Action: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const Action: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Title: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
++} & React.RefAttributes<react_native.TextInstance>>;
+ declare const Description: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
++} & React.RefAttributes<react_native.TextInstance>>;
+ 
+ export { Action, Cancel, Content, Description, Overlay, Portal, Root, Title, Trigger, useRootContext };
+diff --git a/dist/alert-dialog.web.d.mts b/dist/alert-dialog.web.d.mts
+index 1761cfb30a40d292c3197c2799406c3956639376..d4ae3bafec612c1807f1b7bf836b46d41fce1c0f 100644
+--- a/dist/alert-dialog.web.d.mts
++++ b/dist/alert-dialog.web.d.mts
+@@ -11,42 +11,42 @@ declare const Root: React.ForwardRefExoticComponent<{
+     defaultOpen?: boolean;
+ } & react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useRootContext(): RootContext;
+-declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function Portal({ forceMount, container, children }: PortalProps): React.JSX.Element;
+ declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Content: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     onOpenAutoFocus?: (ev: Event) => void;
+     onCloseAutoFocus?: (ev: Event) => void;
+     onEscapeKeyDown?: (ev: Event) => void;
+-} & React.RefAttributes<View>>;
+-declare const Cancel: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const Cancel: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
+-declare const Action: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const Action: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Title: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
++} & React.RefAttributes<react_native.TextInstance>>;
+ declare const Description: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
++} & React.RefAttributes<react_native.TextInstance>>;
+ 
+ export { Action, Cancel, Content, Description, Overlay, Portal, Root, Title, Trigger, useRootContext };
+diff --git a/dist/alert-dialog.web.d.ts b/dist/alert-dialog.web.d.ts
+index 3a51db54d0c32660c02be13a9cd64801b3819dcd..f15c4608debd09e5686e2a209c8b31ba226d755b 100644
+--- a/dist/alert-dialog.web.d.ts
++++ b/dist/alert-dialog.web.d.ts
+@@ -11,42 +11,42 @@ declare const Root: React.ForwardRefExoticComponent<{
+     defaultOpen?: boolean;
+ } & react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useRootContext(): RootContext;
+-declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function Portal({ forceMount, container, children }: PortalProps): React.JSX.Element;
+ declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Content: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     onOpenAutoFocus?: (ev: Event) => void;
+     onCloseAutoFocus?: (ev: Event) => void;
+     onEscapeKeyDown?: (ev: Event) => void;
+-} & React.RefAttributes<View>>;
+-declare const Cancel: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const Cancel: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
+-declare const Action: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const Action: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Title: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
++} & React.RefAttributes<react_native.TextInstance>>;
+ declare const Description: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
++} & React.RefAttributes<react_native.TextInstance>>;
+ 
+ export { Action, Cancel, Content, Description, Overlay, Portal, Root, Title, Trigger, useRootContext };

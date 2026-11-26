@@ -1,5 +1,5 @@
 import { useMemo, useRef } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import {
   buildYearGrid,
   type CalEvent,
@@ -37,7 +37,7 @@ export function YearView({ year, events, weekStartsOn, onShowDay }: YearViewProp
     label: d.toLocaleDateString("en-US", { weekday: "narrow" }),
   }));
   const today = new Date();
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const scrolled = useRef(false);
 
   return (

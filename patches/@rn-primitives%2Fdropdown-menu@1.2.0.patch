@@ -1,0 +1,524 @@
+diff --git a/dist/dropdown-menu.d.mts b/dist/dropdown-menu.d.mts
+index 715dc5037d72dba25e6b32519fc02d0bf0202909..0125fd4630d68cca58a5c6a8aa7f494e128c1180 100644
+--- a/dist/dropdown-menu.d.mts
++++ b/dist/dropdown-menu.d.mts
+@@ -19,9 +19,9 @@ declare const Root: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     onOpenChange?: (open: boolean) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useRootContext(): IRootContext;
+-declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -31,24 +31,24 @@ declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.Pressab
+  * @warning when using a custom `<PortalHost />`, you might have to adjust the Content's sideOffset to account for nav elements like headers.
+  */
+ declare function Portal({ forceMount, hostName, children }: PortalProps): React.JSX.Element | null;
+-declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+ } & {
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ /**
+  * @info `position`, `top`, `left`, and `maxWidth` style properties are controlled internally. Opt out of this behavior by setting `disablePositioningStyle` to `true`.
+  */
+-declare const Content: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Content: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & _rn_primitives_types.PositionedContentProps & React.RefAttributes<View>>;
+-declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & _rn_primitives_types.PositionedContentProps & React.RefAttributes<react_native.ViewInstance>>;
++declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -56,14 +56,14 @@ declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableP
+ } & {
+     textValue?: string;
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Group: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Label: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
+-declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.TextInstance>>;
++declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -73,14 +73,14 @@ declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.Pr
+     onCheckedChange: (checked: boolean) => void;
+     closeOnPress?: boolean;
+     textValue?: string;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const RadioGroup: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     value: string | undefined;
+     onValueChange: (value: string) => void;
+-} & React.RefAttributes<View>>;
+-declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -89,40 +89,40 @@ declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.Press
+     value: string;
+     textValue?: string;
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const ItemIndicator: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+-} & _rn_primitives_types.ForceMountable & React.RefAttributes<View>>;
++} & _rn_primitives_types.ForceMountable & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Separator: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     decorative?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Sub: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     defaultOpen?: boolean;
+     open?: boolean;
+     onOpenChange?: (value: boolean) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useSubContext(): {
+     nativeID: string;
+     open: boolean;
+     onOpenChange: (value: boolean) => void;
+ };
+-declare const SubTrigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const SubTrigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+ } & {
+     textValue?: string;
+-} & React.RefAttributes<View>>;
+-declare const SubContent: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const SubContent: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & _rn_primitives_types.ForceMountable & React.RefAttributes<View>>;
++} & _rn_primitives_types.ForceMountable & React.RefAttributes<react_native.ViewInstance>>;
+ 
+ export { CheckboxItem, Content, Group, Item, ItemIndicator, Label, Overlay, Portal, RadioGroup, RadioItem, Root, Separator, Sub, SubContent, SubTrigger, Trigger, useRootContext, useSubContext };
+diff --git a/dist/dropdown-menu.d.ts b/dist/dropdown-menu.d.ts
+index aee9743e4941791f5472fe739e149782eecf95d9..4608aee611076a5a7981b8502422e36dd551268d 100644
+--- a/dist/dropdown-menu.d.ts
++++ b/dist/dropdown-menu.d.ts
+@@ -19,9 +19,9 @@ declare const Root: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     onOpenChange?: (open: boolean) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useRootContext(): IRootContext;
+-declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -31,24 +31,24 @@ declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.Pressab
+  * @warning when using a custom `<PortalHost />`, you might have to adjust the Content's sideOffset to account for nav elements like headers.
+  */
+ declare function Portal({ forceMount, hostName, children }: PortalProps): React.JSX.Element | null;
+-declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+ } & {
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ /**
+  * @info `position`, `top`, `left`, and `maxWidth` style properties are controlled internally. Opt out of this behavior by setting `disablePositioningStyle` to `true`.
+  */
+-declare const Content: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Content: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & _rn_primitives_types.PositionedContentProps & React.RefAttributes<View>>;
+-declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & _rn_primitives_types.PositionedContentProps & React.RefAttributes<react_native.ViewInstance>>;
++declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -56,14 +56,14 @@ declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableP
+ } & {
+     textValue?: string;
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Group: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Label: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
+-declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.TextInstance>>;
++declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -73,14 +73,14 @@ declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.Pr
+     onCheckedChange: (checked: boolean) => void;
+     closeOnPress?: boolean;
+     textValue?: string;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const RadioGroup: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     value: string | undefined;
+     onValueChange: (value: string) => void;
+-} & React.RefAttributes<View>>;
+-declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -89,40 +89,40 @@ declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.Press
+     value: string;
+     textValue?: string;
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const ItemIndicator: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+-} & _rn_primitives_types.ForceMountable & React.RefAttributes<View>>;
++} & _rn_primitives_types.ForceMountable & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Separator: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     decorative?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Sub: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     defaultOpen?: boolean;
+     open?: boolean;
+     onOpenChange?: (value: boolean) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useSubContext(): {
+     nativeID: string;
+     open: boolean;
+     onOpenChange: (value: boolean) => void;
+ };
+-declare const SubTrigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const SubTrigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+ } & {
+     textValue?: string;
+-} & React.RefAttributes<View>>;
+-declare const SubContent: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const SubContent: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & _rn_primitives_types.ForceMountable & React.RefAttributes<View>>;
++} & _rn_primitives_types.ForceMountable & React.RefAttributes<react_native.ViewInstance>>;
+ 
+ export { CheckboxItem, Content, Group, Item, ItemIndicator, Label, Overlay, Portal, RadioGroup, RadioItem, Root, Separator, Sub, SubContent, SubTrigger, Trigger, useRootContext, useSubContext };
+diff --git a/dist/dropdown-menu.web.d.mts b/dist/dropdown-menu.web.d.mts
+index e637d3f3c4f2fefa0083695d941eddb553ac3c22..7b243b18d4d63e8d3ddd5c23af7bd1d3e61c49c0 100644
+--- a/dist/dropdown-menu.web.d.mts
++++ b/dist/dropdown-menu.web.d.mts
+@@ -9,33 +9,33 @@ declare const Root: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     onOpenChange?: (open: boolean) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useRootContext(): {
+     open: boolean;
+     onOpenChange: (open: boolean) => void;
+ };
+-declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+ } & React.RefAttributes<TriggerRef>>;
+ declare function Portal({ forceMount, container, children }: PortalProps): React.JSX.Element;
+-declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+ } & {
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
+-declare const Content: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const Content: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & _rn_primitives_types.PositionedContentProps & React.RefAttributes<View>>;
+-declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & _rn_primitives_types.PositionedContentProps & React.RefAttributes<react_native.ViewInstance>>;
++declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -43,14 +43,14 @@ declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableP
+ } & {
+     textValue?: string;
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Group: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Label: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
+-declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.TextInstance>>;
++declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -60,14 +60,14 @@ declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.Pr
+     onCheckedChange: (checked: boolean) => void;
+     closeOnPress?: boolean;
+     textValue?: string;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const RadioGroup: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     value: string | undefined;
+     onValueChange: (value: string) => void;
+-} & React.RefAttributes<View>>;
+-declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -76,39 +76,39 @@ declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.Press
+     value: string;
+     textValue?: string;
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const ItemIndicator: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+-} & _rn_primitives_types.ForceMountable & React.RefAttributes<View>>;
++} & _rn_primitives_types.ForceMountable & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Separator: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     decorative?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Sub: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     defaultOpen?: boolean;
+     open?: boolean;
+     onOpenChange?: (value: boolean) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useSubContext(): {
+     open: boolean;
+     onOpenChange: (open: boolean) => void;
+ };
+-declare const SubTrigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const SubTrigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+ } & {
+     textValue?: string;
+-} & React.RefAttributes<View>>;
+-declare const SubContent: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const SubContent: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & _rn_primitives_types.ForceMountable & React.RefAttributes<View>>;
++} & _rn_primitives_types.ForceMountable & React.RefAttributes<react_native.ViewInstance>>;
+ 
+ export { CheckboxItem, Content, Group, Item, ItemIndicator, Label, Overlay, Portal, RadioGroup, RadioItem, Root, Separator, Sub, SubContent, SubTrigger, Trigger, useRootContext, useSubContext };
+diff --git a/dist/dropdown-menu.web.d.ts b/dist/dropdown-menu.web.d.ts
+index d5200b8d99c039380300210ab3c2bd5e17ba1246..99427e557642fbc19f676e9ae723ce3709867737 100644
+--- a/dist/dropdown-menu.web.d.ts
++++ b/dist/dropdown-menu.web.d.ts
+@@ -9,33 +9,33 @@ declare const Root: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     onOpenChange?: (open: boolean) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useRootContext(): {
+     open: boolean;
+     onOpenChange: (open: boolean) => void;
+ };
+-declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Trigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+ } & React.RefAttributes<TriggerRef>>;
+ declare function Portal({ forceMount, container, children }: PortalProps): React.JSX.Element;
+-declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const Overlay: React.ForwardRefExoticComponent<_rn_primitives_types.ForceMountable & Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+ } & {
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
+-declare const Content: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const Content: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & _rn_primitives_types.PositionedContentProps & React.RefAttributes<View>>;
+-declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & _rn_primitives_types.PositionedContentProps & React.RefAttributes<react_native.ViewInstance>>;
++declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -43,14 +43,14 @@ declare const Item: React.ForwardRefExoticComponent<Omit<react_native.PressableP
+ } & {
+     textValue?: string;
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Group: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Label: React.ForwardRefExoticComponent<react_native.TextProps & {
+     asChild?: boolean;
+-} & React.RefAttributes<Text>>;
+-declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.TextInstance>>;
++declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -60,14 +60,14 @@ declare const CheckboxItem: React.ForwardRefExoticComponent<Omit<react_native.Pr
+     onCheckedChange: (checked: boolean) => void;
+     closeOnPress?: boolean;
+     textValue?: string;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const RadioGroup: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     value: string | undefined;
+     onValueChange: (value: string) => void;
+-} & React.RefAttributes<View>>;
+-declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+@@ -76,39 +76,39 @@ declare const RadioItem: React.ForwardRefExoticComponent<Omit<react_native.Press
+     value: string;
+     textValue?: string;
+     closeOnPress?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const ItemIndicator: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+-} & _rn_primitives_types.ForceMountable & React.RefAttributes<View>>;
++} & _rn_primitives_types.ForceMountable & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Separator: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     decorative?: boolean;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare const Sub: React.ForwardRefExoticComponent<react_native.ViewProps & {
+     asChild?: boolean;
+ } & {
+     defaultOpen?: boolean;
+     open?: boolean;
+     onOpenChange?: (value: boolean) => void;
+-} & React.RefAttributes<View>>;
++} & React.RefAttributes<react_native.ViewInstance>>;
+ declare function useSubContext(): {
+     open: boolean;
+     onOpenChange: (open: boolean) => void;
+ };
+-declare const SubTrigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++declare const SubTrigger: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+ } & {
+     textValue?: string;
+-} & React.RefAttributes<View>>;
+-declare const SubContent: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<View>, "ref"> & {
++} & React.RefAttributes<react_native.ViewInstance>>;
++declare const SubContent: React.ForwardRefExoticComponent<Omit<react_native.PressableProps & React.RefAttributes<react_native.ViewInstance>, "ref"> & {
+     asChild?: boolean;
+ } & {
+     onKeyDown?: (ev: React.KeyboardEvent) => void;
+     onKeyUp?: (ev: React.KeyboardEvent) => void;
+-} & _rn_primitives_types.ForceMountable & React.RefAttributes<View>>;
++} & _rn_primitives_types.ForceMountable & React.RefAttributes<react_native.ViewInstance>>;
+ 
+ export { CheckboxItem, Content, Group, Item, ItemIndicator, Label, Overlay, Portal, RadioGroup, RadioItem, Root, Separator, Sub, SubContent, SubTrigger, Trigger, useRootContext, useSubContext };

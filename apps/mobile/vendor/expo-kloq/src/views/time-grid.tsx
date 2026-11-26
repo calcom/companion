@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from "react-native";
 import {
   type CalEvent,
   continuesAfter,
@@ -55,7 +55,7 @@ export function TimeGrid({
   const p = usePalette();
   const { timed, allDay } = useMemo(() => projectEvents(events, descriptor), [events, descriptor]);
   const gutter = GUTTER + zones.length * ZONE_GUTTER;
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const now = useNow();
   const [colWidth, setColWidth] = useState(0);
 

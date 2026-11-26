@@ -11,13 +11,13 @@
     "preview": {
       "distribution": "internal",
       "ios": {
-        "image": "macos-tahoe-26.5-xcode-26.6"
+        "image": "macos-tahoe-26.6-xcode-27.1"
       }
     },
     "production": {
       "autoIncrement": true,
       "ios": {
-        "image": "macos-tahoe-26.5-xcode-26.6"
+        "image": "macos-tahoe-26.6-xcode-27.1"
       }
     }
   },
