@@ -176,9 +176,10 @@ the upload instead once a Play admin has set it up; see
 
    You can close the terminal once the build starts. Follow it on
    [expo.dev → Builds](https://expo.dev/accounts/calcoms-organization/projects/calcom-companion/builds)
-   or with `npx eas-cli@latest build:list --platform android --limit 3`. Check
-   that the build shows your version, a new version code and the commit you
-   expect.
+   or with `npx eas-cli@latest build:list --platform android --build-profile production --limit 3`.
+   The profile filter leaves out the Autosana workflow's test builds of
+   the same commit. Check that the build shows your version, a new version code
+   and the commit you expect.
 5. **Download the `.aab`** once the build shows **Finished**: click
    **Download** on the build's page on expo.dev. The file is about 85 MB.
 

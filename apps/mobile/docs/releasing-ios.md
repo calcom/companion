@@ -172,9 +172,10 @@ interactive.
 
    You can close the terminal once the build starts. Follow it on
    [expo.dev → Builds](https://expo.dev/accounts/calcoms-organization/projects/calcom-companion/builds)
-   or with `npx eas-cli@latest build:list --platform ios --limit 3`. Check
-   that the build shows your version, a new build number and the commit you
-   expect.
+   or with `npx eas-cli@latest build:list --platform ios --build-profile production --limit 3`.
+   The profile filter leaves out the Autosana workflow's test builds of
+   the same commit. Check that the build shows your version, a new build number
+   and the commit you expect.
 5. **Upload to App Store Connect** once the build shows **Finished**:
 
    ```sh
