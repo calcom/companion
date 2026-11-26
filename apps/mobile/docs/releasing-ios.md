@@ -130,6 +130,10 @@ interactive.
    gh workflow run autosana.yml --ref main -f platforms=ios
    ```
 
+   After the build, the tests take about 2 hours 15 minutes per platform.
+   With `both`, the platforms are tested one after the other, so allow about
+   5 hours in all.
+
    The job log links to each test's run on Autosana, with a recording. If a
    test fails, fix the bug on a branch, merge it, and run the workflow again
    on the new commit. Don't build a release from a commit that hasn't passed.

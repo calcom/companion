@@ -91,7 +91,9 @@ jobs:
     # Test a platform whose build passed even if the other platform's failed.
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # The regression suites take about 2 hours 15 minutes per platform on
+    # Autosana's single cloud device, and the action has no wait limit of its own.
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       # Both platforms' suites use the same test account and the same
