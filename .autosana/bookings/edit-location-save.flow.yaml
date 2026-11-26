@@ -1,10 +1,7 @@
 key: bookings/edit-location-save
 name: Bookings | Save a new location from Edit Location
 description: >-
-  Matrix row B12 (saving). Changes only the Autosana Location booking. The
-  Cal.com API refuses every location change (500) while the test account has
-  a Google Calendar connection whose access has expired, so this flow fails
-  until that connection is removed in the account's calendar settings.
+  Matrix row B12 (saving). Changes only the Autosana Location booking.
 instructions:
   - Open the Bookings tab, search for "Autosana Location" and open that booking. Open the header's "⋯" menu and choose Edit Location.
   - Set the type to Location / Other, type "2 Autosana Street, Vienna" and tap the save (✓) button. Verify that the sheet closes and the booking now shows the location 2 Autosana Street, Vienna.

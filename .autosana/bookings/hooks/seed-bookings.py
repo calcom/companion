@@ -14,7 +14,7 @@ links on it:
 
 and one booking per job, each with its own attendee, so a flow can find its
 booking by the attendee's name. Booking titles read
-"<link> between lauris s and <attendee>".
+"<link> between … and <attendee>".
 
 - "Autosana Join" (meeting): the detail header, Copy Meeting Link and Join
 - "Autosana Location" (address): Edit Location and Add Guests
@@ -46,11 +46,15 @@ ADDRESS = "1 Autosana Street, Vienna"
 
 
 class ApiError(SystemExit):
-    """Stops the hook with the API's answer, unless the caller handles it."""
+    """Stops the hook with the API's answer, unless the caller handles it.
 
-    def __init__(self, code, message):
+    SystemExit uses .code as the exit status and prints it only when it is a
+    string, so the HTTP status goes in .status and .code stays the message.
+    """
+
+    def __init__(self, status, message):
         super().__init__(message)
-        self.code = code
+        self.status = status
 
 
 def call(method, path, version, body=None):
@@ -138,7 +142,7 @@ def book(event_type_id, attendee, start, conflict_ok=False, **extra):
         call("POST", "/bookings", "2024-08-13", body)
     except ApiError as error:
         # 409: the host already has a booking then.
-        if conflict_ok and error.code == 409:
+        if conflict_ok and error.status == 409:
             raise Conflict() from error
         raise
 
