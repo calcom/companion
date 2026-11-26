@@ -1,0 +1,11 @@
+key: bookings/list-search-and-filters
+name: Bookings | List search, link filter and status filter, light and dark
+description: Matrix row B1, in light and dark mode.
+instructions:
+  - Open the Bookings tab and wait for the upcoming bookings to load. Search for "Autosana Join". Verify that only the autosana-bookings-meeting booking with Autosana Join shows. Clear the search and verify that the other autosana-bookings- bookings show again.
+  - Open the filter for links ("Filter by Link" on iOS, the "Filter" button under the header on Android). Verify that it lists the account's links, including autosana-bookings-address. Choose autosana-bookings-address.
+  - Verify that the list now shows only the bookings with Autosana Location and Autosana Cancel, and that the filter shows autosana-bookings-address as selected. Open the link filter again and clear it (choose the selected link again or "Clear filter" on iOS, "All Links" on Android). Verify that the Autosana Join booking shows again.
+  - Open the status filter (the button showing "Upcoming"). Verify that it lists Upcoming, Unconfirmed, Recurring, Past and Cancelled with a check on Upcoming. Choose Recurring and verify that the list shows the series with Autosana Recurring and the status button now reads Recurring.
+  - Switch the status filter to Past and verify the Past list loads with no error, then switch back to Upcoming.
+  - Switch the device to dark mode with Set Appearance Mode. Verify that the header, search bar, list and tab bar switch to dark colours with readable text. Search for "Autosana Cancel" and verify that only that booking shows, then clear the search. Open the status filter, verify it shows Upcoming with a check and readable items, and close it without changing anything.
+  - Switch the device back to light mode with Set Appearance Mode and verify that the Bookings tab is light again.

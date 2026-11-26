@@ -1,0 +1,16 @@
+key: bookings/detail-actions
+name: Bookings | Report, Edit Location, Add Guests and Cancel Event from booking detail
+description: >-
+  Matrix rows B8, B11, B12 (closing without saving) and B13. Changes only the
+  Autosana Location booking and cancels only the Autosana Cancel booking.
+  Saving a new location is in bookings/edit-location-save. Guests use
+  example.com addresses: Cal.com treats Gmail addresses that differ only after
+  a "+" as the same person, so they would clash with the attendee.
+instructions:
+  - Open the Bookings tab, search for "Autosana Location" and open that booking. Open the header's "⋯" menu and choose Report Booking. Verify that the app says reporting isn't available yet, and dismiss the message.
+  - Open the "⋯" menu and choose Edit Location. Verify that the Edit Location sheet opens and shows the current location, 1 Autosana Street, Vienna. Open the location type options (the "⋯" button on the type row on iOS, the type row itself on Android) with one tap, and verify that they list Meeting Link, Phone Call and Location / Other. Choose Phone Call and verify that the form now asks for a phone number.
+  - Close the sheet with its close (✕) button. Verify that the booking still shows 1 Autosana Street, Vienna.
+  - Open the "⋯" menu and choose Add Guests. Type the email "autosana-bookings-guest@example.com" and the name "Autosana Guest", and tap Add. Verify that the guest is listed under the guests to add, then tap the save (✓) button. Verify that the sheet closes and the booking's participants now include that guest, shown as Autosana Guest or autosana-bookings-guest@example.com.
+  - Open Add Guests again, type the email "autosana-bookings-other@example.com" and tap Add, then close the sheet with its close (✕) button instead of saving. Verify that the booking's participants don't include that address.
+  - Go back to the list, search for "Autosana Cancel" and open that booking. Open the "⋯" menu and choose Cancel Event. Confirm the cancellation in each dialog that follows, giving the reason "Autosana test", and dismiss the success message.
+  - Verify that the Autosana Cancel booking is no longer in the Upcoming list. Clear the search.

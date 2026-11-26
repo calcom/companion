@@ -1,0 +1,8 @@
+key: bookings/recurring-row
+name: Bookings | A recurring booking's "⋯" menu
+description: Matrix row B5. Opens Reschedule for the series' booking and closes it without saving.
+instructions:
+  - Open the Bookings tab, open the status filter and choose Recurring. Find the series with Autosana Recurring and verify that it shows how many events remain.
+  - Tap that series' "⋯" button once. Verify that the menu opens on that single tap and the booking does not open. Choose Reschedule Booking.
+  - Verify that the Reschedule sheet opens for that booking and names autosana-bookings-recurring between lauris s and Autosana Recurring. Close it with its close (✕) button without changing anything.
+  - Switch the status filter back to Upcoming.
