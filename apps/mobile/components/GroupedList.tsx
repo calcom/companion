@@ -1,4 +1,4 @@
-import { isValidElement, type ReactNode } from "react";
+import { isValidElement, type ReactNode, useState } from "react";
 import { Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
 import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { systemColor } from "@/constants/systemColors";
@@ -95,17 +95,23 @@ export function GroupedRow({
 }: GroupedRowProps) {
   const isDark = useColorScheme() === "dark";
   const tint = destructive ? systemColor("systemRed", isDark) : systemColor("label", isDark);
-  const tertiary = systemColor("tertiaryLabel", isDark) as string;
+  const tertiary = systemColor("tertiaryLabel", isDark);
+
+  // Pressed state is tracked by hand: NativeWind's Pressable wrapper drops function styles,
+  // which left the row unstyled.
+  const [pressed, setPressed] = useState(false);
 
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
       accessibilityRole="button"
       accessibilityLabel={value ? `${title}, ${value}` : title}
       accessibilityHint={
         accessibilityHint ?? (accessory === "external" ? "Opens in the browser" : undefined)
       }
-      style={({ pressed }) => [
+      style={[
         styles.row,
         centered && styles.rowCentered,
         pressed && { backgroundColor: systemColor("systemGray4", isDark) },
@@ -113,7 +119,7 @@ export function GroupedRow({
     >
       {icon ? (
         <View style={styles.iconSlot}>
-          <AppIcon name={icon} size={20} color={tint as string} />
+          <AppIcon name={icon} size={20} color={tint} />
         </View>
       ) : null}
       <Text

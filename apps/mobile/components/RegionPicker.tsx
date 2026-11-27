@@ -3,28 +3,13 @@ import type { LayoutChangeEvent } from "react-native";
 import { Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppIcon } from "@/components/AppIcon";
-import type { CalRegion } from "@/utils/region";
+import { getRegionLabel, REGION_OPTIONS, type RegionPickerProps } from "./regionOptions";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-
-export const REGION_OPTIONS: { value: CalRegion; label: string }[] = [
-  { value: "us", label: "United States" },
-  { value: "eu", label: "European Union" },
-];
-
-export function getRegionLabel(region: CalRegion): string {
-  return REGION_OPTIONS.find((option) => option.value === region)?.label ?? "United States";
-}
-
-export type RegionPickerProps = {
-  region: CalRegion;
-  onChange: (region: CalRegion) => void;
-  disabled?: boolean;
-};
 
 /** Android and web: a labelled field that opens a dropdown of the regions. */
 export function RegionPicker({ region, onChange, disabled }: RegionPickerProps) {

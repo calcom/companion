@@ -9,7 +9,7 @@ import {
 import { Text, useColorScheme, View } from "react-native";
 import { haptics } from "@/utils/haptics";
 import type { CalRegion } from "@/utils/region";
-import { REGION_OPTIONS, type RegionPickerProps } from "./RegionPicker";
+import { REGION_OPTIONS, type RegionPickerProps } from "./regionOptions";
 
 /**
  * iOS: a grouped row with SwiftUI's menu-style Picker on the trailing edge, the way Settings
