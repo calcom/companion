@@ -1,5 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import type { Schedule } from "@/hooks";
 
 // Convert 24-hour time to 12-hour format with AM/PM
@@ -93,7 +93,7 @@ export function TimeZoneRow({ timeZone }: TimeZoneRowProps) {
 
   return (
     <View className="mt-2 flex-row items-center">
-      <Ionicons name="globe-outline" size={14} color={iconColor} />
+      <AppIcon name="globe-outline" size={14} color={iconColor} />
       <Text style={{ color: iconColor }} className="ml-1.5 text-sm">
         {timeZone}
       </Text>
@@ -132,7 +132,7 @@ export function ScheduleActionsButton({
         setShowActionsModal(true);
       }}
     >
-      <Ionicons name="ellipsis-horizontal" size={18} color={isDark ? "#E5E5EA" : "#3C3F44"} />
+      <AppIcon name="ellipsis-horizontal" size={18} color={isDark ? "#E5E5EA" : "#3C3F44"} />
     </TouchableOpacity>
   );
 }

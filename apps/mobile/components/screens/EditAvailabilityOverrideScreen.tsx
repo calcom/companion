@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
   Alert,
@@ -12,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import { useUpdateSchedule } from "@/hooks/useSchedules";
@@ -101,7 +101,7 @@ export const EditAvailabilityOverrideScreen = forwardRef<
           Select {showTimePicker?.type === "start" ? "Start" : "End"} Time
         </Text>
         <AppPressable onPress={() => setShowTimePicker(null)}>
-          <Ionicons name="close" size={24} color={isDark ? "#FFFFFF" : "#A3A3A3"} />
+          <AppIcon name="close" size={24} color={isDark ? "#FFFFFF" : "#A3A3A3"} />
         </AppPressable>
       </View>
       <ScrollView className="px-4 py-3">
@@ -130,7 +130,7 @@ export const EditAvailabilityOverrideScreen = forwardRef<
                   </Text>
                   {isSelected && (
                     <View className="rounded-full bg-[#007AFF] p-1.5">
-                      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                      <AppIcon name="checkmark" size={14} color="#FFFFFF" />
                     </View>
                   )}
                 </View>
@@ -340,7 +340,7 @@ export const EditAvailabilityOverrideScreen = forwardRef<
       </Text>
       <View className="mb-4 rounded-xl border-2 border-gray-200 bg-gray-50 px-4 py-3 dark:border-[#4D4D4D] dark:bg-[#171717]">
         <View className="flex-row items-center">
-          <Ionicons name="calendar-outline" size={20} color="#007AFF" style={{ marginRight: 12 }} />
+          <AppIcon name="calendar-outline" size={20} color="#007AFF" style={{ marginRight: 12 }} />
           {Platform.OS === "web" ? (
             <input
               type="date"
@@ -375,7 +375,7 @@ export const EditAvailabilityOverrideScreen = forwardRef<
 
       <View className="mb-4 flex-row items-center justify-between rounded-xl border-2 border-gray-200 bg-gray-50 px-4 py-3.5 dark:border-[#4D4D4D] dark:bg-[#171717]">
         <View className="flex-row items-center">
-          <Ionicons name="moon-outline" size={20} color="#FF3B30" style={{ marginRight: 12 }} />
+          <AppIcon name="moon-outline" size={20} color="#FF3B30" style={{ marginRight: 12 }} />
           <View>
             <Text className="text-[17px] text-black dark:text-white">Mark as unavailable</Text>
             <Text className="text-[13px] text-gray-500 dark:text-[#A3A3A3]">
@@ -500,9 +500,9 @@ export const EditAvailabilityOverrideScreen = forwardRef<
                       className="rounded-full bg-red-50 p-2 dark:bg-[#FF453A]/10"
                       onPress={() => handleDeleteOverride(index)}
                     >
-                      <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                      <AppIcon name="trash-outline" size={18} color="#FF3B30" />
                     </AppPressable>
-                    <Ionicons
+                    <AppIcon
                       style={{ marginLeft: 12 }}
                       name="chevron-forward"
                       size={18}

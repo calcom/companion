@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { createContext, type ReactNode, useContext } from "react";
 import {
@@ -15,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { SectionHeader } from "@/components/event-type-detail/SettingsUI";
 import { HeaderPillButton, HeaderSaveButton } from "@/components/HeaderButtons";
 import { getColors, getGroupedSurfaces } from "@/constants/colors";
@@ -363,7 +363,7 @@ export function TextButton({
   disabled = false,
   accessibilityLabel,
 }: {
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: AppIconName;
   label: string;
   onPress: () => void;
   destructive?: boolean;
@@ -392,7 +392,7 @@ export function TextButton({
         opacity: disabled ? 0.4 : 1,
       }}
     >
-      {icon ? <Ionicons name={icon} size={16} color={color} /> : null}
+      {icon ? <AppIcon name={icon} size={16} color={color} /> : null}
       <Text style={{ color, fontSize: 15, fontWeight: "500" }}>{label}</Text>
     </Pressable>
   );
@@ -417,7 +417,7 @@ export function RowControls({
 }) {
   const theme = useEditTheme();
   const button = (
-    icon: keyof typeof Ionicons.glyphMap,
+    icon: AppIconName,
     label: string,
     onPress: (() => void) | undefined,
     // Not a default parameter: the React Compiler can't lower `= theme.textSecondary`.
@@ -432,7 +432,7 @@ export function RowControls({
       hitSlop={6}
       style={{ padding: 4, opacity: onPress ? 1 : 0.25 }}
     >
-      <Ionicons name={icon} size={20} color={color ?? theme.textSecondary} />
+      <AppIcon name={icon} size={20} color={color ?? theme.textSecondary} />
     </Pressable>
   );
   return (
@@ -511,7 +511,7 @@ export function ListRow({
           style={[rowStyle, { flex: 1 }]}
         >
           {content}
-          <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+          <AppIcon name="chevron-forward" size={18} color={theme.textMuted} />
         </Pressable>
       ) : (
         <View style={[rowStyle, { flex: 1 }]}>{content}</View>

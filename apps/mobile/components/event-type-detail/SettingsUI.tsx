@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import {
   Alert,
   Platform,
@@ -8,6 +7,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import { openInAppBrowser } from "@/utils/browser";
 import { IOSPickerTrigger } from "./tabs/IOSPickerTrigger";
@@ -132,7 +132,7 @@ export function SettingRow({
             {title}
           </Text>
           {description ? (
-            <Ionicons name="chevron-down" size={12} color="#C7C7CC" style={{ marginLeft: 6 }} />
+            <AppIcon name="chevron-down" size={12} color="#C7C7CC" style={{ marginLeft: 6 }} />
           ) : null}
         </TouchableOpacity>
         <View style={{ alignSelf: "center", justifyContent: "center" }}>
@@ -206,7 +206,7 @@ export function NavigationRow({
                   {value}
                 </Text>
               ) : null}
-              <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+              <AppIcon name="chevron-forward" size={20} color="#C7C7CC" />
             </TouchableOpacity>
           )}
         </View>

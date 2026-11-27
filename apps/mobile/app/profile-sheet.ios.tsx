@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { osName } from "expo-device";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
@@ -13,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import { useUserProfile } from "@/hooks";
 import { showSuccessAlert } from "@/utils/alerts";
@@ -23,7 +23,7 @@ import { getCalAppUrl, getCalWebUrl } from "@/utils/region";
 interface ProfileMenuItem {
   id: string;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   onPress: () => void;
   external?: boolean;
 }
@@ -232,15 +232,15 @@ export default function ProfileSheet() {
               onPress={item.onPress}
             >
               <View className="flex-row items-center">
-                <Ionicons name={item.icon} size={22} color={colors.icon} />
+                <AppIcon name={item.icon} size={22} color={colors.icon} />
                 <Text className="ml-4 text-base" style={{ color: colors.text }}>
                   {item.label}
                 </Text>
               </View>
               {item.external ? (
-                <Ionicons name="open-outline" size={18} color={colors.iconSecondary} />
+                <AppIcon name="open-outline" size={18} color={colors.iconSecondary} />
               ) : (
-                <Ionicons name="chevron-forward" size={18} color={colors.iconSecondary} />
+                <AppIcon name="chevron-forward" size={18} color={colors.iconSecondary} />
               )}
             </TouchableOpacity>
           ))}

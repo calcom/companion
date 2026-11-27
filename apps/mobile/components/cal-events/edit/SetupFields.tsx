@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import type {
   CalEventBackground,
   CalEventCategory,
@@ -104,7 +104,7 @@ export function CoverField({
             justifyContent: "center",
           }}
         >
-          <Ionicons name="cloud-upload-outline" size={26} color={theme.textSecondary} />
+          <AppIcon name="cloud-upload-outline" size={26} color={theme.textSecondary} />
           <Text style={{ color: theme.text, fontSize: 16, fontWeight: "600" }}>Upload images</Text>
           <Text style={{ color: theme.textSecondary, fontSize: 13, textAlign: "center" }}>
             {sizeHint}
@@ -175,7 +175,7 @@ export function ThemeField({
               </View>
               {/* A long label wraps rather than shrinking, which the web can't do. */}
               <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
-                <Ionicons
+                <AppIcon
                   name={selected ? "radio-button-on" : "radio-button-off"}
                   size={18}
                   color={selected ? theme.text : theme.textMuted}

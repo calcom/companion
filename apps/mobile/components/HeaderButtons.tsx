@@ -4,8 +4,8 @@
  * but the Events editor's item sheets, which have no native header, use these everywhere.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Text, useColorScheme } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 
 /** A round icon button, such as back or "⋯". */
@@ -34,7 +34,7 @@ export function HeaderBackButton({
       className={`mr-2 ${HEADER_ICON_BUTTON_CLASS}`}
       style={{ opacity: disabled ? 0.4 : 1 }}
     >
-      <Ionicons name="chevron-back" size={20} color={isDark ? "#FFFFFF" : "#000000"} />
+      <AppIcon name="chevron-back" size={20} color={isDark ? "#FFFFFF" : "#000000"} />
     </AppPressable>
   );
 }

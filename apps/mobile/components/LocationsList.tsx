@@ -3,7 +3,6 @@
  * Reusable component for displaying and managing multiple event type locations
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import type React from "react";
 import { useState } from "react";
 import {
@@ -16,6 +15,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import type { LocationItem, LocationOptionGroup } from "@/types/locations";
 import {
   createLocationItemFromOption,
@@ -88,7 +88,7 @@ export const AddLocationTrigger = ({
       hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
       className="flex-row items-center rounded-full border border-[#E5E5E5] bg-[#F2F2F7] p-1 dark:border-[#4D4D4D] dark:bg-[#262626]"
     >
-      <Ionicons name="add" size={18} color={isDark ? "#FFFFFF" : "#000000"} />
+      <AppIcon name="add" size={18} color={isDark ? "#FFFFFF" : "#000000"} />
     </TouchableOpacity>
   ) : (
     <TouchableOpacity
@@ -102,7 +102,7 @@ export const AddLocationTrigger = ({
         <Text className="text-sm text-gray-500 dark:text-[#A3A3A3]">Loading options...</Text>
       ) : (
         <>
-          <Ionicons name="add-circle-outline" size={20} color="#6B7280" />
+          <AppIcon name="add-circle-outline" size={20} color="#6B7280" />
           <Text className="ml-2 text-sm font-medium text-gray-600 dark:text-[#A3A3A3]">
             Add Location
           </Text>
@@ -164,7 +164,7 @@ export const LocationsList: React.FC<LocationsListProps> = ({
     }
     return (
       <View className="mr-3 h-8 w-8 items-center justify-center rounded-lg bg-[#F2F2F7] dark:bg-[#262626]">
-        <Ionicons name="location" size={18} color="#000000" />
+        <AppIcon name="location" size={18} color="#000000" />
       </View>
     );
   };
@@ -246,7 +246,7 @@ export const LocationsList: React.FC<LocationsListProps> = ({
                       className="ml-2"
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Ionicons name="close-circle" size={20} color="#C7C7CC" />
+                      <AppIcon name="close-circle" size={20} color="#C7C7CC" />
                     </TouchableOpacity>
                   ) : null}
                 </View>
@@ -286,7 +286,7 @@ export const LocationsList: React.FC<LocationsListProps> = ({
                 Add Location
               </Text>
               <TouchableOpacity onPress={() => setShowAddModal(false)} className="p-1">
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <AppIcon name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
@@ -320,13 +320,13 @@ export const LocationsList: React.FC<LocationsListProps> = ({
                           />
                         ) : (
                           <View style={{ marginRight: 12 }}>
-                            <Ionicons name="location-outline" size={24} color="#6B7280" />
+                            <AppIcon name="location-outline" size={24} color="#6B7280" />
                           </View>
                         )}
                         <Text className="flex-1 text-base text-gray-900 dark:text-white">
                           {option.label}
                         </Text>
-                        {alreadyAdded && <Ionicons name="checkmark" size={20} color="#10B981" />}
+                        {alreadyAdded && <AppIcon name="checkmark" size={20} color="#10B981" />}
                       </TouchableOpacity>
                     );
                   })}

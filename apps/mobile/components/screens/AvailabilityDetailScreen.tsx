@@ -6,7 +6,6 @@
  * Uses React Query for cache synchronization with edit screens.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import {
@@ -19,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { useDeleteSchedule, useScheduleById, useSetScheduleAsDefault } from "@/hooks/useSchedules";
 import type { ScheduleAvailability } from "@/services/types";
@@ -286,7 +286,7 @@ export const AvailabilityDetailScreen = forwardRef<
               {scheduleName || "Untitled Schedule"}
             </Text>
             {isDefault && (
-              <Ionicons
+              <AppIcon
                 name="star-outline"
                 size={20}
                 color={colors.text}
@@ -310,7 +310,7 @@ export const AvailabilityDetailScreen = forwardRef<
                 <Text className="mr-1 text-[17px]" style={{ color: colors.textSecondary }}>
                   {enabledDaysCount} {enabledDaysCount === 1 ? "day" : "days"}
                 </Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.chevron} />
+                <AppIcon name="chevron-forward" size={18} color={colors.chevron} />
               </View>
             </View>
 
@@ -383,7 +383,7 @@ export const AvailabilityDetailScreen = forwardRef<
                 <Text className="mr-1 text-[17px]" style={{ color: colors.textSecondary }}>
                   {timeZone}
                 </Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.chevron} />
+                <AppIcon name="chevron-forward" size={18} color={colors.chevron} />
               </View>
             </View>
           </AppPressable>
@@ -406,7 +406,7 @@ export const AvailabilityDetailScreen = forwardRef<
                   <Text className="mr-1 text-[17px]" style={{ color: colors.textSecondary }}>
                     {overrides.length} {overrides.length === 1 ? "override" : "overrides"}
                   </Text>
-                  <Ionicons name="chevron-forward" size={18} color={colors.chevron} />
+                  <AppIcon name="chevron-forward" size={18} color={colors.chevron} />
                 </View>
               </View>
 
@@ -459,7 +459,7 @@ export const AvailabilityDetailScreen = forwardRef<
                     No date overrides set
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.chevron} />
+                <AppIcon name="chevron-forward" size={18} color={colors.chevron} />
               </View>
             </AppPressable>
           </View>

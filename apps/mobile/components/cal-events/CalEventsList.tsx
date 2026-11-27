@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -14,6 +13,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { CalEventListItem } from "@/components/cal-event-list-item/CalEventListItem";
 import { CalEventListSkeleton } from "@/components/cal-event-list-item/CalEventListItemSkeleton";
 import { EmptyScreen } from "@/components/EmptyScreen";
@@ -339,7 +339,7 @@ function ListNotice({
         borderColor: theme.border,
       }}
     >
-      <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
+      <AppIcon name="alert-circle-outline" size={18} color={theme.textSecondary} />
       <Text style={{ flex: 1, marginHorizontal: 8, color: theme.textSecondary, fontSize: 15 }}>
         {message}
       </Text>

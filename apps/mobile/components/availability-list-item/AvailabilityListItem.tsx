@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Pressable, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,7 +45,7 @@ export const AvailabilityListItem = ({
 
   type DropdownAction = {
     label: string;
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: AppIconName;
     onPress: () => void;
     variant?: "default" | "destructive";
   };
@@ -127,7 +127,7 @@ export const AvailabilityListItem = ({
                   justifyContent: "center",
                 }}
               >
-                <Ionicons
+                <AppIcon
                   name="ellipsis-horizontal"
                   size={18}
                   color={isDark ? "#E5E5EA" : "#3C3F44"}
@@ -142,7 +142,7 @@ export const AvailabilityListItem = ({
                     <DropdownMenuSeparator />
                   )}
                   <DropdownMenuItem variant={action.variant} onPress={action.onPress}>
-                    <Ionicons
+                    <AppIcon
                       name={action.icon}
                       size={18}
                       color={

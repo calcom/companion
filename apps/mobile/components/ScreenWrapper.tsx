@@ -1,15 +1,13 @@
-import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode } from "react";
 import { Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import { EmptyScreen } from "./EmptyScreen";
 import { Header } from "./Header";
 import { LoadingSpinner } from "./LoadingSpinner";
 
-type IoniconName = keyof typeof Ionicons.glyphMap;
-
 interface EmptyStateConfig {
-  icon: IoniconName;
+  icon: AppIconName;
   headline: string;
   description: string;
   buttonText?: string;
@@ -90,7 +88,7 @@ export function ScreenWrapper({
       <View className="flex-1 bg-gray-100 dark:bg-black">
         {showHeader && <Header />}
         <View className="flex-1 items-center justify-center bg-gray-50 p-5 dark:bg-[#171717]">
-          <Ionicons name="alert-circle" size={64} color={errorIconColor} />
+          <AppIcon name="alert-circle" size={64} color={errorIconColor} />
           <Text className="mb-2 mt-4 text-center text-xl font-bold text-gray-800 dark:text-gray-100">
             {errorTitle}
           </Text>

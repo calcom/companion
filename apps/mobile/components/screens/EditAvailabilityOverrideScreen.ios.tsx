@@ -1,8 +1,8 @@
 import { DatePicker, Host } from "@expo/ui/swift-ui";
-import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import { Alert, Pressable, ScrollView, Switch, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import { useUpdateSchedule } from "@/hooks/useSchedules";
 import type { Schedule } from "@/services/calcom";
@@ -314,7 +314,7 @@ export const EditAvailabilityOverrideScreen = forwardRef<
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center">
             <View className="mr-3 h-9 w-9 items-center justify-center rounded-lg bg-[#007AFF]/10">
-              <Ionicons name="calendar" size={20} color="#007AFF" />
+              <AppIcon name="calendar" size={20} color="#007AFF" />
             </View>
             <Text className={`text-[17px] ${isDark ? "text-white" : "text-black"}`}>
               {formatDateForDisplay(selectedDate)}
@@ -345,7 +345,7 @@ export const EditAvailabilityOverrideScreen = forwardRef<
       >
         <View className="flex-row items-center">
           <View className="mr-3 h-9 w-9 items-center justify-center rounded-lg bg-[#FF3B30]/10">
-            <Ionicons name="moon-outline" size={20} color="#FF3B30" />
+            <AppIcon name="moon-outline" size={20} color="#FF3B30" />
           </View>
           <View>
             <Text className={`text-[17px] ${isDark ? "text-white" : "text-black"}`}>
@@ -454,13 +454,13 @@ export const EditAvailabilityOverrideScreen = forwardRef<
                     className="rounded-full bg-[#FF3B30]/10 p-2"
                     onPress={() => handleDeleteOverride(index)}
                   >
-                    <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                    <AppIcon name="trash-outline" size={18} color="#FF3B30" />
                   </Pressable>
                   <Pressable
                     className="ml-3 rounded-full bg-[#A3A3A3]/10 p-2"
                     onPress={() => onEditOverride?.(index)}
                   >
-                    <Ionicons name="chevron-forward" size={18} color="#A3A3A3" />
+                    <AppIcon name="chevron-forward" size={18} color="#A3A3A3" />
                   </Pressable>
                 </View>
               </Pressable>

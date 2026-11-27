@@ -5,9 +5,9 @@
  * Used with the meeting-session-details route that has native Stack.Header.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import type { ConferencingSession } from "@/services/types/bookings.types";
 
@@ -91,7 +91,7 @@ export function MeetingSessionDetailsScreen({
             className="mr-3 h-10 w-10 items-center justify-center rounded-full"
             style={{ backgroundColor: pillBg }}
           >
-            <Ionicons name="videocam" size={20} color={isDark ? "#A3A3A3" : "#6B7280"} />
+            <AppIcon name="videocam" size={20} color={isDark ? "#A3A3A3" : "#6B7280"} />
           </View>
           <Text className={`text-[17px] font-semibold ${isDark ? "text-white" : "text-[#000]"}`}>
             Session {sessions.length > 1 ? index + 1 : ""}
@@ -110,14 +110,14 @@ export function MeetingSessionDetailsScreen({
 
       <View className="p-4">
         <View className="mb-2 flex-row items-center">
-          <Ionicons name="time-outline" size={18} color="#A3A3A3" />
+          <AppIcon name="time-outline" size={18} color="#A3A3A3" />
           <Text className={`ml-2 text-[15px] ${isDark ? "text-[#A3A3A3]" : "text-gray-600"}`}>
             Started: {formatDate(item.startTime)}
           </Text>
         </View>
         {item.endTime && (
           <View className="mb-2 flex-row items-center">
-            <Ionicons name="time-outline" size={18} color="#A3A3A3" />
+            <AppIcon name="time-outline" size={18} color="#A3A3A3" />
             <Text className={`ml-2 text-[15px] ${isDark ? "text-[#A3A3A3]" : "text-gray-600"}`}>
               Ended: {formatTime(item.endTime)}
             </Text>
@@ -125,7 +125,7 @@ export function MeetingSessionDetailsScreen({
         )}
         {item.maxParticipants && (
           <View className="flex-row items-center">
-            <Ionicons name="people-outline" size={18} color="#A3A3A3" />
+            <AppIcon name="people-outline" size={18} color="#A3A3A3" />
             <Text className={`ml-2 text-[15px] ${isDark ? "text-[#A3A3A3]" : "text-gray-600"}`}>
               Max participants: {item.maxParticipants}
             </Text>
@@ -163,7 +163,7 @@ export function MeetingSessionDetailsScreen({
                 className="mr-3 h-9 w-9 items-center justify-center rounded-full"
                 style={{ backgroundColor: pillBg }}
               >
-                <Ionicons name="person" size={18} color={isDark ? "#A3A3A3" : "#6B7280"} />
+                <AppIcon name="person" size={18} color={isDark ? "#A3A3A3" : "#6B7280"} />
               </View>
               <View className="flex-1">
                 <Text
@@ -192,7 +192,7 @@ export function MeetingSessionDetailsScreen({
           className="mb-4 h-16 w-16 items-center justify-center rounded-full"
           style={{ backgroundColor: pillBg }}
         >
-          <Ionicons name="information-circle" size={32} color="#A3A3A3" />
+          <AppIcon name="information-circle" size={32} color="#A3A3A3" />
         </View>
         <Text
           className={`text-center text-[17px] font-semibold ${isDark ? "text-white" : "text-[#000]"}`}

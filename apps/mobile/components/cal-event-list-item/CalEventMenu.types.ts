@@ -1,13 +1,13 @@
 import type { Button } from "@expo/ui/swift-ui";
-import type { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
+import type { AppIconName } from "@/components/AppIcon";
 
 type SFSymbol = Exclude<ComponentProps<typeof Button>["systemImage"], undefined>;
 
 export interface CalEventMenuItem {
   label: string;
   /** The web and Android icon. */
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   /** The iOS menu's icon. */
   systemImage: SFSymbol;
   onPress: () => void;

@@ -6,7 +6,6 @@
  */
 
 import { DatePicker, Host } from "@expo/ui/swift-ui";
-import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -17,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { useRescheduleBooking } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
@@ -232,7 +232,7 @@ export const RescheduleScreen = forwardRef<RescheduleScreenHandle, RescheduleScr
                   className="mr-3 h-10 w-10 items-center justify-center rounded-full"
                   style={{ backgroundColor: colors.pill }}
                 >
-                  <Ionicons name="calendar" size={20} color={colors.textSecondary} />
+                  <AppIcon name="calendar" size={20} color={colors.textSecondary} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-[13px] font-medium" style={{ color: colors.textSecondary }}>

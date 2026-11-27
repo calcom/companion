@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack, useRouter } from "expo-router";
@@ -15,6 +14,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { EventTypeListItem } from "@/components/event-type-list-item/EventTypeListItem";
 import { EventTypeListSkeleton } from "@/components/event-type-list-item/EventTypeListItemSkeleton";
@@ -402,7 +402,7 @@ export default function EventTypes() {
           className="flex-1 items-center justify-center bg-gray-50 p-5"
           style={{ backgroundColor: theme.backgroundSecondary }}
         >
-          <Ionicons name="alert-circle" size={64} color={theme.destructive} />
+          <AppIcon name="alert-circle" size={64} color={theme.destructive} />
           <Text
             className="mb-2 mt-4 text-center text-xl font-bold text-gray-800"
             style={{ color: theme.text }}
@@ -498,7 +498,7 @@ export default function EventTypes() {
                     style={{ position: "absolute", right: 8 }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                    <AppIcon name="close-circle" size={18} color={theme.textSecondary} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -506,7 +506,7 @@ export default function EventTypes() {
                 className="min-w-[60px] flex-row items-center justify-center gap-1 rounded-lg bg-black px-2.5 py-2 dark:bg-white"
                 onPress={handleCreateNew}
               >
-                <Ionicons name="add" size={18} color={isDark ? "#000" : "#fff"} />
+                <AppIcon name="add" size={18} color={isDark ? "#000" : "#fff"} />
                 <Text className="text-base font-semibold text-white dark:text-black">New</Text>
               </TouchableOpacity>
             </View>
@@ -593,7 +593,7 @@ export default function EventTypes() {
                   style={{ position: "absolute", right: 8 }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                  <AppIcon name="close-circle" size={18} color={theme.textSecondary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -601,7 +601,7 @@ export default function EventTypes() {
               className="min-w-[60px] flex-row items-center justify-center gap-1 rounded-lg bg-black px-2.5 py-2 dark:bg-white"
               onPress={handleCreateNew}
             >
-              <Ionicons name="add" size={18} color={isDark ? "#000" : "#fff"} />
+              <AppIcon name="add" size={18} color={isDark ? "#000" : "#fff"} />
               <Text className="text-base font-semibold text-white dark:text-black">New</Text>
             </TouchableOpacity>
           </View>
@@ -846,7 +846,7 @@ export default function EventTypes() {
                       if (eventType) handleEdit(eventType);
                     }}
                   >
-                    <Ionicons name="pencil-outline" size={20} color={theme.textSecondary} />
+                    <AppIcon name="pencil-outline" size={20} color={theme.textSecondary} />
                     <Text className="ml-3 text-base text-gray-900 dark:text-white">Edit</Text>
                   </TouchableOpacity>
 
@@ -859,7 +859,7 @@ export default function EventTypes() {
                       if (eventType) handleDuplicate(eventType);
                     }}
                   >
-                    <Ionicons name="copy-outline" size={20} color={theme.textSecondary} />
+                    <AppIcon name="copy-outline" size={20} color={theme.textSecondary} />
                     <Text className="ml-3 text-base text-gray-900 dark:text-white">Duplicate</Text>
                   </TouchableOpacity>
 
@@ -875,7 +875,7 @@ export default function EventTypes() {
                       if (eventType) handleDelete(eventType);
                     }}
                   >
-                    <Ionicons name="trash-outline" size={20} color={theme.destructive} />
+                    <AppIcon name="trash-outline" size={20} color={theme.destructive} />
                     <Text className="ml-3 text-base" style={{ color: theme.destructive }}>
                       Delete
                     </Text>
@@ -938,7 +938,7 @@ export default function EventTypes() {
                 }}
                 className="flex-row items-center p-2 hover:bg-gray-50 dark:hover:bg-[#2C2C2E] md:p-4"
               >
-                <Ionicons name="calendar-outline" size={20} color={theme.textSecondary} />
+                <AppIcon name="calendar-outline" size={20} color={theme.textSecondary} />
                 <Text className="ml-3 text-base text-gray-900 dark:text-white">New Link</Text>
               </TouchableOpacity>
             </View>
@@ -976,7 +976,7 @@ export default function EventTypes() {
               <View className="flex-row">
                 {/* Danger icon */}
                 <View className="mr-3 self-start rounded-full bg-red-50 p-2 dark:bg-red-900/30">
-                  <Ionicons name="alert-circle" size={20} color={theme.destructive} />
+                  <AppIcon name="alert-circle" size={20} color={theme.destructive} />
                 </View>
 
                 {/* Title and description */}

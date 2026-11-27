@@ -10,8 +10,8 @@
  * Note: iOS uses BookingActionsModal.ios.tsx with native Glass UI styling.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { ScrollView, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import type { Booking } from "@/services/calcom";
 import type { BookingActionsResult } from "@/utils/booking-actions";
@@ -34,7 +34,7 @@ export interface BookingActionsModalProps {
 }
 
 // Icon mapping for actions
-const ACTION_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+const ACTION_ICONS: Record<string, AppIconName> = {
   reschedule: "calendar-outline",
   rescheduleRequest: "send-outline",
   changeLocation: "location-outline",
@@ -47,7 +47,7 @@ const ACTION_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 interface ActionButtonProps {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   label: string;
   onPress: () => void;
   visible: boolean;
@@ -86,7 +86,7 @@ function ActionButton({
       activeOpacity={0.7}
     >
       <View className="mr-3 h-6 w-6 items-center justify-center">
-        <Ionicons name={icon} size={20} color={iconColor} />
+        <AppIcon name={icon} size={20} color={iconColor} />
       </View>
       <Text className="flex-1 text-[16px]" style={{ color: textColor }}>
         {label}

@@ -1,20 +1,13 @@
-import { Ionicons } from "@expo/vector-icons";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  useColorScheme,
-  View,
-} from "react-native";
+import { Alert, Pressable, ScrollView, Text, useColorScheme } from "react-native";
+import type { AppIconName } from "@/components/AppIcon";
+import { GroupedRow, GroupedSection } from "@/components/GroupedList";
 import { LandingPagePicker } from "@/components/LandingPagePicker";
 import { LogoutConfirmModal } from "@/components/LogoutConfirmModal";
-import { getColors } from "@/constants/colors";
+import { systemColor } from "@/constants/systemColors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryContext } from "@/contexts/QueryContext";
 import { useUserProfile } from "@/hooks";
@@ -22,14 +15,13 @@ import { type LandingPage, useUserPreferences } from "@/hooks/useUserPreferences
 import { showErrorAlert, showNotAvailableAlert, showSilentSuccessAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
 import { getAvatarUrl } from "@/utils/getAvatarUrl";
+import { haptics } from "@/utils/haptics";
 import { getCalAppUrl } from "@/utils/region";
 
 interface MoreMenuItem {
   name: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  isExternal?: boolean;
-  href?: string;
-  onPress?: () => void;
+  icon: AppIconName;
+  onPress: () => void;
 }
 
 export default function More() {
@@ -42,16 +34,6 @@ export default function More() {
   const { data: userProfile } = useUserProfile();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
-  const theme = getColors(isDark);
-
-  const colors = {
-    background: isDark ? "#000000" : "#FFFFFF",
-    backgroundSecondary: isDark ? "#171717" : "#FFFFFF",
-    backgroundActive: isDark ? "#2C2C2E" : "#F8F9FA",
-    text: isDark ? "#FFFFFF" : "#333333",
-    textSecondary: isDark ? "#A3A3A3" : "#C7C7CC",
-    border: isDark ? "#4D4D4D" : "#E5E5EA",
-  };
 
   const handleLandingPageSelect = async (value: LandingPage) => {
     try {
@@ -79,6 +61,7 @@ export default function More() {
   };
 
   const handleSignOut = () => {
+    haptics.warning();
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -89,39 +72,12 @@ export default function More() {
     ]);
   };
 
-  // handleNotAvailable replaced by global showNotAvailableAlert
-
   const menuItems: MoreMenuItem[] = [
-    {
-      name: "Apps",
-      icon: "grid-outline",
-      isExternal: false,
-      onPress: () => showNotAvailableAlert(),
-    },
-    {
-      name: "Routing",
-      icon: "git-branch-outline",
-      isExternal: false,
-      onPress: () => showNotAvailableAlert(),
-    },
-    {
-      name: "Workflows",
-      icon: "flash-outline",
-      isExternal: false,
-      onPress: () => showNotAvailableAlert(),
-    },
-    {
-      name: "Insights",
-      icon: "bar-chart-outline",
-      isExternal: false,
-      onPress: () => showNotAvailableAlert(),
-    },
-    {
-      name: "Support",
-      icon: "help-circle-outline",
-      isExternal: false,
-      onPress: () => showNotAvailableAlert(),
-    },
+    { name: "Apps", icon: "grid-outline", onPress: showNotAvailableAlert },
+    { name: "Routing", icon: "git-branch-outline", onPress: showNotAvailableAlert },
+    { name: "Workflows", icon: "flash-outline", onPress: showNotAvailableAlert },
+    { name: "Insights", icon: "bar-chart-outline", onPress: showNotAvailableAlert },
+    { name: "Support", icon: "help-circle-outline", onPress: showNotAvailableAlert },
   ];
 
   return (
@@ -135,7 +91,12 @@ export default function More() {
       <Stack.Toolbar placement="right">
         {userProfile?.avatarUrl ? (
           <Stack.Toolbar.View>
-            <Pressable onPress={() => router.push("/profile-sheet")}>
+            <Pressable
+              onPress={() => router.push("/profile-sheet")}
+              accessibilityRole="button"
+              accessibilityLabel="Profile"
+              hitSlop={6}
+            >
               <Image
                 source={{ uri: getAvatarUrl(userProfile.avatarUrl) }}
                 style={{ width: 32, height: 32, borderRadius: 16 }}
@@ -143,200 +104,66 @@ export default function More() {
             </Pressable>
           </Stack.Toolbar.View>
         ) : (
-          <Stack.Toolbar.Button onPress={() => router.push("/profile-sheet")}>
+          <Stack.Toolbar.Button
+            onPress={() => router.push("/profile-sheet")}
+            accessibilityLabel="Profile"
+          >
             <Stack.Toolbar.Icon sf="person.circle.fill" />
           </Stack.Toolbar.Button>
         )}
       </Stack.Toolbar>
 
-      {/* Content */}
+      {/* Content: an inset grouped list, like Settings */}
       <ScrollView
-        style={{ backgroundColor: colors.background }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
-        showsVerticalScrollIndicator={false}
+        style={{ backgroundColor: systemColor("systemGroupedBackground", isDark) }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
         contentInsetAdjustmentBehavior="automatic"
       >
-        <View
-          style={{
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.backgroundSecondary,
-            overflow: "hidden",
-          }}
-        >
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={item.name}
-              onPress={item.onPress}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: colors.backgroundSecondary,
-                paddingHorizontal: 20,
-                paddingVertical: 20,
-                borderBottomWidth: index < menuItems.length - 1 ? 1 : 0,
-                borderBottomColor: colors.border,
-              }}
-              activeOpacity={0.7}
-            >
-              <View className="flex-1 flex-row items-center">
-                <Ionicons name={item.icon} size={20} color={colors.text} />
-                <Text style={{ color: colors.text }} className="ml-3 text-base font-semibold">
-                  {item.name}
-                </Text>
-              </View>
-              {item.isExternal ? (
-                <Ionicons name="open-outline" size={20} color={colors.textSecondary} />
-              ) : (
-                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-              )}
-            </TouchableOpacity>
+        <GroupedSection>
+          {menuItems.map((item) => (
+            <GroupedRow key={item.name} title={item.name} icon={item.icon} onPress={item.onPress} />
           ))}
-        </View>
+        </GroupedSection>
 
-        {/* App Settings */}
-        <View
-          style={{
-            marginTop: 24,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.backgroundSecondary,
-            overflow: "hidden",
-          }}
-        >
-          <View
-            style={{
-              borderBottomWidth: 1,
-              borderBottomColor: colors.border,
-              backgroundColor: isDark ? "#2C2C2E" : "#F9FAFB",
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-            }}
-          >
-            <Text
-              style={{ color: isDark ? "#A3A3A3" : "#6B7280" }}
-              className="text-xs font-semibold uppercase"
-            >
-              App Settings
-            </Text>
-          </View>
-          <TouchableOpacity
+        <GroupedSection header="App Settings" footer="The page the app opens on.">
+          <GroupedRow
+            title="First Page"
+            icon="home-outline"
+            value={landingPageLabel}
             onPress={() => setShowLandingPagePicker(true)}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              backgroundColor: colors.backgroundSecondary,
-              paddingHorizontal: 20,
-              paddingVertical: 16,
-            }}
-            activeOpacity={0.7}
-          >
-            <View className="flex-row items-center">
-              <Ionicons name="home-outline" size={20} color={colors.text} />
-              <Text style={{ color: colors.text }} className="ml-3 text-base font-semibold">
-                First Page
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <View
-                style={{
-                  marginLeft: 12,
-                  marginRight: 8,
-                  borderRadius: 6,
-                  backgroundColor: isDark ? "#3A3A3C" : "#F3F4F6",
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                }}
-              >
-                <Text
-                  style={{ color: isDark ? "#A3A3A3" : "#4B5563" }}
-                  className="text-sm font-medium"
-                >
-                  {landingPageLabel}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
-        </View>
+          />
+        </GroupedSection>
 
-        {/* Delete Account Link */}
-        <View
-          style={{
-            marginTop: 24,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.backgroundSecondary,
-            overflow: "hidden",
-          }}
-        >
-          <TouchableOpacity
+        <GroupedSection>
+          <GroupedRow
+            title="Delete Account"
+            icon="trash-outline"
+            destructive
+            accessory="external"
             onPress={() =>
               openInAppBrowser(`${getCalAppUrl()}/settings/my-account/profile`, "Delete Account")
             }
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              backgroundColor: colors.backgroundSecondary,
-              paddingHorizontal: 20,
-              paddingVertical: 16,
-            }}
-            activeOpacity={0.7}
-          >
-            <View className="flex-1 flex-row items-center">
-              <Ionicons name="trash-outline" size={20} color={theme.destructive} />
-              <Text className="ml-3 text-base font-medium" style={{ color: theme.destructive }}>
-                Delete Account
-              </Text>
-            </View>
-            <Ionicons name="open-outline" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
+          />
+        </GroupedSection>
 
-        {/* Sign Out Button */}
-        <View
-          style={{
-            marginTop: 16,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.backgroundSecondary,
-            overflow: "hidden",
-          }}
-        >
-          <TouchableOpacity
-            onPress={handleSignOut}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: colors.backgroundSecondary,
-              paddingHorizontal: 20,
-              paddingVertical: 16,
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="log-out-outline" size={20} color={theme.destructive} />
-            <Text className="ml-2 text-base font-medium" style={{ color: theme.destructive }}>
-              Sign Out
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <GroupedSection>
+          <GroupedRow title="Sign Out" destructive centered onPress={handleSignOut} />
+        </GroupedSection>
 
         {/* Footer Note */}
         <Text
-          style={{ color: isDark ? "#6B7280" : "#9CA3AF" }}
-          className="mt-6 px-1 text-center text-xs"
+          style={{
+            color: systemColor("secondaryLabel", isDark),
+            fontSize: 13,
+            lineHeight: 18,
+            textAlign: "center",
+            marginTop: 24,
+            paddingHorizontal: 16,
+          }}
         >
           The companion app is an extension of the web application.{"\n"}
           For advanced features, visit{" "}
-          <Text style={{ color: isDark ? "#D1D5DB" : "#1F2937" }}>
+          <Text style={{ color: systemColor("label", isDark) }}>
             {getCalAppUrl().replace(/^https?:\/\//, "")}
           </Text>
         </Text>

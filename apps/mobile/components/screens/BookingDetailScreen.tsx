@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { type Href, Stack, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -16,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { BookingActionsModal } from "@/components/BookingActionsModal";
 import { FullScreenModal } from "@/components/FullScreenModal";
@@ -76,7 +76,7 @@ const CopyButton = ({
     hitSlop={8}
     className="ml-2 justify-center"
   >
-    <Ionicons name="copy-outline" size={size} color={color || "#A3A3A3"} />
+    <AppIcon name="copy-outline" size={size} color={color || "#A3A3A3"} />
   </AppPressable>
 );
 
@@ -502,7 +502,7 @@ export function BookingDetailScreen({
 
     type DropdownAction = {
       label: string;
-      icon: keyof typeof Ionicons.glyphMap;
+      icon: AppIconName;
       onPress: () => void;
       visible: boolean;
       variant?: "default" | "destructive";
@@ -600,7 +600,7 @@ export function BookingDetailScreen({
         className="flex-1 items-center justify-center p-5"
         style={{ backgroundColor: screenBackground }}
       >
-        <Ionicons name="alert-circle" size={64} color={theme.error} />
+        <AppIcon name="alert-circle" size={64} color={theme.error} />
         <Text className="mb-2 mt-4 text-center text-xl font-bold" style={{ color: theme.text }}>
           {errorMessage}
         </Text>
@@ -695,7 +695,7 @@ export function BookingDetailScreen({
                           borderColor: theme.border,
                         }}
                       >
-                        <Ionicons name="ellipsis-horizontal" size={20} color={theme.text} />
+                        <AppIcon name="ellipsis-horizontal" size={20} color={theme.text} />
                       </Pressable>
                     </DropdownMenuTrigger>
 
@@ -711,7 +711,7 @@ export function BookingDetailScreen({
                             <DropdownMenuSeparator />
                           )}
                           <DropdownMenuItem variant={action.variant} onPress={action.onPress}>
-                            <Ionicons
+                            <AppIcon
                               name={action.icon}
                               size={18}
                               color={
@@ -867,7 +867,7 @@ export function BookingDetailScreen({
                   <Text className="mr-1 text-[17px]" style={{ color: theme.textSecondary }}>
                     {totalParticipants}
                   </Text>
-                  <Ionicons
+                  <AppIcon
                     name={participantsExpanded ? "chevron-down" : "chevron-forward"}
                     size={18}
                     color={theme.textSecondary}
@@ -889,7 +889,7 @@ export function BookingDetailScreen({
                       className="flex-row items-center py-2"
                       style={index > 0 ? { borderTopWidth: 1, borderTopColor: theme.border } : {}}
                     >
-                      <Ionicons name="star" size={18} color="#FFD60A" />
+                      <AppIcon name="star" size={18} color="#FFD60A" />
                       <Text
                         className="ml-2.5 flex-1 text-[15px]"
                         style={{ color: theme.text }}
@@ -903,7 +903,7 @@ export function BookingDetailScreen({
                   ))
                 ) : booking.user ? (
                   <View className="flex-row items-center py-2">
-                    <Ionicons name="star" size={18} color="#FFD60A" />
+                    <AppIcon name="star" size={18} color="#FFD60A" />
                     <Text
                       className="ml-2.5 flex-1 text-[15px]"
                       style={{ color: theme.text }}
@@ -929,7 +929,7 @@ export function BookingDetailScreen({
                           : {}
                       }
                     >
-                      <Ionicons name={statusIcon.name} size={20} color={statusIcon.color} />
+                      <AppIcon name={statusIcon.name} size={20} color={statusIcon.color} />
                       <Text
                         className="ml-2.5 flex-1 text-[15px]"
                         style={{ color: theme.text }}
@@ -959,7 +959,7 @@ export function BookingDetailScreen({
                         : {}
                     }
                   >
-                    <Ionicons name="person-outline" size={20} color={theme.textSecondary} />
+                    <AppIcon name="person-outline" size={20} color={theme.textSecondary} />
                     <Text
                       className="ml-2.5 flex-1 text-[15px]"
                       style={{ color: theme.textSecondary }}
@@ -1240,7 +1240,7 @@ export function BookingDetailScreen({
                           : {}
                       }
                     >
-                      <Ionicons name="warning" size={18} color="#FF9500" />
+                      <AppIcon name="warning" size={18} color="#FF9500" />
                       <Text className="ml-2 text-[17px]" style={{ color: theme.text }}>
                         Host was absent
                       </Text>
@@ -1295,7 +1295,7 @@ export function BookingDetailScreen({
                 <View className="flex-row">
                   {/* Danger icon */}
                   <View className="mr-3 self-start rounded-full bg-red-50 p-2 dark:bg-red-900/30">
-                    <Ionicons name="alert-circle" size={20} color={theme.destructive} />
+                    <AppIcon name="alert-circle" size={20} color={theme.destructive} />
                   </View>
 
                   {/* Title and description */}
@@ -1367,7 +1367,7 @@ export function BookingDetailScreen({
               <View className="p-6">
                 <View className="flex-row">
                   <View className="mr-3 self-start rounded-full bg-red-50 p-2 dark:bg-red-900/30">
-                    <Ionicons name="close-circle" size={20} color={theme.destructive} />
+                    <AppIcon name="close-circle" size={20} color={theme.destructive} />
                   </View>
 
                   <View className="flex-1">

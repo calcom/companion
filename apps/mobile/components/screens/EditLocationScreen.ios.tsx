@@ -7,7 +7,6 @@
 
 import { Button, Host, HStack, Image, Menu } from "@expo/ui/swift-ui";
 import { buttonStyle, frame, padding } from "@expo/ui/swift-ui/modifiers";
-import { Ionicons } from "@expo/vector-icons";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
@@ -19,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { useUpdateLocation } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
 import { showErrorAlert, showSilentSuccessAlert } from "@/utils/alerts";
@@ -252,7 +252,7 @@ export const EditLocationScreen = forwardRef<EditLocationScreenHandle, EditLocat
                     className="mr-3 h-9 w-9 items-center justify-center rounded-full"
                     style={{ backgroundColor: colors.pill }}
                   >
-                    <Ionicons name="location" size={18} color={colors.textSecondary} />
+                    <AppIcon name="location" size={18} color={colors.textSecondary} />
                   </View>
                   <View className="flex-1">
                     <Text
@@ -287,7 +287,7 @@ export const EditLocationScreen = forwardRef<EditLocationScreenHandle, EditLocat
                     backgroundColor: isDark ? "rgba(0, 122, 255, 0.3)" : "rgba(0, 122, 255, 0.2)",
                   }}
                 >
-                  <Ionicons name={selectedTypeConfig.iconName} size={20} color={colors.accent} />
+                  <AppIcon name={selectedTypeConfig.iconName} size={20} color={colors.accent} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-[17px] font-medium" style={{ color: colors.text }}>
@@ -376,7 +376,7 @@ export const EditLocationScreen = forwardRef<EditLocationScreenHandle, EditLocat
                     className="mr-3 h-10 w-10 items-center justify-center rounded-full"
                     style={{ backgroundColor: colors.pill }}
                   >
-                    <Ionicons name="location" size={20} color={colors.textSecondary} />
+                    <AppIcon name="location" size={20} color={colors.textSecondary} />
                   </View>
                   <View className="flex-1">
                     <Text
@@ -413,7 +413,7 @@ export const EditLocationScreen = forwardRef<EditLocationScreenHandle, EditLocat
                     backgroundColor: isDark ? "rgba(0, 122, 255, 0.2)" : "rgba(0, 122, 255, 0.1)",
                   }}
                 >
-                  <Ionicons name={selectedTypeConfig.iconName} size={20} color={colors.accent} />
+                  <AppIcon name={selectedTypeConfig.iconName} size={20} color={colors.accent} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-[17px] font-medium" style={{ color: colors.text }}>

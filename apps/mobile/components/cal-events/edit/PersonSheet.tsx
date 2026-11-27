@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useState } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { useUploadCalEventPersonAvatar } from "@/hooks";
 import type { CalEventLineupPerson } from "@/services/types/cal-events.types";
 import { showInfoAlert } from "@/utils/alerts";
@@ -125,7 +125,7 @@ export function PersonSheet({
                 accessibilityIgnoresInvertColors
               />
             ) : (
-              <Ionicons name="person" size={28} color={theme.textMuted} />
+              <AppIcon name="person" size={28} color={theme.textMuted} />
             )}
             {upload.isPending ? (
               <View

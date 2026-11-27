@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Pressable, Text, useColorScheme, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import { useHour12 } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
@@ -88,7 +88,7 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
               backgroundColor: theme.backgroundMuted,
             }}
           >
-            <Ionicons name="ticket-outline" size={36} color={theme.textMuted} />
+            <AppIcon name="ticket-outline" size={36} color={theme.textMuted} />
           </View>
         )}
 
@@ -114,7 +114,7 @@ export function CalEventListItem({ event, viewerId, onPress, ...actions }: CalEv
           </Text>
 
           <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
-            <Ionicons
+            <AppIcon
               name={isCalEventInPerson(event) ? "location-outline" : "videocam-outline"}
               size={15}
               color={theme.textSecondary}

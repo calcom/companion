@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import {
   Alert,
@@ -13,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { getColors } from "@/constants/colors";
 import { type Schedule, useUpdateSchedule } from "@/hooks/useSchedules";
@@ -185,7 +185,7 @@ export const EditAvailabilityNameScreen = forwardRef<
                 }`}
               >
                 <View className="mr-3 h-9 w-9 items-center justify-center rounded-lg bg-[#007AFF]/20">
-                  <Ionicons name="globe-outline" size={20} color="#007AFF" />
+                  <AppIcon name="globe-outline" size={20} color="#007AFF" />
                 </View>
                 <View className="flex-1">
                   <Text
@@ -195,7 +195,7 @@ export const EditAvailabilityNameScreen = forwardRef<
                   </Text>
                   <Text className="mt-0.5 text-[13px] text-[#A3A3A3]">{timezone}</Text>
                 </View>
-                <Ionicons name="chevron-expand" size={18} color="#A3A3A3" />
+                <AppIcon name="chevron-expand" size={18} color="#A3A3A3" />
               </View>
             </AppPressable>
           </>
@@ -226,7 +226,7 @@ export const EditAvailabilityNameScreen = forwardRef<
                 className={`mb-4 flex-row items-center rounded-xl px-4 py-3 ${isDark ? "bg-[#171717]" : "bg-white"}`}
               >
                 <View className="mr-3 h-9 w-9 items-center justify-center rounded-lg bg-[#007AFF]/10">
-                  <Ionicons name="globe-outline" size={20} color="#007AFF" />
+                  <AppIcon name="globe-outline" size={20} color="#007AFF" />
                 </View>
                 <View className="flex-1">
                   <Text
@@ -236,7 +236,7 @@ export const EditAvailabilityNameScreen = forwardRef<
                   </Text>
                   <Text className="mt-0.5 text-[13px] text-[#A3A3A3]">{timezone}</Text>
                 </View>
-                <Ionicons name="chevron-expand" size={18} color="#A3A3A3" />
+                <AppIcon name="chevron-expand" size={18} color="#A3A3A3" />
               </View>
             </AppPressable>
           </>
@@ -262,7 +262,7 @@ export const EditAvailabilityNameScreen = forwardRef<
               accessibilityLabel="Close timezone picker"
               accessibilityRole="button"
             >
-              <Ionicons name="close" size={24} color={theme.textMuted} />
+              <AppIcon name="close" size={24} color={theme.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -311,7 +311,7 @@ export const EditAvailabilityNameScreen = forwardRef<
                       {tz.id}
                     </Text>
                   </View>
-                  {isSelected && <Ionicons name="checkmark" size={20} color={theme.accent} />}
+                  {isSelected && <AppIcon name="checkmark" size={20} color={theme.accent} />}
                 </TouchableOpacity>
               );
             }}

@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { useEditSurfaces, useEditTheme } from "@/components/cal-events/edit/EditControls";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
@@ -37,7 +37,7 @@ export function CalEventSheet({
         className="h-10 w-10 items-center justify-center rounded-full border"
         style={{ borderColor: theme.border, backgroundColor: theme.background }}
       >
-        <Ionicons name={icon} size={20} color={theme.text} />
+        <AppIcon name={icon} size={20} color={theme.text} />
       </AppPressable>
     </View>
   );

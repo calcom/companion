@@ -1,8 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect } from "react";
 import { ActivityIndicator, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 import EditAvailabilityHoursScreenComponent from "@/components/screens/EditAvailabilityHoursScreen";
@@ -95,7 +95,7 @@ export default function EditAvailabilityHours() {
                   marginRight: 8,
                 }}
               >
-                <Ionicons name="close" size={20} color={theme.text} />
+                <AppIcon name="close" size={20} color={theme.text} />
               </AppPressable>
             </HeaderButtonWrapper>
           ),

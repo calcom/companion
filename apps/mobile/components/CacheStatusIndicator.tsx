@@ -9,8 +9,8 @@
  * to provide users with transparency about data freshness.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { useQueryContext } from "@/contexts/QueryContext";
 
 /**
@@ -82,7 +82,7 @@ export function CacheStatusIndicator({
   if (!isOnline) {
     return (
       <View style={[styles.container, styles.offlineContainer, style]}>
-        <Ionicons name="cloud-offline-outline" size={12} color="#FF9500" />
+        <AppIcon name="cloud-offline-outline" size={12} color="#FF9500" />
         <Text style={styles.offlineText}>Offline - showing cached data</Text>
       </View>
     );
@@ -92,7 +92,7 @@ export function CacheStatusIndicator({
   if (isFetching) {
     return (
       <View style={[styles.container, style]}>
-        <Ionicons name="sync-outline" size={12} color="#A3A3A3" />
+        <AppIcon name="sync-outline" size={12} color="#A3A3A3" />
         {!compact && <Text style={styles.text}>Updating...</Text>}
       </View>
     );
@@ -103,14 +103,14 @@ export function CacheStatusIndicator({
     if (compact) {
       return (
         <View style={[styles.container, style]}>
-          <Ionicons name="time-outline" size={12} color="#A3A3A3" />
+          <AppIcon name="time-outline" size={12} color="#A3A3A3" />
         </View>
       );
     }
 
     return (
       <View style={[styles.container, style]}>
-        <Ionicons name="time-outline" size={12} color="#A3A3A3" />
+        <AppIcon name="time-outline" size={12} color="#A3A3A3" />
         <Text style={styles.text}>Updated {formatTimeAgo(dataUpdatedAt)}</Text>
       </View>
     );

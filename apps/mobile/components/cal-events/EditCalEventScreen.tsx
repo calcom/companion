@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
@@ -17,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import {
   HEADER_ICON_BUTTON_CLASS,
   HEADER_PILL_CLASS,
@@ -124,7 +124,7 @@ type TabId =
 const TABS: {
   id: TabId;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   /** The iOS header menu's icon. */
   sf: SFSymbol;
 }[] = [
@@ -458,7 +458,7 @@ export function EditCalEventScreen({
                   accessibilityLabel="Copy to clipboard"
                   hitSlop={8}
                 >
-                  <Ionicons name="clipboard-outline" size={20} color={theme.textSecondary} />
+                  <AppIcon name="clipboard-outline" size={20} color={theme.textSecondary} />
                 </Pressable>
               }
             />
@@ -766,7 +766,7 @@ export function EditCalEventScreen({
                   className={HEADER_ICON_BUTTON_CLASS}
                   style={{ opacity: saving ? 0.4 : 1 }}
                 >
-                  <Ionicons name="ellipsis-horizontal" size={18} color={theme.text} />
+                  <AppIcon name="ellipsis-horizontal" size={18} color={theme.text} />
                 </Pressable>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -777,7 +777,7 @@ export function EditCalEventScreen({
               >
                 {menuItems.map((item) => (
                   <DropdownMenuItem key={item.label} onPress={item.onPress}>
-                    <Ionicons
+                    <AppIcon
                       name={item.icon}
                       size={18}
                       color={item.destructive ? theme.destructive : theme.textSecondary}
@@ -831,7 +831,7 @@ export function EditCalEventScreen({
                       // the web drops accessibilityState and hints.
                       accessibilityLabel={`${item.label}${selected ? ", selected" : ""}${hasErrors ? ", has errors" : ""}`}
                     >
-                      <Ionicons
+                      <AppIcon
                         name={selected ? "checkmark-circle" : item.icon}
                         size={18}
                         color={selected ? theme.text : theme.textSecondary}
@@ -1008,7 +1008,7 @@ function WebSettingRow({
 }: {
   label: string;
   hint: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   onPress: () => void;
 }) {
   const theme = useEditTheme();
@@ -1030,13 +1030,13 @@ function WebSettingRow({
           backgroundColor: theme.backgroundEmphasis,
         }}
       >
-        <Ionicons name={icon} size={18} color={theme.textSecondary} />
+        <AppIcon name={icon} size={18} color={theme.textSecondary} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>{label}</Text>
         <Text style={{ color: theme.textSecondary, fontSize: 13 }}>{hint}</Text>
       </View>
-      <Ionicons name="open-outline" size={18} color={theme.textMuted} />
+      <AppIcon name="open-outline" size={18} color={theme.textMuted} />
     </Pressable>
   );
 }
@@ -1053,8 +1053,8 @@ function SelectButton({
   label: string;
   accessibilityLabel: string;
   onPress: () => void;
-  leadingIcon?: keyof typeof Ionicons.glyphMap;
-  icon?: keyof typeof Ionicons.glyphMap;
+  leadingIcon?: AppIconName;
+  icon?: AppIconName;
   error?: boolean;
 }) {
   const theme = useEditTheme();
@@ -1076,11 +1076,11 @@ function SelectButton({
         backgroundColor: fieldBackground,
       }}
     >
-      {leadingIcon ? <Ionicons name={leadingIcon} size={18} color={theme.textSecondary} /> : null}
+      {leadingIcon ? <AppIcon name={leadingIcon} size={18} color={theme.textSecondary} /> : null}
       <Text style={{ flex: 1, color: theme.text, fontSize: 16 }} numberOfLines={1}>
         {label}
       </Text>
-      {icon ? <Ionicons name={icon} size={18} color={theme.textSecondary} /> : null}
+      {icon ? <AppIcon name={icon} size={18} color={theme.textSecondary} /> : null}
     </Pressable>
   );
 }
@@ -1112,7 +1112,7 @@ function RadioList<T extends string>({
             accessibilityHint={option.hint}
             style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 8 }}
           >
-            <Ionicons
+            <AppIcon
               name={selected ? "radio-button-on" : "radio-button-off"}
               size={22}
               color={selected ? theme.text : theme.textMuted}

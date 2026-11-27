@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
+import { AppIcon } from "@/components/AppIcon";
 import { Tooltip } from "@/components/Tooltip";
 import type { EventType } from "@/services/types/event-types.types";
 
@@ -132,7 +132,7 @@ export function EventTypeBadges({
         className="rounded-md border border-cal-border bg-cal-border dark:border-[#4D4D4D] dark:bg-[#4D4D4D]"
         style={{ height: 24, paddingHorizontal: 8, flexDirection: "row", alignItems: "center" }}
       >
-        <Ionicons name="time-outline" size={14} color={badgeIconColor} />
+        <AppIcon name="time-outline" size={14} color={badgeIconColor} />
         <Text className="ml-1.5 text-xs font-semibold text-cal-brand-black dark:text-white">
           {formattedDuration}
         </Text>
@@ -144,7 +144,7 @@ export function EventTypeBadges({
           className="rounded-md border border-cal-border bg-cal-border dark:border-[#4D4D4D] dark:bg-[#4D4D4D]"
           style={{ height: 24, paddingHorizontal: 8, flexDirection: "row", alignItems: "center" }}
         >
-          <Ionicons name="eye-off-outline" size={14} color={badgeIconColor} />
+          <AppIcon name="eye-off-outline" size={14} color={badgeIconColor} />
           <Text className="ml-1.5 text-xs font-medium text-cal-brand-black dark:text-white">
             Hidden
           </Text>
@@ -157,7 +157,7 @@ export function EventTypeBadges({
           className="rounded-md border border-cal-border bg-cal-border dark:border-[#4D4D4D] dark:bg-[#4D4D4D]"
           style={{ height: 24, paddingHorizontal: 8, flexDirection: "row", alignItems: "center" }}
         >
-          <Ionicons name="people-outline" size={14} color={badgeIconColor} />
+          <AppIcon name="people-outline" size={14} color={badgeIconColor} />
           <Text className="ml-1.5 text-xs font-medium text-cal-brand-black dark:text-white">
             {seats.seatsPerTimeSlot} seats
           </Text>
@@ -170,7 +170,7 @@ export function EventTypeBadges({
           className="rounded-md border border-cal-border bg-cal-border dark:border-[#4D4D4D] dark:bg-[#4D4D4D]"
           style={{ height: 24, paddingHorizontal: 8, flexDirection: "row", alignItems: "center" }}
         >
-          <Ionicons name="card-outline" size={14} color={badgeIconColor} />
+          <AppIcon name="card-outline" size={14} color={badgeIconColor} />
           <Text className="ml-1.5 text-xs font-semibold text-cal-brand-black dark:text-white">
             {formattedPrice}
           </Text>
@@ -183,7 +183,7 @@ export function EventTypeBadges({
           className="rounded-md border border-cal-border bg-cal-border dark:border-[#4D4D4D] dark:bg-[#4D4D4D]"
           style={{ height: 24, paddingHorizontal: 8, flexDirection: "row", alignItems: "center" }}
         >
-          <Ionicons name="repeat-outline" size={14} color={badgeIconColor} />
+          <AppIcon name="repeat-outline" size={14} color={badgeIconColor} />
           <Text className="ml-1.5 text-xs font-medium text-cal-brand-black dark:text-white">
             {recurrence.occurrences} times
           </Text>
@@ -196,7 +196,7 @@ export function EventTypeBadges({
           className="rounded-md border border-cal-border bg-cal-border dark:border-[#4D4D4D] dark:bg-[#4D4D4D]"
           style={{ height: 24, paddingHorizontal: 8, flexDirection: "row", alignItems: "center" }}
         >
-          <Ionicons name="checkmark-circle-outline" size={14} color={badgeIconColor} />
+          <AppIcon name="checkmark-circle-outline" size={14} color={badgeIconColor} />
           <Text className="ml-1.5 text-xs font-medium text-cal-brand-black dark:text-white">
             Requires confirmation
           </Text>
@@ -234,7 +234,7 @@ export function EventTypeActions({
           style={{ width: 32, height: 32 }}
           onPress={() => handlePreview(item)}
         >
-          <Ionicons name="open-outline" size={18} color={iconColor} />
+          <AppIcon name="open-outline" size={18} color={iconColor} />
         </TouchableOpacity>
       </Tooltip>
       <Tooltip text={copiedEventTypeId === item.id ? "Copied!" : "Copy link"}>
@@ -244,7 +244,7 @@ export function EventTypeActions({
           onPress={() => handleCopyLink(item)}
         >
           {copiedEventTypeId === item.id ? (
-            <Ionicons name="checkmark" size={18} color="#34C759" />
+            <AppIcon name="checkmark" size={18} color="#34C759" />
           ) : (
             <Svg
               width="18"
@@ -268,7 +268,7 @@ export function EventTypeActions({
           style={{ width: 32, height: 32 }}
           onPress={() => handleEventTypeLongPress(item)}
         >
-          <Ionicons name="ellipsis-horizontal" size={18} color={iconColor} />
+          <AppIcon name="ellipsis-horizontal" size={18} color={iconColor} />
         </TouchableOpacity>
       </Tooltip>
     </View>

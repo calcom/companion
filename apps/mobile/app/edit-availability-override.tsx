@@ -1,8 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 import type { EditAvailabilityOverrideScreenHandle } from "@/components/screens/EditAvailabilityOverrideScreen";
@@ -123,7 +123,7 @@ export default function EditAvailabilityOverride() {
                   marginRight: 8,
                 }}
               >
-                <Ionicons name="close" size={20} color={theme.text} />
+                <AppIcon name="close" size={20} color={theme.text} />
               </AppPressable>
             </HeaderButtonWrapper>
           ),
@@ -140,7 +140,7 @@ export default function EditAvailabilityOverride() {
                   backgroundColor: theme.background,
                 }}
               >
-                <Ionicons name="checkmark" size={20} color={theme.text} />
+                <AppIcon name="checkmark" size={20} color={theme.text} />
               </AppPressable>
             </HeaderButtonWrapper>
           ),

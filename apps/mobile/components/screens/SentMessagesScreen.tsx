@@ -5,10 +5,10 @@
  * message's status and delivery counts. Used by the cal-event-sent-messages route.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { HintText, useEditSurfaces, useEditTheme } from "@/components/cal-events/edit/EditControls";
 import { useCalEventMessages } from "@/hooks";
 import type { CalEventMessage } from "@/services/calcom";
@@ -87,7 +87,7 @@ export function SentMessagesScreen({ uuid }: { uuid: string }) {
             borderColor: theme.border,
           }}
         >
-          <Ionicons name="paper-plane-outline" size={32} color={theme.textSecondary} />
+          <AppIcon name="paper-plane-outline" size={32} color={theme.textSecondary} />
           <Text style={{ color: theme.text, fontSize: 16, fontWeight: "600" }}>
             No messages sent yet
           </Text>
@@ -186,7 +186,7 @@ function ErrorNotice({
   const theme = useEditTheme();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-      <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
+      <AppIcon name="alert-circle-outline" size={18} color={theme.textSecondary} />
       <Text accessibilityRole="alert" style={{ flex: 1, color: theme.textSecondary, fontSize: 14 }}>
         {message}
       </Text>

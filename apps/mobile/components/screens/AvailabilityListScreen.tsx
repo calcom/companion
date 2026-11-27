@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Activity, useMemo, useState } from "react";
 import {
@@ -13,6 +12,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { AvailabilityListItem } from "@/components/availability-list-item/AvailabilityListItem";
 import { AvailabilityListSkeleton } from "@/components/availability-list-item/AvailabilityListItemSkeleton";
@@ -271,7 +271,7 @@ export function AvailabilityListScreen({
       <View style={{ flex: 1, backgroundColor: colors.backgroundSecondary }}>
         {Platform.OS !== "ios" && <Header />}
         <View className="flex-1 items-center justify-center p-5">
-          <Ionicons name="alert-circle" size={64} color={theme.destructive} />
+          <AppIcon name="alert-circle" size={64} color={theme.destructive} />
           <Text style={{ color: colors.text }} className="mb-2 mt-4 text-center text-xl font-bold">
             Unable to load availability
           </Text>
@@ -331,7 +331,7 @@ export function AvailabilityListScreen({
                 style={{ position: "absolute", right: 8 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                <AppIcon name="close-circle" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -339,7 +339,7 @@ export function AvailabilityListScreen({
             className="min-w-[60px] flex-row items-center justify-center gap-1 rounded-lg bg-black px-2.5 py-2 dark:bg-white"
             onPress={handleCreateNew}
           >
-            <Ionicons name="add" size={18} color={isDark ? "#000" : "#fff"} />
+            <AppIcon name="add" size={18} color={isDark ? "#000" : "#fff"} />
             <Text className="text-base font-semibold text-white dark:text-black">New</Text>
           </TouchableOpacity>
         </View>
@@ -601,7 +601,7 @@ export function AvailabilityListScreen({
                   }}
                   className="flex-row items-center p-2 hover:bg-gray-50 dark:hover:bg-[#262626] md:p-4"
                 >
-                  <Ionicons name="star-outline" size={20} color="#6B7280" />
+                  <AppIcon name="star-outline" size={20} color="#6B7280" />
                   <Text className="ml-3 text-base text-gray-900 dark:text-white">
                     Set as Default
                   </Text>
@@ -622,7 +622,7 @@ export function AvailabilityListScreen({
                 }}
                 className="flex-row items-center p-2 hover:bg-gray-50 dark:hover:bg-[#262626] md:p-4"
               >
-                <Ionicons name="copy-outline" size={20} color="#6B7280" />
+                <AppIcon name="copy-outline" size={20} color="#6B7280" />
                 <Text className="ml-3 text-base text-gray-900 dark:text-white">Duplicate</Text>
               </AppPressable>
 
@@ -642,7 +642,7 @@ export function AvailabilityListScreen({
                 }}
                 className="flex-row items-center p-2 hover:bg-gray-50 dark:hover:bg-[#262626] md:p-4"
               >
-                <Ionicons name="trash-outline" size={20} color={theme.destructive} />
+                <AppIcon name="trash-outline" size={20} color={theme.destructive} />
                 <Text className="ml-3 text-base" style={{ color: theme.destructive }}>
                   Delete
                 </Text>
@@ -676,7 +676,7 @@ export function AvailabilityListScreen({
               <View className="flex-row">
                 {/* Danger icon */}
                 <View className="mr-3 self-start rounded-full bg-red-50 p-2 dark:bg-red-900/30">
-                  <Ionicons name="alert-circle" size={20} color={theme.destructive} />
+                  <AppIcon name="alert-circle" size={20} color={theme.destructive} />
                 </View>
 
                 {/* Title and description */}

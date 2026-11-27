@@ -1,8 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Platform, Text, useColorScheme, View } from "react-native";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 import { BookingDetailScreen } from "@/components/screens/BookingDetailScreen";
@@ -45,7 +45,7 @@ type ActionHandlers = {
   handleCancelBooking: () => void;
 };
 
-const getIconName = (sfSymbol: string): keyof typeof Ionicons.glyphMap => {
+const getIconName = (sfSymbol: string): AppIconName => {
   switch (sfSymbol) {
     case "calendar":
       return "calendar";
@@ -312,7 +312,7 @@ export default function BookingDetail() {
           onPress={() => router.back()}
           className="mr-2 h-10 flex-row items-center justify-center rounded-full border border-[#E5E5E5] bg-white px-3 dark:border-[#262626] dark:bg-[#171717]"
         >
-          <Ionicons
+          <AppIcon
             name="chevron-back"
             size={20}
             color={isDarkMode ? "#FFFFFF" : "#000000"}
@@ -333,7 +333,7 @@ export default function BookingDetail() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <AppPressable className="h-10 w-10 items-center justify-center rounded-full border border-[#E5E5E5] bg-white dark:border-[#262626] dark:bg-[#171717]">
-                <Ionicons
+                <AppIcon
                   name="ellipsis-horizontal"
                   size={20}
                   color={isDarkMode ? "#FFFFFF" : "#000000"}
@@ -350,7 +350,7 @@ export default function BookingDetail() {
                 <>
                   <DropdownMenuItem onPress={handleCopyMeetingLink}>
                     <View className="flex-row items-center gap-2">
-                      <Ionicons
+                      <AppIcon
                         name="copy-outline"
                         size={18}
                         color={isDarkMode ? "#FFFFFF" : "#000000"}
@@ -370,7 +370,7 @@ export default function BookingDetail() {
                   {bookingActionsSections.editEvent.map((action) => (
                     <DropdownMenuItem key={action.id} onPress={action.onPress}>
                       <View className="flex-row items-center gap-2">
-                        <Ionicons
+                        <AppIcon
                           name={getIconName(action.icon)}
                           size={18}
                           color={isDarkMode ? "#FFFFFF" : "#000000"}
@@ -391,7 +391,7 @@ export default function BookingDetail() {
                   {bookingActionsSections.afterEvent.map((action) => (
                     <DropdownMenuItem key={action.id} onPress={action.onPress}>
                       <View className="flex-row items-center gap-2">
-                        <Ionicons
+                        <AppIcon
                           name={getIconName(action.icon)}
                           size={18}
                           color={isDarkMode ? "#FFFFFF" : "#000000"}
@@ -414,7 +414,7 @@ export default function BookingDetail() {
                   variant={action.destructive ? "destructive" : "default"}
                 >
                   <View className="flex-row items-center gap-2">
-                    <Ionicons
+                    <AppIcon
                       name={getIconName(action.icon)}
                       size={18}
                       color={action.destructive ? "#EF4444" : isDarkMode ? "#FFFFFF" : "#000000"}

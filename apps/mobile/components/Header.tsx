@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -11,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import {
   DropdownMenu,
@@ -158,7 +158,7 @@ export function Header({
                 return (
                   <DropdownMenuItem key={option.key} onPress={() => onFilterChange(option.key)}>
                     <View className="flex-row items-center gap-2">
-                      <Ionicons
+                      <AppIcon
                         name={isSelected ? "checkmark-circle" : getFilterIcon(option.key)}
                         size={16}
                         color={isSelected ? colors.text : colors.textSecondary}
@@ -185,7 +185,7 @@ export function Header({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <AppPressable className="relative p-2">
-                <Ionicons name="options-outline" size={22} color={colors.text} />
+                <AppIcon name="options-outline" size={22} color={colors.text} />
                 {/* Badge for active filters */}
                 {eventTypeFilterConfig.activeFilterCount > 0 && (
                   <View
@@ -210,7 +210,7 @@ export function Header({
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <View className="flex-row items-center gap-2">
-                    <Ionicons name="swap-vertical-outline" size={16} color={colors.textSecondary} />
+                    <AppIcon name="swap-vertical-outline" size={16} color={colors.textSecondary} />
                     <Text className="text-base dark:text-gray-300">Sort by</Text>
                   </View>
                 </DropdownMenuSubTrigger>
@@ -219,7 +219,7 @@ export function Header({
                     onPress={() => eventTypeFilterConfig.onSortChange("alphabetical")}
                   >
                     <View className="flex-row items-center gap-2">
-                      <Ionicons
+                      <AppIcon
                         name={
                           eventTypeFilterConfig.sortBy === "alphabetical"
                             ? "checkmark-circle"
@@ -245,7 +245,7 @@ export function Header({
                   </DropdownMenuItem>
                   <DropdownMenuItem onPress={() => eventTypeFilterConfig.onSortChange("newest")}>
                     <View className="flex-row items-center gap-2">
-                      <Ionicons
+                      <AppIcon
                         name={
                           eventTypeFilterConfig.sortBy === "newest"
                             ? "checkmark-circle"
@@ -271,7 +271,7 @@ export function Header({
                   </DropdownMenuItem>
                   <DropdownMenuItem onPress={() => eventTypeFilterConfig.onSortChange("duration")}>
                     <View className="flex-row items-center gap-2">
-                      <Ionicons
+                      <AppIcon
                         name={
                           eventTypeFilterConfig.sortBy === "duration"
                             ? "checkmark-circle"
@@ -303,7 +303,7 @@ export function Header({
               {/* Filter Label */}
               <DropdownMenuLabel>
                 <View className="flex-row items-center gap-2">
-                  <Ionicons name="filter-outline" size={16} color={colors.textSecondary} />
+                  <AppIcon name="filter-outline" size={16} color={colors.textSecondary} />
                   <Text className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     Filters
                   </Text>
@@ -313,7 +313,7 @@ export function Header({
               {/* Filter Toggles (multi-select) */}
               <DropdownMenuItem onPress={() => eventTypeFilterConfig.onToggleFilter("hiddenOnly")}>
                 <View className="flex-row items-center gap-2">
-                  <Ionicons
+                  <AppIcon
                     name={
                       eventTypeFilterConfig.filters.hiddenOnly
                         ? "checkmark-circle"
@@ -338,7 +338,7 @@ export function Header({
 
               <DropdownMenuItem onPress={() => eventTypeFilterConfig.onToggleFilter("paidOnly")}>
                 <View className="flex-row items-center gap-2">
-                  <Ionicons
+                  <AppIcon
                     name={
                       eventTypeFilterConfig.filters.paidOnly ? "checkmark-circle" : "cash-outline"
                     }
@@ -361,7 +361,7 @@ export function Header({
 
               <DropdownMenuItem onPress={() => eventTypeFilterConfig.onToggleFilter("seatedOnly")}>
                 <View className="flex-row items-center gap-2">
-                  <Ionicons
+                  <AppIcon
                     name={
                       eventTypeFilterConfig.filters.seatedOnly
                         ? "checkmark-circle"
@@ -388,7 +388,7 @@ export function Header({
                 onPress={() => eventTypeFilterConfig.onToggleFilter("requiresConfirmationOnly")}
               >
                 <View className="flex-row items-center gap-2">
-                  <Ionicons
+                  <AppIcon
                     name={
                       eventTypeFilterConfig.filters.requiresConfirmationOnly
                         ? "checkmark-circle"
@@ -417,7 +417,7 @@ export function Header({
                 onPress={() => eventTypeFilterConfig.onToggleFilter("recurringOnly")}
               >
                 <View className="flex-row items-center gap-2">
-                  <Ionicons
+                  <AppIcon
                     name={
                       eventTypeFilterConfig.filters.recurringOnly
                         ? "checkmark-circle"
@@ -448,7 +448,7 @@ export function Header({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onPress={eventTypeFilterConfig.onResetFilters}>
                     <View className="flex-row items-center gap-2">
-                      <Ionicons name="close-circle-outline" size={16} color="#FF3B30" />
+                      <AppIcon name="close-circle-outline" size={16} color="#FF3B30" />
                       <Text className="text-base text-[#FF3B30]">Clear All Filters</Text>
                     </View>
                   </DropdownMenuItem>
@@ -473,7 +473,7 @@ export function Header({
               className="items-center justify-center rounded-full bg-[#E5E5EA] dark:bg-[#4D4D4D]"
               style={{ width: 32, height: 32 }}
             >
-              <Ionicons name="person-outline" size={20} color={colors.textSecondary} />
+              <AppIcon name="person-outline" size={20} color={colors.textSecondary} />
             </View>
           )}
         </TouchableOpacity>

@@ -5,7 +5,6 @@
  * Used with the add-guests route that has native Stack.Header.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -18,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { getUserFacingApiReason } from "@/components/cal-events/useCalEventActions";
 import { getColors } from "@/constants/colors";
 import { useAddGuests } from "@/hooks/useBookings";
@@ -263,7 +263,7 @@ export const AddGuestsScreen = forwardRef<AddGuestsScreenHandle, AddGuestsScreen
             activeOpacity={0.7}
             disabled={isSaving}
           >
-            <Ionicons name="add-circle" size={22} color="#007AFF" />
+            <AppIcon name="add-circle" size={22} color="#007AFF" />
             <Text className="ml-2 text-[17px] font-medium text-[#007AFF]">Add</Text>
           </TouchableOpacity>
 
@@ -301,7 +301,7 @@ export const AddGuestsScreen = forwardRef<AddGuestsScreenHandle, AddGuestsScreen
                       className="mr-3 h-10 w-10 items-center justify-center rounded-full"
                       style={{ backgroundColor: pillBg }}
                     >
-                      <Ionicons name="person" size={20} color={isDark ? "#A3A3A3" : "#6B7280"} />
+                      <AppIcon name="person" size={20} color={isDark ? "#A3A3A3" : "#6B7280"} />
                     </View>
                     <View className="flex-1">
                       <Text className={`text-[17px] ${isDark ? "text-white" : "text-[#000]"}`}>
@@ -320,7 +320,7 @@ export const AddGuestsScreen = forwardRef<AddGuestsScreenHandle, AddGuestsScreen
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       disabled={isSaving}
                     >
-                      <Ionicons name="close-circle-outline" size={24} color={colors.destructive} />
+                      <AppIcon name="close-circle-outline" size={24} color={colors.destructive} />
                     </TouchableOpacity>
                   </View>
                 ))}

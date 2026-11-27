@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from "expo-camera";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -16,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import {
   useCalEvent,
   useCalEventCheckInAvailability,
@@ -225,7 +225,7 @@ export default function CalEventCheckInScannerScreen() {
             }}
           >
             {resultStyle.icon ? (
-              <Ionicons
+              <AppIcon
                 name={resultStyle.icon}
                 size={28}
                 color="#FFFFFF"

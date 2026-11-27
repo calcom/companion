@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import { forwardRef } from "react";
 import { ScrollView, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import type { Schedule } from "@/services/calcom";
 import type { ScheduleAvailability } from "@/services/types";
@@ -155,7 +155,7 @@ export const EditAvailabilityHoursScreen = forwardRef<unknown, EditAvailabilityH
                     )}
                   </View>
 
-                  <Ionicons
+                  <AppIcon
                     name="chevron-forward"
                     size={20}
                     color={isDark ? "#A3A3A3" : "#C7C7CC"}

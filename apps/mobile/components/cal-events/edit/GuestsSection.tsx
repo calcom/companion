@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { File, Paths } from "expo-file-system";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -13,6 +12,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import {
   useApproveAllCalEventRegistrations,
   useCalEventRegistrationCounts,
@@ -97,7 +97,7 @@ export function GuestsSection({ event, locations, onPageChange }: GuestsSectionP
           borderColor: theme.border,
         }}
       >
-        <Ionicons name="people-outline" size={32} color={theme.textSecondary} />
+        <AppIcon name="people-outline" size={32} color={theme.textSecondary} />
         <Text style={{ color: theme.textSecondary, fontSize: 15, textAlign: "center" }}>
           Publish this event to invite guests and manage the roster.
         </Text>
@@ -251,7 +251,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
           placeholder="Search guests"
           autoCapitalize="none"
           accessibilityLabel="Search guests"
-          leading={<Ionicons name="search" size={18} color={theme.textMuted} />}
+          leading={<AppIcon name="search" size={18} color={theme.textMuted} />}
           trailing={
             search ? (
               <Pressable
@@ -260,7 +260,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
                 accessibilityLabel="Clear search"
                 hitSlop={8}
               >
-                <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+                <AppIcon name="close-circle" size={18} color={theme.textMuted} />
               </Pressable>
             ) : null
           }
@@ -271,7 +271,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
             accessibilityRole="button"
             style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }}
           >
-            <Ionicons name="person-add-outline" size={18} color={theme.text} />
+            <AppIcon name="person-add-outline" size={18} color={theme.text} />
             <Text
               style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: "500" }}
               numberOfLines={1}
@@ -326,7 +326,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
 
       {serverCounts && (serverCounts.going > 0 || serverCounts.checkedIn > 0) ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Ionicons name="checkmark-circle-outline" size={18} color={theme.textSecondary} />
+          <AppIcon name="checkmark-circle-outline" size={18} color={theme.textSecondary} />
           <Text style={{ color: theme.textSecondary, fontSize: 15 }}>
             {serverCounts.checkedIn} / {serverCounts.going} checked in
           </Text>
@@ -378,7 +378,7 @@ function GuestRoster({ event, locations, onPageChange }: GuestsSectionProps) {
             borderColor: theme.border,
           }}
         >
-          <Ionicons name="people-outline" size={28} color={theme.textSecondary} />
+          <AppIcon name="people-outline" size={28} color={theme.textSecondary} />
           <Text style={{ color: theme.textSecondary, fontSize: 15 }}>
             {narrowed ? "No attendees match your search" : "No guests yet"}
           </Text>
@@ -446,7 +446,7 @@ function ToolbarButton({
 }: {
   label: string;
   /** Like the web's toolbar, only Download has one. */
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: AppIconName;
   onPress: () => void;
   primary?: boolean;
   disabled?: boolean;
@@ -478,7 +478,7 @@ function ToolbarButton({
       {busy ? (
         <ActivityIndicator size="small" color={color} />
       ) : icon ? (
-        <Ionicons name={icon} size={16} color={color} />
+        <AppIcon name={icon} size={16} color={color} />
       ) : null}
       <Text style={{ color, fontSize: 15, fontWeight: "500" }}>{label}</Text>
     </Pressable>
@@ -688,7 +688,7 @@ function GuestRow({
             </Text>
           </View>
         </View>
-        <Ionicons
+        <AppIcon
           name={expanded ? "chevron-up" : "chevron-down"}
           size={18}
           color={theme.textSecondary}
@@ -793,7 +793,7 @@ function Pagination({
         opacity: enabled ? 1 : 0.4,
       }}
     >
-      <Ionicons name={icon} size={16} color={theme.text} />
+      <AppIcon name={icon} size={16} color={theme.text} />
     </Pressable>
   );
   return (

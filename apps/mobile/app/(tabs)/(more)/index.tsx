@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import {
   Alert,
@@ -9,6 +8,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { Header } from "@/components/Header";
 import { LandingPagePicker } from "@/components/LandingPagePicker";
 import { LogoutConfirmModal } from "@/components/LogoutConfirmModal";
@@ -22,7 +22,7 @@ import { getCalAppUrl, getCalSupportUrl } from "@/utils/region";
 
 interface MoreMenuItem {
   name: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   isExternal?: boolean;
   href?: string;
   onPress?: () => void;
@@ -137,15 +137,15 @@ export default function More() {
               }}
             >
               <View className="flex-1 flex-row items-center">
-                <Ionicons name={item.icon} size={20} color={theme.text} />
+                <AppIcon name={item.icon} size={20} color={theme.text} />
                 <Text className="ml-3 text-base font-semibold" style={{ color: theme.text }}>
                   {item.name}
                 </Text>
               </View>
               {item.isExternal ? (
-                <Ionicons name="open-outline" size={20} color={theme.textSecondary} />
+                <AppIcon name="open-outline" size={20} color={theme.textSecondary} />
               ) : (
-                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                <AppIcon name="chevron-forward" size={20} color={theme.textSecondary} />
               )}
             </TouchableOpacity>
           ))}
@@ -176,7 +176,7 @@ export default function More() {
             style={{ backgroundColor: theme.backgroundSecondary }}
           >
             <View className="flex-row items-center">
-              <Ionicons name="home-outline" size={20} color={theme.text} />
+              <AppIcon name="home-outline" size={20} color={theme.text} />
               <Text className="ml-3 text-base font-semibold" style={{ color: theme.text }}>
                 First Page
               </Text>
@@ -210,12 +210,12 @@ export default function More() {
             style={{ backgroundColor: theme.backgroundSecondary }}
           >
             <View className="flex-1 flex-row items-center">
-              <Ionicons name="trash-outline" size={20} color={theme.destructive} />
+              <AppIcon name="trash-outline" size={20} color={theme.destructive} />
               <Text className="ml-3 text-base font-medium" style={{ color: theme.destructive }}>
                 Delete Account
               </Text>
             </View>
-            <Ionicons name="open-outline" size={20} color={theme.textSecondary} />
+            <AppIcon name="open-outline" size={20} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -229,7 +229,7 @@ export default function More() {
             className="flex-row items-center justify-center bg-white px-5 py-4 active:bg-red-50"
             style={{ backgroundColor: theme.backgroundSecondary }}
           >
-            <Ionicons name="log-out-outline" size={20} color={theme.destructive} />
+            <AppIcon name="log-out-outline" size={20} color={theme.destructive} />
             <Text className="ml-2 text-base font-medium" style={{ color: theme.destructive }}>
               Sign Out
             </Text>

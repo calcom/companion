@@ -4,8 +4,8 @@
  * iOS Settings style with grouped rows and section headers.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { Platform, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import { getCalHelpUrl } from "@/utils/region";
 import { SettingRow, SettingsGroup } from "../SettingsUI";
@@ -122,7 +122,7 @@ export function RecurringTab({
                     <Text className="text-[15px]" style={{ color: theme.text }}>
                       {frequencyToLabel[recurringFrequency] || recurringFrequency}
                     </Text>
-                    <Ionicons
+                    <AppIcon
                       name="chevron-down"
                       size={14}
                       color={theme.textMuted}

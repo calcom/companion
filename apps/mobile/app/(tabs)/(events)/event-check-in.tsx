@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
@@ -12,6 +11,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { useCalEventHeaderOptions } from "@/components/cal-events/useCalEventHeaderOptions";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -214,7 +214,7 @@ export default function CalEventCheckInScreen() {
                 backgroundColor: theme.text,
               }}
             >
-              <Ionicons name="qr-code-outline" size={18} color={theme.background} />
+              <AppIcon name="qr-code-outline" size={18} color={theme.background} />
               <Text
                 style={{ color: theme.background, fontSize: 16, fontWeight: "600", marginLeft: 8 }}
               >
@@ -252,7 +252,7 @@ export default function CalEventCheckInScreen() {
                 backgroundColor: surfaces.card,
               }}
             >
-              <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
+              <AppIcon name="alert-circle-outline" size={18} color={theme.textSecondary} />
               <Text
                 style={{ flex: 1, marginHorizontal: 8, color: theme.textSecondary, fontSize: 15 }}
               >
@@ -334,7 +334,7 @@ function SearchField({
         backgroundColor: background,
       }}
     >
-      <Ionicons name="search-outline" size={18} color={theme.textMuted} />
+      <AppIcon name="search-outline" size={18} color={theme.textMuted} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -361,7 +361,7 @@ function SearchField({
           accessibilityLabel="Clear search"
           hitSlop={8}
         >
-          <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+          <AppIcon name="close-circle" size={18} color={theme.textMuted} />
         </TouchableOpacity>
       ) : null}
     </View>
@@ -430,7 +430,7 @@ function GuestRow({
       </View>
       {guest.checkedInAt ? (
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Ionicons name="checkmark-circle" size={24} color={theme.success} />
+          <AppIcon name="checkmark-circle" size={24} color={theme.success} />
           <Text style={{ color: theme.textSecondary, fontSize: 14, marginLeft: 6 }}>
             {formatCalEventCheckInTime(guest.checkedInAt, hour12)}
           </Text>

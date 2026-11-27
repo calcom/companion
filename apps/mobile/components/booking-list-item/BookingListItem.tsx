@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Pressable, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,7 +98,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
 
   type DropdownAction = {
     label: string;
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: AppIconName;
     onPress: () => void;
     variant?: "default" | "destructive";
   };
@@ -223,7 +223,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
                 className="items-center justify-center rounded-lg border border-cal-border dark:border-cal-border-dark"
                 style={{ width: 32, height: 32 }}
               >
-                <Ionicons name="ellipsis-horizontal" size={18} color={colors.icon} />
+                <AppIcon name="ellipsis-horizontal" size={18} color={colors.icon} />
               </Pressable>
             </DropdownMenuTrigger>
 
@@ -234,7 +234,7 @@ export const BookingListItem: React.FC<BookingListItemProps> = ({
                     <DropdownMenuSeparator />
                   )}
                   <DropdownMenuItem variant={action.variant} onPress={action.onPress}>
-                    <Ionicons
+                    <AppIcon
                       name={action.icon}
                       size={18}
                       color={

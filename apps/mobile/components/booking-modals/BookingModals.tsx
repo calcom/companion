@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import type React from "react";
 import { useMemo } from "react";
 import {
@@ -9,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { BookingActionsModal } from "@/components/BookingActionsModal";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import type { Booking, EventType } from "@/services/calcom";
@@ -157,7 +157,7 @@ export const BookingModals: React.FC<BookingModalsProps> = ({
                         {eventType.title}
                       </Text>
                       {selectedEventTypeId === eventType.id ? (
-                        <Ionicons name="checkmark" size={20} color="#000" />
+                        <AppIcon name="checkmark" size={20} color="#000" />
                       ) : null}
                     </TouchableOpacity>
                   ))}

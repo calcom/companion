@@ -1,5 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Platform, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 
 interface SearchHeaderProps {
   /** Current search query value */
@@ -58,7 +58,7 @@ export function SearchHeader({
             style={{ position: "absolute", right: 8 }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+            <AppIcon name="close-circle" size={18} color="#9CA3AF" />
           </TouchableOpacity>
         )}
       </View>
@@ -66,7 +66,7 @@ export function SearchHeader({
         className="min-w-[60px] flex-row items-center justify-center gap-1 rounded-lg bg-black px-2.5 py-2 dark:bg-white"
         onPress={onNewPress}
       >
-        <Ionicons name="add" size={18} color={isDark ? "#000" : "#fff"} />
+        <AppIcon name="add" size={18} color={isDark ? "#000" : "#fff"} />
         <Text className="text-base font-semibold text-white dark:text-black">{newButtonText}</Text>
       </TouchableOpacity>
     </View>

@@ -1,8 +1,8 @@
 import { DatePicker, Host } from "@expo/ui/swift-ui";
-import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import { Alert, ScrollView, Switch, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { getColors } from "@/constants/colors";
 import { useUpdateSchedule } from "@/hooks/useSchedules";
@@ -375,7 +375,7 @@ export const EditAvailabilityDayScreen = forwardRef<
                 <Text className="text-[15px] font-medium text-[#A3A3A3]">Slot {index + 1}</Text>
                 {slots.length > 1 && (
                   <AppPressable onPress={() => handleRemoveSlot(index)} className="p-1">
-                    <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                    <AppIcon name="trash-outline" size={20} color="#FF3B30" />
                   </AppPressable>
                 )}
               </View>
@@ -425,7 +425,7 @@ export const EditAvailabilityDayScreen = forwardRef<
                   : "border border-dashed border-[#C7C7CC] bg-white"
             }`}
           >
-            <Ionicons name="add-circle" size={20} color="#007AFF" />
+            <AppIcon name="add-circle" size={20} color="#007AFF" />
             <Text className="ml-2 text-[15px] font-medium text-[#007AFF]">Add Time Slot</Text>
           </AppPressable>
         </>
@@ -444,7 +444,7 @@ export const EditAvailabilityDayScreen = forwardRef<
                 : "bg-white"
           }`}
         >
-          <Ionicons name="moon-outline" size={40} color="#A3A3A3" />
+          <AppIcon name="moon-outline" size={40} color="#A3A3A3" />
           <Text className="mt-3 text-center text-[17px] text-[#A3A3A3]">
             You are unavailable on {dayName}
           </Text>

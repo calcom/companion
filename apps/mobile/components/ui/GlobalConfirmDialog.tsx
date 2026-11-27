@@ -9,7 +9,6 @@
  * Mounted once in the root layout, next to GlobalToast.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   type AlertButton,
@@ -20,6 +19,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import { type ConfirmRequest, setGlobalConfirmFunction } from "@/utils/alerts";
 
@@ -63,7 +63,7 @@ export function GlobalConfirmDialog() {
             <View className="flex-row">
               {destructive ? (
                 <View className="mr-3 self-start rounded-full bg-red-50 p-2 dark:bg-red-900/30">
-                  <Ionicons name="alert-circle" size={20} color={theme.destructive} />
+                  <AppIcon name="alert-circle" size={20} color={theme.destructive} />
                 </View>
               ) : null}
 

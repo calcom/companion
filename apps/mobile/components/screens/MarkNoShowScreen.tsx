@@ -5,7 +5,6 @@
  * Used with the mark-no-show route that has native Stack.Header.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -17,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import { useMarkNoShow } from "@/hooks/useBookings";
 import type { Booking } from "@/services/calcom";
@@ -235,7 +235,7 @@ export function MarkNoShowScreen({
           </Text>
           {isNoShow && (
             <View className="mt-1.5 flex-row items-center">
-              <Ionicons name="eye-off" size={12} color={destructiveColor} />
+              <AppIcon name="eye-off" size={12} color={destructiveColor} />
               <Text style={{ color: destructiveColor }} className="ml-1 text-[13px] font-medium">
                 Marked as no-show
               </Text>
@@ -257,7 +257,7 @@ export function MarkNoShowScreen({
                     : "border border-[#FEE2E2] bg-[#FEE2E2]"
               }`}
             >
-              <Ionicons
+              <AppIcon
                 name={isNoShow ? "eye" : "eye-off"}
                 size={15}
                 color={isNoShow ? successColor : destructiveColor}
@@ -292,7 +292,7 @@ export function MarkNoShowScreen({
             <View
               className={`mb-4 h-20 w-20 items-center justify-center rounded-full ${pillStyle}`}
             >
-              <Ionicons name="people" size={40} color={isDark ? "#A3A3A3" : "#9CA3AF"} />
+              <AppIcon name="people" size={40} color={isDark ? "#A3A3A3" : "#9CA3AF"} />
             </View>
             <Text className={`text-[17px] font-medium ${isDark ? "text-white" : "text-gray-700"}`}>
               No attendees found

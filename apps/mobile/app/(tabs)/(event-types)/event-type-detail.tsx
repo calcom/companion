@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
@@ -14,6 +13,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { AdvancedTab } from "@/components/event-type-detail/tabs/AdvancedTab";
 import { AvailabilityTab } from "@/components/event-type-detail/tabs/AvailabilityTab";
@@ -1343,7 +1343,7 @@ export default function EventTypeDetail() {
                 return (
                   <DropdownMenuItem key={tab.id} onPress={() => setActiveTab(tab.id)}>
                     <View className="flex-row items-center gap-2">
-                      <Ionicons
+                      <AppIcon
                         name={isSelected ? "checkmark-circle" : tab.icon}
                         size={16}
                         color={isSelected ? (isDarkMode ? "#FFFFFF" : "#000000") : "#666"}
@@ -1531,7 +1531,7 @@ export default function EventTypeDetail() {
                               {duration}
                             </Text>
                             {selectedDurations.includes(duration) ? (
-                              <Ionicons
+                              <AppIcon
                                 name="checkmark-circle"
                                 size={24}
                                 color={isDarkMode ? "#FFFFFF" : "#000000"}
@@ -1579,7 +1579,7 @@ export default function EventTypeDetail() {
                             {duration}
                           </Text>
                           {selectedDurations.includes(duration) ? (
-                            <Ionicons name="checkmark-circle" size={24} color="#007AFF" />
+                            <AppIcon name="checkmark-circle" size={24} color="#007AFF" />
                           ) : (
                             <View className="h-6 w-6 rounded-full border-2 border-gray-200 dark:border-[#4D4D4D]" />
                           )}
@@ -1639,7 +1639,7 @@ export default function EventTypeDetail() {
                               {duration}
                             </Text>
                             {defaultDuration === duration ? (
-                              <Ionicons
+                              <AppIcon
                                 name="checkmark-circle"
                                 size={24}
                                 color={isDarkMode ? "#FFFFFF" : "#000000"}
@@ -1677,7 +1677,7 @@ export default function EventTypeDetail() {
                             {duration}
                           </Text>
                           {defaultDuration === duration ? (
-                            <Ionicons name="checkmark-circle" size={24} color="#007AFF" />
+                            <AppIcon name="checkmark-circle" size={24} color="#007AFF" />
                           ) : null}
                         </TouchableOpacity>
                       ))}
@@ -1736,7 +1736,7 @@ export default function EventTypeDetail() {
                               )}
                             </View>
                             {selectedSchedule?.id === schedule.id ? (
-                              <Ionicons
+                              <AppIcon
                                 name="checkmark-circle"
                                 size={24}
                                 color={isDarkMode ? "#FFFFFF" : "#000000"}
@@ -1781,7 +1781,7 @@ export default function EventTypeDetail() {
                             )}
                           </View>
                           {selectedSchedule?.id === schedule.id ? (
-                            <Ionicons name="checkmark-circle" size={24} color="#007AFF" />
+                            <AppIcon name="checkmark-circle" size={24} color="#007AFF" />
                           ) : null}
                         </TouchableOpacity>
                       ))}
@@ -1850,7 +1850,7 @@ export default function EventTypeDetail() {
                       </Text>
                       {selectedTimezone === tz ||
                       (selectedScheduleDetails?.timeZone === tz && !selectedTimezone) ? (
-                        <Ionicons name="checkmark" size={20} color="#007AFF" />
+                        <AppIcon name="checkmark" size={20} color="#007AFF" />
                       ) : null}
                     </TouchableOpacity>
                   ))}
@@ -1893,7 +1893,7 @@ export default function EventTypeDetail() {
                       {option}
                     </Text>
                     {beforeEventBuffer === option ? (
-                      <Ionicons name="checkmark" size={20} color="#007AFF" />
+                      <AppIcon name="checkmark" size={20} color="#007AFF" />
                     ) : null}
                   </TouchableOpacity>
                 ))}
@@ -1935,7 +1935,7 @@ export default function EventTypeDetail() {
                       {option}
                     </Text>
                     {afterEventBuffer === option ? (
-                      <Ionicons name="checkmark" size={20} color="#007AFF" />
+                      <AppIcon name="checkmark" size={20} color="#007AFF" />
                     ) : null}
                   </TouchableOpacity>
                 ))}
@@ -1977,7 +1977,7 @@ export default function EventTypeDetail() {
                       {option}
                     </Text>
                     {minimumNoticeUnit === option ? (
-                      <Ionicons name="checkmark" size={20} color="#007AFF" />
+                      <AppIcon name="checkmark" size={20} color="#007AFF" />
                     ) : null}
                   </TouchableOpacity>
                 ))}
@@ -2023,7 +2023,7 @@ export default function EventTypeDetail() {
                       >
                         {option}
                       </Text>
-                      {isSelected && <Ionicons name="checkmark" size={20} color="#007AFF" />}
+                      {isSelected && <AppIcon name="checkmark" size={20} color="#007AFF" />}
                     </TouchableOpacity>
                   );
                 })}
@@ -2069,7 +2069,7 @@ export default function EventTypeDetail() {
                       >
                         {option}
                       </Text>
-                      {isSelected && <Ionicons name="checkmark" size={20} color="#007AFF" />}
+                      {isSelected && <AppIcon name="checkmark" size={20} color="#007AFF" />}
                     </TouchableOpacity>
                   );
                 })}
@@ -2111,7 +2111,7 @@ export default function EventTypeDetail() {
                       {option}
                     </Text>
                     {slotInterval === option ? (
-                      <Ionicons name="checkmark" size={20} color="#007AFF" />
+                      <AppIcon name="checkmark" size={20} color="#007AFF" />
                     ) : null}
                   </TouchableOpacity>
                 ))}
@@ -2153,7 +2153,7 @@ export default function EventTypeDetail() {
                       {option === "weekly" ? "week" : option === "monthly" ? "month" : "year"}
                     </Text>
                     {recurringFrequency === option ? (
-                      <Ionicons name="checkmark" size={20} color="#007AFF" />
+                      <AppIcon name="checkmark" size={20} color="#007AFF" />
                     ) : null}
                   </TouchableOpacity>
                 ))}
@@ -2336,14 +2336,14 @@ export default function EventTypeDetail() {
                     >
                       <View className="flex-row items-center py-2">
                         <View className="mr-3 h-8 w-8 items-center justify-center rounded-lg bg-[#F2F2F7] dark:bg-[#262626]">
-                          <Ionicons name="grid" size={18} color="#A3A3A3" />
+                          <AppIcon name="grid" size={18} color="#A3A3A3" />
                         </View>
                         <View>
                           <Text className="text-[17px] text-black dark:text-white">Apps</Text>
                           <Text className="text-[13px] text-[#A3A3A3]">Manage integrations</Text>
                         </View>
                       </View>
-                      <Ionicons name="open-outline" size={18} color="#C7C7CC" />
+                      <AppIcon name="open-outline" size={18} color="#C7C7CC" />
                     </TouchableOpacity>
                   </View>
 
@@ -2368,14 +2368,14 @@ export default function EventTypeDetail() {
                     >
                       <View className="flex-row items-center py-2">
                         <View className="mr-3 h-8 w-8 items-center justify-center rounded-lg bg-[#F2F2F7] dark:bg-[#262626]">
-                          <Ionicons name="flash" size={18} color="#A3A3A3" />
+                          <AppIcon name="flash" size={18} color="#A3A3A3" />
                         </View>
                         <View>
                           <Text className="text-[17px] text-black dark:text-white">Workflows</Text>
                           <Text className="text-[13px] text-[#A3A3A3]">Automated actions</Text>
                         </View>
                       </View>
-                      <Ionicons name="open-outline" size={18} color="#C7C7CC" />
+                      <AppIcon name="open-outline" size={18} color="#C7C7CC" />
                     </TouchableOpacity>
                   </View>
 
@@ -2400,14 +2400,14 @@ export default function EventTypeDetail() {
                     >
                       <View className="flex-row items-center py-2">
                         <View className="mr-3 h-8 w-8 items-center justify-center rounded-lg bg-[#F2F2F7] dark:bg-[#262626]">
-                          <Ionicons name="code" size={18} color="#A3A3A3" />
+                          <AppIcon name="code" size={18} color="#A3A3A3" />
                         </View>
                         <View>
                           <Text className="text-[17px] text-black dark:text-white">Webhooks</Text>
                           <Text className="text-[13px] text-[#A3A3A3]">Event notifications</Text>
                         </View>
                       </View>
-                      <Ionicons name="open-outline" size={18} color="#C7C7CC" />
+                      <AppIcon name="open-outline" size={18} color="#C7C7CC" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -2466,7 +2466,7 @@ export default function EventTypeDetail() {
                         activeOpacity={0.5}
                       >
                         <Text className="text-[17px] text-black dark:text-white">Preview</Text>
-                        <Ionicons name="open-outline" size={18} color="#C7C7CC" />
+                        <AppIcon name="open-outline" size={18} color="#C7C7CC" />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -2478,7 +2478,7 @@ export default function EventTypeDetail() {
                       activeOpacity={0.5}
                     >
                       <Text className="text-[17px] text-black dark:text-white">Copy link</Text>
-                      <Ionicons name="link-outline" size={18} color="#C7C7CC" />
+                      <AppIcon name="link-outline" size={18} color="#C7C7CC" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -2495,7 +2495,7 @@ export default function EventTypeDetail() {
                       activeOpacity={0.5}
                     >
                       <Text className="text-[17px] text-[#FF3B30]">Delete link</Text>
-                      <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                      <AppIcon name="trash-outline" size={18} color="#FF3B30" />
                     </TouchableOpacity>
                   </View>
                 </View>
