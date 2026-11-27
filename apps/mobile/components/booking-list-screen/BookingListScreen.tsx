@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -13,6 +12,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { BookingListItem } from "@/components/booking-list-item/BookingListItem";
 import { BookingListSkeleton } from "@/components/booking-list-item/BookingListItemSkeleton";
 import { RecurringBookingListItem } from "@/components/booking-list-item/RecurringBookingListItem";
@@ -707,7 +707,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
         {renderHeader?.()}
         {renderFilterControls?.()}
         <View className="flex-1 items-center justify-center bg-gray-50 p-5 dark:bg-black">
-          <Ionicons name="alert-circle" size={64} color={theme.destructive} />
+          <AppIcon name="alert-circle" size={64} color={theme.destructive} />
           <Text className="mb-2 mt-4 text-center text-xl font-bold text-gray-800 dark:text-white">
             Unable to load bookings
           </Text>
@@ -850,7 +850,7 @@ export const BookingListScreen: React.FC<BookingListScreenProps> = ({
                 <View className="flex-row">
                   {/* Danger icon */}
                   <View className="mr-3 self-start rounded-full bg-red-50 p-2 dark:bg-red-900/30">
-                    <Ionicons name="alert-circle" size={20} color={theme.destructive} />
+                    <AppIcon name="alert-circle" size={20} color={theme.destructive} />
                   </View>
 
                   {/* Title and description */}

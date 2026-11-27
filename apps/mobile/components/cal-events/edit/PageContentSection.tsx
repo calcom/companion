@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { useHour12 } from "@/hooks";
 import type {
   CalEventCategory,
@@ -310,7 +310,7 @@ function TimeToken({
         backgroundColor: fieldBackground,
       }}
     >
-      <Ionicons name="time-outline" size={16} color={theme.textSecondary} />
+      <AppIcon name="time-outline" size={16} color={theme.textSecondary} />
       <Text style={{ color: label ? theme.text : theme.textSecondary, fontSize: 16 }}>
         {label ?? placeholder}
       </Text>

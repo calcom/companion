@@ -1,8 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { CreateCalEventScreen } from "@/components/cal-events/CreateCalEventScreen";
 import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { useUserProfile } from "@/hooks";
@@ -71,7 +71,7 @@ function CreateCalEventLoading({ onClose }: { onClose: () => void }) {
           accessibilityLabel="Back to events"
           hitSlop={12}
         >
-          <Ionicons name="close" size={26} color={theme.text} />
+          <AppIcon name="close" size={26} color={theme.text} />
         </Pressable>
       </View>
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>

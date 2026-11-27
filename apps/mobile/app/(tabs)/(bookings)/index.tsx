@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Platform, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { BookingListScreen } from "@/components/booking-list-screen/BookingListScreen";
 import { BookingsCalendar } from "@/components/bookings-calendar/BookingsCalendar";
@@ -121,7 +121,7 @@ export default function Bookings() {
                   alignItems: "center",
                 }}
               >
-                <Ionicons name="options-outline" size={14} color={theme.textSecondary} />
+                <AppIcon name="options-outline" size={14} color={theme.textSecondary} />
                 <Text
                   className={`text-sm ${selectedEventTypeId !== null ? "font-semibold" : ""}`}
                   style={{
@@ -132,7 +132,7 @@ export default function Bookings() {
                 >
                   {filterLabel}
                 </Text>
-                <Ionicons
+                <AppIcon
                   name="chevron-down"
                   size={12}
                   color={theme.textSecondary}
@@ -205,7 +205,7 @@ export default function Bookings() {
                   style={{ position: "absolute", right: 8 }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                  <AppIcon name="close-circle" size={18} color={theme.textSecondary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -224,7 +224,7 @@ export default function Bookings() {
                 padding: 7,
               }}
             >
-              <Ionicons
+              <AppIcon
                 name={isCalendar ? "list-outline" : "calendar-outline"}
                 size={18}
                 color={theme.textSecondary}

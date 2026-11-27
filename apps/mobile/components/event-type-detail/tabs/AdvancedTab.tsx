@@ -5,7 +5,6 @@
  * Uses native iOS pickers via ContextMenu and grouped rows for consistency.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import {
   Alert,
@@ -18,6 +17,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import { showInfoAlert, showNotAvailableAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
@@ -172,14 +172,18 @@ export function AdvancedTab(props: AdvancedTabProps) {
           description="Guests and organizer can no longer cancel the event with calendar invite or email."
           value={props.disableCancelling}
           onValueChange={props.setDisableCancelling}
-          learnMoreUrl={getCalHelpUrl("event-types/disable-canceling-rescheduling#disable-cancelling")}
+          learnMoreUrl={getCalHelpUrl(
+            "event-types/disable-canceling-rescheduling#disable-cancelling"
+          )}
         />
         <SettingRow
           title="Disable Rescheduling"
           description="Guests and Organizer can no longer reschedule the event with calendar invite or email."
           value={props.disableRescheduling}
           onValueChange={props.setDisableRescheduling}
-          learnMoreUrl={getCalHelpUrl("event-types/disable-canceling-rescheduling#disable-rescheduling")}
+          learnMoreUrl={getCalHelpUrl(
+            "event-types/disable-canceling-rescheduling#disable-rescheduling"
+          )}
         />
         <SettingRow
           title="Reschedule past events"
@@ -375,7 +379,7 @@ export function AdvancedTab(props: AdvancedTabProps) {
                 className="h-8 w-8 items-center justify-center rounded-full"
                 style={{ backgroundColor: theme.backgroundEmphasis }}
               >
-                <Ionicons name="close" size={20} color={theme.textMuted} />
+                <AppIcon name="close" size={20} color={theme.textMuted} />
               </TouchableOpacity>
               <Text className="text-[17px] font-semibold" style={{ color: theme.text }}>
                 Select Language
@@ -412,7 +416,7 @@ export function AdvancedTab(props: AdvancedTabProps) {
                         {option.label}
                       </Text>
                       {props.interfaceLanguage === option.value ? (
-                        <Ionicons name="checkmark" size={20} color={theme.accent} />
+                        <AppIcon name="checkmark" size={20} color={theme.accent} />
                       ) : null}
                     </TouchableOpacity>
                   </View>

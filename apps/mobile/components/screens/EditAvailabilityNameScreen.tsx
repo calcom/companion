@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import {
   Alert,
@@ -13,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import { type Schedule, useUpdateSchedule } from "@/hooks/useSchedules";
@@ -129,7 +129,7 @@ export const EditAvailabilityNameScreen = forwardRef<
           accessibilityLabel="Close timezone picker"
           accessibilityRole="button"
         >
-          <Ionicons name="close" size={24} color={isDark ? "#FFFFFF" : "#A3A3A3"} />
+          <AppIcon name="close" size={24} color={isDark ? "#FFFFFF" : "#A3A3A3"} />
         </AppPressable>
       </View>
       <View className="border-b border-gray-200 px-4 py-3 dark:border-[#4D4D4D]">
@@ -152,7 +152,7 @@ export const EditAvailabilityNameScreen = forwardRef<
               style={{ position: "absolute", right: 8 }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="close-circle" size={18} color={isDark ? "#A3A3A3" : "#9CA3AF"} />
+              <AppIcon name="close-circle" size={18} color={isDark ? "#A3A3A3" : "#9CA3AF"} />
             </TouchableOpacity>
           )}
         </View>
@@ -196,7 +196,7 @@ export const EditAvailabilityNameScreen = forwardRef<
                 </View>
                 {tz.id === selectedTimezoneId && (
                   <View className="rounded-full bg-[#007AFF] p-1.5">
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                    <AppIcon name="checkmark" size={14} color="#FFFFFF" />
                   </View>
                 )}
               </View>
@@ -251,12 +251,7 @@ export const EditAvailabilityNameScreen = forwardRef<
         <AppPressable onPress={() => setShowTimezoneModal(true)}>
           <View className="flex-row items-center justify-between rounded-xl border-2 border-gray-200 bg-gray-50 px-4 py-4 dark:border-[#4D4D4D] dark:bg-[#171717]">
             <View className="flex-row items-center">
-              <Ionicons
-                name="globe-outline"
-                size={20}
-                color="#007AFF"
-                style={{ marginRight: 12 }}
-              />
+              <AppIcon name="globe-outline" size={20} color="#007AFF" style={{ marginRight: 12 }} />
               <View>
                 <Text className="text-[17px] text-black dark:text-white">
                   {selectedTimezoneLabel}
@@ -266,7 +261,7 @@ export const EditAvailabilityNameScreen = forwardRef<
                 </Text>
               </View>
             </View>
-            <Ionicons name="chevron-down" size={20} color={isDark ? "#A3A3A3" : "#C7C7CC"} />
+            <AppIcon name="chevron-down" size={20} color={isDark ? "#A3A3A3" : "#C7C7CC"} />
           </View>
         </AppPressable>
       </ScrollView>

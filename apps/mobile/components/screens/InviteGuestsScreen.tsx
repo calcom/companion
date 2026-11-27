@@ -6,10 +6,10 @@
  * cal-event-invite-guests route, whose header holds Send.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import {
   EditTextField,
   HintText,
@@ -217,7 +217,7 @@ export const InviteGuestsScreen = forwardRef<InviteGuestsScreenHandle, InviteGue
                     accessibilityLabel={`Remove ${email}`}
                     hitSlop={8}
                   >
-                    <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                    <AppIcon name="close-circle" size={18} color={theme.textSecondary} />
                   </Pressable>
                 </View>
               ))}

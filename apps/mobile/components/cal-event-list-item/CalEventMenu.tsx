@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Fragment } from "react";
 import { Pressable, useColorScheme } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +34,7 @@ export function CalEventMenu({ groups, accessibilityLabel, triggerClassName }: C
           }
           style={triggerClassName ? undefined : { width: 36, height: 36, flexShrink: 0 }}
         >
-          <Ionicons name="ellipsis-horizontal" size={18} color={isDark ? "#FFFFFF" : "#3C3F44"} />
+          <AppIcon name="ellipsis-horizontal" size={18} color={isDark ? "#FFFFFF" : "#3C3F44"} />
         </Pressable>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -52,7 +52,7 @@ export function CalEventMenu({ groups, accessibilityLabel, triggerClassName }: C
                 variant={item.destructive ? "destructive" : undefined}
                 onPress={item.onPress}
               >
-                <Ionicons
+                <AppIcon
                   name={item.icon}
                   size={18}
                   color={item.destructive ? theme.destructive : iconColor}

@@ -5,10 +5,10 @@
  * Used with the view-recordings route that has native Stack.Header.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { FlatList, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import type { BookingRecording } from "@/services/types/bookings.types";
 
@@ -84,7 +84,7 @@ export function ViewRecordingsScreen({
           className="mr-3 h-10 w-10 items-center justify-center rounded-full"
           style={{ backgroundColor: pillBg }}
         >
-          <Ionicons name="videocam" size={20} color={isDark ? "#A3A3A3" : "#6B7280"} />
+          <AppIcon name="videocam" size={20} color={isDark ? "#A3A3A3" : "#6B7280"} />
         </View>
         <View className="flex-1">
           <Text className={`text-[17px] font-medium ${isDark ? "text-white" : "text-[#000]"}`}>
@@ -99,7 +99,7 @@ export function ViewRecordingsScreen({
             </Text>
           )}
         </View>
-        <Ionicons name="chevron-forward" size={20} color={isDark ? "#48484A" : "#C7C7CC"} />
+        <AppIcon name="chevron-forward" size={20} color={isDark ? "#48484A" : "#C7C7CC"} />
       </View>
     </TouchableOpacity>
   );
@@ -111,7 +111,7 @@ export function ViewRecordingsScreen({
           className="mb-4 h-16 w-16 items-center justify-center rounded-full"
           style={{ backgroundColor: pillBg }}
         >
-          <Ionicons name="videocam-off" size={32} color="#A3A3A3" />
+          <AppIcon name="videocam-off" size={32} color="#A3A3A3" />
         </View>
         <Text
           className={`text-center text-[17px] font-semibold ${isDark ? "text-white" : "text-[#000]"}`}

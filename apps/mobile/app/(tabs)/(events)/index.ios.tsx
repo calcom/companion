@@ -1,8 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack } from "expo-router";
 import { useState } from "react";
 import { TouchableOpacity, useColorScheme, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { CalEventsList } from "@/components/cal-events/CalEventsList";
 import { useCreateCalEventFlow } from "@/components/cal-events/useCreateCalEventFlow";
 
@@ -48,7 +48,7 @@ export default function EventsIOS() {
           className="h-14 w-14 items-center justify-center rounded-full bg-black shadow-lg shadow-black/20 dark:bg-white"
           activeOpacity={0.8}
         >
-          <Ionicons name="add" size={30} color={isDark ? "#000000" : "#FFFFFF"} />
+          <AppIcon name="add" size={30} color={isDark ? "#000000" : "#FFFFFF"} />
         </TouchableOpacity>
       </View>
       {picker}

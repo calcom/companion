@@ -5,7 +5,6 @@
  * Uses native iOS ContextMenu for pickers on iOS, Modal-based dropdowns on Android/Web.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import {
   type Animated,
   Platform,
@@ -15,6 +14,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import { NavigationRow, SettingRow, SettingsGroup } from "../SettingsUI";
 import { LimitsTabDatePicker } from "./LimitsTabDatePicker";
@@ -87,7 +87,7 @@ function ModalPickerButton({ value, onPress }: { value: string; onPress: () => v
       <Text className="text-[15px]" style={{ color: theme.text }}>
         {value}
       </Text>
-      <Ionicons name="chevron-down" size={14} color={theme.textMuted} style={{ marginLeft: 4 }} />
+      <AppIcon name="chevron-down" size={14} color={theme.textMuted} style={{ marginLeft: 4 }} />
     </TouchableOpacity>
   );
 }
@@ -309,7 +309,7 @@ export function LimitsTab(props: LimitsTabProps) {
                 </View>
                 {props.frequencyLimits.length > 1 ? (
                   <TouchableOpacity onPress={() => props.removeFrequencyLimit(limit.id)}>
-                    <Ionicons name="trash-outline" size={20} color={theme.destructive} />
+                    <AppIcon name="trash-outline" size={20} color={theme.destructive} />
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -320,7 +320,7 @@ export function LimitsTab(props: LimitsTabProps) {
             style={{ backgroundColor: theme.background }}
             onPress={props.addFrequencyLimit}
           >
-            <Ionicons name="add" size={20} color={theme.accent} />
+            <AppIcon name="add" size={20} color={theme.accent} />
             <Text className="ml-1 text-[17px]" style={{ color: theme.accent }}>
               Add Limit
             </Text>
@@ -382,7 +382,7 @@ export function LimitsTab(props: LimitsTabProps) {
                 </View>
                 {props.durationLimits.length > 1 ? (
                   <TouchableOpacity onPress={() => props.removeDurationLimit(limit.id)}>
-                    <Ionicons name="trash-outline" size={20} color={theme.destructive} />
+                    <AppIcon name="trash-outline" size={20} color={theme.destructive} />
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -393,7 +393,7 @@ export function LimitsTab(props: LimitsTabProps) {
             style={{ backgroundColor: theme.background }}
             onPress={props.addDurationLimit}
           >
-            <Ionicons name="add" size={20} color={theme.accent} />
+            <AppIcon name="add" size={20} color={theme.accent} />
             <Text className="ml-1 text-[17px]" style={{ color: theme.accent }}>
               Add Limit
             </Text>

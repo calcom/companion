@@ -1,5 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { SvgImage } from "@/components/SvgImage";
 import { getColors } from "@/constants/colors";
 import { useOpenMeetingLink } from "@/hooks/useOpenMeetingLink";
@@ -96,7 +96,7 @@ export function HostAndAttendees({
       <Text className="text-sm text-cal-text dark:text-white">{hostAndAttendeesDisplay}</Text>
       {hasNoShowAttendee && (
         <View className="ml-2 flex-row items-center rounded-full bg-[#FEE2E2] px-1.5 py-0.5 dark:bg-red-900/30">
-          <Ionicons name="eye-off" size={10} color={theme.destructive} />
+          <AppIcon name="eye-off" size={10} color={theme.destructive} />
           <Text className="ml-0.5 text-[10px] font-medium text-cal-accent-destructive">
             No-show
           </Text>
@@ -127,7 +127,7 @@ export function MeetingLink({ meetingInfo }: MeetingLinkProps) {
         {meetingInfo.iconUrl ? (
           <SvgImage uri={meetingInfo.iconUrl} width={16} height={16} style={{ marginRight: 6 }} />
         ) : (
-          <Ionicons name="videocam" size={16} color="#007AFF" style={{ marginRight: 6 }} />
+          <AppIcon name="videocam" size={16} color="#007AFF" style={{ marginRight: 6 }} />
         )}
         <Text className="text-sm font-medium text-cal-accent">{meetingInfo.label}</Text>
       </TouchableOpacity>
@@ -178,7 +178,7 @@ export function ConfirmRejectButtons({
           onReject(booking);
         }}
       >
-        <Ionicons name="close" size={16} color={iconColor} />
+        <AppIcon name="close" size={16} color={iconColor} />
         <Text className="ml-1 text-sm font-medium text-cal-text-emphasis dark:text-white">
           Reject
         </Text>
@@ -196,7 +196,7 @@ export function ConfirmRejectButtons({
           onConfirm(booking);
         }}
       >
-        <Ionicons name="checkmark" size={16} color={isDark ? "#000000" : "#FFFFFF"} />
+        <AppIcon name="checkmark" size={16} color={isDark ? "#000000" : "#FFFFFF"} />
         <Text className="ml-1 text-sm font-medium text-white dark:text-black">Confirm</Text>
       </TouchableOpacity>
     </>

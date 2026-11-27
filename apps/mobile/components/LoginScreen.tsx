@@ -1,8 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import type { LayoutChangeEvent } from "react-native";
 import { Platform, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { useAuth } from "@/contexts/AuthContext";
 import { showErrorAlert } from "@/utils/alerts";
 import { openInAppBrowser } from "@/utils/browser";
@@ -112,7 +112,7 @@ export function LoginScreen() {
                 >
                   {getRegionLabel(region)}
                 </Text>
-                <Ionicons name="chevron-down" size={16} color={isDark ? "#A3A3A3" : "#6B7280"} />
+                <AppIcon name="chevron-down" size={16} color={isDark ? "#A3A3A3" : "#6B7280"} />
               </TouchableOpacity>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -160,7 +160,7 @@ export function LoginScreen() {
                       </Text>
                       <View className="w-4 items-end justify-center">
                         {selected ? (
-                          <Ionicons
+                          <AppIcon
                             name="checkmark"
                             size={16}
                             color={isDark ? "#FFFFFF" : "#111827"}

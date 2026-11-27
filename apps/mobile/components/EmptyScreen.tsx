@@ -1,10 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Text, TouchableOpacity, useColorScheme, View } from "react-native";
-
-type IoniconName = keyof typeof Ionicons.glyphMap;
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 
 interface EmptyScreenProps {
-  icon: IoniconName;
+  icon: AppIconName;
   headline: string;
   description: string;
   buttonText?: string;
@@ -54,7 +52,7 @@ export function EmptyScreen({
           justifyContent: "center",
         }}
       >
-        <Ionicons name={icon} size={40} color={colors.icon} />
+        <AppIcon name={icon} size={40} color={colors.icon} />
       </View>
 
       <View className="mt-6 max-w-[420px] flex-col items-center">

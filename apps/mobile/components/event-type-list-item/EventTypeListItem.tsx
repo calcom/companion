@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Pressable, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,13 +86,13 @@ export const EventTypeListItem = ({
               className="items-center justify-center rounded-lg border border-cal-border bg-white dark:border-cal-border-dark dark:bg-[#171717]"
               style={{ width: 36, height: 36, flexShrink: 0 }}
             >
-              <Ionicons name="ellipsis-horizontal" size={18} color={colors.icon} />
+              <AppIcon name="ellipsis-horizontal" size={18} color={colors.icon} />
             </Pressable>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent insets={contentInsets} sideOffset={8} className="w-44" align="end">
             <DropdownMenuItem onPress={() => handlePreview(item)}>
-              <Ionicons
+              <AppIcon
                 name="open-outline"
                 size={18}
                 color={colors.iconMenu}
@@ -102,7 +102,7 @@ export const EventTypeListItem = ({
             </DropdownMenuItem>
 
             <DropdownMenuItem onPress={() => handleCopyLink(item)}>
-              <Ionicons
+              <AppIcon
                 name="link-outline"
                 size={18}
                 color={colors.iconMenu}
@@ -114,7 +114,7 @@ export const EventTypeListItem = ({
             <DropdownMenuSeparator />
 
             <DropdownMenuItem onPress={() => onEdit?.(item)}>
-              <Ionicons
+              <AppIcon
                 name="pencil-outline"
                 size={18}
                 color={colors.iconMenu}
@@ -124,7 +124,7 @@ export const EventTypeListItem = ({
             </DropdownMenuItem>
 
             <DropdownMenuItem onPress={() => onDuplicate?.(item)}>
-              <Ionicons
+              <AppIcon
                 name="copy-outline"
                 size={18}
                 color={colors.iconMenu}
@@ -136,7 +136,7 @@ export const EventTypeListItem = ({
             <DropdownMenuSeparator />
 
             <DropdownMenuItem variant="destructive" onPress={() => onDelete?.(item)}>
-              <Ionicons
+              <AppIcon
                 name="trash-outline"
                 size={18}
                 color={theme.destructive}

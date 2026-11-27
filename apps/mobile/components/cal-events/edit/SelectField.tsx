@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useRef } from "react";
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,7 +103,7 @@ export function SelectField<T extends string | null>({
                       </Text>
                     ) : null}
                   </View>
-                  {checked ? <Ionicons name="checkmark" size={18} color={theme.text} /> : null}
+                  {checked ? <AppIcon name="checkmark" size={18} color={theme.text} /> : null}
                 </DropdownMenuItem>
               );
             })}

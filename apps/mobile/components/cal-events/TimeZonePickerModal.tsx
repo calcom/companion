@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
@@ -11,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { getColors } from "@/constants/colors";
 import { TIMEZONES } from "@/constants/timezones";
 import { timeZoneSummary } from "@/utils/wall-time";
@@ -110,7 +110,7 @@ export function TimeZonePickerModal({
               backgroundColor: theme.backgroundMuted,
             }}
           >
-            <Ionicons name="search-outline" size={18} color={theme.textMuted} />
+            <AppIcon name="search-outline" size={18} color={theme.textMuted} />
             <TextInput
               value={query}
               onChangeText={(text) => {
@@ -185,11 +185,7 @@ export function TimeZonePickerModal({
                   {zone.replace(/_/g, " ")}
                 </Text>
                 <Text style={{ color: theme.textSecondary, fontSize: 15 }}>{summary.offset}</Text>
-                <Ionicons
-                  name="checkmark"
-                  size={18}
-                  color={selected ? theme.text : "transparent"}
-                />
+                <AppIcon name="checkmark" size={18} color={selected ? theme.text : "transparent"} />
               </Pressable>
             );
           }}

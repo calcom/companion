@@ -1,5 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import {
   LANDING_PAGE_OPTIONS,
   type LandingPage,
@@ -52,7 +52,7 @@ export function LandingPagePicker({
                   >
                     {option.label}
                   </Text>
-                  {isSelected && <Ionicons name="checkmark" size={20} color="#111827" />}
+                  {isSelected && <AppIcon name="checkmark" size={20} color="#111827" />}
                 </TouchableOpacity>
               );
             })}

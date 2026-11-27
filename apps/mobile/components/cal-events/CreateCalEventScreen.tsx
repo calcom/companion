@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Fragment, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { getColors, getGroupedSurfaces } from "@/constants/colors";
 import { useCreateCalEvent, useHour12 } from "@/hooks";
 import type { CalEvent } from "@/services/calcom";
@@ -154,7 +154,7 @@ export function CreateCalEventScreen({
           accessibilityLabel="Back to events"
           hitSlop={12}
         >
-          <Ionicons name="close" size={26} color={theme.text} />
+          <AppIcon name="close" size={26} color={theme.text} />
         </Pressable>
       </View>
 
@@ -260,7 +260,7 @@ export function CreateCalEventScreen({
             accessibilityHint="The event is held in this timezone"
             style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 8 }}
           >
-            <Ionicons name="time-outline" size={20} color={theme.text} />
+            <AppIcon name="time-outline" size={20} color={theme.text} />
             <Text style={{ color: theme.text, fontSize: 17, fontVariant: ["tabular-nums"] }}>
               {zone.offset}
             </Text>
@@ -418,7 +418,7 @@ function InlineField({ value, trailing, maxWidth, onSubmitEditing, ...props }: I
 }
 
 interface OptionChipProps {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   label: string;
   hint: string;
   selected: boolean;
@@ -444,7 +444,7 @@ function OptionChip({ icon, label, hint, selected, onPress }: OptionChipProps) {
         backgroundColor: selected ? theme.backgroundEmphasis : "transparent",
       }}
     >
-      <Ionicons name={icon} size={20} color={theme.text} />
+      <AppIcon name={icon} size={20} color={theme.text} />
       <Text style={{ color: theme.text, fontSize: 17, fontWeight: "500" }}>{label}</Text>
     </Pressable>
   );

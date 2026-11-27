@@ -5,8 +5,8 @@
  * Matches the beautiful styling from AvailabilityDetailScreen.
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import type { Schedule } from "@/services/calcom";
 import { AvailabilityTabIOSPicker } from "./AvailabilityTabIOSPicker";
 
@@ -126,7 +126,7 @@ function NavigationRow({
                   {value}
                 </Text>
               ) : null}
-              <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+              <AppIcon name="chevron-forward" size={20} color="#C7C7CC" />
             </TouchableOpacity>
           )}
         </View>

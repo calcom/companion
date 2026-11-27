@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Platform, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { CalEventsList } from "@/components/cal-events/CalEventsList";
 import { useCreateCalEventFlow } from "@/components/cal-events/useCreateCalEventFlow";
 import { Header } from "@/components/Header";
@@ -53,7 +53,7 @@ export default function Events() {
               style={{ position: "absolute", right: 8 }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+              <AppIcon name="close-circle" size={18} color={theme.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -63,7 +63,7 @@ export default function Events() {
           accessibilityRole="button"
           accessibilityLabel="New event"
         >
-          <Ionicons name="add" size={18} color={isDark ? "#000" : "#fff"} />
+          <AppIcon name="add" size={18} color={isDark ? "#000" : "#fff"} />
           <Text className="text-base font-semibold text-white dark:text-black">New</Text>
         </TouchableOpacity>
       </View>

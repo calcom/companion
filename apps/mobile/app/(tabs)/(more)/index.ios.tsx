@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
@@ -12,6 +11,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { LandingPagePicker } from "@/components/LandingPagePicker";
 import { LogoutConfirmModal } from "@/components/LogoutConfirmModal";
 import { getColors } from "@/constants/colors";
@@ -26,7 +26,7 @@ import { getCalAppUrl } from "@/utils/region";
 
 interface MoreMenuItem {
   name: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   isExternal?: boolean;
   href?: string;
   onPress?: () => void;
@@ -182,15 +182,15 @@ export default function More() {
               activeOpacity={0.7}
             >
               <View className="flex-1 flex-row items-center">
-                <Ionicons name={item.icon} size={20} color={colors.text} />
+                <AppIcon name={item.icon} size={20} color={colors.text} />
                 <Text style={{ color: colors.text }} className="ml-3 text-base font-semibold">
                   {item.name}
                 </Text>
               </View>
               {item.isExternal ? (
-                <Ionicons name="open-outline" size={20} color={colors.textSecondary} />
+                <AppIcon name="open-outline" size={20} color={colors.textSecondary} />
               ) : (
-                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                <AppIcon name="chevron-forward" size={20} color={colors.textSecondary} />
               )}
             </TouchableOpacity>
           ))}
@@ -236,7 +236,7 @@ export default function More() {
             activeOpacity={0.7}
           >
             <View className="flex-row items-center">
-              <Ionicons name="home-outline" size={20} color={colors.text} />
+              <AppIcon name="home-outline" size={20} color={colors.text} />
               <Text style={{ color: colors.text }} className="ml-3 text-base font-semibold">
                 First Page
               </Text>
@@ -259,7 +259,7 @@ export default function More() {
                   {landingPageLabel}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+              <AppIcon name="chevron-forward" size={20} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
         </View>
@@ -290,12 +290,12 @@ export default function More() {
             activeOpacity={0.7}
           >
             <View className="flex-1 flex-row items-center">
-              <Ionicons name="trash-outline" size={20} color={theme.destructive} />
+              <AppIcon name="trash-outline" size={20} color={theme.destructive} />
               <Text className="ml-3 text-base font-medium" style={{ color: theme.destructive }}>
                 Delete Account
               </Text>
             </View>
-            <Ionicons name="open-outline" size={20} color={colors.textSecondary} />
+            <AppIcon name="open-outline" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -322,7 +322,7 @@ export default function More() {
             }}
             activeOpacity={0.7}
           >
-            <Ionicons name="log-out-outline" size={20} color={theme.destructive} />
+            <AppIcon name="log-out-outline" size={20} color={theme.destructive} />
             <Text className="ml-2 text-base font-medium" style={{ color: theme.destructive }}>
               Sign Out
             </Text>

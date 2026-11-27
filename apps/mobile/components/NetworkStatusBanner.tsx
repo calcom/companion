@@ -7,10 +7,10 @@
  * - Shows again on next disconnect
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Modal, Text, TouchableOpacity, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 
 export function NetworkStatusBanner() {
   // Animated.Value ref access in JSX is incompatible with React Compiler
@@ -92,7 +92,7 @@ export function NetworkStatusBanner() {
         className="flex-1 items-center justify-center bg-black/40 px-8"
       >
         <View className="w-full max-w-xs items-center rounded-2xl bg-white px-6 py-8">
-          <Ionicons name="cloud-offline-outline" size={36} color="#292929" />
+          <AppIcon name="cloud-offline-outline" size={36} color="#292929" />
           <Text className="mt-4 text-lg font-semibold text-gray-900">You're offline</Text>
           <Text className="mt-2 text-center text-sm leading-5 text-gray-500">
             The internet left the chat. Don't panic! You can still browse around.

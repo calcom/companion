@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { getUserFacingApiReason } from "@/components/cal-events/useCalEventActions";
 import {
   useAddCalEventLocation,
@@ -289,7 +289,7 @@ export function LocationsSection({
                   hitSlop={8}
                   style={{ padding: 4, opacity: removalLocked || isRemoving ? 0.3 : 1 }}
                 >
-                  <Ionicons name="trash-outline" size={20} color={theme.textSecondary} />
+                  <AppIcon name="trash-outline" size={20} color={theme.textSecondary} />
                 </Pressable>
               ) : null}
             </View>

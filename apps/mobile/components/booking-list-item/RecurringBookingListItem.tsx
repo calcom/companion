@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Pressable, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { SvgImage } from "@/components/SvgImage";
 import {
   DropdownMenu,
@@ -126,7 +126,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
 
   type DropdownAction = {
     label: string;
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: AppIconName;
     onPress: () => void;
     variant?: "default" | "destructive";
   };
@@ -298,7 +298,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
                   style={{ marginRight: 6 }}
                 />
               ) : (
-                <Ionicons name="videocam" size={16} color="#007AFF" style={{ marginRight: 6 }} />
+                <AppIcon name="videocam" size={16} color="#007AFF" style={{ marginRight: 6 }} />
               )}
               <Text className="text-sm font-medium text-cal-accent">{meetingInfo.label}</Text>
             </TouchableOpacity>
@@ -326,7 +326,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
               onRejectAll(group);
             }}
           >
-            <Ionicons name="close" size={16} color={isDark ? "#FFFFFF" : "#3C3F44"} />
+            <AppIcon name="close" size={16} color={isDark ? "#FFFFFF" : "#3C3F44"} />
             <Text className="ml-1 text-sm font-medium text-cal-text-emphasis dark:text-white">
               Reject all
             </Text>
@@ -347,7 +347,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
               onConfirmAll(group);
             }}
           >
-            <Ionicons name="checkmark" size={16} color={isDark ? "#000000" : "#FFFFFF"} />
+            <AppIcon name="checkmark" size={16} color={isDark ? "#000000" : "#FFFFFF"} />
             <Text className="ml-1 text-sm font-medium text-white dark:text-black">Confirm all</Text>
           </TouchableOpacity>
         )}
@@ -368,7 +368,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
               onCancelAllRemaining(group);
             }}
           >
-            <Ionicons name="close-circle-outline" size={16} color={theme.destructive} />
+            <AppIcon name="close-circle-outline" size={16} color={theme.destructive} />
             <Text className="ml-1 text-sm font-medium" style={{ color: theme.destructive }}>
               Cancel all remaining
             </Text>
@@ -383,7 +383,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
                 className="items-center justify-center rounded-lg border border-cal-border dark:border-cal-border-dark"
                 style={{ width: 32, height: 32 }}
               >
-                <Ionicons name="ellipsis-horizontal" size={18} color={colors.icon} />
+                <AppIcon name="ellipsis-horizontal" size={18} color={colors.icon} />
               </Pressable>
             </DropdownMenuTrigger>
 
@@ -394,7 +394,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
                     <DropdownMenuSeparator />
                   )}
                   <DropdownMenuItem variant={action.variant} onPress={action.onPress}>
-                    <Ionicons
+                    <AppIcon
                       name={action.icon}
                       size={18}
                       color={

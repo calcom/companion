@@ -1,10 +1,10 @@
 import { Button, Host, HStack, Image, Menu } from "@expo/ui/swift-ui";
 import { buttonStyle, frame } from "@expo/ui/swift-ui/modifiers";
-import { Ionicons } from "@expo/vector-icons";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import React from "react";
 import { Pressable, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import type { SFSymbols7_0 } from "sf-symbols-typescript";
+import { AppIcon } from "@/components/AppIcon";
 import { SvgImage } from "@/components/SvgImage";
 import { getColors } from "@/constants/colors";
 import { useHour12 } from "@/hooks";
@@ -297,7 +297,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
                   style={{ marginRight: 6 }}
                 />
               ) : (
-                <Ionicons name="videocam" size={16} color="#007AFF" style={{ marginRight: 6 }} />
+                <AppIcon name="videocam" size={16} color="#007AFF" style={{ marginRight: 6 }} />
               )}
               <Text className="text-sm font-medium text-cal-accent">{meetingInfo.label}</Text>
             </TouchableOpacity>
@@ -325,7 +325,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
               onRejectAll(group);
             }}
           >
-            <Ionicons name="close" size={16} color={isDark ? "#FFFFFF" : "#3C3F44"} />
+            <AppIcon name="close" size={16} color={isDark ? "#FFFFFF" : "#3C3F44"} />
             <Text className="ml-1 text-sm font-medium text-cal-text-emphasis dark:text-white">
               Reject all
             </Text>
@@ -346,7 +346,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
               onConfirmAll(group);
             }}
           >
-            <Ionicons name="checkmark" size={16} color={isDark ? "#000000" : "#FFFFFF"} />
+            <AppIcon name="checkmark" size={16} color={isDark ? "#000000" : "#FFFFFF"} />
             <Text className="ml-1 text-sm font-medium text-white dark:text-black">Confirm all</Text>
           </TouchableOpacity>
         )}
@@ -367,7 +367,7 @@ export const RecurringBookingListItem: React.FC<RecurringBookingListItemProps> =
               onCancelAllRemaining(group);
             }}
           >
-            <Ionicons name="close-circle-outline" size={16} color={theme.destructive} />
+            <AppIcon name="close-circle-outline" size={16} color={theme.destructive} />
             <Text className="ml-1 text-sm font-medium" style={{ color: theme.destructive }}>
               Cancel all remaining
             </Text>

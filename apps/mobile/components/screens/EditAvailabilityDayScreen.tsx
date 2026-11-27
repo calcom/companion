@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
   Alert,
@@ -11,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { FullScreenModal } from "@/components/FullScreenModal";
 import { useUpdateSchedule } from "@/hooks/useSchedules";
@@ -211,7 +211,7 @@ export const EditAvailabilityDayScreen = forwardRef<
           Select {showTimePicker?.type === "start" ? "Start" : "End"} Time
         </Text>
         <AppPressable onPress={() => setShowTimePicker(null)}>
-          <Ionicons name="close" size={24} color={colors.iconColor} />
+          <AppIcon name="close" size={24} color={colors.iconColor} />
         </AppPressable>
       </View>
       <ScrollView className="px-4 py-3">
@@ -244,7 +244,7 @@ export const EditAvailabilityDayScreen = forwardRef<
                   </Text>
                   {isSelected && (
                     <View className="rounded-full bg-[#007AFF] p-1.5">
-                      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                      <AppIcon name="checkmark" size={14} color="#FFFFFF" />
                     </View>
                   )}
                 </View>
@@ -418,7 +418,7 @@ export const EditAvailabilityDayScreen = forwardRef<
                     onPress={() => handleRemoveSlot(index)}
                     className="rounded-full bg-red-50 p-2 dark:bg-[#FF453A]/20"
                   >
-                    <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                    <AppIcon name="trash-outline" size={18} color="#FF3B30" />
                   </AppPressable>
                 )}
               </View>
@@ -501,7 +501,7 @@ export const EditAvailabilityDayScreen = forwardRef<
 
           <AppPressable onPress={handleAddSlot}>
             <View className="flex-row items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 py-4 dark:border-[#4D4D4D] dark:bg-[#171717]">
-              <Ionicons name="add-circle" size={22} color="#007AFF" />
+              <AppIcon name="add-circle" size={22} color="#007AFF" />
               <Text className="ml-2 text-[17px] font-medium text-[#007AFF]">Add Time Slot</Text>
             </View>
           </AppPressable>
@@ -511,7 +511,7 @@ export const EditAvailabilityDayScreen = forwardRef<
       {!isEnabled && (
         <View className="items-center rounded-xl border-2 border-dashed border-gray-200 px-4 py-12 dark:border-[#4D4D4D] dark:bg-[#171717]">
           <View className="items-center justify-center rounded-full bg-gray-50 p-4 dark:bg-[#2C2C2E]">
-            <Ionicons name="moon-outline" size={32} color={colors.textSecondary} />
+            <AppIcon name="moon-outline" size={32} color={colors.textSecondary} />
           </View>
           <Text className="mt-4 text-center text-[17px] font-medium text-gray-900 dark:text-white">
             Unavailable

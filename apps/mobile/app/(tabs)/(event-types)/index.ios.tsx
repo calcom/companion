@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import * as Haptics from "expo-haptics";
@@ -16,6 +15,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { EventTypeListItem } from "@/components/event-type-list-item/EventTypeListItem";
 import { EventTypeListSkeleton } from "@/components/event-type-list-item/EventTypeListItemSkeleton";
@@ -356,7 +356,7 @@ export default function EventTypesIOS() {
         className="flex-1 items-center justify-center bg-gray-50 p-5"
         style={{ backgroundColor: theme.backgroundSecondary }}
       >
-        <Ionicons name="alert-circle" size={64} color="#FF3B30" />
+        <AppIcon name="alert-circle" size={64} color="#FF3B30" />
         <Text
           className="mb-2 mt-4 text-center text-xl font-bold text-gray-800"
           style={{ color: theme.text }}
@@ -586,7 +586,7 @@ export default function EventTypesIOS() {
           className="h-14 w-14 items-center justify-center rounded-full bg-black shadow-lg shadow-black/20 dark:bg-white"
           activeOpacity={0.8}
         >
-          <Ionicons name="add" size={30} color={isDark ? "#000000" : "#FFFFFF"} />
+          <AppIcon name="add" size={30} color={isDark ? "#000000" : "#FFFFFF"} />
         </TouchableOpacity>
       </View>
     </>

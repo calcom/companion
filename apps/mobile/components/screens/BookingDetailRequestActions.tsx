@@ -1,5 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Text, useColorScheme, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { getBookingRequestActionState } from "@/components/screens/BookingDetailRequestActions.state";
 import type { Booking } from "@/services/calcom";
@@ -67,7 +67,7 @@ export function BookingDetailRequestActions({
             className="h-9 w-9 items-center justify-center rounded-full"
             style={{ backgroundColor: iconBackground }}
           >
-            <Ionicons name="time-outline" size={18} color={colors.text} />
+            <AppIcon name="time-outline" size={18} color={colors.text} />
           </View>
           <View className="flex-1">
             <Text className="text-[17px] font-semibold" style={{ color: colors.text }}>
@@ -92,7 +92,7 @@ export function BookingDetailRequestActions({
             {isDeclining ? (
               <ActivityIndicator size="small" color={colors.destructive} />
             ) : (
-              <Ionicons name="close" size={17} color={colors.destructive} />
+              <AppIcon name="close" size={17} color={colors.destructive} />
             )}
             <Text className="ml-1.5 text-[15px] font-semibold" style={{ color: colors.text }}>
               Reject
@@ -112,7 +112,7 @@ export function BookingDetailRequestActions({
               {isConfirming ? (
                 <ActivityIndicator size="small" color={primaryText} />
               ) : (
-                <Ionicons name="checkmark" size={17} color={primaryText} />
+                <AppIcon name="checkmark" size={17} color={primaryText} />
               )}
               <Text className="ml-1.5 text-[15px] font-semibold" style={{ color: primaryText }}>
                 Confirm

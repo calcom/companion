@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "@/components/AppIcon";
 
 interface ToastProps {
   visible: boolean;
@@ -44,7 +44,7 @@ export function Toast({ visible, message, type }: ToastProps) {
           type === "error" ? "bg-red-600" : "bg-gray-800 dark:bg-[#262626]"
         }`}
       >
-        <Ionicons
+        <AppIcon
           name={type === "error" ? "close-circle" : "checkmark-circle"}
           size={20}
           color="white"

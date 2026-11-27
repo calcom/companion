@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useRef } from "react";
 import { Text, useColorScheme } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { AppPressable } from "@/components/AppPressable";
 import { HeaderButtonWrapper } from "@/components/HeaderButtonWrapper";
 import {
@@ -89,7 +89,7 @@ export default function AvailabilityDetail() {
                 onPress={() => router.back()}
                 className="mr-2 h-10 flex-row items-center justify-center rounded-full border border-[#E5E5E5] bg-white px-3 dark:border-[#262626] dark:bg-[#171717]"
               >
-                <Ionicons
+                <AppIcon
                   name="chevron-back"
                   size={20}
                   color={isDark ? "#FFFFFF" : "#000000"}
@@ -115,23 +115,19 @@ export default function AvailabilityDetail() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem onPress={handleEditNameAndTimezone}>
-                    <Ionicons
-                      name="pencil-outline"
-                      size={18}
-                      color={isDark ? theme.text : "#000"}
-                    />
+                    <AppIcon name="pencil-outline" size={18} color={isDark ? theme.text : "#000"} />
                     <Text className="ml-2 text-[15px] text-black dark:text-white">
                       Name and Timezone
                     </Text>
                   </DropdownMenuItem>
                   <DropdownMenuItem onPress={handleEditWorkingHours}>
-                    <Ionicons name="time-outline" size={18} color={isDark ? theme.text : "#000"} />
+                    <AppIcon name="time-outline" size={18} color={isDark ? theme.text : "#000"} />
                     <Text className="ml-2 text-[15px] text-black dark:text-white">
                       Working Hours
                     </Text>
                   </DropdownMenuItem>
                   <DropdownMenuItem onPress={handleEditOverride}>
-                    <Ionicons
+                    <AppIcon
                       name="calendar-outline"
                       size={18}
                       color={isDark ? theme.text : "#000"}
@@ -142,14 +138,14 @@ export default function AvailabilityDetail() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onPress={handleSetAsDefault}>
-                    <Ionicons name="star-outline" size={18} color={isDark ? theme.text : "#000"} />
+                    <AppIcon name="star-outline" size={18} color={isDark ? theme.text : "#000"} />
                     <Text className="ml-2 text-[15px] text-black dark:text-white">
                       Set as Default
                     </Text>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onPress={handleDelete} variant="destructive">
-                    <Ionicons name="trash-outline" size={18} color={theme.error} />
+                    <AppIcon name="trash-outline" size={18} color={theme.error} />
                     <Text className="ml-2 text-[15px]" style={{ color: theme.error }}>
                       Delete Schedule
                     </Text>

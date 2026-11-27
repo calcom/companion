@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ReactNode } from "react";
@@ -11,6 +10,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { CalEventListItemSkeleton } from "@/components/cal-event-list-item/CalEventListItemSkeleton";
 import { getCalEventHeaderMenu } from "@/components/cal-events/calEventHeaderMenu";
 import { useCalEventActions } from "@/components/cal-events/useCalEventActions";
@@ -381,14 +381,14 @@ function Row({
   onPress,
 }: {
   theme: Theme;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   title: string;
   subtitle?: string;
   onPress?: () => void;
 }) {
   const content = (
     <View style={{ flexDirection: "row", alignItems: "flex-start", paddingVertical: 6 }}>
-      <Ionicons name={icon} size={20} color={theme.textSecondary} style={{ marginTop: 1 }} />
+      <AppIcon name={icon} size={20} color={theme.textSecondary} style={{ marginTop: 1 }} />
       <View style={{ flex: 1, marginLeft: 10 }}>
         <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>{title}</Text>
         {subtitle ? (
@@ -452,7 +452,7 @@ function PublishButton({
       {publishing ? (
         <ActivityIndicator size="small" color={color} style={{ marginRight: 8 }} />
       ) : (
-        <Ionicons name="rocket-outline" size={18} color={color} style={{ marginRight: 8 }} />
+        <AppIcon name="rocket-outline" size={18} color={color} style={{ marginRight: 8 }} />
       )}
       <Text style={{ color, fontSize: 16, fontWeight: "600" }}>
         {publishing ? "Publishing…" : "Publish"}
@@ -469,7 +469,7 @@ function NavigationRow({
   onPress,
 }: {
   isDark: boolean;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   label: string;
   onPress: () => void;
 }) {
@@ -490,16 +490,16 @@ function NavigationRow({
         backgroundColor: getGroupedSurfaces(isDark).card,
       }}
     >
-      <Ionicons name={icon} size={20} color={theme.textSecondary} style={{ marginRight: 10 }} />
+      <AppIcon name={icon} size={20} color={theme.textSecondary} style={{ marginRight: 10 }} />
       <Text style={{ flex: 1, color: theme.text, fontSize: 17 }}>{label}</Text>
-      <Ionicons name="chevron-forward" size={18} color="#C7C7CC" />
+      <AppIcon name="chevron-forward" size={18} color="#C7C7CC" />
     </TouchableOpacity>
   );
 }
 
 interface Action {
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   onPress: () => void;
 }
 
@@ -552,7 +552,7 @@ function ActionGroup({
               }}
             >
               <Text style={{ color, fontSize: 17 }}>{action.label}</Text>
-              <Ionicons
+              <AppIcon
                 name={action.icon}
                 size={18}
                 color={destructive ? theme.destructive : "#C7C7CC"}

@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode } from "react";
 import { Text, View } from "react-native";
+import { AppIcon } from "@/components/AppIcon";
 import { FieldLabel, HintText, useEditTheme, useFieldBackground } from "./EditControls";
 
 /** What both platforms' `SelectField` share: its props, its closed look and its swatches. */
@@ -95,7 +95,7 @@ export function SelectBox({
         {text}
       </Text>
       {chevron ? (
-        <Ionicons name="chevron-expand-outline" size={18} color={theme.textSecondary} />
+        <AppIcon name="chevron-expand-outline" size={18} color={theme.textSecondary} />
       ) : null}
     </View>
   );

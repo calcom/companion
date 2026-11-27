@@ -1,5 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Text, View } from "react-native";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import type { CalEvent, CalEventLocation } from "@/services/calcom";
 import {
   CAL_EVENT_CURRENCIES,
@@ -33,7 +33,7 @@ type PaymentValues = Pick<
   | "requiresApproval"
 >;
 
-const LOCATION_ICONS: Record<CalEventLocation["type"], keyof typeof Ionicons.glyphMap> = {
+const LOCATION_ICONS: Record<CalEventLocation["type"], AppIconName> = {
   address: "location-outline",
   link: "link-outline",
   integration: "videocam-outline",
@@ -141,7 +141,7 @@ export function PaymentSection({
                       }}
                     >
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <Ionicons
+                        <AppIcon
                           name={LOCATION_ICONS[location.type]}
                           size={16}
                           color={theme.textSecondary}

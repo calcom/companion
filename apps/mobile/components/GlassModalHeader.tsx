@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { AppPressable } from "./AppPressable";
 
 interface GlassModalHeaderProps {
@@ -11,7 +11,7 @@ interface GlassModalHeaderProps {
   actionDisabled?: boolean;
   actionLoading?: boolean;
   /** Use icon button style (like three-dot menu) instead of text */
-  actionIcon?: keyof typeof Ionicons.glyphMap;
+  actionIcon?: AppIconName;
 }
 
 export function GlassModalHeader({
@@ -44,7 +44,7 @@ export function GlassModalHeader({
           onPress={onClose}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={28} color={iconColor} />
+          <AppIcon name="chevron-back" size={28} color={iconColor} />
         </AppPressable>
 
         {/* Title - centered */}
@@ -70,7 +70,7 @@ export function GlassModalHeader({
               <ActivityIndicator size="small" color={iconColor} />
             ) : actionIcon ? (
               // Icon button style (like the three-dot menu)
-              <Ionicons name={actionIcon} size={22} color={iconColor} />
+              <AppIcon name={actionIcon} size={22} color={iconColor} />
             ) : (
               // Text button style (like "Save", "Done")
               <View className="items-center rounded-full bg-black px-4 py-2 dark:bg-white">

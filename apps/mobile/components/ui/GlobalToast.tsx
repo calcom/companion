@@ -27,13 +27,13 @@
  * ```
  */
 
-import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Animated, Platform, StyleSheet, Text, useColorScheme, View } from "react-native";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 
 import { type ToastType, useGlobalToast } from "@/contexts/ToastContext";
 
-const ICON_CONFIG: Record<ToastType, { name: keyof typeof Ionicons.glyphMap }> = {
+const ICON_CONFIG: Record<ToastType, { name: AppIconName }> = {
   success: { name: "checkmark-circle" },
   error: { name: "close-circle" },
   info: { name: "information-circle" },
@@ -96,7 +96,7 @@ export function GlobalToast() {
       <Animated.View
         style={[styles.container, isDark && dynamicStyles.darkContainer, { opacity: fadeAnim }]}
       >
-        <Ionicons
+        <AppIcon
           name={iconConfig.name}
           size={24}
           color={isDark ? "#FFFFFF" : "#000000"}
