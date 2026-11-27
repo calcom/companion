@@ -121,13 +121,35 @@ function notify(): void {
   }
 }
 
+/**
+ * Build-time overrides for a local backend such as the mock server (`apps/mobile/mock-server`).
+ * When set, they replace the web app and API origins for every region. Leave them unset in
+ * release builds. Read as literal `process.env.EXPO_PUBLIC_*` so Expo inlines them.
+ */
+function originOverride(value: string | undefined): string | null {
+  const trimmed = value?.trim().replace(/\/+$/, "");
+  return trimmed ? trimmed : null;
+}
+
+export function getCalAppUrlOverride(): string | null {
+  return originOverride(process.env.EXPO_PUBLIC_CAL_APP_URL);
+}
+
+export function getCalApiUrlOverride(): string | null {
+  return originOverride(process.env.EXPO_PUBLIC_CAL_API_URL);
+}
+
 /** Fully-qualified origin of the Cal.com web app for the current region. */
 export function getCalAppUrl(region: CalRegion = currentRegion): string {
+  const override = getCalAppUrlOverride();
+  if (override) return override;
   return region === "eu" ? "https://app.cal.eu" : "https://app.cal.com";
 }
 
 /** Fully-qualified origin of the Cal.com API for the current region. */
 export function getCalApiUrl(region: CalRegion = currentRegion): string {
+  const override = getCalApiUrlOverride();
+  if (override) return override;
   return region === "eu" ? "https://api.cal.eu" : "https://api.cal.com";
 }
 
@@ -167,4 +189,17 @@ export function getCalPrivacyPolicyUrl(): string {
  * Useful for code (e.g. `appendStandaloneParam`) that needs to recognize any
  * Cal.com app URL regardless of the user's current region.
  */
-export const CAL_APP_HOSTNAMES: ReadonlySet<string> = new Set(["app.cal.com", "app.cal.eu"]);
+export const CAL_APP_HOSTNAMES: ReadonlySet<string> = new Set([
+  "app.cal.com",
+  "app.cal.eu",
+  ...hostnameOf(getCalAppUrlOverride()),
+]);
+
+function hostnameOf(origin: string | null): string[] {
+  if (!origin) return [];
+  try {
+    return [new URL(origin).hostname];
+  } catch {
+    return [];
+  }
+}

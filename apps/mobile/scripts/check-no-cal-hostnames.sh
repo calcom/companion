@@ -18,12 +18,13 @@
 #   the region helpers themselves, the env template, the hostname match-set
 #   used for video-call URL detection, the region-independent `@sms.cal.com`
 #   placeholder the backend gives phone-registered guests, the Android App Links
-#   hosts in `app.json` (static config), the Cal Video link and booking-call tests, and this script.
+#   hosts in `app.json` (static config), the Cal Video link and booking-call tests, the mock
+#   server (it redirects static assets to production on purpose), and this script.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PATTERN='\bcal\.(com|eu)\b'
-ALLOWLIST='^(\./)?(utils/region\.ts|utils/booking\.ts|utils/cal-event-guests(\.test\.js|\.ts)|\.env\.example|app\.json|utils/cal-video-links\.test\.js|services/cal-video/(booking-link|booking-api|roster)\.test\.js|hooks/useCalVideoRoom\.test\.js|scripts/check-no-cal-hostnames\.sh):'
+ALLOWLIST='^(\./)?(utils/region\.ts|utils/booking\.ts|utils/cal-event-guests(\.test\.js|\.ts)|\.env\.example|app\.json|utils/cal-video-links\.test\.js|services/cal-video/(booking-link|booking-api|roster)\.test\.js|hooks/useCalVideoRoom\.test\.js|mock-server/handlers\.ts|scripts/check-no-cal-hostnames\.sh):'
 
 raw=$(rg -n --no-heading -g '!*.md' "$PATTERN" . 2>/dev/null || true)
 hits=$(echo "$raw" | grep -Ev "$ALLOWLIST" | grep -Ev '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' || true)

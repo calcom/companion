@@ -13,6 +13,7 @@
     "mobile:web": "cd apps/mobile && bunx expo start --web",
     "mobile:export": "cd apps/mobile && bunx expo export",
     "mobile:test": "cd apps/mobile && bun run test",
+    "mobile:mock": "cd apps/mobile && bun run mock:server",
     "mobile:e2e": "cd apps/mobile && bun run e2e",
     "mobile:e2e:check": "cd apps/mobile && bun run e2e:check",
     "mobile:e2e:ios": "cd apps/mobile && bun run e2e:ios",
