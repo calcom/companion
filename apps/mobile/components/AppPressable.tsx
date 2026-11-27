@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import React, { useCallback } from "react";
-import type { GestureResponderEvent, PressableProps, ViewStyle } from "react-native";
+import type { GestureResponderEvent, PressableProps, StyleProp, ViewStyle } from "react-native";
 import { Platform, Pressable } from "react-native";
 import Animated, {
   type SharedValue,
@@ -13,7 +13,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type AppPressableProps = PressableProps & {
   className?: string;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   enableHaptics?: boolean;
   hapticStyle?: Haptics.ImpactFeedbackStyle;
   /** @deprecated Use the built-in animation instead. Kept for backward compatibility. */

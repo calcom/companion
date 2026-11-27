@@ -13,11 +13,14 @@ export function LoadingSpinner({
   showBackground = true,
 }: LoadingSpinnerProps) {
   const supportsGlass = isLiquidGlassAvailable();
+  // iOS: no color means the system's own spinner gray, which reads in light and dark mode.
+  // A fixed black disappeared on dark glass.
+  const indicatorColor = color ?? (Platform.OS === "ios" ? undefined : "#000000");
 
   if (supportsGlass && Platform.OS === "ios") {
     return (
       <GlassView style={styles.glassContainer} glassEffectStyle="regular">
-        <ActivityIndicator size={size} color={color || "#000000"} />
+        <ActivityIndicator size={size} color={indicatorColor} />
       </GlassView>
     );
   }
@@ -25,12 +28,12 @@ export function LoadingSpinner({
   if (showBackground) {
     return (
       <View style={styles.styledContainer}>
-        <ActivityIndicator size={size} color={color || "#000000"} />
+        <ActivityIndicator size={size} color={indicatorColor} />
       </View>
     );
   }
 
-  return <ActivityIndicator size={size} color={color || "#000000"} />;
+  return <ActivityIndicator size={size} color={indicatorColor} />;
 }
 
 const styles = StyleSheet.create({

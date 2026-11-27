@@ -16,7 +16,7 @@ export function AppIcon({ name, size = 20, color, style, accessibilityLabel }: A
     <Ionicons
       name={name}
       size={size}
-      color={color}
+      color={color as React.ComponentProps<typeof Ionicons>["color"]}
       style={style}
       accessibilityLabel={accessibilityLabel}
     />

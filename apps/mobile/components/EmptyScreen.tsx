@@ -1,7 +1,8 @@
-import { Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { Text, useColorScheme, View } from "react-native";
 import { AppIcon, type AppIconName } from "@/components/AppIcon";
+import { SystemButton } from "@/components/SystemButton";
 
-interface EmptyScreenProps {
+export interface EmptyScreenProps {
   icon: AppIconName;
   headline: string;
   description: string;
@@ -26,8 +27,6 @@ export function EmptyScreen({
     textSecondary: isDark ? "#A3A3A3" : "#6B7280",
     iconBackground: isDark ? "#2C2C2E" : "#F3F4F6",
     icon: isDark ? "#E5E5EA" : "#374151",
-    buttonBg: isDark ? "#FFFFFF" : "#111827",
-    buttonText: isDark ? "#000000" : "#FFFFFF",
   };
 
   return (
@@ -68,15 +67,7 @@ export function EmptyScreen({
         </Text>
 
         {buttonText && onButtonPress ? (
-          <TouchableOpacity
-            style={{ backgroundColor: colors.buttonBg }}
-            className="flex-row items-center justify-center gap-1 rounded-lg px-4 py-2.5"
-            onPress={onButtonPress}
-          >
-            <Text style={{ color: colors.buttonText }} className="text-base font-medium">
-              {buttonText}
-            </Text>
-          </TouchableOpacity>
+          <SystemButton title={buttonText} onPress={onButtonPress} />
         ) : null}
       </View>
     </View>

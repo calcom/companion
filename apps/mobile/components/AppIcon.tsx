@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
+import type { ColorValue } from "react-native";
 
 export type AppIconName = ComponentProps<typeof Ionicons>["name"];
 
 export type AppIconProps = {
   name: AppIconName;
   size?: number;
-  color?: string;
+  color?: ColorValue;
   style?: ComponentProps<typeof Ionicons>["style"];
   accessibilityLabel?: string;
 };
@@ -20,7 +21,7 @@ export function AppIcon({ name, size = 20, color, style, accessibilityLabel }: A
     <Ionicons
       name={name}
       size={size}
-      color={color}
+      color={color as ComponentProps<typeof Ionicons>["color"]}
       style={style}
       accessibilityLabel={accessibilityLabel}
     />
