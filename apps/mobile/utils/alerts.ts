@@ -9,6 +9,7 @@
  */
 
 import { Alert, type AlertButton, Platform } from "react-native";
+import { haptics } from "@/utils/haptics";
 
 type ToastType = "success" | "error" | "info";
 
@@ -63,6 +64,7 @@ export const showErrorAlert = (title: string, message: string) => {
   }
 
   if (__DEV__) {
+    haptics.error();
     Alert.alert(title, message);
   } else {
     console.error(`[${title}] ${message}`);
@@ -87,6 +89,10 @@ export const showConfirmAlert = (
     return;
   }
 
+  // A warning tap before a destructive choice, as iOS does for delete confirmations.
+  if (buttons.some((button) => button.style === "destructive")) {
+    haptics.warning();
+  }
   Alert.alert(title, message, buttons);
 };
 
@@ -103,13 +109,14 @@ export const showSuccessAlert = (title: string, message: string) => {
     return;
   }
 
+  haptics.success();
   Alert.alert(title, message);
 };
 
 /**
  * Show a success alert only on web (browser extension).
- * On native (iOS/Android), this is a no-op — the UI state change
- * (navigation, list refresh, etc.) provides sufficient feedback.
+ * On native (iOS/Android), it shows nothing — the UI state change
+ * (navigation, list refresh, etc.) is the feedback — and plays the success haptic.
  *
  * On web, this only shows feedback when globalShowToast is registered
  * (i.e., when the ToastProvider is mounted). If globalShowToast is null,
@@ -120,6 +127,7 @@ export const showSilentSuccessAlert = (title: string, message: string) => {
     globalShowToast(title, message, "success");
     return;
   }
+  haptics.success();
 };
 
 /**
