@@ -10,12 +10,9 @@ import {
   RefreshControl,
   ScrollView,
   Share,
-  Text,
-  TouchableOpacity,
   useColorScheme,
   View,
 } from "react-native";
-import { AppIcon } from "@/components/AppIcon";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { EventTypeListItem } from "@/components/event-type-list-item/EventTypeListItem";
 import { EventTypeListSkeleton } from "@/components/event-type-list-item/EventTypeListItemSkeleton";
@@ -353,34 +350,16 @@ export default function EventTypesIOS() {
   if (error) {
     return (
       <View
-        className="flex-1 items-center justify-center bg-gray-50 p-5"
+        className="flex-1 items-center justify-center p-5"
         style={{ backgroundColor: theme.backgroundSecondary }}
       >
-        <AppIcon name="alert-circle" size={64} color="#FF3B30" />
-        <Text
-          className="mb-2 mt-4 text-center text-xl font-bold text-gray-800"
-          style={{ color: theme.text }}
-        >
-          Unable to load links
-        </Text>
-        <Text
-          className="mb-6 text-center text-base text-gray-500"
-          style={{ color: theme.textMuted }}
-        >
-          {error}
-        </Text>
-        <TouchableOpacity
-          className="rounded-lg bg-black px-6 py-3"
-          style={{ backgroundColor: isDark ? "white" : "black" }}
-          onPress={() => refetch()}
-        >
-          <Text
-            className="text-base font-semibold text-white"
-            style={{ color: isDark ? "black" : "white" }}
-          >
-            Retry
-          </Text>
-        </TouchableOpacity>
+        <EmptyScreen
+          icon="alert-circle-outline"
+          headline="Unable to load links"
+          description={error}
+          buttonText="Retry"
+          onButtonPress={() => refetch()}
+        />
       </View>
     );
   }
@@ -490,6 +469,13 @@ export default function EventTypesIOS() {
           </Stack.Toolbar.Menu>
         </Stack.Toolbar.Menu>
 
+        {/* New link: iOS puts "add" in the navigation bar, not in a floating button */}
+        <Stack.Toolbar.Button
+          icon="plus"
+          accessibilityLabel="New link"
+          onPress={handleOpenCreateModal}
+        />
+
         {/* Profile Button - Opens bottom sheet */}
         {userProfile?.avatarUrl ? (
           <Stack.Toolbar.View>
@@ -578,17 +564,6 @@ export default function EventTypesIOS() {
           </View>
         )}
       </ScrollView>
-
-      {/* Floating Action Button for New Link with Glass UI Menu */}
-      <View className="absolute right-6" style={{ bottom: 100 }}>
-        <TouchableOpacity
-          onPress={handleOpenCreateModal}
-          className="h-14 w-14 items-center justify-center rounded-full bg-black shadow-lg shadow-black/20 dark:bg-white"
-          activeOpacity={0.8}
-        >
-          <AppIcon name="add" size={30} color={isDark ? "#000000" : "#FFFFFF"} />
-        </TouchableOpacity>
-      </View>
     </>
   );
 }

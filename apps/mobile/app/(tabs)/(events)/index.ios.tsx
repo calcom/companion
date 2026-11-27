@@ -1,8 +1,7 @@
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Stack } from "expo-router";
 import { useState } from "react";
-import { TouchableOpacity, useColorScheme, View } from "react-native";
-import { AppIcon } from "@/components/AppIcon";
+import { useColorScheme } from "react-native";
 import { CalEventsList } from "@/components/cal-events/CalEventsList";
 import { useCreateCalEventFlow } from "@/components/cal-events/useCreateCalEventFlow";
 
@@ -32,6 +31,10 @@ export default function EventsIOS() {
         blurEffect={isLiquidGlassAvailable() ? undefined : isDark ? "dark" : "light"}
       />
       <Stack.Title large>Events</Stack.Title>
+      {/* New event: iOS puts "add" in the navigation bar, not in a floating button */}
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button icon="plus" accessibilityLabel="New event" onPress={handleCreate} />
+      </Stack.Toolbar>
 
       <CalEventsList
         searchQuery={searchQuery}
@@ -39,18 +42,6 @@ export default function EventsIOS() {
         onProfileNameChange={setProfileName}
         contentInsetAdjustmentBehavior="automatic"
       />
-      {/* The floating "+" the Links tab has, for a new event. */}
-      <View className="absolute right-6" style={{ bottom: 100 }}>
-        <TouchableOpacity
-          onPress={handleCreate}
-          accessibilityRole="button"
-          accessibilityLabel="New event"
-          className="h-14 w-14 items-center justify-center rounded-full bg-black shadow-lg shadow-black/20 dark:bg-white"
-          activeOpacity={0.8}
-        >
-          <AppIcon name="add" size={30} color={isDark ? "#000000" : "#FFFFFF"} />
-        </TouchableOpacity>
-      </View>
       {picker}
     </>
   );
