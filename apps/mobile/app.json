@@ -128,6 +128,7 @@
     "owner": "calcoms-organization",
     "plugins": [
       "./plugins/with-optional-android-features",
+      "./plugins/with-ios-scene-lifecycle",
       "expo-router",
       [
         "expo-notifications",
